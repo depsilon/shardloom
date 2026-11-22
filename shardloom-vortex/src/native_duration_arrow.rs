@@ -28,38 +28,147 @@ pub(super) fn register(session: &VortexSession) {
     session.arrow().register_exporter(Arc::new(DurationArrow));
 }
 
-/// Supply explicit provider dispatch metadata without touching input buffers.
-/// Logical schema admission and its resource bounds belong to the caller;
-/// preparation may preserve physical Null/dictionary fields that cannot be keys.
-pub(crate) fn field(field: &Field) -> shardloom_core::Result<Field> {
-    validate_field_metadata(field)?;
-    let dtype = match field.data_type() {
-        DataType::Struct(fields) => DataType::Struct(
-            fields
-                .iter()
-                .map(|f| self::field(f))
-                .collect::<shardloom_core::Result<Vec<_>>>()?
-                .into(),
-        ),
-        DataType::List(child) => DataType::List(Arc::new(self::field(child)?)),
-        DataType::LargeList(child) => DataType::LargeList(Arc::new(self::field(child)?)),
-        DataType::ListView(child) => DataType::ListView(Arc::new(self::field(child)?)),
-        DataType::LargeListView(child) => DataType::LargeListView(Arc::new(self::field(child)?)),
-        DataType::FixedSizeList(child, size) => {
-            DataType::FixedSizeList(Arc::new(self::field(child)?), *size)
-        }
-        other => other.clone(),
-    };
-    let mut result = field.clone().with_data_type(dtype);
-    if matches!(result.data_type(), DataType::Duration(_)) {
-        let mut metadata = result.metadata().clone();
+pub(crate) fn annotate_node(mut field: Field) -> shardloom_core::Result<Field> {
+    validate_field_metadata(&field)?;
+    if matches!(field.data_type(), DataType::Duration(_)) {
+        let mut metadata = field.metadata().clone();
         metadata.insert(
             EXTENSION_TYPE_NAME_KEY.to_owned(),
             "shardloom.duration.v1".to_owned(),
         );
-        result = result.with_metadata(metadata);
+        field = field.with_metadata(metadata);
     }
-    Ok(result)
+    Ok(field)
+}
+
+enum FieldFrame<'a> {
+    Struct {
+        orig: &'a Field,
+        children: &'a [Arc<Field>],
+        next: usize,
+        built: Vec<Field>,
+    },
+    Wrapped {
+        orig: &'a Field,
+        wrap: fn(Arc<Field>) -> DataType,
+    },
+    FixedSizeList {
+        orig: &'a Field,
+        size: i32,
+    },
+}
+
+struct PendingFieldFrames<'a>(Vec<FieldFrame<'a>>);
+
+impl Drop for PendingFieldFrames<'_> {
+    fn drop(&mut self) {
+        while self.0.pop().is_some() {}
+    }
+}
+
+fn finish_duration_field(orig: &Field, dtype: DataType) -> shardloom_core::Result<Field> {
+    annotate_node(orig.clone().with_data_type(dtype))
+}
+
+/// Supply explicit provider dispatch metadata without touching input buffers.
+/// Logical schema admission and its resource bounds belong to the caller;
+/// preparation may preserve physical Null/dictionary fields that cannot be keys.
+pub(crate) fn field(field: &Field) -> shardloom_core::Result<Field> {
+    let mut pending = PendingFieldFrames(Vec::new());
+    let mut current = field;
+    loop {
+        validate_field_metadata(current)?;
+        let mut done = match current.data_type() {
+            DataType::Struct(fields) => {
+                if fields.is_empty() {
+                    finish_duration_field(current, DataType::Struct(arrow_schema::Fields::empty()))?
+                } else {
+                    pending.0.push(FieldFrame::Struct {
+                        orig: current,
+                        children: fields.as_ref(),
+                        next: 1,
+                        built: Vec::with_capacity(fields.len()),
+                    });
+                    current = fields[0].as_ref();
+                    continue;
+                }
+            }
+            DataType::List(child) => {
+                pending.0.push(FieldFrame::Wrapped {
+                    orig: current,
+                    wrap: DataType::List,
+                });
+                current = child.as_ref();
+                continue;
+            }
+            DataType::LargeList(child) => {
+                pending.0.push(FieldFrame::Wrapped {
+                    orig: current,
+                    wrap: DataType::LargeList,
+                });
+                current = child.as_ref();
+                continue;
+            }
+            DataType::ListView(child) => {
+                pending.0.push(FieldFrame::Wrapped {
+                    orig: current,
+                    wrap: DataType::ListView,
+                });
+                current = child.as_ref();
+                continue;
+            }
+            DataType::LargeListView(child) => {
+                pending.0.push(FieldFrame::Wrapped {
+                    orig: current,
+                    wrap: DataType::LargeListView,
+                });
+                current = child.as_ref();
+                continue;
+            }
+            DataType::FixedSizeList(child, size) => {
+                pending.0.push(FieldFrame::FixedSizeList {
+                    orig: current,
+                    size: *size,
+                });
+                current = child.as_ref();
+                continue;
+            }
+            other => finish_duration_field(current, other.clone())?,
+        };
+        loop {
+            let Some(frame) = pending.0.pop() else {
+                return Ok(done);
+            };
+            match frame {
+                FieldFrame::Struct {
+                    orig,
+                    children,
+                    next,
+                    mut built,
+                } => {
+                    built.push(done);
+                    if next < children.len() {
+                        pending.0.push(FieldFrame::Struct {
+                            orig,
+                            children,
+                            next: next + 1,
+                            built,
+                        });
+                        current = children[next].as_ref();
+                        break;
+                    }
+                    done = finish_duration_field(orig, DataType::Struct(built.into()))?;
+                }
+                FieldFrame::Wrapped { orig, wrap } => {
+                    done = finish_duration_field(orig, wrap(Arc::new(done)))?;
+                }
+                FieldFrame::FixedSizeList { orig, size } => {
+                    done =
+                        finish_duration_field(orig, DataType::FixedSizeList(Arc::new(done), size))?;
+                }
+            }
+        }
+    }
 }
 
 fn validate_field_metadata(field: &Field) -> shardloom_core::Result<()> {
@@ -73,24 +182,28 @@ fn validate_field_metadata(field: &Field) -> shardloom_core::Result<()> {
 }
 
 fn needs_annotation(field: &Field) -> shardloom_core::Result<bool> {
-    validate_field_metadata(field)?;
-    Ok(match field.data_type() {
-        DataType::Struct(fields) => {
-            let mut needed = false;
-            for child in fields {
-                // Validation must visit later fields even after a missing marker.
-                needed |= needs_annotation(child)?;
+    let mut stack = vec![field];
+    let mut needed = false;
+    while let Some(current) = stack.pop() {
+        validate_field_metadata(current)?;
+        match current.data_type() {
+            DataType::Struct(fields) => {
+                for child in fields.iter().rev() {
+                    stack.push(child.as_ref());
+                }
             }
-            needed
+            DataType::List(child)
+            | DataType::LargeList(child)
+            | DataType::ListView(child)
+            | DataType::LargeListView(child)
+            | DataType::FixedSizeList(child, _) => stack.push(child.as_ref()),
+            DataType::Duration(_) => {
+                needed |= !current.metadata().contains_key(EXTENSION_TYPE_NAME_KEY);
+            }
+            _ => {}
         }
-        DataType::List(child)
-        | DataType::LargeList(child)
-        | DataType::ListView(child)
-        | DataType::LargeListView(child)
-        | DataType::FixedSizeList(child, _) => needs_annotation(child)?,
-        DataType::Duration(_) => !field.metadata().contains_key(EXTENSION_TYPE_NAME_KEY),
-        _ => false,
-    })
+    }
+    Ok(needed)
 }
 
 /// Reuse the authoritative schema when dispatch needs no metadata changes.

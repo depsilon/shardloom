@@ -1,5 +1,5 @@
-//! Weighted native Constant/RunEnd consumers. Floating addition stays ordered;
-//! only count/distinct/extrema collapse repeated logical values into one update.
+//! Weighted native Constant/RunEnd consumers. Integer SUM/AVG runs reduce in O(1);
+//! floating addition stays ordered while count/distinct/extrema collapse repeated values.
 
 use std::time::Instant;
 
@@ -562,8 +562,15 @@ fn add_repeated(
     count: u64,
     integer_input: bool,
 ) -> Result<()> {
+    if integer_input {
+        sum.add_integer_repeated(value, count);
+        if !sum.is_finite() {
+            return Err(failed("numeric sum became non-finite"));
+        }
+        return Ok(());
+    }
     for _ in 0..count {
-        sum.add(value, integer_input);
+        sum.add(value, false);
         if !sum.is_finite() {
             return Err(failed("numeric sum became non-finite"));
         }

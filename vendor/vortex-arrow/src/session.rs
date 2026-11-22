@@ -34,14 +34,18 @@ use std::sync::Arc;
 
 use arrow_array::Array as ArrowArray;
 use arrow_array::ArrayRef as ArrowArrayRef;
+use arrow_array::OffsetSizeTrait;
 use arrow_array::RecordBatch;
 use arrow_array::RunArray;
+use arrow_array::StructArray as ArrowStructArray;
 use arrow_array::cast::AsArray;
 use arrow_array::make_array;
 use arrow_array::types::Int16Type;
 use arrow_array::types::Int32Type;
 use arrow_array::types::Int64Type;
 use arrow_array::types::RunEndIndexType;
+use arrow_buffer::NullBuffer;
+use arrow_buffer::OffsetBuffer;
 use arrow_schema::DataType;
 use arrow_schema::Field;
 use arrow_schema::FieldRef;
@@ -66,6 +70,7 @@ use vortex_array::arrays::extension::ExtensionArrayExt;
 use vortex_array::dtype::DType;
 use vortex_array::dtype::FieldName;
 use vortex_array::dtype::FieldNames;
+use vortex_array::dtype::IntegerPType;
 use vortex_array::dtype::NativePType;
 use vortex_array::dtype::Nullability;
 use vortex_array::dtype::StructFields;
@@ -99,8 +104,10 @@ use crate::dtype::from_arrow_data_type;
 #[path = "variant_chunks.rs"]
 mod variant_chunks;
 use crate::dtype::to_data_type_naive;
-use crate::executor::execute_arrow_naive;
-use crate::run_end_import::run_end_from_arrow;
+use crate::executor::ExportTask;
+use crate::executor::run_export;
+use crate::run_end_import::extract_run_end_parts;
+use crate::run_end_import::finish_run_end;
 
 /// Outcome of a successful call to [`ArrowExportVTable::execute_arrow`].
 ///
@@ -367,79 +374,261 @@ impl ArrowSession {
     /// An extension type without a plugin exports its storage field, plus Arrow extension metadata
     /// that holds its Vortex ID (see [`ArrowSession`]).
     pub fn to_arrow_field(&self, name: &str, dtype: &DType) -> VortexResult<Field> {
-        // Handle the structural encodings, which may have recursive types
-        match dtype {
-            DType::List(elem_dtype, nullability) => {
-                let elem_field = self.to_arrow_field(Field::LIST_FIELD_DEFAULT_NAME, elem_dtype)?;
-                Ok(Field::new_list(name, elem_field, nullability.is_nullable()))
+        enum ToFieldStep {
+            Completed(Field),
+            Descend {
+                frame: ToFieldFrame,
+                name: String,
+                dtype: DType,
+            },
+        }
+
+        enum ToFieldFrame {
+            List {
+                name: String,
+                nullable: bool,
+            },
+            FixedSizeList {
+                name: String,
+                elem_size: i32,
+                nullable: bool,
+            },
+            MapKey {
+                name: String,
+                value_dtype: DType,
+                keys_sorted: bool,
+                nullable: bool,
+            },
+            MapValue {
+                name: String,
+                key_field: Field,
+                keys_sorted: bool,
+                nullable: bool,
+            },
+            Struct {
+                name: String,
+                fields: StructFields,
+                next_idx: usize,
+                built: Vec<Field>,
+                nullable: bool,
+            },
+            WrapExtension {
+                ext_dtype: ExtDTypeRef,
+            },
+        }
+
+        let start_node = |node_name: &str, node_dtype: &DType| -> VortexResult<ToFieldStep> {
+            match node_dtype {
+                DType::List(elem_dtype, nullability) => Ok(ToFieldStep::Descend {
+                    frame: ToFieldFrame::List {
+                        name: node_name.to_owned(),
+                        nullable: nullability.is_nullable(),
+                    },
+                    name: Field::LIST_FIELD_DEFAULT_NAME.to_owned(),
+                    dtype: elem_dtype.as_ref().clone(),
+                }),
+                DType::FixedSizeList(elem_dtype, elem_size, nullability) => {
+                    let size: i32 = (*elem_size).try_into()?;
+                    Ok(ToFieldStep::Descend {
+                        frame: ToFieldFrame::FixedSizeList {
+                            name: node_name.to_owned(),
+                            elem_size: size,
+                            nullable: nullability.is_nullable(),
+                        },
+                        name: Field::LIST_FIELD_DEFAULT_NAME.to_owned(),
+                        dtype: elem_dtype.as_ref().clone(),
+                    })
+                }
+                DType::Map(map_dtype, nullability) => Ok(ToFieldStep::Descend {
+                    frame: ToFieldFrame::MapKey {
+                        name: node_name.to_owned(),
+                        value_dtype: map_dtype.value_dtype(),
+                        keys_sorted: map_dtype.keys_sorted(),
+                        nullable: nullability.is_nullable(),
+                    },
+                    name: "key".to_owned(),
+                    dtype: map_dtype.key_dtype(),
+                }),
+                DType::Struct(fields, nullability) => {
+                    if let (Some(first_name), Some(first_dtype)) =
+                        (fields.names().get(0), fields.field_by_index(0))
+                    {
+                        let built = Vec::with_capacity(fields.names().len());
+                        Ok(ToFieldStep::Descend {
+                            frame: ToFieldFrame::Struct {
+                                name: node_name.to_owned(),
+                                fields: fields.clone(),
+                                next_idx: 0,
+                                built,
+                                nullable: nullability.is_nullable(),
+                            },
+                            name: first_name.as_ref().to_owned(),
+                            dtype: first_dtype,
+                        })
+                    } else {
+                        Ok(ToFieldStep::Completed(Field::new_struct(
+                            node_name,
+                            Fields::empty(),
+                            nullability.is_nullable(),
+                        )))
+                    }
+                }
+                DType::Extension(ext) if !ext.is::<AnyTemporal>() => {
+                    match self.to_arrow_field_with_exporter(node_name, ext)? {
+                        Some(field) => Ok(ToFieldStep::Completed(field)),
+                        None => Ok(ToFieldStep::Descend {
+                            frame: ToFieldFrame::WrapExtension {
+                                ext_dtype: ext.clone(),
+                            },
+                            name: node_name.to_owned(),
+                            dtype: ext.storage_dtype().clone(),
+                        }),
+                    }
+                }
+                DType::Variant(_) => Ok(ToFieldStep::Completed(variant_arrow_field(
+                    node_name,
+                    node_dtype.is_nullable(),
+                ))),
+                _ => Ok(ToFieldStep::Completed(Field::new(
+                    node_name,
+                    to_data_type_naive(node_dtype)?,
+                    node_dtype.is_nullable(),
+                ))),
             }
-            DType::FixedSizeList(elem_dtype, elem_size, nullability) => {
-                let elem_field = self.to_arrow_field(Field::LIST_FIELD_DEFAULT_NAME, elem_dtype)?;
-                Ok(Field::new_fixed_size_list(
-                    name,
-                    elem_field,
-                    (*elem_size).try_into()?,
-                    nullability.is_nullable(),
-                ))
-            }
-            DType::Map(map_dtype, nullability) => {
-                let key = self.to_arrow_field("key", &map_dtype.key_dtype())?;
-                let value = self.to_arrow_field("value", &map_dtype.value_dtype())?;
-                let entries = Field::new_struct("entries", Fields::from(vec![key, value]), false);
-                Ok(Field::new(
-                    name,
-                    DataType::Map(Arc::new(entries), map_dtype.keys_sorted()),
-                    nullability.is_nullable(),
-                ))
-            }
-            DType::Struct(fields, nullability) => {
-                let arrow_fields = Fields::from_iter(
-                    fields
-                        .fields()
-                        .zip(fields.names().iter())
-                        .map(|(field, name)| self.to_arrow_field(name.as_ref(), &field))
-                        .collect::<VortexResult<Vec<_>>>()?,
-                );
-                Ok(Field::new_struct(
-                    name,
-                    arrow_fields,
-                    nullability.is_nullable(),
-                ))
-            }
-            DType::Extension(ext) if !ext.is::<AnyTemporal>() => {
-                match self.to_arrow_field_with_exporter(name, ext)? {
-                    Some(field) => Ok(field),
-                    None => self.to_arrow_field_without_exporter(name, ext),
+        };
+
+        let mut stack: Vec<ToFieldFrame> = Vec::new();
+        let mut cur_name = Cow::Borrowed(name);
+        let mut cur_dtype = Cow::Borrowed(dtype);
+
+        loop {
+            let mut step = start_node(cur_name.as_ref(), cur_dtype.as_ref())?;
+            loop {
+                match step {
+                    ToFieldStep::Descend {
+                        frame,
+                        name: child_name,
+                        dtype: child_dtype,
+                    } => {
+                        stack.push(frame);
+                        cur_name = Cow::Owned(child_name);
+                        cur_dtype = Cow::Owned(child_dtype);
+                        break;
+                    }
+                    ToFieldStep::Completed(completed) => match stack.pop() {
+                        None => return Ok(completed),
+                        Some(ToFieldFrame::List {
+                            name: wrapper_name,
+                            nullable,
+                        }) => {
+                            step = ToFieldStep::Completed(Field::new_list(
+                                wrapper_name,
+                                completed,
+                                nullable,
+                            ));
+                        }
+                        Some(ToFieldFrame::FixedSizeList {
+                            name: wrapper_name,
+                            elem_size,
+                            nullable,
+                        }) => {
+                            step = ToFieldStep::Completed(Field::new_fixed_size_list(
+                                wrapper_name,
+                                completed,
+                                elem_size,
+                                nullable,
+                            ));
+                        }
+                        Some(ToFieldFrame::MapKey {
+                            name: wrapper_name,
+                            value_dtype,
+                            keys_sorted,
+                            nullable,
+                        }) => {
+                            step = ToFieldStep::Descend {
+                                frame: ToFieldFrame::MapValue {
+                                    name: wrapper_name,
+                                    key_field: completed,
+                                    keys_sorted,
+                                    nullable,
+                                },
+                                name: "value".to_owned(),
+                                dtype: value_dtype,
+                            };
+                        }
+                        Some(ToFieldFrame::MapValue {
+                            name: wrapper_name,
+                            key_field,
+                            keys_sorted,
+                            nullable,
+                        }) => {
+                            let entries = Field::new_struct(
+                                "entries",
+                                Fields::from(vec![key_field, completed]),
+                                false,
+                            );
+                            step = ToFieldStep::Completed(Field::new(
+                                wrapper_name,
+                                DataType::Map(Arc::new(entries), keys_sorted),
+                                nullable,
+                            ));
+                        }
+                        Some(ToFieldFrame::Struct {
+                            name: wrapper_name,
+                            fields,
+                            next_idx,
+                            mut built,
+                            nullable,
+                        }) => {
+                            built.push(completed);
+                            let next = next_idx + 1;
+                            let next_entry = fields
+                                .names()
+                                .get(next)
+                                .zip(fields.field_by_index(next))
+                                .map(|(next_name, next_dtype)| {
+                                    (next_name.as_ref().to_owned(), next_dtype)
+                                });
+                            if let Some((next_name, next_dtype)) = next_entry {
+                                step = ToFieldStep::Descend {
+                                    frame: ToFieldFrame::Struct {
+                                        name: wrapper_name,
+                                        fields,
+                                        next_idx: next,
+                                        built,
+                                        nullable,
+                                    },
+                                    name: next_name,
+                                    dtype: next_dtype,
+                                };
+                            } else {
+                                step = ToFieldStep::Completed(Field::new_struct(
+                                    wrapper_name,
+                                    Fields::from(built),
+                                    nullable,
+                                ));
+                            }
+                        }
+                        Some(ToFieldFrame::WrapExtension { ext_dtype }) => {
+                            let mut field = completed;
+                            if let Some(storage_name) = field.extension_type_name() {
+                                vortex_bail!(
+                                    "the Arrow storage of {ext_dtype} must not be an Arrow extension type, got {storage_name}"
+                                );
+                            }
+                            let metadata = BASE64_STANDARD.encode(ext_dtype.serialize_metadata()?);
+                            field.metadata_mut().extend([
+                                (
+                                    EXTENSION_TYPE_NAME_KEY.to_owned(),
+                                    ext_dtype.id().to_string(),
+                                ),
+                                (EXTENSION_TYPE_METADATA_KEY.to_owned(), metadata),
+                            ]);
+                            step = ToFieldStep::Completed(field);
+                        }
+                    },
                 }
             }
-            DType::Variant(_) => {
-                // TODO(Adam): This currently encodes information about parquet-variant
-                // at this level. Variant's complexity with being an essentially logical type
-                // with multiple physical layout complicates handling this correctly.
-                Ok(Field::new(
-                    name,
-                    DataType::Struct(
-                        vec![
-                            Field::new("metadata", DataType::BinaryView, dtype.is_nullable()),
-                            Field::new("value", DataType::BinaryView, dtype.is_nullable()),
-                        ]
-                        .into(),
-                    ),
-                    dtype.is_nullable(),
-                )
-                .with_metadata(
-                    [(
-                        EXTENSION_TYPE_NAME_KEY.to_string(),
-                        "arrow.parquet.variant".to_string(),
-                    )]
-                    .into(),
-                ))
-            }
-            _ => Ok(Field::new(
-                name,
-                to_data_type_naive(dtype)?,
-                dtype.is_nullable(),
-            )),
         }
     }
 
@@ -508,32 +697,6 @@ impl ArrowSession {
         Ok(None)
     }
 
-    /// Build the storage field of an extension type without an exporter, and add the Arrow
-    /// extension metadata that holds its Vortex ID and its metadata.
-    fn to_arrow_field_without_exporter(
-        &self,
-        name: &str,
-        ext_dtype: &ExtDTypeRef,
-    ) -> VortexResult<Field> {
-        let mut field = self.to_arrow_field(name, ext_dtype.storage_dtype())?;
-        if let Some(storage_name) = field.extension_type_name() {
-            vortex_bail!(
-                "the Arrow storage of {ext_dtype} must not be an Arrow extension type, got {storage_name}"
-            );
-        }
-
-        let metadata = BASE64_STANDARD.encode(ext_dtype.serialize_metadata()?);
-        field.metadata_mut().extend([
-            (
-                EXTENSION_TYPE_NAME_KEY.to_owned(),
-                ext_dtype.id().to_string(),
-            ),
-            (EXTENSION_TYPE_METADATA_KEY.to_owned(), metadata),
-        ]);
-
-        Ok(field)
-    }
-
     /// Rebuild the extension dtype whose Vortex ID is the extension name of `field`, with
     /// `storage_dtype` as its storage.
     ///
@@ -570,42 +733,16 @@ impl ArrowSession {
     ///
     /// If the extension name of `field` is a Vortex ID that the session knows, the result is that
     /// extension type over the converted storage (see [`ArrowSession`]).
-    #[expect(clippy::disallowed_methods, reason = "interning a dynamic id")]
     pub fn from_arrow_field(&self, field: &Field) -> VortexResult<DType> {
-        if let DataType::Dictionary(_, value_type) = field.data_type() {
-            return self
-                .from_arrow_field(&field.clone().with_data_type(value_type.as_ref().clone()));
-        }
-
-        if let Some(name) = field.metadata().get(EXTENSION_TYPE_NAME_KEY) {
-            for plugin in self.importers(&Id::new(name)).iter() {
-                if let Some(dtype) = plugin.from_arrow_field(field, self)? {
-                    return Ok(dtype);
-                }
-            }
-            // Parquet Variant is understood even without a registered importer plugin.
-            if name == "arrow.parquet.variant" {
-                return Ok(DType::Variant(field.is_nullable().into()));
-            }
-        }
-
-        let storage_dtype =
-            self.from_arrow_datatype(field.data_type(), field.is_nullable().into())?;
-
-        Ok(
-            match self.rebuild_ext_dtype_by_vortex_id(field, &storage_dtype)? {
-                Some(ext_dtype) => DType::Extension(ext_dtype),
-                None => storage_dtype,
-            },
-        )
+        self.run_import_dtype(ImportDTypeTask::Field(field.clone()))
     }
 
     /// Build the Vortex [`DType`] for an Arrow [`DataType`].
     ///
-    /// Recurses into container types ([`DataType::List`] family, [`DataType::FixedSizeList`],
-    /// [`DataType::Struct`], [`DataType::Map`], [`DataType::RunEndEncoded`]) via
-    /// [`Self::from_arrow_field`] so extension metadata on nested fields dispatches through
-    /// registered import plugins. Leaf types use the canonical Arrow → Vortex mapping.
+    /// Traverses container types ([`DataType::List`] family, [`DataType::FixedSizeList`],
+    /// [`DataType::Struct`], [`DataType::Map`], [`DataType::RunEndEncoded`]) iteratively via
+    /// the field importer so extension metadata on nested fields dispatches through registered
+    /// import plugins. Leaf types use the canonical Arrow → Vortex mapping.
     ///
     /// [`DataType::Dictionary`] is a partial exception: Arrow models its values as a bare
     /// [`DataType`] rather than a [`Field`], so the values themselves cannot carry an extension
@@ -615,66 +752,170 @@ impl ArrowSession {
         data_type: &DataType,
         nullability: Nullability,
     ) -> VortexResult<DType> {
-        Ok(match data_type {
-            DataType::List(elem)
-            | DataType::LargeList(elem)
-            | DataType::ListView(elem)
-            | DataType::LargeListView(elem) => {
-                DType::List(Arc::new(self.from_arrow_field(elem.as_ref())?), nullability)
-            }
-            DataType::FixedSizeList(elem, size) => DType::FixedSizeList(
-                Arc::new(self.from_arrow_field(elem.as_ref())?),
-                *size as u32,
-                nullability,
-            ),
-            DataType::Map(entries, keys_sorted) => {
-                vortex_ensure!(
-                    !entries.is_nullable(),
-                    "Arrow map entries field must be non-nullable"
-                );
-                let DataType::Struct(fields) = entries.data_type() else {
-                    vortex_bail!(
-                        "Arrow map entries field must have Struct type, got {:?}",
-                        entries.data_type()
-                    );
-                };
-                vortex_ensure_eq!(
-                    fields.len(),
-                    2,
-                    "Arrow map entries struct must contain exactly two fields"
-                );
-                vortex_ensure!(
-                    !fields[0].is_nullable(),
-                    "Arrow map key field must be non-nullable"
-                );
-                DType::map(
-                    self.from_arrow_field(fields[0].as_ref())?,
-                    self.from_arrow_field(fields[1].as_ref())?,
-                    *keys_sorted,
-                    nullability,
-                )?
-            }
-            DataType::Struct(fields) => DType::Struct(self.from_arrow_fields(fields)?, nullability),
-            DataType::Dictionary(_, value_type) => {
-                self.from_arrow_datatype(value_type.as_ref(), nullability)?
-            }
-            DataType::RunEndEncoded(_, value_field) => {
-                self.from_arrow_field(&run_end_values_field(value_field, nullability))?
-            }
-            _ => from_arrow_data_type(data_type, nullability)?,
+        self.run_import_dtype(ImportDTypeTask::DataType {
+            data_type: data_type.clone(),
+            nullability,
         })
+    }
+
+    #[expect(clippy::disallowed_methods, reason = "interning a dynamic id")]
+    fn prepare_import_field(&self, field: Field) -> VortexResult<ImportFieldStep> {
+        let mut current = field;
+        while let DataType::Dictionary(_, value_type) = current.data_type() {
+            let next_dt = value_type.as_ref().clone();
+            current = current.with_data_type(next_dt);
+        }
+
+        if let Some(name) = current.metadata().get(EXTENSION_TYPE_NAME_KEY) {
+            for plugin in self.importers(&Id::new(name)).iter() {
+                if let Some(dtype) = plugin.from_arrow_field(&current, self)? {
+                    return Ok(ImportFieldStep::Done(dtype));
+                }
+            }
+            // Parquet Variant is understood even without a registered importer plugin.
+            if name == "arrow.parquet.variant" {
+                return Ok(ImportFieldStep::Done(DType::Variant(
+                    current.is_nullable().into(),
+                )));
+            }
+        }
+
+        let wrap_field = current
+            .extension_type_name()
+            .is_some()
+            .then(|| current.clone());
+        let nullability = current.is_nullable().into();
+        Ok(ImportFieldStep::DataType {
+            wrap_field,
+            data_type: current.data_type().clone(),
+            nullability,
+        })
+    }
+
+    fn run_import_dtype(&self, initial: ImportDTypeTask) -> VortexResult<DType> {
+        let mut stack: Vec<ImportDTypeFrame> = Vec::new();
+        let mut current = initial;
+
+        loop {
+            let mut step = match current {
+                ImportDTypeTask::Field(field) => match self.prepare_import_field(field)? {
+                    ImportFieldStep::Done(dtype) => ImportDTypeStep::Completed(dtype),
+                    ImportFieldStep::DataType {
+                        wrap_field,
+                        data_type,
+                        nullability,
+                    } => {
+                        if let Some(ext_field) = wrap_field {
+                            stack.push(ImportDTypeFrame::WrapExtension { field: ext_field });
+                        }
+                        step_import_data_type(&data_type, nullability)?
+                    }
+                },
+                ImportDTypeTask::DataType {
+                    data_type,
+                    nullability,
+                } => step_import_data_type(&data_type, nullability)?,
+            };
+
+            loop {
+                match step {
+                    ImportDTypeStep::TailField(field) => {
+                        current = ImportDTypeTask::Field(field);
+                        break;
+                    }
+                    ImportDTypeStep::Descend { frame, task } => {
+                        stack.push(frame);
+                        current = task;
+                        break;
+                    }
+                    ImportDTypeStep::Completed(completed) => match stack.pop() {
+                        None => return Ok(completed),
+                        Some(frame) => {
+                            step = self.advance_import_dtype_frame(frame, completed)?;
+                        }
+                    },
+                }
+            }
+        }
+    }
+
+    fn advance_import_dtype_frame(
+        &self,
+        frame: ImportDTypeFrame,
+        completed: DType,
+    ) -> VortexResult<ImportDTypeStep> {
+        match frame {
+            ImportDTypeFrame::WrapExtension { field } => {
+                let dtype = match self.rebuild_ext_dtype_by_vortex_id(&field, &completed)? {
+                    Some(ext_dtype) => DType::Extension(ext_dtype),
+                    None => completed,
+                };
+                Ok(ImportDTypeStep::Completed(dtype))
+            }
+            ImportDTypeFrame::List { nullability } => Ok(ImportDTypeStep::Completed(DType::List(
+                Arc::new(completed),
+                nullability,
+            ))),
+            ImportDTypeFrame::FixedSizeList { size, nullability } => Ok(
+                ImportDTypeStep::Completed(DType::FixedSizeList(Arc::new(completed), size, nullability)),
+            ),
+            ImportDTypeFrame::MapKey {
+                value_field,
+                keys_sorted,
+                nullability,
+            } => Ok(ImportDTypeStep::Descend {
+                frame: ImportDTypeFrame::MapValue {
+                    key_dtype: completed,
+                    keys_sorted,
+                    nullability,
+                },
+                task: ImportDTypeTask::Field(value_field.as_ref().clone()),
+            }),
+            ImportDTypeFrame::MapValue {
+                key_dtype,
+                keys_sorted,
+                nullability,
+            } => DType::map(key_dtype, completed, keys_sorted, nullability)
+                .map(ImportDTypeStep::Completed),
+            ImportDTypeFrame::Struct {
+                fields,
+                next_idx,
+                mut built,
+                nullability,
+            } => {
+                let name = FieldName::from(fields[next_idx].name().as_str());
+                built.push((name, completed));
+                let next = next_idx + 1;
+                let next_field = fields.get(next).map(|fld| fld.as_ref().clone());
+                if let Some(next_field) = next_field {
+                    Ok(ImportDTypeStep::Descend {
+                        frame: ImportDTypeFrame::Struct {
+                            fields,
+                            next_idx: next,
+                            built,
+                            nullability,
+                        },
+                        task: ImportDTypeTask::Field(next_field),
+                    })
+                } else {
+                    Ok(ImportDTypeStep::Completed(DType::Struct(
+                        built.into_iter().collect(),
+                        nullability,
+                    )))
+                }
+            }
+        }
     }
 
     /// Build Vortex [`StructFields`] for Arrow [`Fields`], dispatching each field through
     /// [`Self::from_arrow_field`].
     pub fn from_arrow_fields(&self, fields: &Fields) -> VortexResult<StructFields> {
-        fields
-            .iter()
-            .map(|f| {
-                self.from_arrow_field(f)
-                    .map(|dt| (FieldName::from(f.name().as_str()), dt))
-            })
-            .collect::<VortexResult<StructFields>>()
+        let mut out = Vec::with_capacity(fields.len());
+        for arrow_field in fields.iter() {
+            let dtype = self.from_arrow_field(arrow_field)?;
+            out.push((FieldName::from(arrow_field.name().as_str()), dtype));
+        }
+        Ok(out.into_iter().collect())
     }
 
     /// Build the Vortex [`DType`] for an Arrow [`Schema`], dispatching extension fields
@@ -814,67 +1055,115 @@ impl ArrowSession {
         array: ArrowArrayRef,
         field: &Field,
     ) -> VortexResult<ArrayRef> {
-        if let DataType::Dictionary(..) = field.data_type() {
-            return self.dictionary_from_arrow(array.as_ref(), field);
-        }
+        let mut stack: Vec<ImportArrayFrame> = Vec::new();
+        let mut cur_array = array;
+        let mut cur_field = Cow::Borrowed(field);
 
-        let mut current = array;
+        loop {
+            while let DataType::Dictionary(..) = cur_field.data_type() {
+                let dict = cur_array.as_any_dictionary_opt().ok_or_else(|| {
+                    vortex_err!(
+                        "expected an Arrow DictionaryArray, got {}",
+                        cur_array.data_type()
+                    )
+                })?;
+                let codes = dict.keys();
+                let codes = from_arrow_dyn(codes, codes.is_nullable())?;
+                stack.push(ImportArrayFrame::Dict { codes });
+                let values = ArrowArrayRef::clone(dict.values());
+                let values_field = cur_field
+                    .into_owned()
+                    .with_data_type(values.data_type().clone());
+                cur_array = values;
+                cur_field = Cow::Owned(values_field);
+            }
 
-        if let Some(extension_name) = field.metadata().get(EXTENSION_TYPE_NAME_KEY) {
-            #[expect(clippy::disallowed_methods, reason = "interning a dynamic id")]
-            let importers = self.importers(&Id::new(extension_name));
-            if !importers.is_empty() {
-                let dtype = self.from_arrow_field(field)?;
-                let len = current.len();
+            let mut step = if let Some(imported) =
+                self.try_import_with_plugins(&mut cur_array, cur_field.as_ref())?
+            {
+                ImportArrayStep::Completed(imported)
+            } else {
+                if cur_field.extension_type_name().is_some() {
+                    stack.push(ImportArrayFrame::WrapExtension {
+                        field: cur_field.as_ref().clone(),
+                    });
+                }
+                self.step_from_arrow_array_canonical(cur_array.as_ref(), cur_field.as_ref())?
+            };
 
-                for plugin in importers.iter() {
-                    match plugin.from_arrow_array(current, field, &dtype, self)? {
-                        // Parents such as lists reuse the Arrow offsets into this array without
-                        // checking them again, so a plugin must preserve its length, both in what
-                        // it imports and in what it hands back when it declines.
-                        ArrowImport::Imported(arr) => {
-                            vortex_ensure_eq!(
-                                arr.len(),
-                                len,
-                                "Arrow importer {} returned {} elements for an array of {}",
-                                plugin.arrow_ext_id(),
-                                arr.len(),
-                                len
-                            );
-                            return Ok(arr);
-                        }
-                        ArrowImport::Unsupported(arr) => {
-                            vortex_ensure_eq!(
-                                arr.len(),
-                                len,
-                                "Arrow importer {} declined and returned {} elements for an array of {}",
-                                plugin.arrow_ext_id(),
-                                arr.len(),
-                                len
-                            );
-                            current = arr;
-                        }
+            loop {
+                match step {
+                    ImportArrayStep::Descend { frame, array, field } => {
+                        stack.push(frame);
+                        cur_array = array;
+                        cur_field = Cow::Owned(field);
+                        break;
                     }
+                    ImportArrayStep::Completed(completed) => match stack.pop() {
+                        None => return Ok(completed),
+                        Some(frame) => {
+                            step = self.advance_import_array_frame(frame, completed)?;
+                        }
+                    },
                 }
             }
         }
-
-        let imported = self.from_arrow_array_canonical(current.as_ref(), field)?;
-
-        match self.rebuild_ext_dtype_by_vortex_id(field, imported.dtype())? {
-            Some(ext_dtype) => Ok(ExtensionArray::try_new(ext_dtype, imported)?.into_array()),
-            None => Ok(imported),
-        }
     }
 
-    /// Recurse into Arrow container arrays so nested fields with extension metadata reach
-    /// their importers, falling through to the canonical conversion for leaf types.
-    #[allow(clippy::wrong_self_convention)]
-    fn from_arrow_array_canonical(
+    #[expect(clippy::disallowed_methods, reason = "interning a dynamic id")]
+    fn try_import_with_plugins(
+        &self,
+        current: &mut ArrowArrayRef,
+        field: &Field,
+    ) -> VortexResult<Option<ArrayRef>> {
+        let Some(extension_name) = field.metadata().get(EXTENSION_TYPE_NAME_KEY) else {
+            return Ok(None);
+        };
+        let importers = self.importers(&Id::new(extension_name));
+        if importers.is_empty() {
+            return Ok(None);
+        }
+        let dtype = self.from_arrow_field(field)?;
+        let len = current.len();
+
+        for plugin in importers.iter() {
+            let input = ArrowArrayRef::clone(current);
+            match plugin.from_arrow_array(input, field, &dtype, self)? {
+                // Parents such as lists reuse the Arrow offsets into this array without
+                // checking them again, so a plugin must preserve its length, both in what
+                // it imports and in what it hands back when it declines.
+                ArrowImport::Imported(arr) => {
+                    vortex_ensure_eq!(
+                        arr.len(),
+                        len,
+                        "Arrow importer {} returned {} elements for an array of {}",
+                        plugin.arrow_ext_id(),
+                        arr.len(),
+                        len
+                    );
+                    return Ok(Some(arr));
+                }
+                ArrowImport::Unsupported(arr) => {
+                    vortex_ensure_eq!(
+                        arr.len(),
+                        len,
+                        "Arrow importer {} declined and returned {} elements for an array of {}",
+                        plugin.arrow_ext_id(),
+                        arr.len(),
+                        len
+                    );
+                    *current = arr;
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    fn step_from_arrow_array_canonical(
         &self,
         array: &dyn ArrowArray,
         field: &Field,
-    ) -> VortexResult<ArrayRef> {
+    ) -> VortexResult<ImportArrayStep> {
         match field.data_type() {
             DataType::Decimal32(..)
             | DataType::Decimal64(..)
@@ -883,178 +1172,487 @@ impl ArrowSession {
                 if self.preserve_decimal_storage =>
             {
                 crate::preserved_decimal::from_arrow(array, field.is_nullable())
+                    .map(ImportArrayStep::Completed)
             }
-            DataType::Struct(fields) => {
-                let arrow_struct = array.as_struct();
-                let names = FieldNames::from_iter(
-                    fields.iter().map(|f| FieldName::from(f.name().as_str())),
-                );
-                let columns = arrow_struct
-                    .columns()
-                    .iter()
-                    .zip(fields.iter())
-                    .map(|(col, child_field)| {
-                        // Arrow pushes nulls into non-nullable fields; strip before recursing
-                        // so Vortex's stricter validity invariants are upheld.
-                        let inner = if col.null_count() > 0 && !child_field.is_nullable() {
-                            make_array(remove_nulls(col.to_data())?)
-                        } else {
-                            ArrowArrayRef::clone(col)
-                        };
-                        self.from_arrow_array_inner(inner, child_field.as_ref())
-                    })
-                    .collect::<VortexResult<Vec<_>>>()?;
-                let validity = nulls(arrow_struct.nulls(), field.is_nullable())?;
-                Ok(
-                    StructArray::try_new(names, columns, arrow_struct.len(), validity)?
-                        .into_array(),
-                )
-            }
-            DataType::List(elem_field) => {
-                let list = array.as_list::<i32>();
-                let (offsets, referenced) = trim_offsets(list.offsets());
-                let elements = self.from_arrow_array(
-                    list.values().slice(referenced.start, referenced.len()),
-                    elem_field.as_ref(),
-                )?;
-                let validity = nulls(list.nulls(), field.is_nullable())?;
-                // SAFETY: Arrow offsets are non-negative and sorted, and `trim_offsets` rebases
-                // them onto the referenced values. The validity has one entry per list.
-                Ok(
-                    unsafe { ListArray::new_unchecked(elements, offsets.into_array(), validity) }
-                        .into_array(),
-                )
-            }
-            DataType::LargeList(elem_field) => {
-                let list = array.as_list::<i64>();
-                let (offsets, referenced) = trim_offsets(list.offsets());
-                let elements = self.from_arrow_array(
-                    list.values().slice(referenced.start, referenced.len()),
-                    elem_field.as_ref(),
-                )?;
-                let validity = nulls(list.nulls(), field.is_nullable())?;
-                // SAFETY: Arrow offsets are non-negative and sorted, and `trim_offsets` rebases
-                // them onto the referenced values. The validity has one entry per list.
-                Ok(
-                    unsafe { ListArray::new_unchecked(elements, offsets.into_array(), validity) }
-                        .into_array(),
-                )
-            }
+            DataType::Struct(fields) => start_import_struct(array.as_struct(), fields, field),
+            DataType::List(elem_field) => start_import_list::<i32>(array, elem_field, field),
+            DataType::LargeList(elem_field) => start_import_list::<i64>(array, elem_field, field),
             DataType::FixedSizeList(elem_field, list_size) => {
                 let fsl = array.as_fixed_size_list();
-                let elements = self.from_arrow_array_inner(
-                    ArrowArrayRef::clone(fsl.values()),
-                    elem_field.as_ref(),
-                )?;
                 let validity = nulls(fsl.nulls(), field.is_nullable())?;
-                Ok(
-                    FixedSizeListArray::try_new(elements, *list_size as u32, validity, fsl.len())?
-                        .into_array(),
-                )
+                Ok(ImportArrayStep::Descend {
+                    frame: ImportArrayFrame::FixedSizeList {
+                        list_size: *list_size as u32,
+                        validity,
+                        len: fsl.len(),
+                    },
+                    array: ArrowArrayRef::clone(fsl.values()),
+                    field: elem_field.as_ref().clone(),
+                })
             }
             DataType::ListView(elem_field) => {
-                let list = array.as_list_view::<i32>();
-                let elements = self
-                    .from_arrow_array(ArrowArrayRef::clone(list.values()), elem_field.as_ref())?;
-                let offsets = list.offsets().clone().into_array();
-                let sizes = list.sizes().clone().into_array();
-                let validity = nulls(list.nulls(), field.is_nullable())?;
-                // SAFETY: Arrow list views share one integer type for offsets and sizes, and every
-                // view lies within the values. The validity has one entry per list.
-                Ok(
-                    unsafe { ListViewArray::new_unchecked(elements, offsets, sizes, validity) }
-                        .into_array(),
-                )
+                start_import_list_view::<i32>(array, elem_field, field)
             }
             DataType::LargeListView(elem_field) => {
-                let list = array.as_list_view::<i64>();
-                let elements = self
-                    .from_arrow_array(ArrowArrayRef::clone(list.values()), elem_field.as_ref())?;
-                let offsets = list.offsets().clone().into_array();
-                let sizes = list.sizes().clone().into_array();
-                let validity = nulls(list.nulls(), field.is_nullable())?;
-                // SAFETY: Arrow list views share one integer type for offsets and sizes, and every
-                // view lies within the values. The validity has one entry per list.
-                Ok(
-                    unsafe { ListViewArray::new_unchecked(elements, offsets, sizes, validity) }
-                        .into_array(),
-                )
+                start_import_list_view::<i64>(array, elem_field, field)
             }
             DataType::Map(entries_field, keys_sorted) => {
                 let map = array.as_map();
                 let (entries, offsets) = trim_map_entries(map);
                 let entries_array: ArrowArrayRef = Arc::new(entries);
-                let entries = self.from_arrow_array_inner(entries_array, entries_field.as_ref())?;
-                map_from_arrow_parts(
-                    entries,
-                    &offsets,
-                    map.nulls(),
-                    *keys_sorted,
-                    field.is_nullable(),
-                )
+                Ok(ImportArrayStep::Descend {
+                    frame: ImportArrayFrame::Map {
+                        offsets,
+                        map_nulls: map.nulls().cloned(),
+                        keys_sorted: *keys_sorted,
+                        nullable: field.is_nullable(),
+                    },
+                    array: entries_array,
+                    field: entries_field.as_ref().clone(),
+                })
             }
             DataType::RunEndEncoded(ends_field, values_field) => {
-                let values_field = run_end_values_field(values_field, field.is_nullable().into());
-                match ends_field.data_type() {
-                    DataType::Int16 => self.run_end_from_arrow::<Int16Type>(array, &values_field),
-                    DataType::Int32 => self.run_end_from_arrow::<Int32Type>(array, &values_field),
-                    DataType::Int64 => self.run_end_from_arrow::<Int64Type>(array, &values_field),
-                    ends_dt => vortex_bail!(
-                        "Arrow run-end array run ends must be Int16, Int32 or Int64, got {ends_dt}"
-                    ),
-                }
+                start_import_run_end(array, ends_field, values_field, field)
             }
-            _ => from_arrow_dyn(array, field.is_nullable()),
+            _ => from_arrow_dyn(array, field.is_nullable()).map(ImportArrayStep::Completed),
         }
     }
 
-    /// Decode an Arrow run-end array, recursing into its values so extension metadata on the
-    /// values field reaches its importer.
-    #[allow(clippy::wrong_self_convention)]
-    fn run_end_from_arrow<R: RunEndIndexType>(
+    fn advance_import_array_frame(
         &self,
-        array: &dyn ArrowArray,
-        values_field: &Field,
-    ) -> VortexResult<ArrayRef>
-    where
-        R::Native: NativePType,
-    {
-        let run_array = array
-            .as_any()
-            .downcast_ref::<RunArray<R>>()
-            .ok_or_else(|| vortex_err!("expected an Arrow RunArray, got {}", array.data_type()))?;
-        run_end_from_arrow(run_array, |values| {
-            self.from_arrow_array_inner(values, values_field)
-        })
-    }
-
-    /// Decode an Arrow dictionary array into a [`DictArray`], importing its values with `field`'s
-    /// metadata so that an extension name on the dictionary field reaches its importer.
-    fn dictionary_from_arrow(
-        &self,
-        array: &dyn ArrowArray,
-        field: &Field,
-    ) -> VortexResult<ArrayRef> {
-        let dict = array.as_any_dictionary_opt().ok_or_else(|| {
-            vortex_err!(
-                "expected an Arrow DictionaryArray, got {}",
-                array.data_type()
+        frame: ImportArrayFrame,
+        completed: ArrayRef,
+    ) -> VortexResult<ImportArrayStep> {
+        match frame {
+            ImportArrayFrame::WrapExtension { field } => {
+                match self.rebuild_ext_dtype_by_vortex_id(&field, completed.dtype())? {
+                    Some(ext_dtype) => {
+                        ExtensionArray::try_new(ext_dtype, completed).map(|arr| {
+                            ImportArrayStep::Completed(arr.into_array())
+                        })
+                    }
+                    None => Ok(ImportArrayStep::Completed(completed)),
+                }
+            }
+            ImportArrayFrame::Dict { codes } => {
+                // SAFETY: arrow-rs enforces the dictionary invariants on construction, so the codes
+                // are in-bounds for the values.
+                Ok(ImportArrayStep::Completed(
+                    unsafe { DictArray::new_unchecked(codes, completed) }.into_array(),
+                ))
+            }
+            ImportArrayFrame::Struct {
+                names,
+                arrow_struct,
+                fields,
+                next_idx,
+                mut built,
+                validity,
+            } => {
+                built.push(completed);
+                let next = next_idx + 1;
+                if next < fields.len() {
+                    let (next_arr, next_field) =
+                        prepare_struct_column(&arrow_struct, &fields, next)?;
+                    Ok(ImportArrayStep::Descend {
+                        frame: ImportArrayFrame::Struct {
+                            names,
+                            arrow_struct,
+                            fields,
+                            next_idx: next,
+                            built,
+                            validity,
+                        },
+                        array: next_arr,
+                        field: next_field,
+                    })
+                } else {
+                    let len = arrow_struct.len();
+                    StructArray::try_new(names, built, len, validity)
+                        .map(|arr| ImportArrayStep::Completed(arr.into_array()))
+                }
+            }
+            ImportArrayFrame::List { offsets, validity } => {
+                // SAFETY: Arrow offsets are non-negative and sorted, and `trim_offsets` rebases
+                // them onto the referenced values. The validity has one entry per list.
+                Ok(ImportArrayStep::Completed(
+                    unsafe { ListArray::new_unchecked(completed, offsets, validity) }.into_array(),
+                ))
+            }
+            ImportArrayFrame::FixedSizeList {
+                list_size,
+                validity,
+                len,
+            } => FixedSizeListArray::try_new(completed, list_size, validity, len)
+                .map(|arr| ImportArrayStep::Completed(arr.into_array())),
+            ImportArrayFrame::ListView {
+                offsets,
+                sizes,
+                validity,
+            } => {
+                // SAFETY: Arrow list views share one integer type for offsets and sizes, and every
+                // view lies within the values. The validity has one entry per list.
+                Ok(ImportArrayStep::Completed(
+                    unsafe { ListViewArray::new_unchecked(completed, offsets, sizes, validity) }
+                        .into_array(),
+                ))
+            }
+            ImportArrayFrame::Map {
+                offsets,
+                map_nulls,
+                keys_sorted,
+                nullable,
+            } => map_from_arrow_parts(
+                completed,
+                &offsets,
+                map_nulls.as_ref(),
+                keys_sorted,
+                nullable,
             )
-        })?;
-
-        let values_field = field
-            .clone()
-            .with_data_type(dict.values().data_type().clone());
-        let values =
-            self.from_arrow_array_inner(ArrowArrayRef::clone(dict.values()), &values_field)?;
-
-        let codes = dict.keys();
-        let codes = from_arrow_dyn(codes, codes.is_nullable())?;
-
-        // SAFETY: arrow-rs enforces the dictionary invariants on construction, so the codes are
-        // in-bounds for the values.
-        Ok(unsafe { DictArray::new_unchecked(codes, values) }.into_array())
+            .map(ImportArrayStep::Completed),
+            ImportArrayFrame::RunEnd { ends, offset, len } => {
+                finish_run_end(ends, completed, offset, len).map(ImportArrayStep::Completed)
+            }
+        }
     }
+}
+
+fn variant_arrow_field(name: &str, nullable: bool) -> Field {
+    // TODO(Adam): This currently encodes information about parquet-variant
+    // at this level. Variant's complexity with being an essentially logical type
+    // with multiple physical layout complicates handling this correctly.
+    Field::new(
+        name,
+        DataType::Struct(
+            vec![
+                Field::new("metadata", DataType::BinaryView, nullable),
+                Field::new("value", DataType::BinaryView, nullable),
+            ]
+            .into(),
+        ),
+        nullable,
+    )
+    .with_metadata(
+        [(
+            EXTENSION_TYPE_NAME_KEY.to_string(),
+            "arrow.parquet.variant".to_string(),
+        )]
+        .into(),
+    )
+}
+
+enum ImportDTypeTask {
+    Field(Field),
+    DataType {
+        data_type: DataType,
+        nullability: Nullability,
+    },
+}
+
+enum ImportFieldStep {
+    Done(DType),
+    DataType {
+        wrap_field: Option<Field>,
+        data_type: DataType,
+        nullability: Nullability,
+    },
+}
+
+enum ImportDTypeFrame {
+    WrapExtension {
+        field: Field,
+    },
+    List {
+        nullability: Nullability,
+    },
+    FixedSizeList {
+        size: u32,
+        nullability: Nullability,
+    },
+    MapKey {
+        value_field: FieldRef,
+        keys_sorted: bool,
+        nullability: Nullability,
+    },
+    MapValue {
+        key_dtype: DType,
+        keys_sorted: bool,
+        nullability: Nullability,
+    },
+    Struct {
+        fields: Fields,
+        next_idx: usize,
+        built: Vec<(FieldName, DType)>,
+        nullability: Nullability,
+    },
+}
+
+enum ImportDTypeStep {
+    Completed(DType),
+    TailField(Field),
+    Descend {
+        frame: ImportDTypeFrame,
+        task: ImportDTypeTask,
+    },
+}
+
+fn step_import_data_type(
+    data_type: &DataType,
+    nullability: Nullability,
+) -> VortexResult<ImportDTypeStep> {
+    let mut current = data_type;
+    loop {
+        match current {
+            DataType::Dictionary(_, value_type) => {
+                current = value_type.as_ref();
+            }
+            DataType::RunEndEncoded(_, value_field) => {
+                return Ok(ImportDTypeStep::TailField(run_end_values_field(
+                    value_field,
+                    nullability,
+                )));
+            }
+            DataType::List(elem)
+            | DataType::LargeList(elem)
+            | DataType::ListView(elem)
+            | DataType::LargeListView(elem) => {
+                return Ok(ImportDTypeStep::Descend {
+                    frame: ImportDTypeFrame::List { nullability },
+                    task: ImportDTypeTask::Field(elem.as_ref().clone()),
+                });
+            }
+            DataType::FixedSizeList(elem, size) => {
+                return Ok(ImportDTypeStep::Descend {
+                    frame: ImportDTypeFrame::FixedSizeList {
+                        size: *size as u32,
+                        nullability,
+                    },
+                    task: ImportDTypeTask::Field(elem.as_ref().clone()),
+                });
+            }
+            DataType::Map(entries, keys_sorted) => {
+                vortex_ensure!(
+                    !entries.is_nullable(),
+                    "Arrow map entries field must be non-nullable"
+                );
+                let DataType::Struct(fields) = entries.data_type() else {
+                    vortex_bail!(
+                        "Arrow map entries field must have Struct type, got {:?}",
+                        entries.data_type()
+                    );
+                };
+                vortex_ensure_eq!(
+                    fields.len(),
+                    2,
+                    "Arrow map entries struct must contain exactly two fields"
+                );
+                vortex_ensure!(
+                    !fields[0].is_nullable(),
+                    "Arrow map key field must be non-nullable"
+                );
+                return Ok(ImportDTypeStep::Descend {
+                    frame: ImportDTypeFrame::MapKey {
+                        value_field: FieldRef::clone(&fields[1]),
+                        keys_sorted: *keys_sorted,
+                        nullability,
+                    },
+                    task: ImportDTypeTask::Field(fields[0].as_ref().clone()),
+                });
+            }
+            DataType::Struct(fields) => {
+                let Some(first) = fields.first() else {
+                    return Ok(ImportDTypeStep::Completed(DType::Struct(
+                        StructFields::empty(),
+                        nullability,
+                    )));
+                };
+                return Ok(ImportDTypeStep::Descend {
+                    frame: ImportDTypeFrame::Struct {
+                        fields: fields.clone(),
+                        next_idx: 0,
+                        built: Vec::with_capacity(fields.len()),
+                        nullability,
+                    },
+                    task: ImportDTypeTask::Field(first.as_ref().clone()),
+                });
+            }
+            _ => {
+                return from_arrow_data_type(current, nullability)
+                    .map(ImportDTypeStep::Completed);
+            }
+        }
+    }
+}
+
+enum ImportArrayFrame {
+    WrapExtension {
+        field: Field,
+    },
+    Dict {
+        codes: ArrayRef,
+    },
+    Struct {
+        names: FieldNames,
+        arrow_struct: ArrowStructArray,
+        fields: Fields,
+        next_idx: usize,
+        built: Vec<ArrayRef>,
+        validity: Validity,
+    },
+    List {
+        offsets: ArrayRef,
+        validity: Validity,
+    },
+    FixedSizeList {
+        list_size: u32,
+        validity: Validity,
+        len: usize,
+    },
+    ListView {
+        offsets: ArrayRef,
+        sizes: ArrayRef,
+        validity: Validity,
+    },
+    Map {
+        offsets: OffsetBuffer<i32>,
+        map_nulls: Option<NullBuffer>,
+        keys_sorted: bool,
+        nullable: bool,
+    },
+    RunEnd {
+        ends: ArrayRef,
+        offset: usize,
+        len: usize,
+    },
+}
+
+#[expect(
+    clippy::large_enum_variant,
+    reason = "short-lived iterator step; stacked frames live in Vec"
+)]
+enum ImportArrayStep {
+    Completed(ArrayRef),
+    Descend {
+        frame: ImportArrayFrame,
+        array: ArrowArrayRef,
+        field: Field,
+    },
+}
+
+fn prepare_struct_column(
+    arrow_struct: &ArrowStructArray,
+    fields: &Fields,
+    idx: usize,
+) -> VortexResult<(ArrowArrayRef, Field)> {
+    let col = arrow_struct.column(idx);
+    let child_field = &fields[idx];
+    // Arrow pushes nulls into non-nullable fields; strip before recursing
+    // so Vortex's stricter validity invariants are upheld.
+    let inner = if col.null_count() > 0 && !child_field.is_nullable() {
+        make_array(remove_nulls(col.to_data())?)
+    } else {
+        ArrowArrayRef::clone(col)
+    };
+    Ok((inner, child_field.as_ref().clone()))
+}
+
+fn start_import_struct(
+    arrow_struct: &ArrowStructArray,
+    fields: &Fields,
+    field: &Field,
+) -> VortexResult<ImportArrayStep> {
+    let names = FieldNames::from_iter(fields.iter().map(|fld| FieldName::from(fld.name().as_str())));
+    let validity = nulls(arrow_struct.nulls(), field.is_nullable())?;
+    if fields.is_empty() {
+        return StructArray::try_new(names, Vec::new(), arrow_struct.len(), validity)
+            .map(|arr| ImportArrayStep::Completed(arr.into_array()));
+    }
+    let (first_arr, first_field) = prepare_struct_column(arrow_struct, fields, 0)?;
+    Ok(ImportArrayStep::Descend {
+        frame: ImportArrayFrame::Struct {
+            names,
+            arrow_struct: arrow_struct.clone(),
+            fields: fields.clone(),
+            next_idx: 0,
+            built: Vec::with_capacity(fields.len()),
+            validity,
+        },
+        array: first_arr,
+        field: first_field,
+    })
+}
+
+fn start_import_list<O: OffsetSizeTrait + IntegerPType>(
+    array: &dyn ArrowArray,
+    elem_field: &FieldRef,
+    field: &Field,
+) -> VortexResult<ImportArrayStep> {
+    let list = array.as_list::<O>();
+    let (offsets, referenced) = trim_offsets(list.offsets());
+    let validity = nulls(list.nulls(), field.is_nullable())?;
+    Ok(ImportArrayStep::Descend {
+        frame: ImportArrayFrame::List {
+            offsets: offsets.into_array(),
+            validity,
+        },
+        array: list.values().slice(referenced.start, referenced.len()),
+        field: elem_field.as_ref().clone(),
+    })
+}
+
+fn start_import_list_view<O: OffsetSizeTrait + IntegerPType>(
+    array: &dyn ArrowArray,
+    elem_field: &FieldRef,
+    field: &Field,
+) -> VortexResult<ImportArrayStep> {
+    let list = array.as_list_view::<O>();
+    let offsets = list.offsets().clone().into_array();
+    let sizes = list.sizes().clone().into_array();
+    let validity = nulls(list.nulls(), field.is_nullable())?;
+    Ok(ImportArrayStep::Descend {
+        frame: ImportArrayFrame::ListView {
+            offsets,
+            sizes,
+            validity,
+        },
+        array: ArrowArrayRef::clone(list.values()),
+        field: elem_field.as_ref().clone(),
+    })
+}
+
+fn downcast_extract_run_end<R: RunEndIndexType>(
+    array: &dyn ArrowArray,
+) -> VortexResult<(ArrayRef, ArrowArrayRef, usize, usize)>
+where
+    R::Native: NativePType,
+{
+    let run_array = array
+        .as_any()
+        .downcast_ref::<RunArray<R>>()
+        .ok_or_else(|| vortex_err!("expected an Arrow RunArray, got {}", array.data_type()))?;
+    Ok(extract_run_end_parts(run_array))
+}
+
+fn start_import_run_end(
+    array: &dyn ArrowArray,
+    ends_field: &FieldRef,
+    values_field: &FieldRef,
+    field: &Field,
+) -> VortexResult<ImportArrayStep> {
+    let values_field = run_end_values_field(values_field, field.is_nullable().into());
+    let (ends, sliced_values, offset, len) = match ends_field.data_type() {
+        DataType::Int16 => downcast_extract_run_end::<Int16Type>(array)?,
+        DataType::Int32 => downcast_extract_run_end::<Int32Type>(array)?,
+        DataType::Int64 => downcast_extract_run_end::<Int64Type>(array)?,
+        ends_dt => vortex_bail!(
+            "Arrow run-end array run ends must be Int16, Int32 or Int64, got {ends_dt}"
+        ),
+    };
+    Ok(ImportArrayStep::Descend {
+        frame: ImportArrayFrame::RunEnd { ends, offset, len },
+        array: sliced_values,
+        field: values_field,
+    })
 }
 
 /// The values field of an Arrow [`DataType::RunEndEncoded`], re-stamped with the run-end array's
@@ -1097,6 +1695,14 @@ pub struct ArrowExporter<'a> {
     options: &'a ArrowExportOptions,
 }
 
+pub(crate) enum ExecuteArrowPrep {
+    Done(ArrowArrayRef),
+    Naive {
+        array: ArrayRef,
+        data_type: Option<DataType>,
+    },
+}
+
 impl ArrowExporter<'_> {
     pub(crate) fn options(&self) -> &ArrowExportOptions {
         self.options
@@ -1106,13 +1712,29 @@ impl ArrowExporter<'_> {
     ///
     /// Behaves like [`ArrowSession::execute_arrow`]. The options are propagated to nested arrays
     /// and to registered export plugins.
-    #[expect(clippy::disallowed_methods, reason = "interning a dynamic id")]
     pub fn execute_arrow(
         &self,
         array: ArrayRef,
         target: Option<&Field>,
         ctx: &mut ExecutionCtx,
     ) -> VortexResult<ArrowArrayRef> {
+        run_export(
+            self,
+            ExportTask::WithField {
+                array,
+                target: target.cloned(),
+            },
+            ctx,
+        )
+    }
+
+    #[expect(clippy::disallowed_methods, reason = "interning a dynamic id")]
+    pub(crate) fn prepare_execute_arrow(
+        &self,
+        array: ArrayRef,
+        target: Option<&Field>,
+        ctx: &mut ExecutionCtx,
+    ) -> VortexResult<ExecuteArrowPrep> {
         // NOTE(aduffy): this looks strange, but we do this to keep target_field as &Field so
         //  we can avoid cloning target when it is provided. It contains a HashMap internally that
         //  can be expensive to copy.
@@ -1126,7 +1748,7 @@ impl ArrowExporter<'_> {
         };
 
         if let Some(exported) = variant_chunks::export(self, &array, target_field, ctx)? {
-            return Ok(exported);
+            return Ok(ExecuteArrowPrep::Done(exported));
         }
 
         if let Some(arrow_ext_name) = target_field.metadata().get(EXTENSION_TYPE_NAME_KEY) {
@@ -1152,7 +1774,7 @@ impl ArrowExporter<'_> {
                             "Arrow array length does not match Vortex array length after conversion to {:?}",
                             arrow
                         );
-                        return Ok(arrow);
+                        return Ok(ExecuteArrowPrep::Done(arrow));
                     }
                     ArrowExport::Unsupported(array) => current = array,
                 }
@@ -1164,7 +1786,12 @@ impl ArrowExporter<'_> {
                 .filter(|ext_dtype| ext_dtype.id() == arrow_ext_id)
                 .cloned()
             {
-                return self.execute_arrow_ext_storage(current, &ext_dtype, target_field, ctx);
+                let storage =
+                    self.unwrap_ext_storage(current, &ext_dtype, target_field, ctx)?;
+                return Ok(ExecuteArrowPrep::Naive {
+                    array: storage,
+                    data_type: Some(target_field.data_type().clone()),
+                });
             }
 
             debug!(
@@ -1173,21 +1800,26 @@ impl ArrowExporter<'_> {
                 "unsupported Arrow extension type encountered, falling back to naive execution"
             );
 
-            return execute_arrow_naive(current, Some(target_field.data_type()), self, ctx);
+            return Ok(ExecuteArrowPrep::Naive {
+                array: current,
+                data_type: Some(target_field.data_type().clone()),
+            });
         }
 
-        execute_arrow_naive(array, target.map(|field| field.data_type()), self, ctx)
+        Ok(ExecuteArrowPrep::Naive {
+            array,
+            data_type: target.map(|field| field.data_type().clone()),
+        })
     }
 
-    /// Export the storage of `array` to `target`, whose extension name is the Vortex ID of
-    /// `ext_dtype`. Fails if `target` does not have the metadata of `ext_dtype`.
-    fn execute_arrow_ext_storage(
+    /// Validate `target`'s Vortex extension metadata and unwrap `array` to its storage array.
+    fn unwrap_ext_storage(
         &self,
         array: ArrayRef,
         ext_dtype: &ExtDTypeRef,
         target: &Field,
         ctx: &mut ExecutionCtx,
-    ) -> VortexResult<ArrowArrayRef> {
+    ) -> VortexResult<ArrayRef> {
         match self
             .session
             .rebuild_ext_dtype_by_vortex_id(target, ext_dtype.storage_dtype())?
@@ -1205,12 +1837,10 @@ impl ArrowExporter<'_> {
             ),
         }
 
-        let storage = array
+        Ok(array
             .execute::<ExtensionArray>(ctx)?
             .storage_array()
-            .clone();
-
-        execute_arrow_naive(storage, Some(target.data_type()), self, ctx)
+            .clone())
     }
 }
 
@@ -1552,5 +2182,285 @@ mod tests {
                 .contains("returned 4 elements for an array of 5"),
             "unexpected error: {err}"
         );
+    }
+
+    mod deep_tests {
+        use std::sync::Arc;
+        use std::thread;
+
+        use arrow_array::Array as ArrowArray;
+        use arrow_array::ArrayRef as ArrowArrayRef;
+        use arrow_array::DictionaryArray;
+        use arrow_array::FixedSizeBinaryArray;
+        use arrow_array::FixedSizeListArray as ArrowFixedSizeListArray;
+        use arrow_array::GenericListArray;
+        use arrow_array::GenericListViewArray;
+        use arrow_array::Int32Array;
+        use arrow_array::MapArray as ArrowMapArray;
+        use arrow_array::RunArray;
+        use arrow_array::StringArray;
+        use arrow_array::StructArray as ArrowStructArray;
+        use arrow_array::types::Int32Type;
+        use arrow_buffer::OffsetBuffer;
+        use arrow_buffer::ScalarBuffer;
+        use arrow_schema::DataType;
+        use arrow_schema::Field;
+        use arrow_schema::FieldRef;
+        use arrow_schema::Fields;
+        use vortex_array::ArrayRef;
+        use vortex_array::VortexSessionExecute as _;
+        use vortex_error::VortexResult;
+        use vortex_error::vortex_err;
+        use vortex_session::VortexSession;
+
+        use crate::ArrowExportOptions;
+        use crate::ArrowSessionExt;
+
+        fn build_deep_session_fixture(
+            depth: usize,
+            unsupported_leaf: bool,
+        ) -> VortexResult<(ArrowArrayRef, Field)> {
+            let (mut array, mut field): (ArrowArrayRef, Field) = if unsupported_leaf {
+                let leaf =
+                    FixedSizeBinaryArray::try_from_iter([[1u8, 2, 3], [4u8, 5, 6]].into_iter())?;
+                (
+                    Arc::new(leaf),
+                    Field::new("leaf", DataType::FixedSizeBinary(3), false),
+                )
+            } else {
+                // Seed the leaf inside a DictionaryArray so dictionary import/export participates
+                // without hitting arrow_cast's lack of Dictionary-over-Map packing.
+                let base: ArrowArrayRef = Arc::new(Int32Array::from(vec![10, 20]));
+                let dict = DictionaryArray::<Int32Type>::try_new(
+                    Int32Array::from(vec![0, 1]),
+                    base,
+                )?;
+                let dict_dt = dict.data_type().clone();
+                (Arc::new(dict), Field::new("leaf", dict_dt, false))
+            };
+
+            for level in 0..depth {
+                let kind = level % 7;
+                let (next_arr, next_dt): (ArrowArrayRef, DataType) = match kind {
+                    0 => {
+                        let fields = Fields::from(vec![Arc::new(field)]);
+                        let dt = DataType::Struct(fields.clone());
+                        let st = ArrowStructArray::new(fields, vec![array], None);
+                        (Arc::new(st), dt)
+                    }
+                    1 => {
+                        let child_field = Arc::new(field);
+                        let dt = DataType::List(Arc::clone(&child_field));
+                        let list = GenericListArray::<i32>::new(
+                            child_field,
+                            OffsetBuffer::new(ScalarBuffer::from(vec![0i32, 1, 2])),
+                            array,
+                            None,
+                        );
+                        (Arc::new(list), dt)
+                    }
+                    2 => {
+                        let child_field = Arc::new(field);
+                        let dt = DataType::LargeList(Arc::clone(&child_field));
+                        let list = GenericListArray::<i64>::new(
+                            child_field,
+                            OffsetBuffer::new(ScalarBuffer::from(vec![0i64, 1, 2])),
+                            array,
+                            None,
+                        );
+                        (Arc::new(list), dt)
+                    }
+                    3 => {
+                        let child_field = Arc::new(field);
+                        let dt = DataType::FixedSizeList(Arc::clone(&child_field), 1);
+                        let fsl = ArrowFixedSizeListArray::new(child_field, 1, array, None);
+                        (Arc::new(fsl), dt)
+                    }
+                    4 => {
+                        let child_field = Arc::new(field);
+                        let dt = DataType::ListView(Arc::clone(&child_field));
+                        let lv = GenericListViewArray::<i32>::new(
+                            child_field,
+                            ScalarBuffer::from(vec![0i32, 1]),
+                            ScalarBuffer::from(vec![1i32, 1]),
+                            array,
+                            None,
+                        );
+                        (Arc::new(lv), dt)
+                    }
+                    5 => {
+                        let key_field = Arc::new(Field::new("key", DataType::Int32, false));
+                        let val_field = Arc::new(field);
+                        let entry_fields = Fields::from(vec![key_field, val_field]);
+                        let entries = ArrowStructArray::new(
+                            entry_fields.clone(),
+                            vec![Arc::new(Int32Array::from(vec![1, 2])), array],
+                            None,
+                        );
+                        let entries_field = Arc::new(Field::new_struct(
+                            "entries",
+                            entry_fields,
+                            false,
+                        ));
+                        let dt = DataType::Map(Arc::clone(&entries_field), false);
+                        let map = ArrowMapArray::new(
+                            entries_field,
+                            OffsetBuffer::new(ScalarBuffer::from(vec![0i32, 1, 2])),
+                            entries,
+                            None,
+                            false,
+                        );
+                        (Arc::new(map), dt)
+                    }
+                    _ => {
+                        let run_ends = Int32Array::from(vec![1, 2]);
+                        let runs = RunArray::<Int32Type>::try_new(&run_ends, array.as_ref())?;
+                        let dt = runs.data_type().clone();
+                        (Arc::new(runs), dt)
+                    }
+                };
+                field = Field::new(format!("c_{level}"), next_dt, false);
+                array = next_arr;
+            }
+            Ok((array, field))
+        }
+
+        #[test]
+        fn deep_dictionary_nesting_imports_iteratively_on_small_stack() -> VortexResult<()> {
+            let depth = 2048;
+            let mut array: ArrowArrayRef =
+                Arc::new(StringArray::from(vec!["alpha", "beta"]));
+            for _ in 0..depth {
+                array = Arc::new(DictionaryArray::<Int32Type>::try_new(
+                    Int32Array::from(vec![0, 1]),
+                    array,
+                )?);
+            }
+            let field = Field::new("dict_chain", array.data_type().clone(), false);
+
+            let handle = thread::Builder::new()
+                .stack_size(128 * 1024)
+                .spawn(move || -> VortexResult<(ArrayRef, ArrowArrayRef)> {
+                    let vx_session = VortexSession::empty();
+                    let arrow_session = vx_session.arrow();
+                    let vx_dtype = arrow_session.from_arrow_field(&field)?;
+                    let vx_arr = arrow_session.from_arrow_array(array, &field)?;
+                    assert_eq!(vx_arr.dtype(), &vx_dtype);
+                    let mut ctx = vx_session.create_execution_ctx();
+                    let options = ArrowExportOptions::default();
+                    let arrow_out = arrow_session
+                        .exporter(&options)
+                        .execute_arrow(vx_arr.clone(), Some(&field), &mut ctx)?;
+                    Ok((vx_arr, arrow_out))
+                })
+                .map_err(|err| vortex_err!("spawn 128 KiB thread: {err}"))?;
+
+            let (vx_arr, arrow_out) = handle
+                .join()
+                .map_err(|err| vortex_err!("128 KiB thread panicked: {err:?}"))??;
+            assert_eq!(vx_arr.len(), 2);
+            assert_eq!(arrow_out.len(), 2);
+            Ok(())
+        }
+
+        #[test]
+        fn deep_session_schema_and_array_roundtrip_on_small_stack() -> VortexResult<()> {
+            let depth = 512;
+            let (arrow_in, field_in) = build_deep_session_fixture(depth, false)?;
+            let (arrow_err, field_err) = build_deep_session_fixture(depth, true)?;
+            // Inferred `None`-target export converts RunEndArray through canonical execution, which
+            // supports primitive/string/binary values rather than Map/Struct run values, so build a
+            // separate 512-deep no-REE fixture to exercise `None`-target export on 128 KiB stack.
+            let mut inferred_arr: ArrowArrayRef = Arc::new(Int32Array::from(vec![10, 20]));
+            let mut inferred_field = Field::new("leaf", DataType::Int32, false);
+            for level in 0..depth {
+                let child_field = Arc::new(inferred_field);
+                let dt = DataType::List(Arc::clone(&child_field));
+                let list = GenericListArray::<i32>::new(
+                    child_field,
+                    OffsetBuffer::new(ScalarBuffer::from(vec![0i32, 1, 2])),
+                    inferred_arr,
+                    None,
+                );
+                inferred_arr = Arc::new(list);
+                inferred_field = Field::new(format!("i_{level}"), dt, false);
+            }
+
+            let handle = thread::Builder::new()
+                .stack_size(128 * 1024)
+                .spawn(move || -> VortexResult<(ArrayRef, ArrowArrayRef, ArrowArrayRef)> {
+                    let vx_session = VortexSession::empty();
+                    let arrow_session = vx_session.arrow();
+
+                    let vx_dtype = arrow_session.from_arrow_field(&field_in)?;
+                    let rt_field = arrow_session.to_arrow_field(field_in.name(), &vx_dtype)?;
+                    assert_eq!(rt_field.name(), field_in.name());
+                    let fields = Fields::from(vec![FieldRef::new(field_in.clone())]);
+                    let vx_fields = arrow_session.from_arrow_fields(&fields)?;
+                    assert_eq!(vx_fields.field_by_index(0), Some(vx_dtype));
+
+                    let vx_arr = arrow_session.from_arrow_array(arrow_in, &field_in)?;
+                    let vx_inferred_input =
+                        arrow_session.from_arrow_array(inferred_arr, &inferred_field)?;
+                    let mut ctx = vx_session.create_execution_ctx();
+                    let options = ArrowExportOptions::default();
+                    let exporter = arrow_session.exporter(&options);
+                    let arrow_out =
+                        exporter.execute_arrow(vx_arr.clone(), Some(&field_in), &mut ctx)?;
+                    let arrow_inferred =
+                        exporter.execute_arrow(vx_inferred_input, None, &mut ctx)?;
+                    assert_eq!(arrow_out.len(), 2);
+                    assert_eq!(arrow_inferred.len(), 2);
+
+                    assert!(arrow_session.from_arrow_array(arrow_err, &field_err).is_err());
+                    Ok((vx_arr, arrow_out, arrow_inferred))
+                })
+                .map_err(|err| vortex_err!("spawn 128 KiB thread: {err}"))?;
+
+            let (vx_arr, arrow_out, arrow_inferred) = handle
+                .join()
+                .map_err(|err| vortex_err!("128 KiB thread panicked: {err:?}"))??;
+            assert_eq!(vx_arr.len(), 2);
+            assert_eq!(arrow_out.len(), 2);
+            assert_eq!(arrow_inferred.len(), 2);
+            Ok(())
+        }
+
+        #[test]
+        fn deep_2048_session_roundtrip_without_overflow() -> VortexResult<()> {
+            let depth = 2048;
+            let (arrow_in, field_in) = build_deep_session_fixture(depth, false)?;
+            let vx_session = VortexSession::empty();
+            let arrow_session = vx_session.arrow();
+
+            let vx_dtype = arrow_session.from_arrow_field(&field_in)?;
+            let rt_field = arrow_session.to_arrow_field(field_in.name(), &vx_dtype)?;
+            assert_eq!(rt_field.name(), field_in.name());
+
+            let vx_arr = arrow_session.from_arrow_array(ArrowArrayRef::clone(&arrow_in), &field_in)?;
+            let mut ctx = vx_session.create_execution_ctx();
+            let options = ArrowExportOptions::default();
+            let arrow_out = arrow_session
+                .exporter(&options)
+                .execute_arrow(vx_arr, Some(&field_in), &mut ctx)?;
+            assert_eq!(arrow_out.len(), arrow_in.len());
+            assert_eq!(arrow_out.data_type(), arrow_in.data_type());
+            Ok(())
+        }
+
+        #[test]
+        fn shallow_parity_session_roundtrip_preserves_data() -> VortexResult<()> {
+            let (arrow_in, field_in) = build_deep_session_fixture(6, false)?;
+            let vx_session = VortexSession::empty();
+            let arrow_session = vx_session.arrow();
+            let vx_arr = arrow_session.from_arrow_array(ArrowArrayRef::clone(&arrow_in), &field_in)?;
+            let mut ctx = vx_session.create_execution_ctx();
+            let options = ArrowExportOptions::default();
+            let arrow_out = arrow_session
+                .exporter(&options)
+                .execute_arrow(vx_arr, Some(&field_in), &mut ctx)?;
+            assert_eq!(arrow_out.to_data(), arrow_in.to_data());
+            Ok(())
+        }
     }
 }

@@ -51,10 +51,8 @@ use crate::expr::stats::Precision;
 use crate::expr::stats::Stat;
 use crate::expr::stats::StatsProviderExt;
 use crate::matcher::Matcher;
-use crate::optimizer::ArrayOptimizer;
 use crate::optimizer::OptimizedState;
 use crate::scalar::Scalar;
-use crate::scalar::ScalarValue;
 use crate::stats::StatsSetRef;
 use crate::validity::Validity;
 
@@ -294,28 +292,13 @@ impl ArrayRef {
         let sliced = SliceArray::try_new(self.clone(), range)?.into_array();
         // An eager reduction can rebuild bufferless metadata (e.g. Constant)
         // without its lifetime owner. Keep the native view until admitted execution.
-        let sliced = if let Some(owner) = retained_owner {
-            sliced.with_retained_owner(Arc::clone(owner))?
+        if let Some(owner) = retained_owner {
+            let sliced = sliced.with_retained_owner(Arc::clone(owner))?;
+            crate::optimizer::inherit_slice_stats(self, &sliced);
+            Ok(sliced)
         } else {
-            sliced.optimize()?
-        };
-
-        // Propagate some stats from the original array to the sliced array.
-        if !sliced.is::<Constant>() {
-            self.statistics().with_iter(|iter| {
-                sliced.statistics().inherit(iter.filter(|(stat, value)| {
-                    matches!(
-                        stat,
-                        Stat::IsConstant | Stat::IsSorted | Stat::IsStrictSorted
-                    ) && value
-                        .as_ref()
-                        .as_exact()
-                        .is_some_and(|v| matches!(v, ScalarValue::Bool(true)))
-                }));
-            });
+            crate::optimizer::optimize_slice_root(self, sliced)
         }
-
-        Ok(sliced)
     }
 
     /// Wraps the array in a [`FilterArray`] such that it is logically filtered by the given mask.
@@ -326,15 +309,14 @@ impl ArrayRef {
         if let Some(owner) = self.0.data.retained_owner() {
             filtered.with_retained_owner(Arc::clone(owner))
         } else {
-            filtered.optimize()
+            crate::optimizer::optimize_wrapper_root(self, filtered)
         }
     }
 
     /// Wraps the array in a [`DictArray`] such that it is logically taken by the given indices.
     pub fn take(&self, indices: ArrayRef) -> VortexResult<ArrayRef> {
-        DictArray::try_new(indices, self.clone())?
-            .into_array()
-            .optimize()
+        let taken = DictArray::try_new(indices, self.clone())?.into_array();
+        crate::optimizer::optimize_wrapper_root(self, taken)
     }
 
     /// Execute the array to extract a scalar at the given index.

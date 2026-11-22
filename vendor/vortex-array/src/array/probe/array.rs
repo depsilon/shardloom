@@ -2,21 +2,60 @@
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 
 use std::mem::needs_drop;
+use std::sync::Arc;
 
 use vortex_error::VortexError;
+use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
+use vortex_error::vortex_bail;
 use vortex_error::vortex_err;
 
 use crate::ArrayRef;
 use crate::ExecutionCtx;
+use crate::IntoArray;
 use crate::array::ArrayView;
 use crate::array::VTable;
 use crate::array::probe::RepeatedArrayProbe;
 use crate::array::probe::RepeatedState;
 use crate::array::probe::repeated::child_probe;
 use crate::array::probe::repeated::is_valid_scalar;
+use crate::arrays::Chunked;
+use crate::arrays::Dict;
+use crate::arrays::Extension;
+use crate::arrays::FixedSizeList;
+use crate::arrays::List;
+use crate::arrays::ListView;
+use crate::arrays::Map;
+use crate::arrays::Masked;
 use crate::arrays::Primitive;
+use crate::arrays::Slice;
+use crate::arrays::Struct;
+use crate::arrays::Union;
+use crate::arrays::chunked::ChunkedArrayExt;
+use crate::arrays::chunked::ChunkedSlots;
+use crate::arrays::dict::DictSlots;
+use crate::arrays::extension::ExtensionArrayExt;
+use crate::arrays::extension::ExtensionSlots;
+use crate::arrays::fixed_size_list::FixedSizeListArrayExt;
+use crate::arrays::fixed_size_list::FixedSizeListSlots;
+use crate::arrays::list::ListArrayExt;
+use crate::arrays::list::ListSlots;
+use crate::arrays::listview::ListViewArrayExt;
+use crate::arrays::listview::ListViewSlots;
+use crate::arrays::ListViewArray;
+use crate::arrays::map::MapSlots;
+use crate::arrays::masked::MaskedSlots;
+use crate::arrays::slice::SliceArraySlotsExt;
+use crate::arrays::struct_::StructArrayExt;
+use crate::arrays::struct_::StructSlots;
+use crate::arrays::union::UnionArrayExt;
+use crate::arrays::union::UnionArraySlotsExt;
+use crate::dtype::DType;
+use crate::dtype::Nullability;
+use crate::dtype::UnionVariants;
+use crate::dtype::extension::ExtDTypeRef;
 use crate::scalar::Scalar;
+use crate::scalar::ScalarValue;
 use crate::validity::Validity;
 use crate::vtable::OperationsVTable;
 
@@ -77,18 +116,439 @@ impl ArrayProbe<'_> {
     }
 }
 
-/// One-off scalar read: nothing outlives the call.
+enum ScalarFrame {
+    Masked,
+    Dict {
+        dtype: DType,
+    },
+    Extension {
+        ext_dtype: ExtDTypeRef,
+    },
+    Union {
+        variants: UnionVariants,
+        type_id: u8,
+        nullability: Nullability,
+    },
+    Struct {
+        dtype: DType,
+        owner: ArrayRef,
+        index: usize,
+        next_field: usize,
+        nfields: usize,
+        values: Vec<Option<ScalarValue>>,
+    },
+    Sequence {
+        element_dtype: DType,
+        nullability: Nullability,
+        fixed_size: bool,
+        elements: ArrayRef,
+        cur: usize,
+        end: usize,
+        items: Vec<Scalar>,
+    },
+    Map {
+        dtype: DType,
+        key_dtype: DType,
+        val_dtype: DType,
+        entries_el: ArrayRef,
+        cur: usize,
+        end: usize,
+        pairs: Vec<(Scalar, Scalar)>,
+    },
+}
+
+#[inline]
+fn is_iterative_scalar_array(array: &ArrayRef) -> bool {
+    array.is::<Struct>()
+        || array.is::<List>()
+        || array.is::<ListView>()
+        || array.is::<FixedSizeList>()
+        || array.is::<Map>()
+        || array.is::<Extension>()
+        || array.is::<Masked>()
+        || array.is::<Slice>()
+        || array.is::<Dict>()
+        || array.is::<Chunked>()
+        || array.is::<Union>()
+}
+
+/// One-off scalar read without call-stack recursion through compound containers.
 #[inline]
 fn execute_scalar_once(
     array: &ArrayRef,
     index: usize,
     ctx: &mut ExecutionCtx,
 ) -> VortexResult<Scalar> {
-    check_bounds(array, index)?;
-    check_dtype(
-        array,
-        array.dyn_array().probe_scalar_once(array, index, ctx),
-    )
+    if !is_iterative_scalar_array(array) {
+        check_bounds(array, index)?;
+        return check_dtype(
+            array,
+            array.dyn_array().probe_scalar_once(array, index, ctx),
+        );
+    }
+    execute_scalar_iterative(array, index, ctx)
+}
+
+#[allow(clippy::cognitive_complexity)]
+fn execute_scalar_iterative(
+    root: &ArrayRef,
+    root_index: usize,
+    ctx: &mut ExecutionCtx,
+) -> VortexResult<Scalar> {
+    let mut frames: Vec<ScalarFrame> = Vec::new();
+    let mut cur_array = root.clone();
+    let mut cur_index = root_index;
+
+    'visit: loop {
+        let mut completed = loop {
+            check_bounds(&cur_array, cur_index)?;
+
+            if let Some(slice) = cur_array.as_opt::<Slice>() {
+                cur_index += slice.slice_range().start;
+                cur_array = slice.child().clone();
+                continue;
+            }
+            if let Some(chunked) = cur_array.as_opt::<Chunked>() {
+                let (chunk_idx, chunk_offset) = chunked.find_chunk_idx(cur_index)?;
+                let chunk = child_of(&cur_array, ChunkedSlots::CHUNKS_OFFSET + chunk_idx)?
+                    .ok_or_else(|| vortex_err!("Chunked chunk slot {chunk_idx} is absent"))?
+                    .clone();
+                cur_array = chunk;
+                cur_index = chunk_offset;
+                continue;
+            }
+            if cur_array.is::<Masked>() {
+                if !is_valid_once(&cur_array, cur_index, ctx)? {
+                    break Scalar::null(cur_array.dtype().clone());
+                }
+                let child = child_of(&cur_array, MaskedSlots::CHILD)?
+                    .ok_or_else(|| vortex_err!("Masked child slot is missing"))?
+                    .clone();
+                frames.push(ScalarFrame::Masked);
+                cur_array = child;
+                continue;
+            }
+            if cur_array.is::<Dict>() {
+                let codes = child_of(&cur_array, DictSlots::CODES)?
+                    .ok_or_else(|| vortex_err!("Dict codes slot is missing"))?;
+                let code = execute_scalar_once(codes, cur_index, ctx)?;
+                let Some(dict_index) = code.as_primitive().as_::<usize>() else {
+                    break Scalar::null(cur_array.dtype().clone());
+                };
+                let values = child_of(&cur_array, DictSlots::VALUES)?
+                    .ok_or_else(|| vortex_err!("Dict values slot is missing"))?
+                    .clone();
+                frames.push(ScalarFrame::Dict {
+                    dtype: cur_array.dtype().clone(),
+                });
+                cur_array = values;
+                cur_index = dict_index;
+                continue;
+            }
+            if let Some(ext) = cur_array.as_opt::<Extension>() {
+                let ext_dtype = ext.ext_dtype().clone();
+                let storage = child_of(&cur_array, ExtensionSlots::STORAGE)?
+                    .ok_or_else(|| vortex_err!("Extension storage slot is missing"))?
+                    .clone();
+                frames.push(ScalarFrame::Extension { ext_dtype });
+                cur_array = storage;
+                continue;
+            }
+            if let Some(union_arr) = cur_array.as_opt::<Union>() {
+                let type_id_scalar = union_arr.type_ids().execute_scalar(cur_index, ctx)?;
+                let Some(type_id) = type_id_scalar.as_primitive().typed_value::<u8>() else {
+                    break Scalar::null(cur_array.dtype().clone());
+                };
+                let variants = union_arr.variants().clone();
+                let Some(child_idx) = variants.tag_to_child_index(type_id) else {
+                    vortex_bail!("Unknown UnionArray type ID {type_id}");
+                };
+                let child = union_arr
+                    .child(child_idx)
+                    .ok_or_else(|| vortex_err!("UnionArray is missing child {child_idx}"))?
+                    .clone();
+                let nullability = cur_array.dtype().nullability();
+                frames.push(ScalarFrame::Union {
+                    variants,
+                    type_id,
+                    nullability,
+                });
+                cur_array = child;
+                continue;
+            }
+            if let Some(st) = cur_array.as_opt::<Struct>() {
+                if !is_valid_once(&cur_array, cur_index, ctx)? {
+                    break Scalar::null(cur_array.dtype().clone());
+                }
+                let nfields = st.iter_unmasked_fields().len();
+                let dtype = cur_array.dtype().clone();
+                if nfields == 0 {
+                    break unsafe { Scalar::new_unchecked(dtype, Some(ScalarValue::Tuple(Vec::new()))) };
+                }
+                let first = child_of(&cur_array, StructSlots::FIELDS_OFFSET)?
+                    .ok_or_else(|| {
+                        vortex_err!("Struct field slot {} is absent", StructSlots::FIELDS_OFFSET)
+                    })?
+                    .clone();
+                frames.push(ScalarFrame::Struct {
+                    dtype,
+                    owner: cur_array,
+                    index: cur_index,
+                    next_field: 1,
+                    nfields,
+                    values: Vec::with_capacity(nfields),
+                });
+                cur_array = first;
+                continue;
+            }
+            if let Some(list) = cur_array.as_opt::<List>() {
+                if !is_valid_once(&cur_array, cur_index, ctx)? {
+                    break Scalar::null(cur_array.dtype().clone());
+                }
+                let start = list.offset_at(cur_index, ctx)?;
+                let end = list.offset_at(cur_index + 1, ctx)?;
+                let elements = child_of(&cur_array, ListSlots::ELEMENTS)?
+                    .ok_or_else(|| vortex_err!("List elements slot is missing"))?
+                    .clone();
+                let element_dtype = elements.dtype().clone();
+                let nullability = cur_array.dtype().nullability();
+                if start == end {
+                    break Scalar::list(Arc::new(element_dtype), Vec::new(), nullability);
+                }
+                frames.push(ScalarFrame::Sequence {
+                    element_dtype,
+                    nullability,
+                    fixed_size: false,
+                    elements: elements.clone(),
+                    cur: start + 1,
+                    end,
+                    items: Vec::with_capacity(end - start),
+                });
+                cur_array = elements;
+                cur_index = start;
+                continue;
+            }
+            if let Some(lv) = cur_array.as_opt::<ListView>() {
+                if !is_valid_once(&cur_array, cur_index, ctx)? {
+                    break Scalar::null(cur_array.dtype().clone());
+                }
+                let offset = lv.offset_at(cur_index, ctx);
+                let size = lv.size_at(cur_index, ctx);
+                let elements = child_of(&cur_array, ListViewSlots::ELEMENTS)?
+                    .ok_or_else(|| vortex_err!("ListView elements slot is missing"))?
+                    .clone();
+                let element_dtype = elements.dtype().clone();
+                let nullability = cur_array.dtype().nullability();
+                if size == 0 {
+                    break Scalar::list(Arc::new(element_dtype), Vec::new(), nullability);
+                }
+                frames.push(ScalarFrame::Sequence {
+                    element_dtype,
+                    nullability,
+                    fixed_size: false,
+                    elements: elements.clone(),
+                    cur: offset + 1,
+                    end: offset + size,
+                    items: Vec::with_capacity(size),
+                });
+                cur_array = elements;
+                cur_index = offset;
+                continue;
+            }
+            if let Some(fsl) = cur_array.as_opt::<FixedSizeList>() {
+                if !is_valid_once(&cur_array, cur_index, ctx)? {
+                    break Scalar::null(cur_array.dtype().clone());
+                }
+                let list_size = fsl.list_size() as usize;
+                let elements = child_of(&cur_array, FixedSizeListSlots::ELEMENTS)?
+                    .ok_or_else(|| vortex_err!("FixedSizeList elements slot is missing"))?
+                    .clone();
+                let element_dtype = elements.dtype().clone();
+                let nullability = cur_array.dtype().nullability();
+                if list_size == 0 {
+                    break Scalar::fixed_size_list(element_dtype, Vec::new(), nullability);
+                }
+                let start = list_size * cur_index;
+                let end = start + list_size;
+                frames.push(ScalarFrame::Sequence {
+                    element_dtype,
+                    nullability,
+                    fixed_size: true,
+                    elements: elements.clone(),
+                    cur: start + 1,
+                    end,
+                    items: Vec::with_capacity(list_size),
+                });
+                cur_array = elements;
+                cur_index = start;
+                continue;
+            }
+            if cur_array.is::<Map>() {
+                if !is_valid_once(&cur_array, cur_index, ctx)? {
+                    break Scalar::null(cur_array.dtype().clone());
+                }
+                let entries = child_of(&cur_array, MapSlots::ENTRIES)?
+                    .ok_or_else(|| vortex_err!("Map entries slot is missing"))?;
+                let entries_owned;
+                let (entries_ref, entries_lv) = if let Some(lv) = entries.as_opt::<ListView>() {
+                    (entries, lv)
+                } else {
+                    entries_owned = entries.clone().execute::<ListViewArray>(ctx)?.into_array();
+                    (&entries_owned, entries_owned.as_::<ListView>())
+                };
+                let offset = entries_lv.offset_at(cur_index, ctx);
+                let size = entries_lv.size_at(cur_index, ctx);
+                let entries_el = child_of(entries_ref, ListViewSlots::ELEMENTS)?
+                    .ok_or_else(|| vortex_err!("ListView elements slot is missing"))?
+                    .clone();
+                let dtype = cur_array.dtype().clone();
+                let Some(map_dtype) = dtype.as_map_opt() else {
+                    vortex_bail!("MapArray requires a map dtype");
+                };
+                if size == 0 {
+                    break Scalar::try_map(dtype, Vec::new())?;
+                }
+                let key_dtype = map_dtype.key_dtype().clone();
+                let val_dtype = map_dtype.value_dtype().clone();
+                frames.push(ScalarFrame::Map {
+                    dtype,
+                    key_dtype,
+                    val_dtype,
+                    entries_el: entries_el.clone(),
+                    cur: offset + 1,
+                    end: offset + size,
+                    pairs: Vec::with_capacity(size),
+                });
+                cur_array = entries_el;
+                cur_index = offset;
+                continue;
+            }
+
+            break check_dtype(
+                &cur_array,
+                cur_array
+                    .dyn_array()
+                    .probe_scalar_once(&cur_array, cur_index, ctx),
+            )?;
+        };
+
+        while let Some(frame) = frames.pop() {
+            completed = match frame {
+                ScalarFrame::Masked => completed.into_nullable(),
+                ScalarFrame::Dict { dtype } => completed
+                    .cast(&dtype)
+                    .vortex_expect("Array dtype will only differ by nullability"),
+                ScalarFrame::Extension { ext_dtype } => {
+                    Scalar::try_extension_ref(ext_dtype, completed)?
+                }
+                ScalarFrame::Union {
+                    variants,
+                    type_id,
+                    nullability,
+                } => Scalar::union(variants, type_id, completed, nullability)?,
+                ScalarFrame::Struct {
+                    dtype,
+                    owner,
+                    index,
+                    next_field,
+                    nfields,
+                    mut values,
+                } => {
+                    values.push(completed.into_value());
+                    if next_field < nfields {
+                        let slot = StructSlots::FIELDS_OFFSET + next_field;
+                        let field_arr = child_of(&owner, slot)?
+                            .ok_or_else(|| vortex_err!("Struct field slot {slot} is absent"))?
+                            .clone();
+                        frames.push(ScalarFrame::Struct {
+                            dtype,
+                            owner,
+                            index,
+                            next_field: next_field + 1,
+                            nfields,
+                            values,
+                        });
+                        cur_array = field_arr;
+                        cur_index = index;
+                        continue 'visit;
+                    }
+                    unsafe { Scalar::new_unchecked(dtype, Some(ScalarValue::Tuple(values))) }
+                }
+                ScalarFrame::Sequence {
+                    element_dtype,
+                    nullability,
+                    fixed_size,
+                    elements,
+                    cur,
+                    end,
+                    mut items,
+                } => {
+                    items.push(completed);
+                    if cur < end {
+                        let next_elem = elements.clone();
+                        frames.push(ScalarFrame::Sequence {
+                            element_dtype,
+                            nullability,
+                            fixed_size,
+                            elements,
+                            cur: cur + 1,
+                            end,
+                            items,
+                        });
+                        cur_array = next_elem;
+                        cur_index = cur;
+                        continue 'visit;
+                    }
+                    if fixed_size {
+                        Scalar::fixed_size_list(element_dtype, items, nullability)
+                    } else {
+                        Scalar::list(Arc::new(element_dtype), items, nullability)
+                    }
+                }
+                ScalarFrame::Map {
+                    dtype,
+                    key_dtype,
+                    val_dtype,
+                    entries_el,
+                    cur,
+                    end,
+                    mut pairs,
+                } => {
+                    let mut completed_val = completed.into_value();
+                    let Some(ScalarValue::Tuple(tuple_vals)) = completed_val.as_mut() else {
+                        vortex_bail!("Map entry scalar must be a two-field struct");
+                    };
+                    let mut pair_vals = std::mem::take(tuple_vals);
+                    if pair_vals.len() != 2 {
+                        vortex_bail!("Map entry struct must have key and value fields");
+                    }
+                    let val_raw = pair_vals.pop().vortex_expect("checked len == 2");
+                    let key_raw = pair_vals.pop().vortex_expect("checked len == 2");
+                    let key = unsafe { Scalar::new_unchecked(key_dtype.clone(), key_raw) };
+                    let val = unsafe { Scalar::new_unchecked(val_dtype.clone(), val_raw) };
+                    pairs.push((key, val));
+                    if cur < end {
+                        let next_el = entries_el.clone();
+                        frames.push(ScalarFrame::Map {
+                            dtype,
+                            key_dtype,
+                            val_dtype,
+                            entries_el,
+                            cur: cur + 1,
+                            end,
+                            pairs,
+                        });
+                        cur_array = next_el;
+                        cur_index = cur;
+                        continue 'visit;
+                    }
+                    Scalar::try_map(dtype, pairs)?
+                }
+            };
+        }
+
+        return check_dtype(root, Ok(completed));
+    }
 }
 
 /// One-off validity read: nothing outlives the call.

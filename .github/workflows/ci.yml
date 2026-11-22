@@ -35,7 +35,7 @@ jobs:
         with:
           toolchain: ${{ env.SHARDLOOM_RUST_TOOLCHAIN }}
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@eedcf2fb1c22f010a0eb66b92f378c110977f266 # Swatinem/rust-cache@v2
         with:
           key: ci-work-shaping-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
       - name: Collect changed files
@@ -97,7 +97,7 @@ jobs:
         with:
           toolchain: ${{ env.SHARDLOOM_RUST_TOOLCHAIN }}
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@eedcf2fb1c22f010a0eb66b92f378c110977f266 # Swatinem/rust-cache@v2
         with:
           key: rust-baseline-${{ matrix.lane }}
       - name: Run Rust baseline lane
@@ -149,7 +149,7 @@ jobs:
         with:
           toolchain: ${{ env.SHARDLOOM_RUST_TOOLCHAIN }}
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@eedcf2fb1c22f010a0eb66b92f378c110977f266 # Swatinem/rust-cache@v2
         with:
           key: feature-${{ matrix.lane }}
       - name: Run feature lane
@@ -166,7 +166,7 @@ jobs:
         with:
           toolchain: ${{ env.SHARDLOOM_RUST_TOOLCHAIN }}
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@eedcf2fb1c22f010a0eb66b92f378c110977f266 # Swatinem/rust-cache@v2
         with:
           key: native-test-ci-native-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
       - name: Build one native test executable and complete inventory
@@ -227,7 +227,7 @@ jobs:
         with:
           toolchain: ${{ env.SHARDLOOM_RUST_TOOLCHAIN }}
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@eedcf2fb1c22f010a0eb66b92f378c110977f266 # Swatinem/rust-cache@v2
         with:
           workspaces: . -> target/providers
           key: providers-${{ matrix.group }}-${{ hashFiles('.github/provider-locks/*.lock', 'vendor/*/Cargo.toml') }}
@@ -284,7 +284,7 @@ jobs:
         with:
           toolchain: ${{ env.SHARDLOOM_RUST_TOOLCHAIN }}
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@eedcf2fb1c22f010a0eb66b92f378c110977f266 # Swatinem/rust-cache@v2
         with:
           key: native-cli-debug-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
       - name: Preserve ordinary debug native public-surface tests
@@ -310,7 +310,7 @@ jobs:
         with:
           toolchain: ${{ env.SHARDLOOM_RUST_TOOLCHAIN }}
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@eedcf2fb1c22f010a0eb66b92f378c110977f266 # Swatinem/rust-cache@v2
         with:
           key: native-cli-release-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
       - name: Build and seal exact CLI configuration
@@ -336,7 +336,7 @@ jobs:
         run: |
           rustup toolchain install "$SHARDLOOM_RUST_MSRV_TOOLCHAIN" --profile minimal
           rustup default "$SHARDLOOM_RUST_MSRV_TOOLCHAIN"
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@eedcf2fb1c22f010a0eb66b92f378c110977f266 # Swatinem/rust-cache@v2
         with:
           key: rust-msrv-${{ hashFiles('Cargo.toml') }}
       - name: Rust MSRV check
@@ -536,7 +536,7 @@ jobs:
           components: rustfmt, clippy
       - name: Cache Windows native package validation
         if: ${{ matrix.os == 'windows-latest' }}
-        uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@eedcf2fb1c22f010a0eb66b92f378c110977f266 # Swatinem/rust-cache@v2
         with:
           key: windows-release-user-surfaces
       - name: Build Windows native release CLI
@@ -573,7 +573,7 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7.1.0
         with:
           python-version: "3.10"
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@eedcf2fb1c22f010a0eb66b92f378c110977f266 # Swatinem/rust-cache@v2
         with:
           key: native-package-linux-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
       - name: Install pinned native wheel build tooling
@@ -615,7 +615,7 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7.1.0
         with:
           python-version: "3.13"
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@eedcf2fb1c22f010a0eb66b92f378c110977f266 # Swatinem/rust-cache@v2
         with:
           key: native-package-macos-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
       - name: Install pinned native wheel build tooling
@@ -766,7 +766,7 @@ jobs:
         with:
           toolchain: ${{ env.SHARDLOOM_RUST_TOOLCHAIN }}
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@eedcf2fb1c22f010a0eb66b92f378c110977f266 # Swatinem/rust-cache@v2
         with:
           prefix-key: python-package-nodebug-v1
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7.1.0
@@ -801,7 +801,7 @@ jobs:
         with:
           toolchain: ${{ env.SHARDLOOM_RUST_TOOLCHAIN }}
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@eedcf2fb1c22f010a0eb66b92f378c110977f266 # Swatinem/rust-cache@v2
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7.1.0
         with:
           python-version: "3.11"
@@ -841,7 +841,7 @@ jobs:
         with:
           toolchain: ${{ env.SHARDLOOM_RUST_TOOLCHAIN }}
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@eedcf2fb1c22f010a0eb66b92f378c110977f266 # Swatinem/rust-cache@v2
         with:
           key: release-runtime-core-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7.1.0

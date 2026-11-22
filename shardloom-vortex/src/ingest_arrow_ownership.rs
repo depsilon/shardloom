@@ -5,9 +5,12 @@
 //! Reader internals and provider allocations bypassing this boundary remain
 //! outside this scope. Admitted buffers own credits for their full lifetime.
 
+#[cfg(test)]
 use std::sync::Arc;
 
-use arrow_array::{Array as _, ArrayRef, BooleanArray, RecordBatch, cast::AsArray as _};
+#[cfg(test)]
+use arrow_array::BooleanArray;
+use arrow_array::{Array as _, ArrayRef, RecordBatch};
 use shardloom_core::{Result, ShardLoomError};
 use vortex::array::memory::HostAllocator;
 use vortex::buffer::Alignment;
@@ -129,24 +132,21 @@ pub(crate) fn batch_copy_allocation_bytes(batch: &RecordBatch) -> Result<u64> {
 }
 
 fn array_copy_allocation_bytes(array: &ArrayRef) -> Result<u64> {
-    let data = array.to_data();
+    let root = array.to_data();
     let mut sum = 0_u64;
-    for buffer in data.buffers() {
-        sum = sum
-            .checked_add(buffer_copy_allocation_bytes(buffer.len())?)
-            .ok_or_else(|| ownership_error("Arrow intake size overflow"))?;
-    }
-    if let Some(nulls) = data.nulls() {
-        sum = sum
-            .checked_add(buffer_copy_allocation_bytes(nulls.buffer().len())?)
-            .ok_or_else(|| ownership_error("Arrow validity size overflow"))?;
-    }
-    for child in data.child_data() {
-        sum = sum
-            .checked_add(array_copy_allocation_bytes(&arrow_array::make_array(
-                child.clone(),
-            ))?)
-            .ok_or_else(|| ownership_error("Arrow child size overflow"))?;
+    let mut stack = vec![&root];
+    while let Some(data) = stack.pop() {
+        for buffer in data.buffers() {
+            sum = sum
+                .checked_add(buffer_copy_allocation_bytes(buffer.len())?)
+                .ok_or_else(|| ownership_error("Arrow intake size overflow"))?;
+        }
+        if let Some(nulls) = data.nulls() {
+            sum = sum
+                .checked_add(buffer_copy_allocation_bytes(nulls.buffer().len())?)
+                .ok_or_else(|| ownership_error("Arrow validity size overflow"))?;
+        }
+        stack.extend(data.child_data().iter().rev());
     }
     Ok(sum)
 }
@@ -257,63 +257,126 @@ fn admit_batch_observed(
     Ok((retained, observation.counts))
 }
 
+struct ArrayTransformFrame {
+    dtype: arrow_schema::DataType,
+    length: usize,
+    nulls: Option<arrow_buffer::NullBuffer>,
+    offset: usize,
+    buffers: Vec<arrow_buffer::Buffer>,
+    remaining_children: std::vec::IntoIter<arrow_data::ArrayData>,
+    built_children: Vec<arrow_data::ArrayData>,
+}
+
+fn transform_array_data(
+    root: arrow_data::ArrayData,
+    mut transform_buffers: impl FnMut(
+        &arrow_schema::DataType,
+        usize,
+        Vec<arrow_buffer::Buffer>,
+        Option<arrow_buffer::NullBuffer>,
+    ) -> Result<(
+        Vec<arrow_buffer::Buffer>,
+        Option<arrow_buffer::NullBuffer>,
+    )>,
+) -> Result<arrow_data::ArrayData> {
+    let mut stack = Vec::<ArrayTransformFrame>::new();
+    let mut current = root;
+    loop {
+        let (dtype, length, nulls, offset, buffers, children) = current.into_parts();
+        let (buffers, nulls) = transform_buffers(&dtype, offset, buffers, nulls)?;
+        let child_count = children.len();
+        let mut remaining_children = children.into_iter();
+        if let Some(first_child) = remaining_children.next() {
+            stack.push(ArrayTransformFrame {
+                dtype,
+                length,
+                nulls,
+                offset,
+                buffers,
+                remaining_children,
+                built_children: Vec::with_capacity(child_count),
+            });
+            current = first_child;
+            continue;
+        }
+        let mut completed = arrow_data::ArrayData::builder(dtype)
+            .len(length)
+            .offset(offset)
+            .buffers(buffers)
+            .nulls(nulls)
+            .build()
+            .map_err(|error| {
+                ownership_error(&format!("Arrow retained array validation failed: {error}"))
+            })?;
+        loop {
+            let Some(mut frame) = stack.pop() else {
+                return Ok(completed);
+            };
+            frame.built_children.push(completed);
+            if let Some(next_child) = frame.remaining_children.next() {
+                stack.push(frame);
+                current = next_child;
+                break;
+            }
+            completed = arrow_data::ArrayData::builder(frame.dtype)
+                .len(frame.length)
+                .offset(frame.offset)
+                .buffers(frame.buffers)
+                .nulls(frame.nulls)
+                .child_data(frame.built_children)
+                .build()
+                .map_err(|error| {
+                    ownership_error(&format!("Arrow retained array validation failed: {error}"))
+                })?;
+        }
+    }
+}
+
 fn admit_array_data(
     data: arrow_data::ArrayData,
     allocator: &dyn HostAllocator,
     observation: &mut CopyObservation,
 ) -> Result<arrow_data::ArrayData> {
-    let (dtype, length, nulls, offset, buffers, children) = data.into_parts();
-    let layout = arrow_data::layout(&dtype);
-    let buffers = buffers
-        .into_iter()
-        .enumerate()
-        .map(|(index, buffer)| {
-            let alignment = match layout.buffers.get(index) {
-                Some(arrow_data::BufferSpec::FixedWidth { alignment, .. }) => Some(*alignment),
-                Some(arrow_data::BufferSpec::VariableWidth | arrow_data::BufferSpec::BitMap) => {
-                    Some(1)
-                }
-                None if layout.variadic => Some(1),
-                _ => None,
-            };
-            admit_buffer(
-                buffer,
-                alignment.filter(|_| offset == 0),
-                allocator,
-                observation,
-            )
-        })
-        .collect::<Result<Vec<_>>>()?;
-    let nulls = nulls
-        .map(|nulls| -> Result<_> {
-            let bits = nulls.into_inner();
-            let bit_offset = bits.offset();
-            let bit_length = bits.len();
-            let buffer = admit_buffer(
-                bits.into_inner(),
-                (bit_offset == 0).then_some(1),
-                allocator,
-                observation,
-            )?;
-            Ok(arrow_buffer::NullBuffer::new(
-                arrow_buffer::BooleanBuffer::new(buffer, bit_offset, bit_length),
-            ))
-        })
-        .transpose()?;
-    let children = children
-        .into_iter()
-        .map(|child| admit_array_data(child, allocator, observation))
-        .collect::<Result<Vec<_>>>()?;
-    arrow_data::ArrayData::builder(dtype)
-        .len(length)
-        .offset(offset)
-        .buffers(buffers)
-        .nulls(nulls)
-        .child_data(children)
-        .build()
-        .map_err(|error| {
-            ownership_error(&format!("Arrow retained array validation failed: {error}"))
-        })
+    transform_array_data(data, |dtype, offset, buffers, nulls| {
+        let layout = arrow_data::layout(dtype);
+        let buffers = buffers
+            .into_iter()
+            .enumerate()
+            .map(|(index, buffer)| {
+                let alignment = match layout.buffers.get(index) {
+                    Some(arrow_data::BufferSpec::FixedWidth { alignment, .. }) => Some(*alignment),
+                    Some(
+                        arrow_data::BufferSpec::VariableWidth | arrow_data::BufferSpec::BitMap,
+                    ) => Some(1),
+                    None if layout.variadic => Some(1),
+                    _ => None,
+                };
+                admit_buffer(
+                    buffer,
+                    alignment.filter(|_| offset == 0),
+                    allocator,
+                    observation,
+                )
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let nulls = nulls
+            .map(|nulls| -> Result<_> {
+                let bits = nulls.into_inner();
+                let bit_offset = bits.offset();
+                let bit_length = bits.len();
+                let buffer = admit_buffer(
+                    bits.into_inner(),
+                    (bit_offset == 0).then_some(1),
+                    allocator,
+                    observation,
+                )?;
+                Ok(arrow_buffer::NullBuffer::new(
+                    arrow_buffer::BooleanBuffer::new(buffer, bit_offset, bit_length),
+                ))
+            })
+            .transpose()?;
+        Ok((buffers, nulls))
+    })
 }
 
 fn admit_buffer(
@@ -424,57 +487,57 @@ fn copy_array(
     copy_array_data(array.to_data(), allocator, observation).map(arrow_array::make_array)
 }
 
+fn copy_owned_buffer(
+    buffer: &arrow_buffer::Buffer,
+    allocator: &dyn HostAllocator,
+    observation: Option<&mut CopyObservation>,
+) -> Result<arrow_buffer::Buffer> {
+    // Pinned Arrow 59.3 exposes the custom owner's visible byte length as
+    // capacity, so neither capacity nor pointer identity proves ownership.
+    // Copy every referenced region. Empty typed buffers still need an
+    // aligned pointer: retain a one-byte allocation behind an empty slice.
+    let length = buffer.len();
+    if let Some(observation) = observation {
+        observation.observe_region(
+            buffer,
+            RegionDisposition::Copied(ArrowCopyReason::CopyPolicy),
+        )?;
+    }
+    let mut admitted = allocator
+        .allocate(length.max(1), Alignment::DEFAULT_ALIGNMENT)
+        .map_err(|error| ownership_error(&error.to_string()))?;
+    admitted.as_mut_slice()[..length].copy_from_slice(buffer.as_slice());
+    let retained: arrow_buffer::Buffer = bytes::Bytes::from_owner(admitted.freeze()).into();
+    Ok(if length == 0 {
+        retained.slice_with_length(0, 0)
+    } else {
+        retained
+    })
+}
+
 fn copy_array_data(
     data: arrow_data::ArrayData,
     allocator: &dyn HostAllocator,
     mut observation: Option<&mut CopyObservation>,
 ) -> Result<arrow_data::ArrayData> {
-    // Preserve the provider's Arrow buffer layout while replacing its owners.
-    let (dtype, length, nulls, offset, mut buffers, children) = data.into_parts();
-    for buffer in &mut buffers {
-        // Pinned Arrow 59.3 exposes the custom owner's visible byte length as
-        // capacity, so neither capacity nor pointer identity proves ownership.
-        // Copy every referenced region. Empty typed buffers still need an
-        // aligned pointer: retain a one-byte allocation behind an empty slice.
-        let length = buffer.len();
-        if let Some(observation) = observation.as_deref_mut() {
-            observation.observe_region(
-                buffer,
-                RegionDisposition::Copied(ArrowCopyReason::CopyPolicy),
-            )?;
+    transform_array_data(data, |_, _, mut buffers, nulls| {
+        for buffer in &mut buffers {
+            *buffer = copy_owned_buffer(buffer, allocator, observation.as_deref_mut())?;
         }
-        let mut admitted = allocator
-            .allocate(length.max(1), Alignment::DEFAULT_ALIGNMENT)
-            .map_err(|error| ownership_error(&error.to_string()))?;
-        admitted.as_mut_slice()[..length].copy_from_slice(buffer.as_slice());
-        *buffer = bytes::Bytes::from_owner(admitted.freeze()).into();
-        if length == 0 {
-            *buffer = buffer.slice_with_length(0, 0);
-        }
-    }
-    let nulls = nulls
-        .map(|nulls| -> Result<_> {
-            // A BooleanArray round trip preserves independent validity bit
-            // offsets, including slices whose value offset differs from it.
-            let bits: ArrayRef = Arc::new(BooleanArray::new(nulls.into_inner(), None));
-            let retained = copy_array(&bits, allocator, observation.as_deref_mut())?;
-            Ok(retained.as_boolean().values().clone().into())
-        })
-        .transpose()?;
-    let children = children
-        .into_iter()
-        .map(|child| copy_array_data(child, allocator, observation.as_deref_mut()))
-        .collect::<Result<Vec<_>>>()?;
-    arrow_data::ArrayData::builder(dtype)
-        .len(length)
-        .offset(offset)
-        .buffers(buffers)
-        .nulls(nulls)
-        .child_data(children)
-        .build()
-        .map_err(|error| {
-            ownership_error(&format!("Arrow retained array validation failed: {error}"))
-        })
+        let nulls = nulls
+            .map(|nulls| -> Result<_> {
+                let bits = nulls.into_inner();
+                let bit_offset = bits.offset();
+                let bit_length = bits.len();
+                let copied =
+                    copy_owned_buffer(&bits.into_inner(), allocator, observation.as_deref_mut())?;
+                Ok(arrow_buffer::NullBuffer::new(
+                    arrow_buffer::BooleanBuffer::new(copied, bit_offset, bit_length),
+                ))
+            })
+            .transpose()?;
+        Ok((buffers, nulls))
+    })
 }
 
 fn ownership_error(message: &str) -> ShardLoomError {
@@ -488,22 +551,21 @@ fn ownership_error(message: &str) -> ShardLoomError {
 #[cfg(all(test, feature = "vortex-local-primitives", unix))]
 pub(crate) fn batch_copy_buffer_bytes(batch: &RecordBatch) -> Result<u64> {
     fn array_bytes(array: &ArrayRef) -> Result<u64> {
-        let data = array.to_data();
+        let root = array.to_data();
         let mut bytes = 0_u64;
-        for buffer in data.buffers() {
-            bytes = bytes
-                .checked_add(buffer.len() as u64)
-                .ok_or_else(|| ownership_error("Arrow copied buffer size overflow"))?;
-        }
-        if let Some(nulls) = data.nulls() {
-            bytes = bytes
-                .checked_add(nulls.buffer().len() as u64)
-                .ok_or_else(|| ownership_error("Arrow copied validity size overflow"))?;
-        }
-        for child in data.child_data() {
-            bytes = bytes
-                .checked_add(array_bytes(&arrow_array::make_array(child.clone()))?)
-                .ok_or_else(|| ownership_error("Arrow copied child size overflow"))?;
+        let mut stack = vec![&root];
+        while let Some(data) = stack.pop() {
+            for buffer in data.buffers() {
+                bytes = bytes
+                    .checked_add(buffer.len() as u64)
+                    .ok_or_else(|| ownership_error("Arrow copied buffer size overflow"))?;
+            }
+            if let Some(nulls) = data.nulls() {
+                bytes = bytes
+                    .checked_add(nulls.buffer().len() as u64)
+                    .ok_or_else(|| ownership_error("Arrow copied validity size overflow"))?;
+            }
+            stack.extend(data.child_data().iter().rev());
         }
         Ok(bytes)
     }
@@ -922,5 +984,72 @@ mod tests {
         assert!(memory.snapshot().peak_reserved_bytes > 0);
         assert_eq!(memory.snapshot().reserved_bytes, 0);
         assert!(dropped.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn deep_nested_ownership_copy_and_transfer_on_small_stack() {
+        use arrow_array::{ListArray, StructArray};
+        use arrow_buffer::OffsetBuffer;
+
+        let handle = std::thread::Builder::new()
+            .name("ingest_arrow_ownership::small_stack".into())
+            .stack_size(128 * 1024)
+            .spawn(|| {
+                let mut current: ArrayRef = Arc::new(Int64Array::from(vec![Some(42), None]));
+                for level in 0..2_048 {
+                    let field = Arc::new(Field::new("item", current.data_type().clone(), true));
+                    current = if level % 2 == 0 {
+                        Arc::new(ListArray::new(
+                            field,
+                            OffsetBuffer::new(vec![0_i32, 1, 2].into()),
+                            current,
+                            Some(vec![true, false].into()),
+                        ))
+                    } else {
+                        Arc::new(StructArray::new(
+                            vec![field].into(),
+                            vec![current],
+                            Some(vec![true, false].into()),
+                        ))
+                    };
+                }
+                let input = RecordBatch::try_new(
+                    Arc::new(Schema::new(vec![Field::new(
+                        "deep",
+                        current.data_type().clone(),
+                        true,
+                    )])),
+                    vec![current],
+                )
+                .unwrap();
+                let alloc_bytes = batch_copy_allocation_bytes(&input).unwrap();
+                let buffer_bytes = batch_copy_buffer_bytes(&input).unwrap();
+                assert!(alloc_bytes > buffer_bytes);
+
+                let memory = LiveMemoryPool::new(alloc_bytes * 2).unwrap();
+                let copied =
+                    copy_batch(input.clone(), &ReservedHostAllocator::new(memory.clone())).unwrap();
+                assert_eq!(&copied, &input);
+                assert_eq!(memory.snapshot().reserved_bytes, alloc_bytes);
+                drop(copied);
+                assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+                let (admitted, counts) = admit_batch_profiled(
+                    input.clone(),
+                    &ReservedHostAllocator::new(memory.clone()),
+                    ArrowOwnershipPolicy::ControlledParquet,
+                )
+                .unwrap();
+                assert_eq!(&admitted, &input);
+                assert!(counts.buffer_regions > 2_048);
+                drop(admitted);
+                assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+                let tiny = LiveMemoryPool::new(alloc_bytes / 2).unwrap();
+                assert!(copy_batch(input, &ReservedHostAllocator::new(tiny.clone())).is_err());
+                assert_eq!(tiny.snapshot().reserved_bytes, 0);
+            })
+            .unwrap();
+        handle.join().unwrap();
     }
 }

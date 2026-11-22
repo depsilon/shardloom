@@ -46,8 +46,19 @@ use vortex_session::VortexSession;
 use vortex_utils::aliases::hash_map::HashMap;
 
 use crate::ArrayRef;
+use crate::arrays::Chunked;
+use crate::arrays::Constant;
+use crate::arrays::Dict;
+use crate::arrays::Filter;
+use crate::arrays::Masked;
+use crate::arrays::RunEnd;
+use crate::arrays::ScalarFn;
+use crate::arrays::Slice;
+use crate::dtype::DType;
+use crate::expr::stats::Stat;
 use crate::optimizer::kernels::ArrayKernels;
 use crate::optimizer::kernels::ArrayKernelsExt;
+use crate::scalar::ScalarValue;
 use crate::trace_op;
 
 pub mod kernels;
@@ -60,6 +71,8 @@ mod reference;
 
 #[cfg(test)]
 mod continuation_tests;
+#[cfg(test)]
+mod pushdown_tests;
 
 /// Last zero-based fixpoint pass attempted before treating continued rewrites as an infinite loop.
 /// Increasing this value permits longer rewrite chains but delays detection of cyclic rules.
@@ -236,6 +249,82 @@ impl<'a> Optimizer<'a> {
     fn optimize_root(&mut self, array: ArrayRef) -> VortexResult<ArrayRef> {
         continuation::optimize_root(self, array)
     }
+}
+
+pub(crate) fn is_nested_or_wrapper(array: &ArrayRef) -> bool {
+    if array.is::<Constant>() {
+        return false;
+    }
+    matches!(
+        array.dtype(),
+        DType::Struct(..)
+            | DType::List(..)
+            | DType::FixedSizeList(..)
+            | DType::Map(..)
+            | DType::Extension(..)
+            | DType::Variant(..)
+            | DType::Union(..)
+    ) || array.is::<Chunked>()
+        || array.is::<Masked>()
+        || array.is::<Slice>()
+        || array.is::<Filter>()
+        || array.is::<Dict>()
+        || array.is::<ScalarFn>()
+        || array.is::<RunEnd>()
+}
+
+pub(crate) fn inherit_slice_stats(source: &ArrayRef, sliced: &ArrayRef) {
+    if !sliced.is::<Constant>() {
+        source.statistics().with_iter(|iter| {
+            sliced.statistics().inherit(iter.filter(|(stat, value)| {
+                matches!(
+                    stat,
+                    Stat::IsConstant | Stat::IsSorted | Stat::IsStrictSorted
+                ) && value
+                    .as_ref()
+                    .as_exact()
+                    .is_some_and(|v| matches!(v, ScalarValue::Bool(true)))
+            }));
+        });
+    }
+}
+
+pub(crate) fn optimize_slice_root(source: &ArrayRef, sliced: ArrayRef) -> VortexResult<ArrayRef> {
+    if is_nested_or_wrapper(source) {
+        if continuation::is_defer_active() {
+            continuation::defer_wrapper(
+                &sliced,
+                continuation::DeferredMeta::Slice {
+                    source: source.clone(),
+                },
+            );
+            return Ok(sliced);
+        }
+        if continuation::should_defer_pushdown() {
+            return continuation::optimize_deferred_root(
+                sliced,
+                continuation::DeferredMeta::Slice {
+                    source: source.clone(),
+                },
+            );
+        }
+    }
+    let result = sliced.optimize()?;
+    inherit_slice_stats(source, &result);
+    Ok(result)
+}
+
+pub(crate) fn optimize_wrapper_root(source: &ArrayRef, wrapper: ArrayRef) -> VortexResult<ArrayRef> {
+    if is_nested_or_wrapper(source) {
+        if continuation::is_defer_active() {
+            continuation::defer_wrapper(&wrapper, continuation::DeferredMeta::Plain);
+            return Ok(wrapper);
+        }
+        if continuation::should_defer_pushdown() {
+            return continuation::optimize_deferred_root(wrapper, continuation::DeferredMeta::Plain);
+        }
+    }
+    wrapper.optimize()
 }
 
 fn try_session_parent_reduce(

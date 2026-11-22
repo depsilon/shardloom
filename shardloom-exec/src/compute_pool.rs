@@ -6,11 +6,13 @@ use std::{
     sync::{
         Arc, Condvar, Mutex,
         atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
-        mpsc,
     },
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
+
+#[cfg(test)]
+use std::sync::mpsc;
 
 use shardloom_core::{Result, ShardLoomError};
 
@@ -171,12 +173,15 @@ struct Queue {
     peak_jobs: usize,
     active: usize,
     peak_active: usize,
+    idle_workers: usize,
+    waiting_producers: usize,
     closed: bool,
 }
 
 struct Shared {
     queue: Mutex<Queue>,
-    changed: Condvar,
+    worker_ready: Condvar,
+    producer_ready: Condvar,
     memory: LiveMemoryPool,
     worker_count: usize,
     queue_limit: usize,
@@ -185,8 +190,53 @@ struct Shared {
     completed: AtomicU64,
     worker_busy_nanos: AtomicU64,
     enqueue_wait_nanos: AtomicU64,
-    waiting_producers: AtomicUsize,
     waits: Option<Box<WaitStats>>,
+}
+
+struct OneshotInner<T> {
+    result: Option<Result<Budgeted<T>>>,
+    disconnected: bool,
+}
+
+struct OneshotSlot<T> {
+    state: Mutex<OneshotInner<T>>,
+    ready: Condvar,
+}
+
+struct OneshotSender<T> {
+    slot: Arc<OneshotSlot<T>>,
+    sent: bool,
+}
+
+impl<T> OneshotSender<T> {
+    fn send(mut self, value: Result<Budgeted<T>>) {
+        self.sent = true;
+        {
+            let mut state = self
+                .slot
+                .state
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            state.result = Some(value);
+        }
+        self.slot.ready.notify_one();
+    }
+}
+
+impl<T> Drop for OneshotSender<T> {
+    fn drop(&mut self) {
+        if !self.sent {
+            {
+                let mut state = self
+                    .slot
+                    .state
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                state.disconnected = true;
+            }
+            self.slot.ready.notify_one();
+        }
+    }
 }
 
 struct WaitStats {
@@ -293,7 +343,8 @@ impl ComputePool {
         let mut pool = Self {
             shared: Arc::new(Shared {
                 queue: Mutex::new(Queue::default()),
-                changed: Condvar::new(),
+                worker_ready: Condvar::new(),
+                producer_ready: Condvar::new(),
                 memory,
                 worker_count: workers,
                 queue_limit,
@@ -302,7 +353,6 @@ impl ComputePool {
                 completed: AtomicU64::new(0),
                 worker_busy_nanos: AtomicU64::new(0),
                 enqueue_wait_nanos: AtomicU64::new(0),
-                waiting_producers: AtomicUsize::new(0),
                 waits,
             }),
             workers: Vec::with_capacity(workers),
@@ -341,7 +391,7 @@ impl ComputePool {
             completed_jobs: self.shared.completed.load(Ordering::Relaxed),
             worker_busy_nanos: self.shared.worker_busy_nanos.load(Ordering::Relaxed),
             enqueue_wait_nanos: self.shared.enqueue_wait_nanos.load(Ordering::Relaxed),
-            waiting_producers: self.shared.waiting_producers.load(Ordering::Relaxed),
+            waiting_producers: queue.waiting_producers,
             queue_closed: queue.closed,
             waits: self.shared.waits.as_ref().map(|waits| waits.snapshot()),
         }
@@ -366,8 +416,9 @@ impl ComputePool {
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
             queue.closed = true;
-            self.shared.changed.notify_all();
         }
+        self.shared.worker_ready.notify_all();
+        self.shared.producer_ready.notify_all();
         for worker in self.workers.drain(..) {
             if worker.thread().id() != thread::current().id() {
                 let _ = worker.join();
@@ -400,7 +451,17 @@ impl ComputePool {
         if bytes > self.shared.queue_byte_limit {
             return Err(pool_error("compute input exceeds queue byte limit"));
         }
-        let (sender, receiver) = mpsc::sync_channel(1);
+        let slot = Arc::new(OneshotSlot {
+            state: Mutex::new(OneshotInner {
+                result: None,
+                disconnected: false,
+            }),
+            ready: Condvar::new(),
+        });
+        let sender = OneshotSender {
+            slot: Arc::clone(&slot),
+            sent: false,
+        };
         let enqueue_cancellation = cancellation.clone();
         let token = cancellation;
         let run = Box::new(move |worker_index, shared: &Shared| {
@@ -420,55 +481,56 @@ impl ComputePool {
             if result.is_err() {
                 token.cancel();
             }
-            let _ = sender.send(result);
+            sender.send(result);
         });
         let queued = QueuedJob { bytes, run };
         let started = Instant::now();
-        let mut queue = self
-            .shared
-            .queue
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        loop {
-            enqueue_cancellation.check()?;
-            if queue.closed {
-                return Err(pool_error("compute pool is closed"));
-            }
-            if queue.jobs.len() < self.shared.queue_limit
-                && bytes <= self.shared.queue_byte_limit - queue.bytes
-            {
-                break;
-            }
-            // Timed waiting makes cancellation observable even when no worker frees a slot.
-            self.shared
-                .waiting_producers
-                .fetch_add(1, Ordering::Relaxed);
-            let wait_started = self.shared.waits.as_ref().map(|_| Instant::now());
-            queue = self
+        let wake_worker = {
+            let mut queue = self
                 .shared
-                .changed
-                .wait_timeout(queue, Duration::from_millis(10))
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .0;
-            if let (Some(waits), Some(started)) = (&self.shared.waits, wait_started) {
-                waits.capacity_waits.fetch_add(1, Ordering::Relaxed);
-                waits
-                    .capacity_wait_nanos
-                    .fetch_add(elapsed_nanos(started), Ordering::Relaxed);
+                .queue
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            loop {
+                enqueue_cancellation.check()?;
+                if queue.closed {
+                    return Err(pool_error("compute pool is closed"));
+                }
+                if queue.jobs.len() < self.shared.queue_limit
+                    && bytes <= self.shared.queue_byte_limit - queue.bytes
+                {
+                    break;
+                }
+                // Timed waiting makes cancellation observable even when no worker frees a slot.
+                queue.waiting_producers += 1;
+                let wait_started = self.shared.waits.as_ref().map(|_| Instant::now());
+                queue = self
+                    .shared
+                    .producer_ready
+                    .wait_timeout(queue, Duration::from_millis(10))
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .0;
+                queue.waiting_producers -= 1;
+                if let (Some(waits), Some(started)) = (&self.shared.waits, wait_started) {
+                    waits.capacity_waits.fetch_add(1, Ordering::Relaxed);
+                    waits
+                        .capacity_wait_nanos
+                        .fetch_add(elapsed_nanos(started), Ordering::Relaxed);
+                }
             }
-            self.shared
-                .waiting_producers
-                .fetch_sub(1, Ordering::Relaxed);
-        }
-        queue.bytes += bytes;
-        queue.jobs.push_back(queued);
-        queue.peak_bytes = queue.peak_bytes.max(queue.bytes);
-        queue.peak_jobs = queue.peak_jobs.max(queue.jobs.len());
+            queue.bytes += bytes;
+            queue.jobs.push_back(queued);
+            queue.peak_bytes = queue.peak_bytes.max(queue.bytes);
+            queue.peak_jobs = queue.peak_jobs.max(queue.jobs.len());
+            queue.idle_workers > 0
+        };
         self.shared
             .enqueue_wait_nanos
             .fetch_add(elapsed_nanos(started), Ordering::Relaxed);
-        self.shared.changed.notify_all();
-        Ok(ComputeTask { receiver })
+        if wake_worker {
+            self.shared.worker_ready.notify_one();
+        }
+        Ok(ComputeTask { slot })
     }
 }
 
@@ -479,16 +541,31 @@ impl Drop for ComputePool {
 }
 
 pub struct ComputeTask<T> {
-    receiver: mpsc::Receiver<Result<Budgeted<T>>>,
+    slot: Arc<OneshotSlot<T>>,
 }
 
 impl<T> ComputeTask<T> {
     /// # Errors
     /// Returns the task's native error or a disconnected-worker error.
     pub fn join(self) -> Result<Budgeted<T>> {
-        self.receiver
-            .recv()
-            .map_err(|_| pool_error("compute worker disconnected"))?
+        let mut state = self
+            .slot
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        loop {
+            if let Some(result) = state.result.take() {
+                return result;
+            }
+            if state.disconnected {
+                return Err(pool_error("compute worker disconnected"));
+            }
+            state = self
+                .slot
+                .ready
+                .wait(state)
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+        }
     }
 }
 
@@ -505,20 +582,26 @@ fn worker_loop(index: usize, shared: &Shared) {
                     queue.active += 1;
                     queue.peak_active = queue.peak_active.max(queue.active);
                     debug_assert!(queue.active <= shared.worker_count);
-                    shared.changed.notify_all();
+                    let wake_producers = queue.waiting_producers > 0;
+                    drop(queue);
+                    if wake_producers {
+                        shared.producer_ready.notify_all();
+                    }
                     break job;
                 }
                 if queue.closed {
                     return;
                 }
+                queue.idle_workers += 1;
                 let wait_started = shared.waits.as_ref().map(|waits| {
                     waits.waiting_workers.fetch_add(1, Ordering::Relaxed);
                     Instant::now()
                 });
                 queue = shared
-                    .changed
+                    .worker_ready
                     .wait(queue)
                     .unwrap_or_else(std::sync::PoisonError::into_inner);
+                queue.idle_workers -= 1;
                 if let (Some(waits), Some(started)) = (&shared.waits, wait_started) {
                     waits.waiting_workers.fetch_sub(1, Ordering::Relaxed);
                     waits.empty_queue_waits.fetch_add(1, Ordering::Relaxed);
@@ -539,7 +622,6 @@ fn worker_loop(index: usize, shared: &Shared) {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         queue.active -= 1;
-        shared.changed.notify_all();
     }
 }
 

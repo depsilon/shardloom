@@ -245,49 +245,58 @@ fn align_with_handoff(
     })
 }
 
-fn null_capacity(dtype: &DataType, rows: u64) -> Result<u64> {
-    let base = add(
-        mul(
-            rows.checked_add(1)
-                .ok_or_else(|| failed("null row count overflow"))?,
-            16,
-        )?,
-        1024,
-    )?;
-    Ok(match dtype {
-        DataType::Struct(fields) => fields.iter().try_fold(base, |sum, field| {
-            add(sum, null_capacity(field.data_type(), rows)?)
-        })?,
-        DataType::FixedSizeList(field, width) => add(
-            base,
-            null_capacity(
-                field.data_type(),
-                mul(rows, u64::try_from(*width).map_err(failed)?)?,
+fn null_capacity(root: &DataType, initial_rows: u64) -> Result<u64> {
+    let mut total = 0_u64;
+    let mut stack = vec![(root, initial_rows)];
+    while let Some((dtype, rows)) = stack.pop() {
+        let base = add(
+            mul(
+                rows.checked_add(1)
+                    .ok_or_else(|| failed("null row count overflow"))?,
+                16,
             )?,
-        )?,
-        DataType::FixedSizeBinary(width) => {
-            add(base, mul(rows, u64::try_from(*width).map_err(failed)?)?)?
-        }
-        DataType::Dictionary(key, _) => add(base, null_capacity(key, rows)?)?,
-        _ => add(
-            base,
-            mul(rows, dtype.primitive_width().unwrap_or(16) as u64)?,
-        )?,
-    })
+            1024,
+        )?;
+        let extra = match dtype {
+            DataType::Struct(fields) => {
+                stack.extend(fields.iter().map(|field| (field.data_type(), rows)));
+                0
+            }
+            DataType::FixedSizeList(field, width) => {
+                stack.push((
+                    field.data_type(),
+                    mul(rows, u64::try_from(*width).map_err(failed)?)?,
+                ));
+                0
+            }
+            DataType::FixedSizeBinary(width) => mul(rows, u64::try_from(*width).map_err(failed)?)?,
+            DataType::Dictionary(key, _) => {
+                stack.push((key, rows));
+                0
+            }
+            _ => mul(rows, dtype.primitive_width().unwrap_or(16) as u64)?,
+        };
+        total = add(total, add(base, extra)?)?;
+    }
+    Ok(total)
 }
 
-pub(super) fn physical_leaves(dtype: &DataType) -> usize {
-    match dtype {
-        DataType::Struct(fields) => fields
-            .iter()
-            .map(|field| physical_leaves(field.data_type()))
-            .sum(),
-        DataType::List(field)
-        | DataType::LargeList(field)
-        | DataType::FixedSizeList(field, _)
-        | DataType::Map(field, _) => physical_leaves(field.data_type()),
-        _ => 1,
+pub(super) fn physical_leaves(root: &DataType) -> usize {
+    let mut count = 0_usize;
+    let mut stack = vec![root];
+    while let Some(dtype) = stack.pop() {
+        match dtype {
+            DataType::Struct(fields) => {
+                stack.extend(fields.iter().map(|field| field.data_type()));
+            }
+            DataType::List(field)
+            | DataType::LargeList(field)
+            | DataType::FixedSizeList(field, _)
+            | DataType::Map(field, _) => stack.push(field.data_type()),
+            _ => count += 1,
+        }
     }
+    count
 }
 
 fn add(left: u64, right: u64) -> Result<u64> {

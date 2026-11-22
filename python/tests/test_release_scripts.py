@@ -5201,6 +5201,8 @@ class ReleaseScriptTests(unittest.TestCase):
                 self._dependabot_pr(1569, "Bump sha2 from 0.11.0 to 0.11.1"),
                 self._dependabot_pr(1570, "Bump serde_json from 1.0.151 to 1.0.154"),
                 self._dependabot_pr(1636, "Bump rusqlite from 0.40.2 to 0.41.1"),
+                self._dependabot_pr(1701, "Bump regex from 1.13.1 to 1.13.2"),
+                self._dependabot_pr(1705, "Bump rusqlite from 0.41.1 to 0.43.0"),
             ],
             open_prs_status="loaded_from_file",
             require_live_github=True,
@@ -5209,7 +5211,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["status"], "passed", report["blockers"])
         self.assertEqual(
             report["admitted_open_dependabot_prs"],
-            [1149, 1151, 1152, 1153, 1223, 1392, 1569, 1570, 1636],
+            [1149, 1151, 1152, 1153, 1223, 1392, 1569, 1570, 1636, 1701, 1705],
         )
         self.assertTrue(report["benchmark_refresh_allowed"])
         self.assertFalse(report["benchmark_run_performed"])
@@ -5257,11 +5259,12 @@ class ReleaseScriptTests(unittest.TestCase):
             "check_pre_5j_dependency_freshness_patch_versions_for_test",
         )
         current = module.cargo_lock_versions(REPO_ROOT)
-        for dependency, previous, historical_pr, patch_pr in (
-            ("serde_json", "1.0.151", 1151, 1570),
-            ("sha2", "0.11.0", 1152, 1569),
-            ("rusqlite", "0.40.2", 1153, 1636),
-            ("libsqlite3-sys", "0.38.2", 1153, 1636),
+        for dependency, previous, expected_prs, patch_pr in (
+            ("serde_json", "1.0.151", (1151, 1570), 1570),
+            ("sha2", "0.11.0", (1152, 1569), 1569),
+            ("rusqlite", "0.41.1", (1153, 1636, 1705), 1705),
+            ("libsqlite3-sys", "0.39.1", (1153, 1636, 1705), 1705),
+            ("regex", "1.13.1", (1392, 1701), 1701),
         ):
             for version in (previous, "999.0.0"):
                 with self.subTest(dependency=dependency, version=version):
@@ -5281,8 +5284,8 @@ class ReleaseScriptTests(unittest.TestCase):
                         row["pr_number"] for row in report["admitted_dependabot_prs"]
                         if row["status"] == "blocked"
                     ]
-                    self.assertEqual(sorted(blocked), sorted((historical_pr, patch_pr)))
-                    for number in (historical_pr, patch_pr):
+                    self.assertEqual(sorted(blocked), sorted(expected_prs))
+                    for number in expected_prs:
                         self.assertIn(
                             f"PR #{number}: Cargo.lock {dependency}={version!r}",
                             report["blockers"],

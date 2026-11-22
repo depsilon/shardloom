@@ -32,60 +32,110 @@ pub(crate) fn schema(source: &SchemaRef) -> Result<SchemaRef> {
     )))
 }
 
-fn dtype(source: &DataType) -> Result<DataType> {
-    Ok(match source {
-        DataType::UInt8 => DataType::Int16,
-        DataType::UInt16 => DataType::Int32,
-        DataType::UInt32 | DataType::UInt64 => DataType::Int64,
-        DataType::Date64 => DataType::Date32,
-        DataType::LargeUtf8 => DataType::Utf8,
-        DataType::LargeBinary => DataType::Binary,
-        DataType::Timestamp(unit, zone) => {
-            DataType::Timestamp(*unit, zone.as_ref().map(|_| "UTC".into()))
+enum DTypeFrame<'a> {
+    List {
+        name: &'a str,
+        nullable: bool,
+    },
+    Struct {
+        pending: std::slice::Iter<'a, Arc<Field>>,
+        current_field: &'a Field,
+        built: Vec<Field>,
+    },
+}
+
+fn dtype(root: &DataType) -> Result<DataType> {
+    let mut stack = Vec::<DTypeFrame<'_>>::new();
+    let mut current = root;
+    loop {
+        let mut completed = match current {
+            DataType::UInt8 => DataType::Int16,
+            DataType::UInt16 => DataType::Int32,
+            DataType::UInt32 | DataType::UInt64 => DataType::Int64,
+            DataType::Date64 => DataType::Date32,
+            DataType::LargeUtf8 => DataType::Utf8,
+            DataType::LargeBinary => DataType::Binary,
+            DataType::Timestamp(unit, zone) => {
+                DataType::Timestamp(*unit, zone.as_ref().map(|_| "UTC".into()))
+            }
+            DataType::List(child)
+            | DataType::LargeList(child)
+            | DataType::FixedSizeList(child, _) => {
+                stack.push(DTypeFrame::List {
+                    name: child.name(),
+                    nullable: child.is_nullable(),
+                });
+                current = child.data_type();
+                continue;
+            }
+            DataType::Struct(children) => {
+                let mut pending = children.iter();
+                if let Some(first) = pending.next() {
+                    stack.push(DTypeFrame::Struct {
+                        pending,
+                        current_field: first,
+                        built: Vec::with_capacity(children.len()),
+                    });
+                    current = first.data_type();
+                    continue;
+                }
+                DataType::Struct(Vec::<Field>::new().into())
+            }
+            DataType::Decimal128(precision, scale)
+                if (1..=38).contains(precision)
+                    && *scale >= 0
+                    && i16::from(*scale) <= i16::from(*precision) =>
+            {
+                current.clone()
+            }
+            DataType::Boolean
+            | DataType::Int8
+            | DataType::Int16
+            | DataType::Int32
+            | DataType::Int64
+            | DataType::Float32
+            | DataType::Float64
+            | DataType::Utf8
+            | DataType::Binary
+            | DataType::Date32 => current.clone(),
+            _ => {
+                return Err(error(&format!(
+                    "unsupported writer dtype {current:?}; ORC has no admitted exact mapping for this type"
+                )));
+            }
+        };
+        loop {
+            let Some(frame) = stack.pop() else {
+                return Ok(completed);
+            };
+            completed = match frame {
+                DTypeFrame::List { name, nullable } => {
+                    DataType::List(Arc::new(Field::new(name, completed, nullable)))
+                }
+                DTypeFrame::Struct {
+                    mut pending,
+                    current_field,
+                    mut built,
+                } => {
+                    built.push(Field::new(
+                        current_field.name(),
+                        completed,
+                        current_field.is_nullable(),
+                    ));
+                    if let Some(next_field) = pending.next() {
+                        stack.push(DTypeFrame::Struct {
+                            pending,
+                            current_field: next_field,
+                            built,
+                        });
+                        current = next_field.data_type();
+                        break;
+                    }
+                    DataType::Struct(built.into())
+                }
+            };
         }
-        DataType::List(child) | DataType::LargeList(child) | DataType::FixedSizeList(child, _) => {
-            DataType::List(Arc::new(Field::new(
-                child.name(),
-                dtype(child.data_type())?,
-                child.is_nullable(),
-            )))
-        }
-        DataType::Struct(children) => DataType::Struct(
-            children
-                .iter()
-                .map(|child| {
-                    Ok(Field::new(
-                        child.name(),
-                        dtype(child.data_type())?,
-                        child.is_nullable(),
-                    ))
-                })
-                .collect::<Result<Vec<_>>>()?
-                .into(),
-        ),
-        DataType::Decimal128(precision, scale)
-            if (1..=38).contains(precision)
-                && *scale >= 0
-                && i16::from(*scale) <= i16::from(*precision) =>
-        {
-            source.clone()
-        }
-        DataType::Boolean
-        | DataType::Int8
-        | DataType::Int16
-        | DataType::Int32
-        | DataType::Int64
-        | DataType::Float32
-        | DataType::Float64
-        | DataType::Utf8
-        | DataType::Binary
-        | DataType::Date32 => source.clone(),
-        _ => {
-            return Err(error(&format!(
-                "unsupported writer dtype {source:?}; ORC has no admitted exact mapping for this type"
-            )));
-        }
-    })
+    }
 }
 
 pub(super) fn batch(source: &RecordBatch) -> Result<RecordBatch> {
@@ -105,26 +155,36 @@ fn typed<T: 'static>(array: &ArrayRef) -> Result<&T> {
         .ok_or_else(|| error("array storage differs from declared dtype"))
 }
 
-#[allow(clippy::too_many_lines)] // Exhaustive recursive wire-type translation with exact value checks.
-fn column(array: &ArrayRef) -> Result<ArrayRef> {
-    let target = dtype(array.data_type())?;
-    // Reuse compatible primitive buffers. Recursive owners still visit their
-    // children because an unsigned or fixed-size child may need translation.
-    let result: ArrayRef = match array.data_type() {
-        DataType::UInt8 => Arc::new(Int16Array::from_iter(
+enum ColumnFrame {
+    Struct {
+        fields: arrow_schema::Fields,
+        nulls: Option<arrow_buffer::NullBuffer>,
+        pending: std::vec::IntoIter<ArrayRef>,
+        built: Vec<ArrayRef>,
+    },
+    List {
+        field: arrow_schema::FieldRef,
+        offsets: OffsetBuffer<i32>,
+        nulls: Option<arrow_buffer::NullBuffer>,
+    },
+}
+
+fn translate_leaf_column(array: &ArrayRef) -> Result<ArrayRef> {
+    match array.data_type() {
+        DataType::UInt8 => Ok(Arc::new(Int16Array::from_iter(
             typed::<UInt8Array>(array)?.iter().map(|v| v.map(i16::from)),
-        )),
-        DataType::UInt16 => Arc::new(Int32Array::from_iter(
+        ))),
+        DataType::UInt16 => Ok(Arc::new(Int32Array::from_iter(
             typed::<UInt16Array>(array)?
                 .iter()
                 .map(|v| v.map(i32::from)),
-        )),
-        DataType::UInt32 => Arc::new(Int64Array::from_iter(
+        ))),
+        DataType::UInt32 => Ok(Arc::new(Int64Array::from_iter(
             typed::<UInt32Array>(array)?
                 .iter()
                 .map(|v| v.map(i64::from)),
-        )),
-        DataType::UInt64 => Arc::new(Int64Array::from(
+        ))),
+        DataType::UInt64 => Ok(Arc::new(Int64Array::from(
             typed::<UInt64Array>(array)?
                 .iter()
                 .map(|v| {
@@ -133,8 +193,8 @@ fn column(array: &ArrayRef) -> Result<ArrayRef> {
                         .map_err(|_| error("ORC cannot represent uint64 above i64::MAX"))
                 })
                 .collect::<Result<Vec<_>>>()?,
-        )),
-        DataType::Date64 => Arc::new(Date32Array::from(
+        ))),
+        DataType::Date64 => Ok(Arc::new(Date32Array::from(
             typed::<Date64Array>(array)?
                 .iter()
                 .map(|v| {
@@ -148,8 +208,8 @@ fn column(array: &ArrayRef) -> Result<ArrayRef> {
                     .transpose()
                 })
                 .collect::<Result<Vec<_>>>()?,
-        )),
-        DataType::Timestamp(unit, Some(_)) => match unit {
+        ))),
+        DataType::Timestamp(unit, Some(_)) => Ok(match unit {
             TimeUnit::Second => Arc::new(
                 typed::<TimestampSecondArray>(array)?
                     .clone()
@@ -170,108 +230,167 @@ fn column(array: &ArrayRef) -> Result<ArrayRef> {
                     .clone()
                     .with_timezone("UTC"),
             ),
-        },
+        }),
         DataType::LargeUtf8 => {
             let values = typed::<LargeStringArray>(array)?;
             let (offsets, start, length) = narrow_offsets(values.value_offsets())?;
-            Arc::new(
+            Ok(Arc::new(
                 StringArray::try_new(
                     offsets,
                     values.values().slice_with_length(start, length),
                     values.nulls().cloned(),
                 )
                 .map_err(|value| error(&value.to_string()))?,
-            )
+            ))
         }
         DataType::LargeBinary => {
             let values = typed::<LargeBinaryArray>(array)?;
             let (offsets, start, length) = narrow_offsets(values.value_offsets())?;
-            Arc::new(
+            Ok(Arc::new(
                 BinaryArray::try_new(
                     offsets,
                     values.values().slice_with_length(start, length),
                     values.nulls().cloned(),
                 )
                 .map_err(|value| error(&value.to_string()))?,
-            )
+            ))
         }
-        DataType::Struct(_) => {
-            let values = typed::<StructArray>(array)?;
-            let DataType::Struct(fields) = &target else {
-                return Err(error("invalid struct translation"));
-            };
-            Arc::new(
-                StructArray::try_new(
-                    fields.clone(),
-                    values
-                        .columns()
-                        .iter()
-                        .map(column)
-                        .collect::<Result<Vec<_>>>()?,
-                    values.nulls().cloned(),
+        _ => Ok(Arc::clone(array)),
+    }
+}
+
+fn pop_column_frames(
+    stack: &mut Vec<ColumnFrame>,
+    mut completed: ArrayRef,
+) -> Result<std::ops::ControlFlow<ArrayRef, ArrayRef>> {
+    loop {
+        let Some(frame) = stack.pop() else {
+            return Ok(std::ops::ControlFlow::Break(completed));
+        };
+        match frame {
+            ColumnFrame::List {
+                field,
+                offsets,
+                nulls,
+            } => {
+                completed = Arc::new(
+                    ListArray::try_new(field, offsets, completed, nulls)
+                        .map_err(|value| error(&value.to_string()))?,
+                );
+            }
+            ColumnFrame::Struct {
+                fields,
+                nulls,
+                mut pending,
+                mut built,
+            } => {
+                built.push(completed);
+                if let Some(next_col) = pending.next() {
+                    stack.push(ColumnFrame::Struct {
+                        fields,
+                        nulls,
+                        pending,
+                        built,
+                    });
+                    return Ok(std::ops::ControlFlow::Continue(next_col));
+                }
+                completed = Arc::new(
+                    StructArray::try_new(fields, built, nulls)
+                        .map_err(|value| error(&value.to_string()))?,
+                );
+            }
+        }
+    }
+}
+
+fn column(root: &ArrayRef) -> Result<ArrayRef> {
+    let mut stack = Vec::<ColumnFrame>::new();
+    let mut current = Arc::clone(root);
+    loop {
+        let target = dtype(current.data_type())?;
+        // Reuse compatible primitive buffers. Iterative frames still visit their
+        // children because an unsigned or fixed-size child may need translation.
+        let completed: ArrayRef = match current.data_type() {
+            DataType::Struct(_) => {
+                let values = typed::<StructArray>(&current)?;
+                let DataType::Struct(ref fields) = target else {
+                    return Err(error("invalid struct translation"));
+                };
+                let mut pending = values.columns().to_vec().into_iter();
+                if let Some(first) = pending.next() {
+                    stack.push(ColumnFrame::Struct {
+                        fields: fields.clone(),
+                        nulls: values.nulls().cloned(),
+                        pending,
+                        built: Vec::with_capacity(values.columns().len()),
+                    });
+                    current = first;
+                    continue;
+                }
+                Arc::new(
+                    StructArray::try_new(fields.clone(), Vec::new(), values.nulls().cloned())
+                        .map_err(|value| error(&value.to_string()))?,
                 )
-                .map_err(|value| error(&value.to_string()))?,
-            )
-        }
-        DataType::List(_) => {
-            let values = typed::<ListArray>(array)?;
-            let DataType::List(field) = &target else {
-                return Err(error("invalid list translation"));
-            };
-            Arc::new(
-                ListArray::try_new(
-                    field.clone(),
-                    values.offsets().clone(),
-                    column(values.values())?,
-                    values.nulls().cloned(),
-                )
-                .map_err(|value| error(&value.to_string()))?,
-            )
-        }
-        DataType::LargeList(_) => {
-            let values = typed::<LargeListArray>(array)?;
-            let (offsets, start, length) = narrow_offsets(values.value_offsets())?;
-            let DataType::List(field) = &target else {
-                return Err(error("invalid large-list translation"));
-            };
-            Arc::new(
-                ListArray::try_new(
-                    field.clone(),
+            }
+            DataType::List(_) => {
+                let values = typed::<ListArray>(&current)?;
+                let DataType::List(ref field) = target else {
+                    return Err(error("invalid list translation"));
+                };
+                stack.push(ColumnFrame::List {
+                    field: Arc::clone(field),
+                    offsets: values.offsets().clone(),
+                    nulls: values.nulls().cloned(),
+                });
+                current = Arc::clone(values.values());
+                continue;
+            }
+            DataType::LargeList(_) => {
+                let values = typed::<LargeListArray>(&current)?;
+                let (offsets, start, length) = narrow_offsets(values.value_offsets())?;
+                let DataType::List(ref field) = target else {
+                    return Err(error("invalid large-list translation"));
+                };
+                stack.push(ColumnFrame::List {
+                    field: Arc::clone(field),
                     offsets,
-                    column(&values.values().slice(start, length))?,
-                    values.nulls().cloned(),
-                )
-                .map_err(|value| error(&value.to_string()))?,
-            )
+                    nulls: values.nulls().cloned(),
+                });
+                current = values.values().slice(start, length);
+                continue;
+            }
+            DataType::FixedSizeList(_, size) => {
+                let values = typed::<FixedSizeListArray>(&current)?;
+                let size = usize::try_from(*size).map_err(|value| error(&value.to_string()))?;
+                let offsets = (0..=values.len())
+                    .map(|row| {
+                        row.checked_mul(size)
+                            .and_then(|n| i32::try_from(n).ok())
+                            .ok_or_else(|| {
+                                error(
+                                    "ORC fixed-list conversion exceeds 32-bit reader offset range",
+                                )
+                            })
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                let DataType::List(ref field) = target else {
+                    return Err(error("invalid fixed-list translation"));
+                };
+                stack.push(ColumnFrame::List {
+                    field: Arc::clone(field),
+                    offsets: OffsetBuffer::new(offsets.into()),
+                    nulls: values.nulls().cloned(),
+                });
+                current = Arc::clone(values.values());
+                continue;
+            }
+            _ => translate_leaf_column(&current)?,
+        };
+        match pop_column_frames(&mut stack, completed)? {
+            std::ops::ControlFlow::Break(done) => return Ok(done),
+            std::ops::ControlFlow::Continue(next) => current = next,
         }
-        DataType::FixedSizeList(_, size) => {
-            let values = typed::<FixedSizeListArray>(array)?;
-            let size = usize::try_from(*size).map_err(|value| error(&value.to_string()))?;
-            let offsets = (0..=values.len())
-                .map(|row| {
-                    row.checked_mul(size)
-                        .and_then(|n| i32::try_from(n).ok())
-                        .ok_or_else(|| {
-                            error("ORC fixed-list conversion exceeds 32-bit reader offset range")
-                        })
-                })
-                .collect::<Result<Vec<_>>>()?;
-            let DataType::List(field) = &target else {
-                return Err(error("invalid fixed-list translation"));
-            };
-            Arc::new(
-                ListArray::try_new(
-                    field.clone(),
-                    OffsetBuffer::new(offsets.into()),
-                    column(values.values())?,
-                    values.nulls().cloned(),
-                )
-                .map_err(|value| error(&value.to_string()))?,
-            )
-        }
-        _ => Arc::clone(array),
-    };
-    Ok(result)
+    }
 }
 
 fn narrow_offsets(values: &[i64]) -> Result<(OffsetBuffer<i32>, usize, usize)> {
@@ -299,25 +418,38 @@ fn narrow_offsets(values: &[i64]) -> Result<(OffsetBuffer<i32>, usize, usize)> {
 /// the reader; a supplied schema alone is not a file-schema validation.
 pub(crate) fn wire_schema_matches(actual: &Schema, expected: &Schema) -> bool {
     fn compatible(actual: &DataType, expected: &DataType) -> bool {
-        match (actual, expected) {
-            (DataType::Timestamp(_, left), DataType::Timestamp(_, right)) => {
-                left.is_some() == right.is_some()
+        let mut stack = vec![(actual, expected)];
+        while let Some((left, right)) = stack.pop() {
+            match (left, right) {
+                (DataType::Timestamp(_, left_tz), DataType::Timestamp(_, right_tz)) => {
+                    if left_tz.is_some() != right_tz.is_some() {
+                        return false;
+                    }
+                }
+                (DataType::Utf8, DataType::LargeUtf8)
+                | (DataType::Binary, DataType::LargeBinary) => {}
+                (DataType::List(left_child), DataType::List(right_child)) => {
+                    stack.push((left_child.data_type(), right_child.data_type()));
+                }
+                (DataType::Struct(left_fields), DataType::Struct(right_fields)) => {
+                    if left_fields.len() != right_fields.len() {
+                        return false;
+                    }
+                    for (left_child, right_child) in left_fields.iter().zip(right_fields).rev() {
+                        if left_child.name() != right_child.name() {
+                            return false;
+                        }
+                        stack.push((left_child.data_type(), right_child.data_type()));
+                    }
+                }
+                _ => {
+                    if left != right {
+                        return false;
+                    }
+                }
             }
-            (DataType::Utf8, DataType::LargeUtf8) | (DataType::Binary, DataType::LargeBinary) => {
-                true
-            }
-            (DataType::List(left), DataType::List(right)) => {
-                compatible(left.data_type(), right.data_type())
-            }
-            (DataType::Struct(left), DataType::Struct(right)) => {
-                left.len() == right.len()
-                    && left.iter().zip(right).all(|(left, right)| {
-                        left.name() == right.name()
-                            && compatible(left.data_type(), right.data_type())
-                    })
-            }
-            _ => actual == expected,
         }
+        true
     }
     actual.fields().len() == expected.fields().len()
         && actual
@@ -450,5 +582,49 @@ mod tests {
                     .contains("unsupported writer dtype")
             );
         }
+    }
+
+    #[test]
+    fn deep_nested_orc_translation_on_small_stack() {
+        let handle = std::thread::Builder::new()
+            .name("orc_translation::small_stack".into())
+            .stack_size(128 * 1024)
+            .spawn(|| {
+                let mut current: ArrayRef = Arc::new(UInt32Array::from(vec![Some(7), None]));
+                for level in 0..2_048 {
+                    let child = Arc::new(Field::new("c", current.data_type().clone(), true));
+                    current = if level % 2 == 0 {
+                        Arc::new(ListArray::new(
+                            child,
+                            OffsetBuffer::new(vec![0_i32, 1, 2].into()),
+                            current,
+                            None,
+                        ))
+                    } else {
+                        Arc::new(StructArray::new(vec![child].into(), vec![current], None))
+                    };
+                }
+                let input = RecordBatch::try_new(
+                    Arc::new(Schema::new(vec![Field::new(
+                        "deep",
+                        current.data_type().clone(),
+                        true,
+                    )])),
+                    vec![current],
+                )
+                .unwrap();
+                let converted = batch(&input).unwrap();
+                let expected = super::schema(&input.schema()).unwrap();
+                assert!(wire_schema_matches(
+                    converted.schema().as_ref(),
+                    expected.as_ref()
+                ));
+                assert!(!wire_schema_matches(
+                    converted.schema().as_ref(),
+                    input.schema().as_ref()
+                ));
+            })
+            .unwrap();
+        handle.join().unwrap();
     }
 }

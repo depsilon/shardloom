@@ -118,7 +118,12 @@ impl MemoryBatchSourceBuilder {
                 .checked_mul(4)
                 .ok_or_else(|| memory_error("object schema conversion metadata overflow"))?;
             credit.resize(bytes)?;
-            let field = crate::native_arrow_conversion::field(name, &dtype).ok_or_else(|| {
+            let field = crate::native_arrow_conversion::field_admitted(
+                name,
+                &dtype,
+                (memory, &self.cancellation),
+            )?
+            .ok_or_else(|| {
                 memory_error("native object input type has no admitted columnar representation")
             })?;
             converted.push(field);

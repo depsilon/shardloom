@@ -41,5 +41,24 @@ through typed final-owner hooks, preserving independently retained children and
 declaration-order cleanup, including unwind. Typed array-to-descriptor export
 uses ordered continuations while preserving payload buffers, offsets, validity,
 metadata and custom-array callback order. Test-only frozen export bodies check
-the original shallow behavior. This adds no public nesting admission; reverse
-construction, full workflow acceptance and caller memory grants remain deferred.
+the original shallow behavior.
+
+Follow-up completion adds ordered iterative descriptor-to-array reconstruction
+(`src/array/data_import.rs` and `data_import_tests.rs`) across `make_array` and
+concrete `From<ArrayData>` / `TryFrom<ArrayData>` entrypoints for built-in
+nested arrays (`Struct`, `List`, `LargeList`, `ListView`, `LargeListView`,
+`FixedSizeList`, `Map`, `Union`, `Dictionary`, and `Run`). Pending frames unwind
+innermost-first on partial or invalid nested descriptors without unsafe code,
+preserving constructor checks, slices, metadata, panic/error order, and public
+generic bounds. Original regressions cover shallow descriptor parity,
+out-of-order union type ids, all dictionary/run-end widths, invalid descriptors,
+and 8,192-level (512-level dictionary) 128-KiB small-stack round trips and
+unwind cleanup.
+
+Step 3C completion adds ordered iterative slicing (`src/array/slice_iter.rs`) for
+`StructArray`, `FixedSizeListArray`, and sparse `UnionArray`, replacing recursive
+`child.slice(offset, len)` descent across mixed nested Arrow hierarchies and
+`RecordBatch::slice`. Original regressions cover shallow sparse/dense union
+parity, 128-level public `UnionArray::try_new` slicing, and 2,048-level pure
+`Struct` and mixed `Struct`/`FixedSizeList`/sparse `Union` `RecordBatch::slice`
+on 128-KiB stacks.

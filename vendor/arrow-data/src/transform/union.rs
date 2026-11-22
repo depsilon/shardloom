@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use super::{_MutableArrayData, Extend};
+use super::{_MutableArrayData, ChildExtendNullsTask, ChildExtendTask, Extend};
 use crate::ArrayData;
 use arrow_schema::{ArrowError, DataType};
 
@@ -23,14 +23,24 @@ pub(super) fn build_extend_sparse(array: &ArrayData) -> Extend<'_> {
     let type_ids = array.buffer::<i8>(0);
 
     Box::new(
-        move |mutable: &mut _MutableArrayData, index: usize, start: usize, len: usize| {
+        move |mutable: &mut _MutableArrayData,
+              index: usize,
+              start: usize,
+              len: usize,
+              tasks: &mut Vec<ChildExtendTask>| {
             // extends type_ids
             mutable
                 .buffer1
                 .extend_from_slice(&type_ids[start..start + len]);
 
-            for child in mutable.child_data.iter_mut() {
-                child.try_extend(index, start, start + len)?;
+            for child_idx in 0..mutable.child_data.len() {
+                tasks.push(ChildExtendTask {
+                    child_idx,
+                    array_idx: index,
+                    start,
+                    end: start + len,
+                    wrap_struct_col: false,
+                });
             }
             Ok(())
         },
@@ -45,11 +55,18 @@ pub(super) fn build_extend_dense(array: &ArrayData) -> Extend<'_> {
     };
 
     Box::new(
-        move |mutable: &mut _MutableArrayData, index: usize, start: usize, len: usize| {
+        move |mutable: &mut _MutableArrayData,
+              index: usize,
+              start: usize,
+              len: usize,
+              tasks: &mut Vec<ChildExtendTask>| {
             // extends type_ids
             mutable
                 .buffer1
                 .extend_from_slice(&type_ids[start..start + len]);
+
+            let mut child_lens: Vec<usize> =
+                mutable.child_data.iter().map(|child| child.len()).collect();
 
             for i in start..start + len {
                 let type_id = type_ids[i];
@@ -58,12 +75,18 @@ pub(super) fn build_extend_dense(array: &ArrayData) -> Extend<'_> {
                     .position(|(r, _)| r == type_id)
                     .expect("invalid union type ID");
                 let src_offset = offsets[i] as usize;
-                let child_data = &mut mutable.child_data[child_index];
-                let dst_offset = child_data.len();
+                let dst_offset = child_lens[child_index];
+                child_lens[child_index] += 1;
 
                 // Extend offsets
                 mutable.buffer2.push(dst_offset as i32);
-                mutable.child_data[child_index].try_extend(index, src_offset, src_offset + 1)?;
+                tasks.push(ChildExtendTask {
+                    child_idx: child_index,
+                    array_idx: index,
+                    start: src_offset,
+                    end: src_offset + 1,
+                    wrap_struct_col: false,
+                });
             }
             Ok(())
         },
@@ -73,6 +96,7 @@ pub(super) fn build_extend_dense(array: &ArrayData) -> Extend<'_> {
 pub(super) fn extend_nulls_dense(
     mutable: &mut _MutableArrayData,
     len: usize,
+    tasks: &mut Vec<ChildExtendNullsTask>,
 ) -> Result<(), ArrowError> {
     let DataType::Union(fields, _) = &mutable.data_type else {
         unreachable!()
@@ -90,13 +114,18 @@ pub(super) fn extend_nulls_dense(
     let child_offset = mutable.child_data[0].len();
     let (start, end) = (child_offset as i32, (child_offset + len) as i32);
     mutable.buffer2.extend(start..end);
-    mutable.child_data[0].try_extend_nulls(len)?;
+    tasks.push(ChildExtendNullsTask {
+        child_idx: 0,
+        len,
+        wrap_struct_col: false,
+    });
     Ok(())
 }
 
 pub(super) fn extend_nulls_sparse(
     mutable: &mut _MutableArrayData,
     len: usize,
+    tasks: &mut Vec<ChildExtendNullsTask>,
 ) -> Result<(), ArrowError> {
     let DataType::Union(fields, _) = &mutable.data_type else {
         unreachable!()
@@ -111,8 +140,12 @@ pub(super) fn extend_nulls_sparse(
     mutable.buffer1.extend_from_slice(&vec![first_type_id; len]);
 
     // Sparse: extend nulls in ALL children
-    for child in mutable.child_data.iter_mut() {
-        child.try_extend_nulls(len)?;
+    for child_idx in 0..mutable.child_data.len() {
+        tasks.push(ChildExtendNullsTask {
+            child_idx,
+            len,
+            wrap_struct_col: false,
+        });
     }
     Ok(())
 }

@@ -16,7 +16,7 @@
 // under the License.
 
 use crate::ArrayData;
-use crate::transform::_MutableArrayData;
+use crate::transform::{_MutableArrayData, ChildExtendNullsTask, ChildExtendTask};
 use arrow_buffer::ArrowNativeType;
 use arrow_schema::ArrowError;
 use num_integer::Integer;
@@ -28,8 +28,13 @@ pub(super) fn build_extend<T: ArrowNativeType + Integer + CheckedAdd>(
     let offsets = array.buffer::<T>(0);
     let sizes = array.buffer::<T>(1);
     Box::new(
-        move |mutable: &mut _MutableArrayData, index: usize, start: usize, len: usize| {
+        move |mutable: &mut _MutableArrayData,
+              index: usize,
+              start: usize,
+              len: usize,
+              tasks: &mut Vec<ChildExtendTask>| {
             let mut new_offset = T::usize_as(mutable.child_data[0].len());
+            let mut pending = Vec::new();
 
             for i in start..start + len {
                 mutable.buffer1.push(new_offset);
@@ -46,9 +51,16 @@ pub(super) fn build_extend<T: ArrowNativeType + Integer + CheckedAdd>(
                 let size = sizes[i].as_usize();
                 if size > 0 {
                     let child_start = offsets[i].as_usize();
-                    mutable.child_data[0].try_extend(index, child_start, child_start + size)?;
+                    pending.push(ChildExtendTask {
+                        child_idx: 0,
+                        array_idx: index,
+                        start: child_start,
+                        end: child_start + size,
+                        wrap_struct_col: false,
+                    });
                 }
             }
+            tasks.extend(pending);
             Ok(())
         },
     )
@@ -57,6 +69,7 @@ pub(super) fn build_extend<T: ArrowNativeType + Integer + CheckedAdd>(
 pub(super) fn extend_nulls<T: ArrowNativeType>(
     mutable: &mut _MutableArrayData,
     len: usize,
+    _: &mut Vec<ChildExtendNullsTask>,
 ) -> Result<(), ArrowError> {
     let offset_buffer = &mut mutable.buffer1;
     let sizes_buffer = &mut mutable.buffer2;

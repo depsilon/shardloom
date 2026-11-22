@@ -7,6 +7,7 @@ use arrow_array::ArrayRef as ArrowArrayRef;
 use arrow_array::GenericListArray;
 use arrow_array::OffsetSizeTrait;
 use arrow_buffer::OffsetBuffer;
+use arrow_buffer::NullBuffer;
 use arrow_schema::FieldRef;
 use vortex_array::ArrayRef;
 use vortex_array::Canonical;
@@ -29,10 +30,11 @@ use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
 use vortex_error::vortex_ensure;
 
-use crate::ArrowExporter;
+use crate::executor::ExportStep;
+use crate::executor::ExportTask;
 use crate::executor::validity::to_arrow_null_buffer;
 
-/// Matches the encodings [`to_arrow_list`] requires for export.
+/// Matches the encodings [`start_arrow_list`] requires for export.
 struct ArrowListExportable;
 
 impl Matcher for ArrowListExportable {
@@ -43,14 +45,23 @@ impl Matcher for ArrowListExportable {
     }
 }
 
+pub(super) struct ListExportFrame<O: OffsetSizeTrait> {
+    elements_field: FieldRef,
+    offsets: OffsetBuffer<O>,
+    null_buffer: Option<NullBuffer>,
+    check_elements_nulls: bool,
+}
+
 #[allow(rustdoc::broken_intra_doc_links)]
-/// Convert a Vortex VarBinArray into an Arrow [`GenericListArray`](arrow_array:array::GenericListArray).
-pub(super) fn to_arrow_list<O: OffsetSizeTrait + NativePType>(
+/// Convert a Vortex List/ListView array into an Arrow [`GenericListArray`](arrow_array::array::GenericListArray).
+pub(super) fn start_arrow_list<O: OffsetSizeTrait + NativePType>(
     array: ArrayRef,
     elements_field: &FieldRef,
-    exporter: &ArrowExporter<'_>,
     ctx: &mut ExecutionCtx,
-) -> VortexResult<ArrowArrayRef> {
+) -> VortexResult<ExportStep>
+where
+    ListExportFrame<O>: Into<crate::executor::ExportFrame>,
+{
     vortex_ensure!(
         matches!(array.dtype(), DType::List(..)),
         "Cannot convert Vortex array with dtype {} to an Arrow list array",
@@ -61,13 +72,13 @@ pub(super) fn to_arrow_list<O: OffsetSizeTrait + NativePType>(
 
     // If the Vortex array is already in List format, we can directly convert it.
     if let Some(list) = array.as_opt::<List>() {
-        return list_to_list::<O>(&list.into_owned(), elements_field, exporter, ctx);
+        return start_from_list::<O>(&list.into_owned(), elements_field, ctx);
     }
 
     // Otherwise the array is canonical: a ListViewArray, which we rebuild to ZCTL if needed.
     // Chunked lists canonicalize to a zero-copy ListView over chunked elements, so they take
     // this path without an intermediate Arrow concatenation.
-    // Note: arrow_cast::cast supports ListView → List (apache/arrow-rs#8735), but it
+    // Note: arrow_cast::cast supports ListView -> List (apache/arrow-rs#8735), but it
     // unconditionally uses take. Our rebuild uses a heuristic that picks list-by-list
     // for large lists, which avoids materializing a large index buffer.
     let list_view = array
@@ -80,17 +91,17 @@ pub(super) fn to_arrow_list<O: OffsetSizeTrait + NativePType>(
     } else {
         list_view.rebuild(ListViewRebuildMode::MakeZeroCopyToList, ctx)?
     };
-    list_view_zctl::<O>(zctl, elements_field, exporter, ctx)
+    start_from_zctl::<O>(zctl, elements_field, ctx)
 }
 
-#[allow(rustdoc::broken_intra_doc_links)]
-/// Convert a Vortex VarBinArray into an Arrow [`GenericListArray`](arrow_array:array::GenericListArray).
-fn list_to_list<O: OffsetSizeTrait + NativePType>(
+fn start_from_list<O: OffsetSizeTrait + NativePType>(
     array: &ListArray,
     elements_field: &FieldRef,
-    exporter: &ArrowExporter<'_>,
     ctx: &mut ExecutionCtx,
-) -> VortexResult<ArrowArrayRef> {
+) -> VortexResult<ExportStep>
+where
+    ListExportFrame<O>: Into<crate::executor::ExportFrame>,
+{
     // We must cast the offsets to the required offset type.
     let offsets = array
         .offsets()
@@ -102,42 +113,49 @@ fn list_to_list<O: OffsetSizeTrait + NativePType>(
     // SAFETY: `ListArray` guarantees its offsets are non-empty, non-negative and sorted. The
     // checked cast keeps every value, so the order stays the same.
     let offsets = unsafe { offsets.into_arrow_offset_buffer_unchecked() };
-
-    let elements =
-        exporter.execute_arrow(array.elements().clone(), Some(elements_field.as_ref()), ctx)?;
-    vortex_ensure!(
-        elements_field.is_nullable() || elements.null_count() == 0,
-        "Cannot convert to non-nullable Arrow array with null elements"
-    );
-
+    let elements = array.elements().clone();
     let null_buffer = to_arrow_null_buffer(array.validity()?, array.len(), ctx)?;
 
-    // TODO(ngates): use new_unchecked when it is added to arrow-rs.
-    Ok(Arc::new(GenericListArray::<O>::new(
-        Arc::clone(elements_field),
-        offsets,
-        elements,
-        null_buffer,
-    )))
+    Ok(ExportStep::Descend {
+        frame: ListExportFrame {
+            elements_field: FieldRef::clone(elements_field),
+            offsets,
+            null_buffer,
+            check_elements_nulls: true,
+        }
+        .into(),
+        task: ExportTask::WithField {
+            array: elements,
+            target: Some(elements_field.as_ref().clone()),
+        },
+    })
 }
 
-fn list_view_zctl<O: OffsetSizeTrait + NativePType>(
+fn start_from_zctl<O: OffsetSizeTrait + NativePType>(
     array: ListViewArray,
     elements_field: &FieldRef,
-    exporter: &ArrowExporter<'_>,
     ctx: &mut ExecutionCtx,
-) -> VortexResult<ArrowArrayRef> {
+) -> VortexResult<ExportStep>
+where
+    ListExportFrame<O>: Into<crate::executor::ExportFrame>,
+{
     assert!(array.is_zero_copy_to_list());
 
     if array.is_empty() {
-        let elements =
-            exporter.execute_arrow(array.elements().clone(), Some(elements_field.as_ref()), ctx)?;
-        return Ok(Arc::new(GenericListArray::<O>::new(
-            Arc::clone(elements_field),
-            OffsetBuffer::new_empty(),
-            elements,
-            None,
-        )));
+        let elements = array.elements().clone();
+        return Ok(ExportStep::Descend {
+            frame: ListExportFrame {
+                elements_field: FieldRef::clone(elements_field),
+                offsets: OffsetBuffer::new_empty(),
+                null_buffer: None,
+                check_elements_nulls: false,
+            }
+            .into(),
+            task: ExportTask::WithField {
+                array: elements,
+                target: Some(elements_field.as_ref().clone()),
+            },
+        });
     }
 
     let ListViewDataParts {
@@ -179,13 +197,6 @@ fn list_view_zctl<O: OffsetSizeTrait + NativePType>(
         offsets[offsets.len() - 1] + final_size
     });
 
-    // Extract the elements array.
-    let elements = exporter.execute_arrow(elements, Some(elements_field.as_ref()), ctx)?;
-    vortex_ensure!(
-        elements_field.is_nullable() || elements.null_count() == 0,
-        "Cannot convert to non-nullable Arrow array with null elements"
-    );
-
     let null_buffer = to_arrow_null_buffer(validity, sizes.len(), ctx)?;
 
     // SAFETY: zero-copy-to-list offsets are non-negative and sorted, and the final offset we
@@ -193,11 +204,38 @@ fn list_view_zctl<O: OffsetSizeTrait + NativePType>(
     // is not empty.
     let offsets = unsafe { offsets.freeze().into_arrow_offset_buffer_unchecked() };
 
+    Ok(ExportStep::Descend {
+        frame: ListExportFrame {
+            elements_field: FieldRef::clone(elements_field),
+            offsets,
+            null_buffer,
+            check_elements_nulls: true,
+        }
+        .into(),
+        task: ExportTask::WithField {
+            array: elements,
+            target: Some(elements_field.as_ref().clone()),
+        },
+    })
+}
+
+pub(super) fn finish_arrow_list<O: OffsetSizeTrait>(
+    frame: ListExportFrame<O>,
+    elements: ArrowArrayRef,
+) -> VortexResult<ArrowArrayRef> {
+    if frame.check_elements_nulls {
+        vortex_ensure!(
+            frame.elements_field.is_nullable() || elements.null_count() == 0,
+            "Cannot convert to non-nullable Arrow array with null elements"
+        );
+    }
+
+    // TODO(ngates): use new_unchecked when it is added to arrow-rs.
     Ok(Arc::new(GenericListArray::<O>::new(
-        Arc::clone(elements_field),
-        offsets,
+        frame.elements_field,
+        frame.offsets,
         elements,
-        null_buffer,
+        frame.null_buffer,
     )))
 }
 

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 use arrow_array::GenericListViewArray;
@@ -20,19 +21,32 @@ use vortex_array::builtins::ArrayBuiltins;
 use vortex_array::dtype::DType;
 use vortex_array::dtype::IntegerPType;
 use vortex_array::dtype::Nullability::NonNullable;
+use vortex_array::validity::Validity;
 use vortex_error::VortexResult;
 use vortex_error::vortex_ensure;
 use vortex_error::vortex_ensure_eq;
 
-use crate::ArrowExporter;
+use crate::executor::ExportStep;
+use crate::executor::ExportTask;
 use crate::executor::validity::to_arrow_null_buffer;
 
-pub(super) fn to_arrow_list_view<O: OffsetSizeTrait + IntegerPType>(
+pub(super) struct ListViewExportFrame<O: OffsetSizeTrait + IntegerPType> {
+    elements_field: FieldRef,
+    offsets: ArrayRef,
+    sizes: ArrayRef,
+    n_elements: usize,
+    validity: Validity,
+    _marker: PhantomData<O>,
+}
+
+pub(super) fn start_arrow_list_view<O: OffsetSizeTrait + IntegerPType>(
     array: ArrayRef,
     elements_field: &FieldRef,
-    exporter: &ArrowExporter<'_>,
     ctx: &mut ExecutionCtx,
-) -> VortexResult<arrow_array::ArrayRef> {
+) -> VortexResult<ExportStep>
+where
+    ListViewExportFrame<O>: Into<crate::executor::ExportFrame>,
+{
     vortex_ensure!(
         matches!(array.dtype(), DType::List(..)),
         "Cannot convert Vortex array with dtype {} to an Arrow list-view array",
@@ -68,15 +82,6 @@ pub(super) fn to_arrow_list_view<O: OffsetSizeTrait + IntegerPType>(
         array
     };
 
-    list_view_to_list_view::<O>(array, elements_field, exporter, ctx)
-}
-
-fn list_view_to_list_view<O: OffsetSizeTrait + IntegerPType>(
-    array: ListViewArray,
-    elements_field: &FieldRef,
-    exporter: &ArrowExporter<'_>,
-    ctx: &mut ExecutionCtx,
-) -> VortexResult<arrow_array::ArrayRef> {
     let ListViewDataParts {
         elements,
         offsets,
@@ -84,39 +89,61 @@ fn list_view_to_list_view<O: OffsetSizeTrait + IntegerPType>(
         validity,
         ..
     } = array.into_data_parts();
-
     let n_elements = elements.len();
-    let elements = exporter.execute_arrow(elements, Some(elements_field.as_ref()), ctx)?;
+    Ok(ExportStep::Descend {
+        frame: ListViewExportFrame::<O> {
+            elements_field: FieldRef::clone(elements_field),
+            offsets,
+            sizes,
+            n_elements,
+            validity,
+            _marker: PhantomData,
+        }
+        .into(),
+        task: ExportTask::WithField {
+            array: elements,
+            target: Some(elements_field.as_ref().clone()),
+        },
+    })
+}
+
+pub(super) fn finish_arrow_list_view<O: OffsetSizeTrait + IntegerPType>(
+    frame: ListViewExportFrame<O>,
+    elements: arrow_array::ArrayRef,
+    ctx: &mut ExecutionCtx,
+) -> VortexResult<arrow_array::ArrayRef> {
     vortex_ensure!(
-        elements_field.is_nullable() || elements.null_count() == 0,
+        frame.elements_field.is_nullable() || elements.null_count() == 0,
         "Elements field is non-nullable but elements array contains nulls"
     );
     // The unchecked construction below needs the views in bounds of the *exported* elements, so
     // confirm the export preserved the length the Vortex invariant was checked against.
     vortex_ensure_eq!(
         elements.len(),
-        n_elements,
+        frame.n_elements,
         "Arrow export changed the elements length"
     );
 
-    let offsets = offsets
+    let offsets = frame
+        .offsets
         .cast(DType::Primitive(O::PTYPE, NonNullable))?
         .execute::<PrimitiveArray>(ctx)?
         .to_buffer::<O>()
         .into_arrow_scalar_buffer();
-    let sizes = sizes
+    let sizes = frame
+        .sizes
         .cast(DType::Primitive(O::PTYPE, NonNullable))?
         .execute::<PrimitiveArray>(ctx)?
         .to_buffer::<O>()
         .into_arrow_scalar_buffer();
 
-    let null_buffer = to_arrow_null_buffer(validity, offsets.len(), ctx)?;
+    let null_buffer = to_arrow_null_buffer(frame.validity, offsets.len(), ctx)?;
 
     // SAFETY: `ListViewData::validate` guarantees `offsets[i] + sizes[i] <= elements.len()`, and
     // the length check above carries that across the export. Skips Arrow's unvectorizable re-check.
     Ok(Arc::new(unsafe {
         GenericListViewArray::<O>::new_unchecked(
-            Arc::clone(elements_field),
+            frame.elements_field,
             offsets,
             sizes,
             elements,

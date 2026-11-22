@@ -5,9 +5,9 @@ use super::{NativeExecutionContext, OwnedVortexResultBatch, ResidentVortexSessio
 use crate::local_primitives::native_capacity::ReservedVec;
 use crate::native_arrow_conversion::{self as conversion, ConversionLimits};
 use crate::native_payload_schema;
-use arrow_array::{
-    Array as _, ArrayRef as ArrowArrayRef, BooleanArray, RecordBatch, cast::AsArray as _,
-};
+#[cfg(test)]
+use arrow_array::cast::AsArray as _;
+use arrow_array::{Array as _, ArrayRef as ArrowArrayRef, RecordBatch};
 use arrow_schema::{DataType, Field, Schema, SchemaRef};
 use shardloom_core::{Result, ShardLoomError};
 use shardloom_exec::{
@@ -175,8 +175,12 @@ impl OwnedVortexResultBatch {
             .iter()
             .zip(fields.fields())
             .map(|(name, dtype)| {
-                conversion::field(name.as_ref(), &dtype)
-                    .ok_or_else(|| failed("result field has no admitted Arrow representation"))
+                conversion::field_admitted(
+                    name.as_ref(),
+                    &dtype,
+                    (session.memory(), &cancellation),
+                )?
+                .ok_or_else(|| failed("result field has no admitted Arrow representation"))
             })
             .collect::<Result<Vec<_>>>()?;
         cancellation.check()?;
@@ -333,7 +337,7 @@ impl NativeArrowBatchStream {
             ..NativeArrowExportReport::default()
         };
         for column in batch.columns() {
-            observe_buffers(column, &ranges.values, &mut observed)?;
+            observe_buffers(column, &ranges.values, &mut observed, context.memory())?;
         }
         let retained = metadata_bytes
             .checked_add(observed.converted_buffer_capacity_bytes)
@@ -343,6 +347,7 @@ impl NativeArrowBatchStream {
                 "Arrow conversion exceeded its pre-reserved work envelope",
             ));
         }
+        drop(ranges);
         // Shrink an existing pre-conversion grant; never admit new provider
         // buffers after the fact. Native shared buffers keep their own grants.
         work.resize(retained)?;
@@ -361,7 +366,7 @@ impl NativeArrowBatchStream {
         let columns = batch
             .columns()
             .iter()
-            .map(|array| retain_array(array, &credit))
+            .map(|array| retain_array(array, &credit, context.memory()))
             .collect::<Result<Vec<_>>>()?;
         let batch = RecordBatch::try_new_with_options(
             Arc::clone(&self.schema),
@@ -374,22 +379,33 @@ impl NativeArrowBatchStream {
     }
 }
 
+struct ReverseReserved<T>(ReservedVec<T>);
+
+impl<T> Drop for ReverseReserved<T> {
+    fn drop(&mut self) {
+        while self.0.values.pop().is_some() {}
+    }
+}
+
 fn native_ranges(array: &ArrayRef, memory: &LiveMemoryPool) -> Result<ReservedVec<(usize, usize)>> {
-    fn visit(array: &ArrayRef, ranges: &mut ReservedVec<(usize, usize)>) -> Result<()> {
-        for buffer in array.buffers() {
+    let mut ranges = ReservedVec::new(memory)?;
+    let mut pending = ReverseReserved(ReservedVec::new(memory)?);
+    pending.0.push(array.clone())?;
+    while let Some(current) = pending.0.values.pop() {
+        for buffer in current.buffers() {
             let start = buffer.as_ptr() as usize;
             let end = start
                 .checked_add(buffer.len())
                 .ok_or_else(|| failed("native buffer address overflow"))?;
             ranges.push((start, end))?;
         }
-        for child in array.slots().iter().flatten() {
-            visit(child, ranges)?;
+        let slots = current.slots();
+        pending.0.reserve(slots.len())?;
+        for child in slots.iter().rev().flatten() {
+            pending.0.push(child.clone())?;
         }
-        Ok(())
     }
-    let mut ranges = ReservedVec::new(memory)?;
-    visit(array, &mut ranges)?;
+    drop(pending);
     ranges.values.sort_unstable();
     let mut retained = 0;
     for index in 0..ranges.values.len() {
@@ -409,34 +425,40 @@ fn observe_buffers(
     array: &ArrowArrayRef,
     ranges: &[(usize, usize)],
     report: &mut NativeArrowExportReport,
+    memory: &LiveMemoryPool,
 ) -> Result<()> {
-    let data = array.to_data();
-    for buffer in data
-        .buffers()
-        .iter()
-        .chain(data.nulls().map(|nulls| nulls.inner().inner()))
-    {
-        let bytes = u64::try_from(buffer.len()).map_err(native_error)?;
-        add(&mut report.referenced_arrow_buffer_bytes, bytes)?;
-        let start = buffer.as_ptr() as usize;
-        let end = start
-            .checked_add(buffer.len())
-            .ok_or_else(|| failed("Arrow buffer address overflow"))?;
-        let position = ranges.partition_point(|(native_start, _)| *native_start <= start);
-        let shared = ranges[..position]
-            .last()
-            .is_some_and(|(_, native_end)| *native_end >= end);
-        if shared {
-            add(&mut report.shared_native_buffer_bytes, bytes)?;
-        } else {
-            add(
-                &mut report.converted_buffer_capacity_bytes,
-                u64::try_from(buffer.capacity()).map_err(native_error)?,
-            )?;
+    let mut pending = ReverseReserved(ReservedVec::new(memory)?);
+    pending.0.push(array.to_data())?;
+    while let Some(data) = pending.0.values.pop() {
+        for buffer in data
+            .buffers()
+            .iter()
+            .chain(data.nulls().map(|nulls| nulls.inner().inner()))
+        {
+            let bytes = u64::try_from(buffer.len()).map_err(native_error)?;
+            add(&mut report.referenced_arrow_buffer_bytes, bytes)?;
+            let start = buffer.as_ptr() as usize;
+            let end = start
+                .checked_add(buffer.len())
+                .ok_or_else(|| failed("Arrow buffer address overflow"))?;
+            let position = ranges.partition_point(|(native_start, _)| *native_start <= start);
+            let shared = ranges[..position]
+                .last()
+                .is_some_and(|(_, native_end)| *native_end >= end);
+            if shared {
+                add(&mut report.shared_native_buffer_bytes, bytes)?;
+            } else {
+                add(
+                    &mut report.converted_buffer_capacity_bytes,
+                    u64::try_from(buffer.capacity()).map_err(native_error)?,
+                )?;
+            }
         }
-    }
-    for child in data.child_data() {
-        observe_buffers(&arrow_array::make_array(child.clone()), ranges, report)?;
+        let children = data.child_data();
+        pending.0.reserve(children.len())?;
+        for child in children.iter().rev() {
+            pending.0.push(child.clone())?;
+        }
     }
     Ok(())
 }
@@ -461,8 +483,23 @@ impl<B: std::ops::Deref<Target = [u8]>> AsRef<[u8]> for RetainedBuffer<B> {
     }
 }
 
-fn retain_array(array: &ArrowArrayRef, credit: &Arc<ExportCredit>) -> Result<ArrowArrayRef> {
-    let data = array.to_data();
+struct RetainFrame {
+    template: arrow_data::ArrayData,
+    buffers: Vec<arrow_buffer::Buffer>,
+    nulls: Option<arrow_buffer::NullBuffer>,
+    remaining: std::vec::IntoIter<arrow_data::ArrayData>,
+    children: ReservedVec<arrow_data::ArrayData>,
+}
+
+type SplitNodeParts = (
+    arrow_data::ArrayData,
+    Vec<arrow_buffer::Buffer>,
+    Option<arrow_buffer::NullBuffer>,
+    std::vec::IntoIter<arrow_data::ArrayData>,
+    usize,
+);
+
+fn retain_node_parts(data: arrow_data::ArrayData, credit: &Arc<ExportCredit>) -> SplitNodeParts {
     let buffers = data
         .buffers()
         .iter()
@@ -474,30 +511,78 @@ fn retain_array(array: &ArrowArrayRef, credit: &Arc<ExportCredit>) -> Result<Arr
             .into()
         })
         .collect();
-    let nulls = data
-        .nulls()
-        .map(|nulls| -> Result<_> {
-            let bits: ArrowArrayRef = Arc::new(BooleanArray::new(nulls.inner().clone(), None));
-            let retained = retain_array(&bits, credit)?;
-            Ok(retained.as_boolean().values().clone().into())
+    let nulls = data.nulls().map(|nulls| {
+        let retained: arrow_buffer::Buffer = bytes::Bytes::from_owner(RetainedBuffer {
+            buffer: nulls.inner().inner().clone(),
+            _credit: Arc::clone(credit),
         })
-        .transpose()?;
-    let children = data
-        .child_data()
-        .iter()
-        .map(|child| {
-            retain_array(&arrow_array::make_array(child.clone()), credit)
-                .map(|array| array.to_data())
-        })
-        .collect::<Result<Vec<_>>>()?;
-    let data = data
+        .into();
+        arrow_buffer::NullBuffer::new(arrow_buffer::BooleanBuffer::new(
+            retained,
+            nulls.offset(),
+            nulls.len(),
+        ))
+    });
+    let mut children = data.child_data().to_vec();
+    let child_count = children.len();
+    let remaining = std::mem::take(&mut children).into_iter();
+    (data, buffers, nulls, remaining, child_count)
+}
+
+fn build_retained_data(
+    template: arrow_data::ArrayData,
+    buffers: Vec<arrow_buffer::Buffer>,
+    nulls: Option<arrow_buffer::NullBuffer>,
+    children: Vec<arrow_data::ArrayData>,
+) -> Result<arrow_data::ArrayData> {
+    template
         .into_builder()
         .buffers(buffers)
         .nulls(nulls)
         .child_data(children)
         .build()
-        .map_err(native_error)?;
-    Ok(arrow_array::make_array(data))
+        .map_err(native_error)
+}
+
+fn retain_array(
+    array: &ArrowArrayRef,
+    credit: &Arc<ExportCredit>,
+    memory: &LiveMemoryPool,
+) -> Result<ArrowArrayRef> {
+    let mut pending = ReverseReserved(ReservedVec::<RetainFrame>::new(memory)?);
+    let mut current = array.to_data();
+    loop {
+        let (template, buffers, nulls, mut remaining, child_count) =
+            retain_node_parts(current, credit);
+        let mut built = if let Some(first_child) = remaining.next() {
+            let mut children = ReservedVec::new(memory)?;
+            children.reserve(child_count)?;
+            pending.0.push(RetainFrame {
+                template,
+                buffers,
+                nulls,
+                remaining,
+                children,
+            })?;
+            current = first_child;
+            continue;
+        } else {
+            build_retained_data(template, buffers, nulls, Vec::new())?
+        };
+        loop {
+            let Some(mut frame) = pending.0.values.pop() else {
+                return Ok(arrow_array::make_array(built));
+            };
+            frame.children.push(built)?;
+            if let Some(next_child) = frame.remaining.next() {
+                pending.0.push(frame)?;
+                current = next_child;
+                break;
+            }
+            let children = std::mem::take(&mut frame.children.values);
+            built = build_retained_data(frame.template, frame.buffers, frame.nulls, children)?;
+        }
+    }
 }
 
 fn add(total: &mut u64, bytes: u64) -> Result<()> {

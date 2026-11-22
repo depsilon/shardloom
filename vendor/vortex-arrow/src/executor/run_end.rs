@@ -17,7 +17,6 @@ use vortex_array::IntoArray;
 use vortex_array::arrays::Constant;
 use vortex_array::arrays::ConstantArray;
 use vortex_array::arrays::RunEnd;
-use vortex_array::arrays::RunEndArray;
 use vortex_array::arrays::runend::RunEndArrayExt;
 use vortex_array::arrays::runend::RunEndArraySlotsExt;
 use vortex_array::matcher::Matcher;
@@ -26,10 +25,10 @@ use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
 use vortex_error::vortex_err;
 
-use crate::ArrowExporter;
-use crate::executor::execute_arrow_naive;
+use crate::executor::ExportStep;
+use crate::executor::ExportTask;
 
-/// Matches the encodings [`to_arrow_run_end`] requires for export.
+/// Matches the encodings [`start_arrow_run_end`] requires for export.
 struct ArrowRunEndExportable;
 
 impl Matcher for ArrowRunEndExportable {
@@ -40,64 +39,163 @@ impl Matcher for ArrowRunEndExportable {
     }
 }
 
-pub(super) fn to_arrow_run_end(
+pub(super) enum RunEndExportFrame {
+    HaveEnds {
+        values: ArrayRef,
+        ends_type: DataType,
+        values_type: Field,
+        offset: usize,
+        length: usize,
+    },
+    HaveValues {
+        ends_type: DataType,
+        arrow_ends: ArrowArrayRef,
+        offset: usize,
+        length: usize,
+    },
+    ConstantValues {
+        ends_type: DataType,
+        len: usize,
+    },
+    CastValues {
+        ends_type: DataType,
+        values_type: Field,
+    },
+}
+
+pub(super) fn start_arrow_run_end(
     array: ArrayRef,
     ends_type: &DataType,
     values_type: &Field,
-    exporter: &ArrowExporter<'_>,
     ctx: &mut ExecutionCtx,
-) -> VortexResult<ArrowArrayRef> {
+) -> VortexResult<ExportStep> {
     let array = array.execute_until::<ArrowRunEndExportable>(ctx)?;
 
     let array = match array.try_downcast::<Constant>() {
         Ok(constant) => {
-            return constant_to_run_end(constant, ends_type, values_type, exporter, ctx);
+            let len = constant.len();
+            let scalar = constant.scalar();
+            if scalar.is_null() || len == 0 {
+                let ree_type = DataType::RunEndEncoded(
+                    Arc::new(Field::new("run_ends", ends_type.clone(), false)),
+                    Arc::new(values_type.clone()),
+                );
+                return Ok(ExportStep::Done(new_null_array(&ree_type, len)));
+            }
+            let values_const = ConstantArray::new(scalar.clone(), 1).into_array();
+            return Ok(ExportStep::Descend {
+                frame: RunEndExportFrame::ConstantValues {
+                    ends_type: ends_type.clone(),
+                    len,
+                }
+                .into(),
+                task: ExportTask::WithField {
+                    array: values_const,
+                    target: Some(values_type.clone()),
+                },
+            });
         }
         Err(array) => array,
     };
+
     let array = match array.try_downcast::<RunEnd>() {
-        Ok(run_end) => return run_end_to_arrow(run_end, ends_type, values_type, exporter, ctx),
+        Ok(run_end) => {
+            let length = run_end.len();
+            let offset = run_end.offset();
+            let ends = run_end.ends().clone();
+            let values = run_end.values().clone();
+            return Ok(ExportStep::Descend {
+                frame: RunEndExportFrame::HaveEnds {
+                    values,
+                    ends_type: ends_type.clone(),
+                    values_type: values_type.clone(),
+                    offset,
+                    length,
+                }
+                .into(),
+                task: ExportTask::Naive {
+                    array: ends,
+                    data_type: Some(ends_type.clone()),
+                },
+            });
+        }
         Err(array) => array,
     };
 
-    // Fallback: canonicalize to flat Arrow, then cast to REE.
-    let flat = export_values(array, values_type, exporter, ctx)?;
-    let ree_type = DataType::RunEndEncoded(
-        Arc::new(Field::new("run_ends", ends_type.clone(), false)),
-        Arc::new(values_type.clone()),
-    );
-    arrow_cast::cast(&flat, &ree_type).map_err(VortexError::from)
+    Ok(ExportStep::Descend {
+        frame: RunEndExportFrame::CastValues {
+            ends_type: ends_type.clone(),
+            values_type: values_type.clone(),
+        }
+        .into(),
+        task: ExportTask::WithField {
+            array,
+            target: Some(values_type.clone()),
+        },
+    })
 }
 
-/// Export the values of a run-end array through the session, so extension metadata on the target
-/// values field dispatches to its export plugin instead of the naive Arrow mapping.
-fn export_values(
-    values: ArrayRef,
-    values_type: &Field,
-    exporter: &ArrowExporter<'_>,
-    ctx: &mut ExecutionCtx,
-) -> VortexResult<ArrowArrayRef> {
-    exporter.execute_arrow(values, Some(values_type), ctx)
-}
-
-fn run_end_to_arrow(
-    array: RunEndArray,
-    ends_type: &DataType,
-    values_type: &Field,
-    exporter: &ArrowExporter<'_>,
-    ctx: &mut ExecutionCtx,
-) -> VortexResult<ArrowArrayRef> {
-    let length = array.len();
-    let offset = array.offset();
-
-    let arrow_ends = execute_arrow_naive(array.ends().clone(), Some(ends_type), exporter, ctx)?;
-    let arrow_values = export_values(array.values().clone(), values_type, exporter, ctx)?;
-
-    match ends_type {
-        DataType::Int16 => build_run_array::<Int16Type>(&arrow_ends, &arrow_values, offset, length),
-        DataType::Int32 => build_run_array::<Int32Type>(&arrow_ends, &arrow_values, offset, length),
-        DataType::Int64 => build_run_array::<Int64Type>(&arrow_ends, &arrow_values, offset, length),
-        _ => vortex_bail!("Unsupported run-end index type: {:?}", ends_type),
+pub(super) fn step_arrow_run_end(
+    frame: RunEndExportFrame,
+    completed: ArrowArrayRef,
+) -> VortexResult<ExportStep> {
+    match frame {
+        RunEndExportFrame::HaveEnds {
+            values,
+            ends_type,
+            values_type,
+            offset,
+            length,
+        } => Ok(ExportStep::Descend {
+            frame: RunEndExportFrame::HaveValues {
+                ends_type,
+                arrow_ends: completed,
+                offset,
+                length,
+            }
+            .into(),
+            task: ExportTask::WithField {
+                array: values,
+                target: Some(values_type),
+            },
+        }),
+        RunEndExportFrame::HaveValues {
+            ends_type,
+            arrow_ends,
+            offset,
+            length,
+        } => match ends_type {
+            DataType::Int16 => {
+                build_run_array::<Int16Type>(&arrow_ends, &completed, offset, length)
+            }
+            DataType::Int32 => {
+                build_run_array::<Int32Type>(&arrow_ends, &completed, offset, length)
+            }
+            DataType::Int64 => {
+                build_run_array::<Int64Type>(&arrow_ends, &completed, offset, length)
+            }
+            _ => vortex_bail!("Unsupported run-end index type: {:?}", ends_type),
+        }
+        .map(ExportStep::Done),
+        RunEndExportFrame::ConstantValues { ends_type, len } => match ends_type {
+            DataType::Int16 => build_constant_run_array::<Int16Type>(len, &completed),
+            DataType::Int32 => build_constant_run_array::<Int32Type>(len, &completed),
+            DataType::Int64 => build_constant_run_array::<Int64Type>(len, &completed),
+            _ => vortex_bail!("Unsupported run-end index type: {:?}", ends_type),
+        }
+        .map(ExportStep::Done),
+        RunEndExportFrame::CastValues {
+            ends_type,
+            values_type,
+        } => {
+            let ree_type = DataType::RunEndEncoded(
+                Arc::new(Field::new("run_ends", ends_type, false)),
+                Arc::new(values_type),
+            );
+            arrow_cast::cast(&completed, &ree_type)
+                .map(ExportStep::Done)
+                .map_err(VortexError::from)
+        }
     }
 }
 
@@ -139,40 +237,6 @@ where
         .unary(|end| (end - offset_native).min(length_native));
 
     Ok(Arc::new(RunArray::<R>::try_new(&adjusted, &trimmed_values)?) as ArrowArrayRef)
-}
-
-/// Convert a constant array to a run-end encoded array with a single run.
-fn constant_to_run_end(
-    array: ConstantArray,
-    ends_type: &DataType,
-    values_type: &Field,
-    exporter: &ArrowExporter<'_>,
-    ctx: &mut ExecutionCtx,
-) -> VortexResult<ArrowArrayRef> {
-    let len = array.len();
-    let scalar = array.scalar();
-
-    if scalar.is_null() || len == 0 {
-        let ree_type = DataType::RunEndEncoded(
-            Arc::new(Field::new("run_ends", ends_type.clone(), false)),
-            Arc::new(values_type.clone()),
-        );
-        return Ok(new_null_array(&ree_type, len));
-    }
-
-    let values = export_values(
-        ConstantArray::new(scalar.clone(), 1).into_array(),
-        values_type,
-        exporter,
-        ctx,
-    )?;
-
-    match ends_type {
-        DataType::Int16 => build_constant_run_array::<Int16Type>(len, &values),
-        DataType::Int32 => build_constant_run_array::<Int32Type>(len, &values),
-        DataType::Int64 => build_constant_run_array::<Int64Type>(len, &values),
-        _ => vortex_bail!("Unsupported run-end index type: {:?}", ends_type),
-    }
 }
 
 fn build_constant_run_array<R: RunEndIndexType>(

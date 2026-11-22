@@ -48,59 +48,148 @@ impl Matcher for NativeField {
     }
 }
 
+enum ResolveFrame {
+    DictCodes {
+        values: ArrayRef,
+        values_depth: usize,
+    },
+    DictValues {
+        codes: ArrayRef,
+    },
+    Chunked {
+        dtype: DType,
+        remaining: std::vec::IntoIter<ArrayRef>,
+        built: Vec<ArrayRef>,
+        child_depth: usize,
+    },
+}
+
+fn pop_resolve_frames(
+    stack: &mut Vec<ResolveFrame>,
+    mut completed: ArrayRef,
+) -> Result<std::ops::ControlFlow<ArrayRef, (ArrayRef, usize)>> {
+    loop {
+        let Some(frame) = stack.pop() else {
+            return Ok(std::ops::ControlFlow::Break(completed));
+        };
+        match frame {
+            ResolveFrame::DictCodes {
+                values,
+                values_depth,
+            } => {
+                stack.push(ResolveFrame::DictValues { codes: completed });
+                return Ok(std::ops::ControlFlow::Continue((values, values_depth)));
+            }
+            ResolveFrame::DictValues { codes } => {
+                completed = DictArray::try_new(codes, completed)
+                    .map(vortex::array::IntoArray::into_array)
+                    .map_err(vortex_error)?;
+            }
+            ResolveFrame::Chunked {
+                dtype,
+                mut remaining,
+                mut built,
+                child_depth,
+            } => {
+                built.push(completed);
+                if let Some(next) = remaining.next() {
+                    stack.push(ResolveFrame::Chunked {
+                        dtype,
+                        remaining,
+                        built,
+                        child_depth,
+                    });
+                    return Ok(std::ops::ControlFlow::Continue((next, child_depth)));
+                }
+                completed = ChunkedArray::try_new(built, dtype)
+                    .map(vortex::array::IntoArray::into_array)
+                    .map_err(vortex_error)?;
+            }
+        }
+    }
+}
+
 fn resolve_field(
-    array: ArrayRef,
+    root: ArrayRef,
     context: &mut ExecutionCtx,
     metadata: &mut MemoryLease,
-    depth: usize,
+    initial_depth: usize,
 ) -> Result<ArrayRef> {
-    if depth > 24 {
-        return Err(failed("native field wrapper nesting exceeds 24 levels"));
+    let mut stack = Vec::<ResolveFrame>::new();
+    let mut current = (root, initial_depth);
+    loop {
+        let (array, depth) = current;
+        if depth > 24 {
+            return Err(failed("native field wrapper nesting exceeds 24 levels"));
+        }
+        let array = array
+            .execute_until::<NativeField>(context)
+            .map_err(vortex_error)?;
+        let completed = if let Some(dictionary) = array.as_opt::<Dict>() {
+            metadata.resize(
+                metadata
+                    .bytes()
+                    .checked_add(2048)
+                    .ok_or_else(|| failed("native dictionary metadata overflow"))?,
+            )?;
+            let codes = dictionary.codes().clone();
+            let values = dictionary.values().clone();
+            stack.push(ResolveFrame::DictCodes {
+                values,
+                values_depth: depth + 1,
+            });
+            current = (codes, depth + 1);
+            continue;
+        } else if let Some(chunked) = array.as_opt::<Chunked>() {
+            // Projected scan chunks can contain lazy field wrappers in each child.
+            // Resolve those children without canonicalizing their encoded value domain.
+            let count = chunked.nchunks();
+            let bytes = u64::try_from(count)
+                .map_err(vortex_error)?
+                .checked_mul(512)
+                .and_then(|bytes| bytes.checked_add(1024))
+                .ok_or_else(|| failed("native chunk metadata overflow"))?;
+            metadata.resize(
+                metadata
+                    .bytes()
+                    .checked_add(bytes)
+                    .ok_or_else(|| failed("native chunk metadata overflow"))?,
+            )?;
+            let mut remaining_src = Vec::new();
+            remaining_src
+                .try_reserve_exact(count)
+                .map_err(vortex_error)?;
+            for child in chunked.iter_chunks() {
+                remaining_src.push(child.clone());
+            }
+            let mut remaining = remaining_src.into_iter();
+            let mut built = Vec::new();
+            built.try_reserve_exact(count).map_err(vortex_error)?;
+            if built.capacity() > count {
+                return Err(failed("native chunk list exceeded reserved capacity"));
+            }
+            let dtype = array.dtype().clone();
+            if let Some(first) = remaining.next() {
+                stack.push(ResolveFrame::Chunked {
+                    dtype,
+                    remaining,
+                    built,
+                    child_depth: depth + 1,
+                });
+                current = (first, depth + 1);
+                continue;
+            }
+            ChunkedArray::try_new(built, dtype)
+                .map(vortex::array::IntoArray::into_array)
+                .map_err(vortex_error)?
+        } else {
+            array
+        };
+        match pop_resolve_frames(&mut stack, completed)? {
+            std::ops::ControlFlow::Break(done) => return Ok(done),
+            std::ops::ControlFlow::Continue(next) => current = next,
+        }
     }
-    let array = array
-        .execute_until::<NativeField>(context)
-        .map_err(vortex_error)?;
-    if let Some(dictionary) = array.as_opt::<Dict>() {
-        metadata.resize(
-            metadata
-                .bytes()
-                .checked_add(2048)
-                .ok_or_else(|| failed("native dictionary metadata overflow"))?,
-        )?;
-        let codes = resolve_field(dictionary.codes().clone(), context, metadata, depth + 1)?;
-        let values = resolve_field(dictionary.values().clone(), context, metadata, depth + 1)?;
-        return DictArray::try_new(codes, values)
-            .map(vortex::array::IntoArray::into_array)
-            .map_err(vortex_error);
-    }
-    let Some(chunked) = array.as_opt::<Chunked>() else {
-        return Ok(array);
-    };
-    // Projected scan chunks can contain lazy field wrappers in each child.
-    // Resolve those children without canonicalizing their encoded value domain.
-    let count = chunked.nchunks();
-    let bytes = u64::try_from(count)
-        .map_err(vortex_error)?
-        .checked_mul(512)
-        .and_then(|bytes| bytes.checked_add(1024))
-        .ok_or_else(|| failed("native chunk metadata overflow"))?;
-    metadata.resize(
-        metadata
-            .bytes()
-            .checked_add(bytes)
-            .ok_or_else(|| failed("native chunk metadata overflow"))?,
-    )?;
-    let mut chunks = Vec::new();
-    chunks.try_reserve_exact(count).map_err(vortex_error)?;
-    if chunks.capacity() > count {
-        return Err(failed("native chunk list exceeded reserved capacity"));
-    }
-    for child in chunked.iter_chunks() {
-        chunks.push(resolve_field(child.clone(), context, metadata, depth + 1)?);
-    }
-    ChunkedArray::try_new(chunks, array.dtype().clone())
-        .map(vortex::array::IntoArray::into_array)
-        .map_err(vortex_error)
 }
 
 pub(in crate::local_primitives) struct NativeBatch {

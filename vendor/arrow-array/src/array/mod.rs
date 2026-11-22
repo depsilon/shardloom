@@ -22,7 +22,7 @@ mod binary_array;
 use crate::types::*;
 use arrow_buffer::{ArrowNativeType, Buffer, NullBuffer, OffsetBuffer, ScalarBuffer};
 use arrow_data::ArrayData;
-use arrow_schema::{DataType, IntervalUnit, TimeUnit};
+use arrow_schema::DataType;
 use std::any::Any;
 use std::sync::Arc;
 
@@ -79,9 +79,12 @@ pub use list_view_array::*;
 use crate::iterator::ArrayIter;
 
 mod data_export;
+mod data_import;
 mod release;
+mod slice_iter;
 #[doc(hidden)]
 pub use data_export::ArrayDataNode;
+pub use data_import::make_array;
 #[doc(hidden)]
 pub use release::ArrayReleaseNode;
 
@@ -909,106 +912,6 @@ impl<R: RunEndIndexType> PartialEq for RunArray<R> {
 /// let int32_array: ArrayRef = Arc::new(Int32Array::new(scalar_buffer, None));
 /// assert_eq!(&array, &int32_array);
 /// ```
-pub fn make_array(data: ArrayData) -> ArrayRef {
-    match data.data_type() {
-        DataType::Boolean => Arc::new(BooleanArray::from(data)) as ArrayRef,
-        DataType::Int8 => Arc::new(Int8Array::from(data)) as ArrayRef,
-        DataType::Int16 => Arc::new(Int16Array::from(data)) as ArrayRef,
-        DataType::Int32 => Arc::new(Int32Array::from(data)) as ArrayRef,
-        DataType::Int64 => Arc::new(Int64Array::from(data)) as ArrayRef,
-        DataType::UInt8 => Arc::new(UInt8Array::from(data)) as ArrayRef,
-        DataType::UInt16 => Arc::new(UInt16Array::from(data)) as ArrayRef,
-        DataType::UInt32 => Arc::new(UInt32Array::from(data)) as ArrayRef,
-        DataType::UInt64 => Arc::new(UInt64Array::from(data)) as ArrayRef,
-        DataType::Float16 => Arc::new(Float16Array::from(data)) as ArrayRef,
-        DataType::Float32 => Arc::new(Float32Array::from(data)) as ArrayRef,
-        DataType::Float64 => Arc::new(Float64Array::from(data)) as ArrayRef,
-        DataType::Date32 => Arc::new(Date32Array::from(data)) as ArrayRef,
-        DataType::Date64 => Arc::new(Date64Array::from(data)) as ArrayRef,
-        DataType::Time32(TimeUnit::Second) => Arc::new(Time32SecondArray::from(data)) as ArrayRef,
-        DataType::Time32(TimeUnit::Millisecond) => {
-            Arc::new(Time32MillisecondArray::from(data)) as ArrayRef
-        }
-        DataType::Time64(TimeUnit::Microsecond) => {
-            Arc::new(Time64MicrosecondArray::from(data)) as ArrayRef
-        }
-        DataType::Time64(TimeUnit::Nanosecond) => {
-            Arc::new(Time64NanosecondArray::from(data)) as ArrayRef
-        }
-        DataType::Timestamp(TimeUnit::Second, _) => {
-            Arc::new(TimestampSecondArray::from(data)) as ArrayRef
-        }
-        DataType::Timestamp(TimeUnit::Millisecond, _) => {
-            Arc::new(TimestampMillisecondArray::from(data)) as ArrayRef
-        }
-        DataType::Timestamp(TimeUnit::Microsecond, _) => {
-            Arc::new(TimestampMicrosecondArray::from(data)) as ArrayRef
-        }
-        DataType::Timestamp(TimeUnit::Nanosecond, _) => {
-            Arc::new(TimestampNanosecondArray::from(data)) as ArrayRef
-        }
-        DataType::Interval(IntervalUnit::YearMonth) => {
-            Arc::new(IntervalYearMonthArray::from(data)) as ArrayRef
-        }
-        DataType::Interval(IntervalUnit::DayTime) => {
-            Arc::new(IntervalDayTimeArray::from(data)) as ArrayRef
-        }
-        DataType::Interval(IntervalUnit::MonthDayNano) => {
-            Arc::new(IntervalMonthDayNanoArray::from(data)) as ArrayRef
-        }
-        DataType::Duration(TimeUnit::Second) => {
-            Arc::new(DurationSecondArray::from(data)) as ArrayRef
-        }
-        DataType::Duration(TimeUnit::Millisecond) => {
-            Arc::new(DurationMillisecondArray::from(data)) as ArrayRef
-        }
-        DataType::Duration(TimeUnit::Microsecond) => {
-            Arc::new(DurationMicrosecondArray::from(data)) as ArrayRef
-        }
-        DataType::Duration(TimeUnit::Nanosecond) => {
-            Arc::new(DurationNanosecondArray::from(data)) as ArrayRef
-        }
-        DataType::Binary => Arc::new(BinaryArray::from(data)) as ArrayRef,
-        DataType::LargeBinary => Arc::new(LargeBinaryArray::from(data)) as ArrayRef,
-        DataType::FixedSizeBinary(_) => Arc::new(FixedSizeBinaryArray::from(data)) as ArrayRef,
-        DataType::BinaryView => Arc::new(BinaryViewArray::from(data)) as ArrayRef,
-        DataType::Utf8 => Arc::new(StringArray::from(data)) as ArrayRef,
-        DataType::LargeUtf8 => Arc::new(LargeStringArray::from(data)) as ArrayRef,
-        DataType::Utf8View => Arc::new(StringViewArray::from(data)) as ArrayRef,
-        DataType::List(_) => Arc::new(ListArray::from(data)) as ArrayRef,
-        DataType::LargeList(_) => Arc::new(LargeListArray::from(data)) as ArrayRef,
-        DataType::ListView(_) => Arc::new(ListViewArray::from(data)) as ArrayRef,
-        DataType::LargeListView(_) => Arc::new(LargeListViewArray::from(data)) as ArrayRef,
-        DataType::Struct(_) => Arc::new(StructArray::from(data)) as ArrayRef,
-        DataType::Map(_, _) => Arc::new(MapArray::from(data)) as ArrayRef,
-        DataType::Union(_, _) => Arc::new(UnionArray::from(data)) as ArrayRef,
-        DataType::FixedSizeList(_, _) => Arc::new(FixedSizeListArray::from(data)) as ArrayRef,
-        DataType::Dictionary(key_type, _) => match key_type.as_ref() {
-            DataType::Int8 => Arc::new(DictionaryArray::<Int8Type>::from(data)) as ArrayRef,
-            DataType::Int16 => Arc::new(DictionaryArray::<Int16Type>::from(data)) as ArrayRef,
-            DataType::Int32 => Arc::new(DictionaryArray::<Int32Type>::from(data)) as ArrayRef,
-            DataType::Int64 => Arc::new(DictionaryArray::<Int64Type>::from(data)) as ArrayRef,
-            DataType::UInt8 => Arc::new(DictionaryArray::<UInt8Type>::from(data)) as ArrayRef,
-            DataType::UInt16 => Arc::new(DictionaryArray::<UInt16Type>::from(data)) as ArrayRef,
-            DataType::UInt32 => Arc::new(DictionaryArray::<UInt32Type>::from(data)) as ArrayRef,
-            DataType::UInt64 => Arc::new(DictionaryArray::<UInt64Type>::from(data)) as ArrayRef,
-            dt => unimplemented!("Unexpected dictionary key type {dt}"),
-        },
-        DataType::RunEndEncoded(run_ends_type, _) => match run_ends_type.data_type() {
-            DataType::Int16 => Arc::new(RunArray::<Int16Type>::from(data)) as ArrayRef,
-            DataType::Int32 => Arc::new(RunArray::<Int32Type>::from(data)) as ArrayRef,
-            DataType::Int64 => Arc::new(RunArray::<Int64Type>::from(data)) as ArrayRef,
-            dt => unimplemented!("Unexpected data type for run_ends array {dt}"),
-        },
-        DataType::Null => Arc::new(NullArray::from(data)) as ArrayRef,
-        DataType::Decimal32(_, _) => Arc::new(Decimal32Array::from(data)) as ArrayRef,
-        DataType::Decimal64(_, _) => Arc::new(Decimal64Array::from(data)) as ArrayRef,
-        DataType::Decimal128(_, _) => Arc::new(Decimal128Array::from(data)) as ArrayRef,
-        DataType::Decimal256(_, _) => Arc::new(Decimal256Array::from(data)) as ArrayRef,
-        dt => unimplemented!("Unexpected data type {dt}"),
-    }
-}
-
 /// Creates a new empty array
 ///
 /// ```

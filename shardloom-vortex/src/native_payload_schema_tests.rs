@@ -364,3 +364,49 @@ fn support_and_schema_validation_preserve_error_distinctions_and_release_credit(
     assert!(reserve_schema(&too_deep, &memory).is_err());
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
+
+#[cfg(feature = "universal-format-io")]
+#[test]
+fn arrow_walk_bounded_depth_and_tight_credit_refusal_on_small_stack() {
+    use arrow_schema::{DataType, Field};
+    use std::sync::Arc;
+
+    let handle = std::thread::Builder::new()
+        .name("native_payload_schema::arrow_small_stack".into())
+        .stack_size(128 * 1024)
+        .spawn(|| {
+            let mut field = Field::new("leaf", DataType::Int64, true);
+            for level in 0..24 {
+                field = if level % 2 == 0 {
+                    Field::new("list", DataType::List(Arc::new(field)), true)
+                } else {
+                    Field::new("nested", DataType::Struct(vec![field].into()), true)
+                };
+            }
+            let memory = LiveMemoryPool::new(4 << 20).unwrap();
+            let bytes = arrow_field_metadata_bytes(&field, &memory).unwrap();
+            assert!(bytes > 0);
+            assert_eq!(
+                arrow_metadata_bytes(field.data_type(), &memory).unwrap(),
+                bytes
+            );
+            assert_eq!(
+                arrow_declared_storage_bytes(&field, &memory).unwrap(),
+                bytes
+            );
+            validate_arrow_declaration(field.data_type()).unwrap();
+            validate_arrow_declared_storage(&field).unwrap();
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+            let tiny = LiveMemoryPool::new(4096).unwrap();
+            assert!(arrow_field_metadata_bytes(&field, &tiny).is_err());
+            assert_eq!(tiny.snapshot().reserved_bytes, 0);
+
+            let too_deep = Field::new("over", DataType::List(Arc::new(field)), true);
+            assert!(arrow_field_metadata_bytes(&too_deep, &memory).is_err());
+            assert!(validate_arrow_declaration(too_deep.data_type()).is_err());
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+        })
+        .unwrap();
+    handle.join().unwrap();
+}

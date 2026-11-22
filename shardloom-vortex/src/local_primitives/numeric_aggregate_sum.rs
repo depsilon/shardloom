@@ -47,6 +47,37 @@ impl NumericAggregateSum {
         *sum = next;
     }
 
+    pub(super) fn add_integer_repeated(&mut self, value: f64, count: u64) {
+        fn add_scaled(target: &mut NumericAggregateSum, value: f64, factor: f64) {
+            let hi = value * factor;
+            if !hi.is_finite() {
+                target.add(hi, true);
+                return;
+            }
+            let lo = value.mul_add(factor, -hi);
+            target.add(hi, true);
+            if lo != 0.0 {
+                target.add(lo, true);
+            }
+        }
+
+        if count == 0 {
+            return;
+        }
+        if count == 1 {
+            self.add(value, true);
+            return;
+        }
+        let high = u32::try_from(count >> 32).expect("upper 32 bits fit in u32");
+        let low = u32::try_from(count & u64::from(u32::MAX)).expect("lower 32 bits fit in u32");
+        if high != 0 {
+            add_scaled(self, value, f64::from(high) * 4_294_967_296.0);
+        }
+        if low != 0 {
+            add_scaled(self, value, f64::from(low));
+        }
+    }
+
     pub(super) fn merge(&mut self, other: Self) {
         match other {
             Self::Ordered(value) => self.add(value, matches!(self, Self::Integer { .. })),
@@ -117,5 +148,36 @@ mod tests {
             total.add(f64::MAX, integer);
             assert!(!total.is_finite());
         }
+    }
+
+    #[test]
+    fn integer_repeated_matches_compensated_loop_and_handles_split_counts() {
+        for count in [0_u64, 1, 2, 11, 2_000_000] {
+            let mut expected = NumericAggregateSum::default();
+            expected.add(1e18, true);
+            for _ in 0..count {
+                expected.add(1.0, true);
+            }
+            let mut neg = NumericAggregateSum::default();
+            neg.add(-1e18, true);
+            expected.merge(neg);
+
+            let mut actual = NumericAggregateSum::default();
+            actual.add(1e18, true);
+            actual.add_integer_repeated(1.0, count);
+            let mut neg_actual = NumericAggregateSum::default();
+            neg_actual.add(-1e18, true);
+            actual.merge(neg_actual);
+
+            assert_eq!(actual.total().to_bits(), expected.total().to_bits());
+        }
+
+        let mut split = NumericAggregateSum::default();
+        split.add_integer_repeated(3.0, (1_u64 << 32) + 17);
+        assert_eq!(split.total(), 12_884_901_939.0);
+
+        let mut overflow = NumericAggregateSum::default();
+        overflow.add_integer_repeated(f64::MAX, 2);
+        assert!(!overflow.is_finite());
     }
 }

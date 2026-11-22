@@ -15,6 +15,24 @@ introduce a competing current queue.
 Status words in historical sections below describe evidence recorded at the time of the original
 phase note. They are not active queue state and do not override `phased-execution-plan.md`.
 
+The November 21 [portable serverless worker and durable artifacts specification](../rfcs/0047-portable-serverless-worker-and-durable-artifacts.md)
+implements Deliveries 1 and 2 of the November 8
+[portable serverless execution queue](native-serverless-execution-2026-11-08.md) (`PortableWorker`,
+`DurableArtifactStore`, isolated per-attempt cleanup, atomic commit fencing, and retained-owner
+lease pinning; Deliveries 3–5 live managed host deployment and remote selective reading remain open
+pending actual host access). RFCs 0014/0017/0024/0033/0034/0035/0036/0044 and all CG-1 through
+CG-23 gates preserve their independent obligations and non-fallback posture.
+
+The November 21 [Resonance cells and leases proposal](../rfcs/0046-resonance-cells-and-leases.md)
+is closed with zero runtime code retained after its pre-implementation release attribution
+screen failed the retain gate (`164.593625 → 166.171249 ms`, `+0.96%`; see the
+[attribution screen report](../benchmarks/native-resonance-attribution-screen-2026-11-21.md)),
+following local retention of Chrysalis (RFC 0045). Prototype correctness, isolation and
+resource-release unit tests (`9/9`) passed prior to reverting the unretained prototype. RFCs
+0013/0014/0015/0017/0031/0033/0044 continue to govern streaming, memory, semantics, recovery,
+I/O, workflows and resident ownership, and all CG-1 through CG-23 gates retain their
+independent proof obligations with no phase or CG closure.
+
 The November 18 [partial native coverage design](../rfcs/0045-partial-native-source-coverage.md)
 governs the locally retained Chrysalis investigation within existing item 20. RFCs
 0013/0014/0015/0017/0031/0033/0044 continue to govern streaming, memory, semantics,

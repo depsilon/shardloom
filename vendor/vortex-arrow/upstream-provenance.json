@@ -7,18 +7,18 @@
   "license_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE",
   "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
   "license_git_blob_sha1": "d645695673349e3947e8e5ae42332d0ac3164cd7",
-  "migration_status": "scoped_storage_preservation_under_validation",
+  "migration_status": "reviewed_iterative_schema_array_scalar_completion; public_depth_guards_unchanged; full_deep_workflow_pending",
   "omitted_files": {
     "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"
   },
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "ef97a1c1ae8fe81433f38d0f940286b975d402ff55b9696b685ad7845bbaf68d"
+    "sha256": "aafc781164c8d0b076c2eb63f709c1fbca2eff9f6f44b768f9c192d19e00cabb"
   },
   "supplemental_test_files": {},
   "added_files_sha256": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "README.shardloom.md": "ef97a1c1ae8fe81433f38d0f940286b975d402ff55b9696b685ad7845bbaf68d",
+    "README.shardloom.md": "aafc781164c8d0b076c2eb63f709c1fbca2eff9f6f44b768f9c192d19e00cabb",
     "src/preserved_decimal.rs": "90c52f2f7a7a5e6122c9990c3db24f85b163cd5a68d0898e34b5f32ee5fe965f",
     "src/variant_chunks.rs": "ac34d676e5cc7cd98ec31c9ab3cf72fa2c843e2ca1d0070d8c54ccdbe594c078"
   },
@@ -61,8 +61,20 @@
   "registry_archive_uncompressed_bytes": 511928,
   "modified_files_sha256": {
     "Cargo.toml": "75f8550231fa5f8facbef923f63cac3136649f4beafc973d8471b43a8ad61b3a",
+    "src/convert.rs": "3d04a50ba0e01692b0d383b46582302675bdee7f6ecfc6dc1a76359def0ef5df",
+    "src/dtype.rs": "cde5b765bd53425a151519213d502f211bb2f32b69ab1fcaf0fd8b908ef119cd",
+    "src/executor/dictionary.rs": "0c623f495f4580ca20f4f91986ae857c7b109b55215d0b797d6955fa966a4ace",
+    "src/executor/fixed_size_list.rs": "c438f446839a165cab699f67f227db1db935bf280cd8c76a1ad7a9d00149a125",
+    "src/executor/list.rs": "9953d63bf9e887f01afaf17af63fe5c7f109d4cd168587f17e20416929a34c3f",
+    "src/executor/list_view.rs": "64e54c758f2ced59a124f48132cb30d8de0ecd84e348d3a055268b9ff7b8e394",
+    "src/executor/map.rs": "69b53ac1a1d7c91320f3febbbce1fe680ff5c24da9aed99b1219b0bfc6fabdf9",
+    "src/executor/mod.rs": "7bb47cede8be20b7302a305763c4e482e382679d34b92b2e85e4a785609dd06f",
+    "src/executor/run_end.rs": "ac6d5fcead8b28fd7f3425e2678f1364ea3a31f1a381678ea14b2c03b7a77f05",
+    "src/executor/struct_.rs": "e7841e2f8e698b4caec9cb0e58638c039c3d1ecde82684fce54344d71a0510ce",
     "src/lib.rs": "73d2cf769267a8d34d39210a50fd1fbbf71c6077cca19e683d413658ea397603",
-    "src/session.rs": "ca342b62e60f9dddae5812a9b1b1a3a6e4b5b77414f481c4d481af23ecae7a23"
+    "src/run_end_import.rs": "1fd9228f3fb7dbc7b0d36ca7ae33a9c936081064317531f58a48f10809a577a9",
+    "src/scalar.rs": "f140637287484839daa8c05cdc1d6ecb9ccf3cc6a8a6cb52b070c899fa3cf5dd",
+    "src/session.rs": "4d16c53c5be57542c9d4c3cd2318aebd2e597b3cac387749be84d2fc8b0e0cf3"
   },
   "vcs_info": {
     "git": {

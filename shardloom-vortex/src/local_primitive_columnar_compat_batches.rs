@@ -12,40 +12,46 @@ fn orc_encoder_overhead(dtype: &DType) -> Result<u64> {
     // structs own only presence and children. Growing payload is charged by
     // the separate eight-times converted-input envelope. Provider memory_size
     // omits pending integer literals, so do not substitute that observation.
-    let (base, children) = match dtype {
-        DType::Struct(fields, _) => (
-            1024,
-            fields.fields().try_fold(0_u64, |bytes, child| {
-                bytes
-                    .checked_add(orc_encoder_overhead(&child)?)
-                    .ok_or_else(|| error("ORC encoder admission overflow"))
-            })?,
-        ),
-        DType::List(child, _) | DType::FixedSizeList(child, _, _) => {
-            (5120, orc_encoder_overhead(child)?)
-        }
-        DType::Bool(_) | DType::Primitive(PType::F32 | PType::F64 | PType::I8, _) => (1024, 0),
-        DType::Extension(_) => (9216, 0),
-        _ => (5120, 0),
-    };
-    children
-        .checked_add(base)
-        .ok_or_else(|| error("ORC encoder admission overflow"))
+    let mut total = 0_u64;
+    let mut stack = vec![dtype.clone()];
+    while let Some(current) = stack.pop() {
+        let base = match &current {
+            DType::Struct(fields, _) => {
+                stack.extend(fields.fields());
+                1024
+            }
+            DType::List(child, _) | DType::FixedSizeList(child, _, _) => {
+                stack.push(child.as_ref().clone());
+                5120
+            }
+            DType::Bool(_) | DType::Primitive(PType::F32 | PType::F64 | PType::I8, _) => 1024,
+            DType::Extension(_) => 9216,
+            _ => 5120,
+        };
+        total = total
+            .checked_add(base)
+            .ok_or_else(|| error("ORC encoder admission overflow"))?;
+    }
+    Ok(total)
 }
 
 impl PreparedCompatibilityExport {
     fn parquet_columns(&self) -> usize {
-        fn leaves(dtype: &DType) -> usize {
-            match dtype {
-                DType::Struct(fields, _) => fields.fields().map(|child| leaves(&child)).sum(),
-                DType::List(child, _) | DType::FixedSizeList(child, _, _) => leaves(child),
-                _ => 1,
-            }
-        }
         // Parquet creates one page/dictionary writer per physical leaf. Lists
         // and structs add levels and schema nodes, not another value writer.
         // Keep every node in the independent schema/footer admission below.
-        leaves(&self.plan.dtype)
+        let mut count = 0_usize;
+        let mut stack = vec![self.plan.dtype.clone()];
+        while let Some(current) = stack.pop() {
+            match &current {
+                DType::Struct(fields, _) => stack.extend(fields.fields()),
+                DType::List(child, _) | DType::FixedSizeList(child, _, _) => {
+                    stack.push(child.as_ref().clone());
+                }
+                _ => count += 1,
+            }
+        }
+        count
     }
 
     pub(super) fn parquet_dictionary_enabled(&self) -> bool {

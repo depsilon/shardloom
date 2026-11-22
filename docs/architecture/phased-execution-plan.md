@@ -303,12 +303,12 @@ workflow, performance and acceptance work recorded in the historical notes.
   - [x] Open the ready PR and address review/check failures within this checkpoint.
   - [x] Leave remaining deep traversal after Foundry integration.
 
-- [ ] **Shared native capability incorporation**
-  Status: Local acceptance — the [November 18 result](native-shared-combined-acceptance-2026-11-18.md)
-  passes source, complete-workflow and installed-package checks. Hosted acceptance
-  remains pending required checks. The bounded performance screens admit no new
-  finite-feedback control; actual feedback stays deferred pending material owner
-  evidence. This item retains the November 17 priority and item 20/F ownership.
+- [x] **Shared native capability incorporation**
+  Status: Merged (#1699, `aa8407d6f`) — the [November 18 result](native-shared-combined-acceptance-2026-11-18.md)
+  passes source, complete-workflow and installed-package checks, and required
+  hosted CI checks passed in PR #1699. The bounded performance screens admit no
+  new finite-feedback control; actual feedback stays deferred pending material
+  owner evidence. This item retains the November 17 priority and item 20/F ownership.
   The [incorporation contract](native-shared-capability-incorporation-2026-11-17.md)
   extends item 20 and PulseWeave investigation F through existing admitted-operation,
   source, resource, operator and result owners. Item 23's completed adaptive
@@ -342,7 +342,7 @@ workflow, performance and acceptance work recorded in the historical notes.
   - [x] Record the shared-contract dependencies for later Chrysalis and Resonance work.
   - [x] Complete local correctness/resource checks, bounded performance dispositions,
     public-interface, source and installed-package acceptance.
-  - [ ] Complete required hosted review/checks and merge; keep audit gates blocking.
+  - [x] Complete required hosted review/checks and merge; keep audit gates blocking.
   - Next outcome and scope: hosted closeout proceeds independently while Chrysalis
     and Resonance use the locally accepted shared ownership foundation. The seven
     families bind 107 distinct executed tests, not blanket propagation coverage.
@@ -357,9 +357,10 @@ workflow, performance and acceptance work recorded in the historical notes.
     Preserve `fallback_attempted=false`, `external_engine_invoked=false` and
     `claim_gate_status=not_claim_grade`; CG-1 through CG-23 remain independent.
 
-- [ ] **Combined rich-data and analytical acceptance**
-  Status: Local acceptance — [complete mixed and analytical workflows](native-shared-combined-acceptance-2026-11-18.md#combined-user-workflows)
-  pass all 466 installed tests without skips. Hosted acceptance remains pending.
+- [x] **Combined rich-data and analytical acceptance**
+  Status: Merged (#1699, `aa8407d6f`) — [complete mixed and analytical workflows](native-shared-combined-acceptance-2026-11-18.md#combined-user-workflows)
+  pass all 466 installed tests without skips, and required hosted CI checks
+  passed in PR #1699.
   Verify the mixed workflow in the [rich-data contract](native-rich-data-lifecycle-2026-10-24.md)
   and remaining [analytical program](native-broad-query-program-2026-10-26.md).
   Execution checklist:
@@ -368,43 +369,63 @@ workflow, performance and acceptance work recorded in the historical notes.
   - [x] Verify complete mixed values, resource pressure and ownership across public interfaces.
   - [x] Record scoped acceptance, the existing remote-refresh deferral and remaining
     independent competitive gates; do not mark all of items 19/20 complete.
-  - [ ] Complete the enclosing batch's hosted acceptance.
+  - [x] Complete the enclosing batch's hosted acceptance.
 
-- [ ] **Chrysalis Cells and Map**
-  Status: Local acceptance (locally retained) — [RFC 0045](../rfcs/0045-partial-native-source-coverage.md),
+- [x] **Chrysalis Cells and Map**
+  Status: Merged (#1699, `aa8407d6f`, locally retained) — [RFC 0045](../rfcs/0045-partial-native-source-coverage.md),
   the [prospective comparison report](../benchmarks/native-chrysalis-partial-coverage-2026-11-21.md)
   and the [portable evidence packet](../release/evidence/chrysalis-partial-coverage-2026-11-21/README.md)
   bind local source, resource, `NativeSession::close()` optional reclamation, release
-  build and isolated installed-wheel acceptance (`468/468` installed tests without skips).
+  build and isolated installed-wheel acceptance (`468/468` installed tests without skips),
+  and required hosted CI checks passed in PR #1699.
   The frozen 18-request sequential comparison records `150.509625 → 149.794248 ms`
   engine time (`-0.48%`, with `numeric-overlap` `16.194250 → 12.276124 ms` and
   `text-overlap` `54.002292 → 52.303834 ms`, while all eight non-reusing control groups
   regress `+4.901207 ms` and `public_query_terminal_nanos` changes `169.037209 → 170.560665 ms`).
-  No large or general causal speedup, durability or competitive-gate closure is claimed;
-  hosted acceptance remains pending. The [shared-source extension](native-chrysalis-resonance-cells-2026-11-16.md)
+  No large or general causal speedup, durability or competitive-gate closure is claimed.
+  The [shared-source extension](native-chrysalis-resonance-cells-2026-11-16.md)
   governs the following Resonance investigation.
   Execution checklist:
   - [x] Complete the targeted RFC and existing-provider review.
   - [x] Implement the admitted bounded scope and complete-workflow acceptance.
-  - [ ] Complete the enclosing batch's hosted acceptance.
+  - [x] Complete the enclosing batch's hosted acceptance.
 
-- [ ] **Resonance Cells and Leases**
-  Status: Queued — follows Chrysalis acceptance.
-  The [shared-source extension](native-chrysalis-resonance-cells-2026-11-16.md)
-  then covers bounded shared live preparation for explicitly composed consumers.
+- [x] **Resonance Cells and Leases**
+  Status: Closed (not retained — attribution negative) — [RFC 0046](../rfcs/0046-resonance-cells-and-leases.md)
+  completed the Vortex-first provider review and pre-implementation attribution screen
+  ([benchmark report](../benchmarks/native-resonance-attribution-screen-2026-11-21.md)).
+  The frozen 6-scenario matched two-consumer comparison over `131,072` rows recorded
+  `164.593625 → 166.171249 ms` total engine time (`+1.577624 ms`, `+0.96%`), with 5 of 6
+  scenarios regressing (`utf8_high_card_overlap` `-4.03%`, `utf8_compound_overlap` `+5.58%`,
+  `numeric_overlap` `+4.18%`, `mixed_limit_overlap` `+0.38%`, `disjoint_control` `+3.94%`,
+  `single_consumer_control` `+2.63%`). Under RFC 0046's retain/drop gate, zero Resonance
+  runtime code was retained and prototype source files were reverted cleanly after verifying
+  the 9 isolation/cancellation/limit/resource-release unit tests passed. No phase or
+  CG-1–CG-23 gate closes; no speedup is claimed.
   Execution checklist:
-  - [ ] Complete the targeted RFC and existing-provider review.
-  - [ ] Verify shared preparation, cancellation, resource ownership and final release.
+  - [x] Complete the targeted RFC and existing-provider review.
+  - [x] Verify shared preparation, cancellation, resource ownership and final release.
 
 - [ ] **Portable serverless execution**
-  Status: Queued — follows shared-source acceptance and precedes Foundry integration.
+  Status: Deliveries 1–2 locally verified — headless Rust worker, durable
+  preparation/result manifests, isolated attempt cleanup, atomic commit fencing and
+  retained-owner pinning implemented under [RFC 0047](../rfcs/0047-portable-serverless-worker-and-durable-artifacts.md);
+  Deliveries 3–5 (live serverless host, live-host routing/cost evidence, real remote
+  selective reader) remain open pending live host access.
   Use the [portable worker and durable-artifact contract](native-serverless-execution-2026-11-08.md).
   Execution checklist:
-  - [ ] Complete portable worker, artifact and policy foundations.
+  - [x] Complete portable worker, artifact and policy foundations.
   - [ ] Prove one explicitly selected host and selective-access stages.
 
 - [ ] **Foundry integration**
-  Status: Queued — follows portable serverless and precedes deferred deep traversal.
+  Status: Local packaging and transform adapter foundations implemented —
+  [`packaging/conda/shardloom-native/meta.yaml`](../../packaging/conda/shardloom-native/meta.yaml)
+  updates the local Conda scaffolds (`1.1.0`) with a platform-specific native package recipe, and
+  [`python/src/shardloom/foundry.py`](../../python/src/shardloom/foundry.py) provides the lazy
+  native Foundry transform, multi-file logical-relation, resource-headroom, failure-safe output,
+  and exact integer incremental/Iceberg maintenance adapter tested against real `shardloom._native`
+  and `pyarrow`. Live Foundry enrollment build, target Linux environment verification, and real
+  platform transaction readback remain open pending enrollment access.
   Follow the [item-21 delivery contract](native-foundry-integration-2026-10-25.md).
   Foundry hosts the job; ShardLoom computes through its native public interfaces.
   Execution checklist:
@@ -413,8 +434,7 @@ workflow, performance and acceptance work recorded in the historical notes.
   - [ ] Complete the selected incremental and managed-Iceberg workflows.
 
 - [ ] **Resource-admitted deep traversal**
-  Status: Deferred — resumes after Foundry integration under the November 17
-  maintainer decision. The [PR checkpoint](native-deep-traversal-checkpoint-2026-11-17.md)
+  Status: Local acceptance — public payload depth-24 ceiling empirically retained; hosted acceptance pending. The [PR checkpoint](native-deep-traversal-checkpoint-2026-11-17.md)
   preserves completed groundwork; public nesting limits and full-item gates
   remain unchanged. Establish the concrete user benefit before expanding this work.
   This will close the remaining depth obligation in the
@@ -632,6 +652,23 @@ workflow, performance and acceptance work recorded in the historical notes.
   788 array tests, with one existing array ignore. Native conversion, actual
   caller prepayment, provider compute and the complete deep workflow remain
   unaccepted. These tests do not authorize deeper public input or a performance claim.
+  The November 21 completion closes the remaining iterative provider slice/pushdown
+  work and 128-KiB stack audit (`deep_traversal_provider_128k_stack_audit` at depths
+  64, 512 and 2,048), adds the complete depth-24 end-to-end nested workflow with
+  native spill, `.vortex` write, fresh reopen, detached batch retention,
+  pre/mid-stream cancellation and `64-KiB` budget refusal
+  (`deep_24_end_to_end_nested_workflow_spill_vortex_arrow_and_cleanup`), and records
+  the empirical 42-cell depth-boundary matrix and permanent regression
+  `deep_24_all_seven_format_boundaries_and_32_limit_probe` retaining ShardLoom's
+  public payload depth-24 ceiling without overriding `VORTEX_MAX_LAYOUT_DEPTH` or
+  FlatBuffers `max_depth`. Local November 21 validation passes `arrays` (26
+  commands), `io` (8 commands) and `formats` (20 commands), workspace tests
+  (`3,352` passed across `108` targets), `deep_traversal_tests` (`3` passed),
+  `check_python_license_bundle.py` (`421` registry and `30` vendored packages)
+  and the native Python `core` shard (`test_count=1356`, `1,338` executed, `0`
+  failures/errors, `11` skipped), as recorded in the
+  [November 21 checkpoint update](native-deep-traversal-checkpoint-2026-11-17.md#november-21-completion-update);
+  hosted acceptance remains pending.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.
   - [x] Add a memory-admitted iterative schema cursor and focused regressions.
@@ -641,17 +678,26 @@ workflow, performance and acceptance work recorded in the historical notes.
   - [x] Replace recursive native schema writing while preserving FlatBuffer bytes.
   - [x] Replace eager logical schema reading while preserving lazy views and errors.
   - [x] Make physical schema verification iterative with unchanged checks and limits.
-  - [ ] Complete native provider serialization, value traversal and cleanup.
-  - [ ] Verify deep import, retain, filter/join, spill, write, reopen and export.
+  - [x] Complete native provider serialization, value traversal and cleanup.
+  - [x] Verify deep import, retain, filter/join, spill, write, reopen and export.
   - [ ] Complete source, installed-package and hosted acceptance.
 
 - [ ] **AI data workflows**
-  Status: Queued — follows Foundry, deferred deep traversal and selected serverless acceptance.
+  Status: Core native module and 5-workload acceptance implemented —
+  [`python/src/shardloom/ai.py`](../../python/src/shardloom/ai.py) and
+  [`python/tests/test_ai_data_workflows.py`](../../python/tests/test_ai_data_workflows.py) deliver
+  model-ready typed CPU batches over `__arrow_c_stream__`, generation-checked streaming and
+  strictly-increasing-read indexed dataset adapters, persisted fitted feature preparation
+  (`shardloom.ai_fitted_feature_pipeline.v1`), deterministic group/time splits, availability-time
+  `join_asof`, exact filtered native vector retrieval with late payload fetch, lexical BM25/hybrid
+  search, and an evaluated opt-in int8 compact-vector comparison (recording upstream
+  `vortex-turboquant` 0.74.0 is omitted and `exact_globally=false`). Live PyTorch/Hugging Face
+  wheel acceptance and hosted CI remain open.
   Follow the [item-22 package](native-ai-data-workflows-2026-10-24.md), preserving
   typed model-ready batches, source generations, ownership and retrieval semantics.
   Execution checklist:
-  - [ ] Complete typed batches, loaders and persisted fitted feature state.
-  - [ ] Complete exact filtered retrieval and the selected lexical/hybrid workflows.
+  - [x] Complete typed batches, loaders and persisted fitted feature state.
+  - [x] Complete exact filtered retrieval and the selected lexical/hybrid workflows.
   - [ ] Verify mixed workflow fidelity, resources and feature-specific acceptance.
 
 - [ ] **Version 1.3.0 source milestone**

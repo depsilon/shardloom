@@ -20,12 +20,12 @@ use arrow_buffer::ArrowNativeType;
 use std::mem::size_of;
 use std::ops::Add;
 
-use super::{_MutableArrayData, Extend};
+use super::{_MutableArrayData, ChildExtendNullsTask, Extend};
 
 pub(super) fn build_extend<T: ArrowNativeType>(array: &ArrayData) -> Extend<'_> {
     let values = array.buffer::<T>(0);
     Box::new(
-        move |mutable: &mut _MutableArrayData, _, start: usize, len: usize| {
+        move |mutable: &mut _MutableArrayData, _, start: usize, len: usize, _| {
             mutable
                 .buffer1
                 .extend_from_slice(&values[start..start + len]);
@@ -40,7 +40,7 @@ where
 {
     let values = array.buffer::<T>(0);
     Box::new(
-        move |mutable: &mut _MutableArrayData, _, start: usize, len: usize| {
+        move |mutable: &mut _MutableArrayData, _, start: usize, len: usize, _| {
             mutable
                 .buffer1
                 .extend(values[start..start + len].iter().map(|x| *x + offset));
@@ -52,6 +52,7 @@ where
 pub(super) fn extend_nulls<T: ArrowNativeType>(
     mutable: &mut _MutableArrayData,
     len: usize,
+    _: &mut Vec<ChildExtendNullsTask>,
 ) -> Result<(), arrow_schema::ArrowError> {
     mutable.buffer1.extend_zeros(len * size_of::<T>());
     Ok(())

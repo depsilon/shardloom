@@ -22,29 +22,49 @@ use arrow_buffer::ScalarBuffer;
 use arrow_schema::DataType;
 use num_traits::ToPrimitive;
 
-use super::equal_range;
+use super::{EqualFrame, EqualSlice};
 
-/// Returns true if the two `RunEndEncoded` arrays are equal.
-///
-/// This provides a specialized implementation of equality for REE arrays that
-/// handles differences in run-encoding by iterating through the logical range.
-pub(super) fn run_equal(
-    lhs: &ArrayData,
-    rhs: &ArrayData,
-    lhs_start: usize,
-    rhs_start: usize,
+pub(super) enum RunEqualStepper<'a> {
+    I16(Box<RunStepperState<'a, i16>>),
+    I32(Box<RunStepperState<'a, i32>>),
+    I64(Box<RunStepperState<'a, i64>>),
+}
+
+pub(super) struct RunStepperState<'a, T: ArrowNativeType> {
+    l_array: RunArrayData<'a, T>,
+    r_array: RunArrayData<'a, T>,
+    l_phys: usize,
+    r_phys: usize,
+    processed: usize,
     len: usize,
+}
+
+/// Enqueues comparisons for two `RunEndEncoded` arrays onto `stack`.
+pub(super) fn push_run_equal<'a>(
+    slice: EqualSlice<'a>,
+    stack: &mut Vec<EqualFrame<'a>>,
 ) -> bool {
-    let lhs_index_type = match lhs.data_type() {
+    let lhs_index_type = match slice.lhs.data_type() {
         DataType::RunEndEncoded(f, _) => f.data_type(),
         _ => unreachable!(),
     };
 
     match lhs_index_type {
-        DataType::Int16 => run_equal_inner::<i16>(lhs, rhs, lhs_start, rhs_start, len),
-        DataType::Int32 => run_equal_inner::<i32>(lhs, rhs, lhs_start, rhs_start, len),
-        DataType::Int64 => run_equal_inner::<i64>(lhs, rhs, lhs_start, rhs_start, len),
+        DataType::Int16 => push_run_equal_inner::<i16>(slice, RunEqualStepper::I16, stack),
+        DataType::Int32 => push_run_equal_inner::<i32>(slice, RunEqualStepper::I32, stack),
+        DataType::Int64 => push_run_equal_inner::<i64>(slice, RunEqualStepper::I64, stack),
         _ => unreachable!(),
+    }
+}
+
+pub(super) fn step_run_equal<'a>(
+    stepper: RunEqualStepper<'a>,
+    stack: &mut Vec<EqualFrame<'a>>,
+) -> bool {
+    match stepper {
+        RunEqualStepper::I16(state) => advance_run_stepper(state, RunEqualStepper::I16, stack),
+        RunEqualStepper::I32(state) => advance_run_stepper(state, RunEqualStepper::I32, stack),
+        RunEqualStepper::I64(state) => advance_run_stepper(state, RunEqualStepper::I64, stack),
     }
 }
 
@@ -89,13 +109,18 @@ impl<'a, T: ArrowNativeType + ToPrimitive> RunArrayData<'a, T> {
     }
 }
 
-fn run_equal_inner<T: ArrowNativeType + ToPrimitive>(
-    lhs: &ArrayData,
-    rhs: &ArrayData,
-    lhs_start: usize,
-    rhs_start: usize,
-    len: usize,
+fn push_run_equal_inner<'a, T: ArrowNativeType + ToPrimitive>(
+    slice: EqualSlice<'a>,
+    wrap: fn(Box<RunStepperState<'a, T>>) -> RunEqualStepper<'a>,
+    stack: &mut Vec<EqualFrame<'a>>,
 ) -> bool {
+    let EqualSlice {
+        lhs,
+        rhs,
+        lhs_start,
+        rhs_start,
+        len,
+    } = slice;
     if len == 0 {
         return true;
     }
@@ -118,50 +143,69 @@ fn run_equal_inner<T: ArrowNativeType + ToPrimitive>(
         if physical_match {
             // Both arrays are partitioned identically.
             // We can just verify if the physical values in those partitions match.
-            return equal_range(
-                l_array.values,
-                r_array.values,
-                l_start_phys,
-                r_start_phys,
-                l_runs,
-            );
+            stack.push(EqualFrame::Range(EqualSlice {
+                lhs: l_array.values,
+                rhs: r_array.values,
+                lhs_start: l_start_phys,
+                rhs_start: r_start_phys,
+                len: l_runs,
+            }));
+            return true;
         }
     }
 
-    let mut l_phys = l_start_phys;
-    let mut r_phys = r_start_phys;
-    let mut processed = 0;
-    while processed < len {
-        if !equal_range(l_array.values, r_array.values, l_phys, r_phys, 1) {
-            return false;
-        }
+    let state = Box::new(RunStepperState {
+        l_array,
+        r_array,
+        l_phys: l_start_phys,
+        r_phys: r_start_phys,
+        processed: 0,
+        len,
+    });
+    advance_run_stepper(state, wrap, stack)
+}
 
-        let l_run_end = l_array.run_end(l_phys);
-        let r_run_end = r_array.run_end(r_phys);
+fn advance_run_stepper<'a, T: ArrowNativeType + ToPrimitive>(
+    mut state: Box<RunStepperState<'a, T>>,
+    wrap: fn(Box<RunStepperState<'a, T>>) -> RunEqualStepper<'a>,
+    stack: &mut Vec<EqualFrame<'a>>,
+) -> bool {
+    if state.processed >= state.len {
+        return true;
+    }
+    let cur_l_phys = state.l_phys;
+    let cur_r_phys = state.r_phys;
+    let l_values = state.l_array.values;
+    let r_values = state.r_array.values;
 
-        //Calculate how many more logical elements are in the current run of the left and right array
-        let l_remaining_in_run = l_run_end - (l_array.run_ends.offset() + processed);
-        let r_remaining_in_run = r_run_end - (r_array.run_ends.offset() + processed);
+    let l_run_end = state.l_array.run_end(cur_l_phys);
+    let r_run_end = state.r_array.run_end(cur_r_phys);
 
-        //Calculate how many elements are left to compare in the requested range
-        let remaining_in_range = len - processed;
+    let l_remaining_in_run = l_run_end - (state.l_array.run_ends.offset() + state.processed);
+    let r_remaining_in_run = r_run_end - (state.r_array.run_ends.offset() + state.processed);
+    let remaining_in_range = state.len - state.processed;
 
-        //Find the smallest of these three to determine our step size
-        //The goal is to move the logical cursor (processed) forward as far as possible without:
-        //Crossing the boundary of a run in the left or right array (where the value might change).
-        //Going past the total length we were asked to compare.
-        let step = l_remaining_in_run
-            .min(r_remaining_in_run)
-            .min(remaining_in_range);
-        processed += step;
+    let step = l_remaining_in_run
+        .min(r_remaining_in_run)
+        .min(remaining_in_range);
+    state.processed += step;
 
-        if l_array.run_ends.offset() + processed == l_run_end {
-            l_phys += 1;
-        }
-        if r_array.run_ends.offset() + processed == r_run_end {
-            r_phys += 1;
-        }
+    if state.l_array.run_ends.offset() + state.processed == l_run_end {
+        state.l_phys += 1;
+    }
+    if state.r_array.run_ends.offset() + state.processed == r_run_end {
+        state.r_phys += 1;
     }
 
+    if state.processed < state.len {
+        stack.push(EqualFrame::RunEndStepper(wrap(state)));
+    }
+    stack.push(EqualFrame::Range(EqualSlice {
+        lhs: l_values,
+        rhs: r_values,
+        lhs_start: cur_l_phys,
+        rhs_start: cur_r_phys,
+        len: 1,
+    }));
     true
 }

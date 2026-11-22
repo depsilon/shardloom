@@ -18,56 +18,174 @@
 use crate::data::{ArrayData, contains_nulls};
 use arrow_buffer::ArrowNativeType;
 
-use super::equal_range;
+use super::{EqualFrame, EqualSlice};
 
-pub(super) fn dictionary_equal<T: ArrowNativeType>(
-    lhs: &ArrayData,
-    rhs: &ArrayData,
-    lhs_start: usize,
-    rhs_start: usize,
-    len: usize,
+#[derive(Clone, Copy)]
+pub(super) enum DictionaryKeyKind {
+    Int8,
+    Int16,
+    Int32,
+    Int64,
+    UInt8,
+    UInt16,
+    UInt32,
+    UInt64,
+}
+
+pub(super) fn push_dictionary_equal<'a>(
+    slice: EqualSlice<'a>,
+    key_kind: DictionaryKeyKind,
+    stack: &mut Vec<EqualFrame<'a>>,
 ) -> bool {
+    let has_nulls = contains_nulls(slice.lhs.nulls(), slice.lhs_start, slice.len);
+    step_dictionary_rows(slice, 0, has_nulls, key_kind, stack)
+}
+
+pub(super) fn step_dictionary_rows<'a>(
+    slice: EqualSlice<'a>,
+    row_idx: usize,
+    has_nulls: bool,
+    key_kind: DictionaryKeyKind,
+    stack: &mut Vec<EqualFrame<'a>>,
+) -> bool {
+    match key_kind {
+        DictionaryKeyKind::Int8 => {
+            step_dictionary_typed::<i8>(slice, row_idx, has_nulls, key_kind, stack)
+        }
+        DictionaryKeyKind::Int16 => {
+            step_dictionary_typed::<i16>(slice, row_idx, has_nulls, key_kind, stack)
+        }
+        DictionaryKeyKind::Int32 => {
+            step_dictionary_typed::<i32>(slice, row_idx, has_nulls, key_kind, stack)
+        }
+        DictionaryKeyKind::Int64 => {
+            step_dictionary_typed::<i64>(slice, row_idx, has_nulls, key_kind, stack)
+        }
+        DictionaryKeyKind::UInt8 => {
+            step_dictionary_typed::<u8>(slice, row_idx, has_nulls, key_kind, stack)
+        }
+        DictionaryKeyKind::UInt16 => {
+            step_dictionary_typed::<u16>(slice, row_idx, has_nulls, key_kind, stack)
+        }
+        DictionaryKeyKind::UInt32 => {
+            step_dictionary_typed::<u32>(slice, row_idx, has_nulls, key_kind, stack)
+        }
+        DictionaryKeyKind::UInt64 => {
+            step_dictionary_typed::<u64>(slice, row_idx, has_nulls, key_kind, stack)
+        }
+    }
+}
+
+fn step_dictionary_typed<'a, T: ArrowNativeType>(
+    slice: EqualSlice<'a>,
+    row_idx: usize,
+    has_nulls: bool,
+    key_kind: DictionaryKeyKind,
+    stack: &mut Vec<EqualFrame<'a>>,
+) -> bool {
+    let EqualSlice {
+        lhs,
+        rhs,
+        lhs_start,
+        rhs_start,
+        len,
+    } = slice;
     let lhs_keys = lhs.buffer::<T>(0);
     let rhs_keys = rhs.buffer::<T>(0);
 
     let lhs_values = &lhs.child_data()[0];
     let rhs_values = &rhs.child_data()[0];
 
-    // Only checking one null mask here because by the time the control flow reaches
-    // this point, the equality of the two masks would have already been verified.
-    if !contains_nulls(lhs.nulls(), lhs_start, len) {
-        (0..len).all(|i| {
-            let lhs_pos = lhs_start + i;
-            let rhs_pos = rhs_start + i;
-
-            equal_range(
-                lhs_values,
-                rhs_values,
-                lhs_keys[lhs_pos].to_usize().unwrap(),
-                rhs_keys[rhs_pos].to_usize().unwrap(),
-                1,
-            )
-        })
-    } else {
-        // get a ref of the null buffer bytes, to use in testing for nullness
-        let lhs_nulls = lhs.nulls().unwrap();
-        let rhs_nulls = rhs.nulls().unwrap();
-        (0..len).all(|i| {
-            let lhs_pos = lhs_start + i;
-            let rhs_pos = rhs_start + i;
-
-            let lhs_is_null = lhs_nulls.is_null(lhs_pos);
-            let rhs_is_null = rhs_nulls.is_null(rhs_pos);
-
-            lhs_is_null
-                || (lhs_is_null == rhs_is_null)
-                    && equal_range(
-                        lhs_values,
-                        rhs_values,
-                        lhs_keys[lhs_pos].to_usize().unwrap(),
-                        rhs_keys[rhs_pos].to_usize().unwrap(),
-                        1,
-                    )
-        })
+    if !has_nulls {
+        return push_next_dict_row(
+            slice, row_idx, has_nulls, key_kind, lhs_keys, rhs_keys, lhs_values, rhs_values, stack,
+        );
     }
+
+    let lhs_nulls = lhs.nulls().unwrap();
+    let rhs_nulls = rhs.nulls().unwrap();
+    for i in row_idx..len {
+        let lhs_pos = lhs_start + i;
+        let rhs_pos = rhs_start + i;
+        let lhs_is_null = lhs_nulls.is_null(lhs_pos);
+        let rhs_is_null = rhs_nulls.is_null(rhs_pos);
+        if lhs_is_null {
+            continue;
+        }
+        if lhs_is_null != rhs_is_null {
+            return false;
+        }
+        return push_dict_pair(
+            slice,
+            i,
+            has_nulls,
+            key_kind,
+            lhs_keys[lhs_pos].to_usize().unwrap(),
+            rhs_keys[rhs_pos].to_usize().unwrap(),
+            lhs_values,
+            rhs_values,
+            stack,
+        );
+    }
+    true
+}
+
+#[allow(clippy::too_many_arguments)]
+fn push_next_dict_row<'a, T: ArrowNativeType>(
+    slice: EqualSlice<'a>,
+    row_idx: usize,
+    has_nulls: bool,
+    key_kind: DictionaryKeyKind,
+    lhs_keys: &[T],
+    rhs_keys: &[T],
+    lhs_values: &'a ArrayData,
+    rhs_values: &'a ArrayData,
+    stack: &mut Vec<EqualFrame<'a>>,
+) -> bool {
+    if row_idx < slice.len {
+        let lhs_pos = slice.lhs_start + row_idx;
+        let rhs_pos = slice.rhs_start + row_idx;
+        return push_dict_pair(
+            slice,
+            row_idx,
+            has_nulls,
+            key_kind,
+            lhs_keys[lhs_pos].to_usize().unwrap(),
+            rhs_keys[rhs_pos].to_usize().unwrap(),
+            lhs_values,
+            rhs_values,
+            stack,
+        );
+    }
+    true
+}
+
+#[allow(clippy::too_many_arguments)]
+fn push_dict_pair<'a>(
+    slice: EqualSlice<'a>,
+    row_idx: usize,
+    has_nulls: bool,
+    key_kind: DictionaryKeyKind,
+    lhs_key: usize,
+    rhs_key: usize,
+    lhs_values: &'a ArrayData,
+    rhs_values: &'a ArrayData,
+    stack: &mut Vec<EqualFrame<'a>>,
+) -> bool {
+    if row_idx + 1 < slice.len {
+        stack.push(EqualFrame::DictionaryRows {
+            slice,
+            row_idx: row_idx + 1,
+            has_nulls,
+            key_kind,
+        });
+    }
+    stack.push(EqualFrame::Range(EqualSlice {
+        lhs: lhs_values,
+        rhs: rhs_values,
+        lhs_start: lhs_key,
+        rhs_start: rhs_key,
+        len: 1,
+    }));
+    true
 }

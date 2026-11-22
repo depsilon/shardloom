@@ -15,14 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use super::{_MutableArrayData, Extend, utils::resize_for_bits};
+use super::{_MutableArrayData, ChildExtendNullsTask, Extend, utils::resize_for_bits};
 use crate::ArrayData;
 use crate::bit_mask::set_bits;
 
 pub(super) fn build_extend(array: &ArrayData) -> Extend<'_> {
     let values = array.buffers()[0].as_slice();
     Box::new(
-        move |mutable: &mut _MutableArrayData, _, start: usize, len: usize| {
+        move |mutable: &mut _MutableArrayData, _, start: usize, len: usize, _| {
             let buffer = &mut mutable.buffer1;
             resize_for_bits(buffer, mutable.len + len);
             set_bits(
@@ -40,6 +40,7 @@ pub(super) fn build_extend(array: &ArrayData) -> Extend<'_> {
 pub(super) fn extend_nulls(
     mutable: &mut _MutableArrayData,
     len: usize,
+    _: &mut Vec<ChildExtendNullsTask>,
 ) -> Result<(), arrow_schema::ArrowError> {
     let buffer = &mut mutable.buffer1;
     resize_for_bits(buffer, mutable.len + len);

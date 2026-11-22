@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use super::{_MutableArrayData, ArrayData, Extend};
+use super::{_MutableArrayData, ArrayData, ChildExtendNullsTask, ChildExtendTask, Extend};
 use arrow_buffer::{ArrowNativeType, ToByteSlice};
 use arrow_schema::{ArrowError, DataType};
 use num_traits::CheckedAdd;
@@ -38,14 +38,14 @@ fn get_last_run_end<T: ArrowNativeType>(run_ends_data: &super::MutableArrayData)
 ///
 /// For RunEndEncoded, this adds nulls by extending the run_ends array
 /// and values array appropriately.
-pub fn extend_nulls(mutable: &mut _MutableArrayData, len: usize) -> Result<(), ArrowError> {
+pub fn extend_nulls(
+    mutable: &mut _MutableArrayData,
+    len: usize,
+    tasks: &mut Vec<ChildExtendNullsTask>,
+) -> Result<(), ArrowError> {
     if len == 0 {
         return Ok(());
     }
-
-    // For REE, we always need to add a value entry when adding a new run
-    // The values array should have one entry per run, not per logical element
-    mutable.child_data[1].try_extend_nulls(1)?;
 
     // Determine the run end type from the data type
     let run_end_type = if let DataType::RunEndEncoded(run_ends_field, _) = &mutable.data_type {
@@ -84,6 +84,13 @@ pub fn extend_nulls(mutable: &mut _MutableArrayData, len: usize) -> Result<(), A
     };
 
     mutable.child_data[0].data.len += 1;
+    // For REE, we always need to add a value entry when adding a new run
+    // The values array should have one entry per run, not per logical element
+    tasks.push(ChildExtendNullsTask {
+        child_idx: 1,
+        len: 1,
+        wrap_struct_col: false,
+    });
     Ok(())
 }
 
@@ -184,9 +191,10 @@ fn process_extends_batch<T: ArrowNativeType>(
     source_array_idx: usize,
     run_ends_bytes: Vec<u8>,
     values_range: Option<(usize, usize)>,
-) -> Result<(), ArrowError> {
+    tasks: &mut Vec<ChildExtendTask>,
+) {
     if run_ends_bytes.is_empty() {
-        return Ok(());
+        return;
     }
 
     // Batch extend the run_ends array with all bytes at once
@@ -199,7 +207,13 @@ fn process_extends_batch<T: ArrowNativeType>(
     // Batch extend the values array using the range
     let (start_idx, end_idx) =
         values_range.expect("values_range should be Some if run_ends_bytes is not empty");
-    mutable.child_data[1].try_extend(source_array_idx, start_idx, end_idx)
+    tasks.push(ChildExtendTask {
+        child_idx: 1,
+        array_idx: source_array_idx,
+        start: start_idx,
+        end: end_idx,
+        wrap_struct_col: false,
+    });
 }
 
 /// Returns a function that extends the run encoded array.
@@ -207,7 +221,11 @@ fn process_extends_batch<T: ArrowNativeType>(
 /// It finds the physical indices in the source array that correspond to the logical range to copy, and adjusts the runs to the logical indices of the array to extend. The values are copied from the source array to the destination array verbatim.
 pub fn build_extend(array: &ArrayData) -> Extend<'_> {
     Box::new(
-        move |mutable: &mut _MutableArrayData, array_idx: usize, start: usize, len: usize| {
+        move |mutable: &mut _MutableArrayData,
+              array_idx: usize,
+              start: usize,
+              len: usize,
+              tasks: &mut Vec<ChildExtendTask>| {
             if len == 0 {
                 return Ok(());
             }
@@ -245,7 +263,8 @@ pub fn build_extend(array: &ArrayData) -> Extend<'_> {
                         array_idx,
                         run_ends_bytes,
                         values_range,
-                    )?;
+                        tasks,
+                    );
                 }};
             }
 

@@ -2,25 +2,46 @@
   "added_files_sha256": {
     "LICENSE": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
     "NOTICE": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
-    "README.shardloom.md": "e5110e0566796aba04a510308d42d484bdb5e39ee8806dae642ad24cb008b068",
+    "README.shardloom.md": "abaa076e662d5f3afc2cfd051151f60e0199d370d20a685af3a5f91082f92a61",
     "src/data_children.rs": "7c7760a480fabb3033a8577f12c7ab9d511e09cf5df96b2a39a5d55811e10122",
     "src/data_children_tests.rs": "abd29bc0d4da74f59ce6547e7349d3d5adb11b30bd93af223915e5d29487cb3c",
     "src/data_traversal.rs": "ef0302c4234d5f822ba902709a89d66af233198c7c89019911ee067b8886305c",
     "src/data_traversal_reference.json": "d60a1b9156df24e9e4e4b8d3487e61d9f83fff180195b35050a501ec8fdfbf22",
     "src/data_traversal_reference.rs": "de74e4b5a5e97b726df4bfc3b180a2e8b78662eadd2d339d2fa9984429b3298a",
-    "src/data_traversal_tests.rs": "78014d378353497d6e6b40dc79592c22a17ad7623a9caaf968a4cd3baab39d6f"
+    "src/data_traversal_tests.rs": "78014d378353497d6e6b40dc79592c22a17ad7623a9caaf968a4cd3baab39d6f",
+    "src/equal/equal_tests.rs": "104154310ab297013acfcfa4cf20e827d830499a3a600c7c5ad786cdc5e9e14a"
   },
   "license": "Apache-2.0",
   "license_sha256": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
   "license_url": "https://static.crates.io/crates/arrow-data/arrow-data-59.3.2.crate#LICENSE.txt",
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "e5110e0566796aba04a510308d42d484bdb5e39ee8806dae642ad24cb008b068"
+    "sha256": "abaa076e662d5f3afc2cfd051151f60e0199d370d20a685af3a5f91082f92a61"
   },
-  "migration_status": "reviewed_ownership_checkpoint; public_depth_guards_unchanged; full_deep_workflow_deferred",
+  "migration_status": "reviewed_iterative_equal_and_mutable_array_data_completion; public_depth_guards_unchanged; full_deep_workflow_pending",
   "modified_files_sha256": {
     "Cargo.toml": "b7ca0587c4793b67fbda007c3ce38ed91362efd07280a36c27443564d7575998",
-    "src/data.rs": "31ff09551277aada48bc153c4a96b427f6f9db8fab235b20f597d94f90b988af"
+    "src/data.rs": "31ff09551277aada48bc153c4a96b427f6f9db8fab235b20f597d94f90b988af",
+    "src/equal/dictionary.rs": "b1742ea6ae3f9f6076ac7f1dc21c03226bbf8f136b36451af89e93dd71255dbf",
+    "src/equal/fixed_list.rs": "35786ca83081b62001290af694ec97aa57fb7b7082fd38848576d6e1296368be",
+    "src/equal/list.rs": "aecfd9d0c66871da9ce4fa4836131109164e068892714c5707ca9630c7b93dc6",
+    "src/equal/list_view.rs": "2b06b9b8487da59506f28e5e0db3a89ae059d945265c68d8c3c365eeb36e0862",
+    "src/equal/mod.rs": "5e20208ecf40855c72eb8395bfcc8c83a40849e817852c43cfb906c95f2795e9",
+    "src/equal/run.rs": "0ce0389dadc73c6bbeb983e64a32856aed0bb65a945ff21fc47660953659dd24",
+    "src/equal/structure.rs": "5bab3904309c199ad47170642f185b348ce61fbe1b85c209a5e9b29a4fdd6ea9",
+    "src/equal/union.rs": "157540a8cfaa67c62a97f0aa4a311913b61113964c31aabd2328818116193050",
+    "src/transform/boolean.rs": "a1a5e9bf014320b7f535bdac1b62a3371eb5ee8b66fd53a374080592ea9e6961",
+    "src/transform/fixed_binary.rs": "dff56b5795e720e0e6cb3f46e18853f265bb806d6731b1f34d18225488dc889b",
+    "src/transform/fixed_size_list.rs": "6e7adbf76c299e1a77b01d6f850bcf1ff2e3b337397ca5db2f9647b02cd7ddca",
+    "src/transform/list.rs": "0f5af283af489cf7584f0ea39e3083a93bbdacae9bca6a92100d36c88c2f52f3",
+    "src/transform/list_view.rs": "d6a66f773392add4143dab28622a676528f3c40b636d82bb39a91bf64c49e6f1",
+    "src/transform/mod.rs": "18be2d39ece67bc557200aa1237a6697c9682e445357a105b9e2b8c2207afef2",
+    "src/transform/null.rs": "e26776e675aee1068f7dd8f317827cdb7a14cc1ae213ffcaebe6e07e59f595b3",
+    "src/transform/primitive.rs": "b18d9b77cf2ef9c327216c114693bf5e938eee77db1db8b38f93d41cd7abd446",
+    "src/transform/run.rs": "f8205c8511207a13631949bea569835017a1ebdc17b03804b7bdd32a57c9bdeb",
+    "src/transform/structure.rs": "ac3831880d20d5c73a7a8c5e9aba03762c5a8df9e69f877c8b8829e4c6941913",
+    "src/transform/union.rs": "62a4b28da28675d4407af36446883f4775a2f1d3a41a8a8737fe76d7bec19258",
+    "src/transform/variable_size.rs": "874b32ba68743247a61965f2120004e4d6bbf22d897620d7c5cd9f15ba0c8798"
   },
   "notice_sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
   "notice_url": "https://static.crates.io/crates/arrow-data/arrow-data-59.3.2.crate#NOTICE.txt",

@@ -4,11 +4,57 @@
 
 from __future__ import annotations
 
+import copy
 import gzip
 import json
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+
+@dataclass
+class DocumentReadCache:
+    """In-process read cache scoped to a single unified check run."""
+
+    text_cache: dict[tuple[Path, bool], str] = field(default_factory=dict)
+    json_cache: dict[tuple[Path, bool], Any] = field(default_factory=dict)
+    hits: int = 0
+    misses: int = 0
+
+    def unique_paths(self) -> int:
+        paths = {key[0] for key in self.text_cache} | {key[0] for key in self.json_cache}
+        return len(paths)
+
+    def stats(self) -> dict[str, int]:
+        return {
+            "hits": self.hits,
+            "misses": self.misses,
+            "unique_paths": self.unique_paths(),
+        }
+
+
+_ACTIVE_DOCUMENT_CACHE: DocumentReadCache | None = None
+
+
+@contextmanager
+def cached_document_reads() -> Iterator[DocumentReadCache]:
+    """Cache repeated `read_text`/`load_json` reads for the duration of a single run."""
+
+    global _ACTIVE_DOCUMENT_CACHE
+    previous = _ACTIVE_DOCUMENT_CACHE
+    cache = DocumentReadCache()
+    _ACTIVE_DOCUMENT_CACHE = cache
+    try:
+        yield cache
+    finally:
+        _ACTIVE_DOCUMENT_CACHE = previous
+
+
+def _cache_key(path: Path, missing_ok: bool) -> tuple[Path, bool]:
+    return (path.resolve(strict=False), missing_ok)
 
 
 def resolve_path(repo_root: Path, path: Path | str) -> Path:
@@ -17,23 +63,48 @@ def resolve_path(repo_root: Path, path: Path | str) -> Path:
 
 
 def read_text(path: Path, *, missing_ok: bool = True) -> str:
+    cache = _ACTIVE_DOCUMENT_CACHE
+    if cache is not None:
+        key = _cache_key(path, missing_ok)
+        if key in cache.text_cache:
+            cache.hits += 1
+            return cache.text_cache[key]
+        cache.misses += 1
     if not path.exists():
         if missing_ok:
+            if cache is not None:
+                cache.text_cache[key] = ""
             return ""
         raise FileNotFoundError(path)
-    return path.read_text(encoding="utf-8")
+    text = path.read_text(encoding="utf-8")
+    if cache is not None:
+        cache.text_cache[key] = text
+    return text
 
 
 def load_json(path: Path, *, missing_ok: bool = False) -> Any:
+    cache = _ACTIVE_DOCUMENT_CACHE
+    if cache is not None:
+        key = _cache_key(path, missing_ok)
+        if key in cache.json_cache:
+            cache.hits += 1
+            return copy.deepcopy(cache.json_cache[key])
+        cache.misses += 1
     if not path.exists():
         if missing_ok:
+            if cache is not None:
+                cache.json_cache[key] = None
             return None
         raise FileNotFoundError(path)
     if path.name.endswith(".gz"):
         with gzip.open(path, "rt", encoding="utf-8") as handle:
-            return json.load(handle)
-    with path.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
+            payload = json.load(handle)
+    else:
+        with path.open("r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+    if cache is not None:
+        cache.json_cache[key] = copy.deepcopy(payload)
+    return payload
 
 
 def write_json(path: Path, payload: Any) -> None:

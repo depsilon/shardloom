@@ -15,78 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::data::ArrayData;
-use arrow_schema::{DataType, UnionFields, UnionMode};
+use arrow_schema::{DataType, UnionMode};
 
-use super::equal_range;
+use super::{EqualFrame, EqualSlice};
 
-#[allow(clippy::too_many_arguments)]
-fn equal_dense(
-    lhs: &ArrayData,
-    rhs: &ArrayData,
-    lhs_type_ids: &[i8],
-    rhs_type_ids: &[i8],
-    lhs_offsets: &[i32],
-    rhs_offsets: &[i32],
-    lhs_fields: &UnionFields,
-    rhs_fields: &UnionFields,
+pub(super) fn push_union_equal<'a>(
+    slice: EqualSlice<'a>,
+    stack: &mut Vec<EqualFrame<'a>>,
 ) -> bool {
-    let offsets = lhs_offsets.iter().zip(rhs_offsets.iter());
-
-    lhs_type_ids
-        .iter()
-        .zip(rhs_type_ids.iter())
-        .zip(offsets)
-        .all(|((l_type_id, r_type_id), (l_offset, r_offset))| {
-            let lhs_child_index = lhs_fields
-                .iter()
-                .position(|(r, _)| r == *l_type_id)
-                .unwrap();
-            let rhs_child_index = rhs_fields
-                .iter()
-                .position(|(r, _)| r == *r_type_id)
-                .unwrap();
-            let lhs_values = &lhs.child_data()[lhs_child_index];
-            let rhs_values = &rhs.child_data()[rhs_child_index];
-
-            equal_range(
-                lhs_values,
-                rhs_values,
-                *l_offset as usize,
-                *r_offset as usize,
-                1,
-            )
-        })
-}
-
-fn equal_sparse(
-    lhs: &ArrayData,
-    rhs: &ArrayData,
-    lhs_start: usize,
-    rhs_start: usize,
-    len: usize,
-) -> bool {
-    lhs.child_data()
-        .iter()
-        .zip(rhs.child_data())
-        .all(|(lhs_values, rhs_values)| {
-            equal_range(
-                lhs_values,
-                rhs_values,
-                lhs_start + lhs.offset(),
-                rhs_start + rhs.offset(),
-                len,
-            )
-        })
-}
-
-pub(super) fn union_equal(
-    lhs: &ArrayData,
-    rhs: &ArrayData,
-    lhs_start: usize,
-    rhs_start: usize,
-    len: usize,
-) -> bool {
+    let EqualSlice {
+        lhs,
+        rhs,
+        lhs_start,
+        rhs_start,
+        len,
+    } = slice;
     let lhs_type_ids = lhs.buffer::<i8>(0);
     let rhs_type_ids = rhs.buffer::<i8>(0);
 
@@ -94,34 +37,94 @@ pub(super) fn union_equal(
     let rhs_type_id_range = &rhs_type_ids[rhs_start..rhs_start + len];
 
     match (lhs.data_type(), rhs.data_type()) {
-        (
-            DataType::Union(lhs_fields, UnionMode::Dense),
-            DataType::Union(rhs_fields, UnionMode::Dense),
-        ) => {
-            let lhs_offsets = lhs.buffer::<i32>(1);
-            let rhs_offsets = rhs.buffer::<i32>(1);
-
-            let lhs_offsets_range = &lhs_offsets[lhs_start..lhs_start + len];
-            let rhs_offsets_range = &rhs_offsets[rhs_start..rhs_start + len];
-
-            lhs_type_id_range == rhs_type_id_range
-                && equal_dense(
-                    lhs,
-                    rhs,
-                    lhs_type_id_range,
-                    rhs_type_id_range,
-                    lhs_offsets_range,
-                    rhs_offsets_range,
-                    lhs_fields,
-                    rhs_fields,
-                )
+        (DataType::Union(_, UnionMode::Dense), DataType::Union(_, UnionMode::Dense)) => {
+            if lhs_type_id_range != rhs_type_id_range {
+                return false;
+            }
+            step_dense_union_rows(slice, 0, stack)
         }
         (DataType::Union(_, UnionMode::Sparse), DataType::Union(_, UnionMode::Sparse)) => {
-            lhs_type_id_range == rhs_type_id_range
-                && equal_sparse(lhs, rhs, lhs_start, rhs_start, len)
+            if lhs_type_id_range != rhs_type_id_range {
+                return false;
+            }
+            step_sparse_union_children(slice, 0, stack)
         }
         _ => unimplemented!(
             "Logical equality not yet implemented between dense and sparse union arrays"
         ),
     }
+}
+
+pub(super) fn step_dense_union_rows<'a>(
+    slice: EqualSlice<'a>,
+    row_idx: usize,
+    stack: &mut Vec<EqualFrame<'a>>,
+) -> bool {
+    if row_idx >= slice.len {
+        return true;
+    }
+    let EqualSlice {
+        lhs,
+        rhs,
+        lhs_start,
+        rhs_start,
+        len,
+    } = slice;
+    let (DataType::Union(lhs_fields, UnionMode::Dense), DataType::Union(rhs_fields, UnionMode::Dense)) =
+        (lhs.data_type(), rhs.data_type())
+    else {
+        unreachable!()
+    };
+    let l_type_id = lhs.buffer::<i8>(0)[lhs_start + row_idx];
+    let r_type_id = rhs.buffer::<i8>(0)[rhs_start + row_idx];
+    let l_offset = lhs.buffer::<i32>(1)[lhs_start + row_idx];
+    let r_offset = rhs.buffer::<i32>(1)[rhs_start + row_idx];
+    let lhs_child_index = lhs_fields.iter().position(|(r, _)| r == l_type_id).unwrap();
+    let rhs_child_index = rhs_fields.iter().position(|(r, _)| r == r_type_id).unwrap();
+    if row_idx + 1 < len {
+        stack.push(EqualFrame::DenseUnionRows {
+            slice,
+            row_idx: row_idx + 1,
+        });
+    }
+    stack.push(EqualFrame::Range(EqualSlice {
+        lhs: &lhs.child_data()[lhs_child_index],
+        rhs: &rhs.child_data()[rhs_child_index],
+        lhs_start: l_offset as usize,
+        rhs_start: r_offset as usize,
+        len: 1,
+    }));
+    true
+}
+
+pub(super) fn step_sparse_union_children<'a>(
+    slice: EqualSlice<'a>,
+    child_idx: usize,
+    stack: &mut Vec<EqualFrame<'a>>,
+) -> bool {
+    let EqualSlice {
+        lhs,
+        rhs,
+        lhs_start,
+        rhs_start,
+        len,
+    } = slice;
+    let num_children = lhs.child_data().len();
+    if child_idx >= num_children {
+        return true;
+    }
+    if child_idx + 1 < num_children {
+        stack.push(EqualFrame::SparseUnionChildren {
+            slice,
+            child_idx: child_idx + 1,
+        });
+    }
+    stack.push(EqualFrame::Range(EqualSlice {
+        lhs: &lhs.child_data()[child_idx],
+        rhs: &rhs.child_data()[child_idx],
+        lhs_start: lhs_start + lhs.offset(),
+        rhs_start: rhs_start + rhs.offset(),
+        len,
+    }));
+    true
 }

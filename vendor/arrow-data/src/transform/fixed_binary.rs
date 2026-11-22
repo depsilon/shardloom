@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use super::{_MutableArrayData, Extend};
+use super::{_MutableArrayData, ChildExtendNullsTask, Extend};
 use crate::ArrayData;
 use crate::data::get_fixed_size_binary_width;
 
@@ -23,7 +23,7 @@ pub(super) fn build_extend(array: &ArrayData) -> Extend<'_> {
     let size = get_fixed_size_binary_width(array.data_type());
     let values = &array.buffers()[0].as_slice()[array.offset() * size..];
     Box::new(
-        move |mutable: &mut _MutableArrayData, _, start: usize, len: usize| {
+        move |mutable: &mut _MutableArrayData, _, start: usize, len: usize, _| {
             let buffer = &mut mutable.buffer1;
             buffer.extend_from_slice(&values[start * size..(start + len) * size]);
             Ok(())
@@ -34,6 +34,7 @@ pub(super) fn build_extend(array: &ArrayData) -> Extend<'_> {
 pub(super) fn extend_nulls(
     mutable: &mut _MutableArrayData,
     len: usize,
+    _: &mut Vec<ChildExtendNullsTask>,
 ) -> Result<(), arrow_schema::ArrowError> {
     let size = get_fixed_size_binary_width(&mutable.data_type);
 

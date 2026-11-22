@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::array::{get_offsets_from_buffer, print_long_array};
+use crate::array::print_long_array;
 use crate::builder::MapFieldNames;
 use crate::iterator::MapArrayIter;
 use crate::{Array, ArrayAccessor, ArrayRef, ListArray, StringArray, StructArray, make_array};
@@ -345,8 +345,14 @@ pub(super) fn reference_data(array: MapArray) -> ArrayData {
 
 type Entries<Key, Value> = Vec<(Key, Value)>;
 
+pub(super) type ParsedMapData = (DataType, usize, Option<NullBuffer>, usize, Buffer, ArrayData);
+
 impl MapArray {
     fn try_new_from_array_data(data: ArrayData) -> Result<Self, ArrowError> {
+        super::data_import::map_from_data(data)
+    }
+
+    pub(super) fn parse_array_data(data: ArrayData) -> Result<ParsedMapData, ArrowError> {
         let (data_type, len, nulls, offset, mut buffers, mut child_data) = data.into_parts();
 
         if !matches!(data_type, DataType::Map(_, _)) {
@@ -384,18 +390,22 @@ impl MapArray {
                 entries.data_type()
             )));
         }
-        let entries = entries.into();
 
-        // SAFETY:
-        // ArrayData is valid, and verified type above
-        let value_offsets = unsafe { get_offsets_from_buffer(buffer, offset, len) };
+        Ok((data_type, len, nulls, offset, buffer, entries))
+    }
 
-        Ok(Self {
+    pub(super) fn from_parts(
+        data_type: DataType,
+        nulls: Option<NullBuffer>,
+        entries: StructArray,
+        value_offsets: OffsetBuffer<i32>,
+    ) -> Self {
+        Self {
             data_type,
             nulls,
             entries,
             value_offsets,
-        })
+        }
     }
 
     /// Creates map array from provided keys, values and entry_offsets.

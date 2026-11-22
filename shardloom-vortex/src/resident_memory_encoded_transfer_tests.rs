@@ -886,3 +886,82 @@ fn encoded_transfer_cancellation_between_byte_windows_releases_partial_allocatio
     drop(copy(&small, &receiving));
     assert_eq!(receiving.snapshot().memory.reserved_bytes, 0);
 }
+
+#[test]
+fn deep_scalar_copy_and_record_view_traversal_on_small_stack() {
+    use vortex::array::arrays::SliceArray;
+    use vortex::array::dtype::StructFields;
+    use vortex::array::scalar::ScalarValue;
+
+    let handle = std::thread::Builder::new()
+        .name("resident_memory_encoded_transfer::small_stack".into())
+        .stack_size(128 * 1024)
+        .spawn(|| {
+            // 1. Shape check enforces depth 24/25 cleanly without stack growth.
+            let mut scalar_24 = ScalarValue::Primitive(7_i64.into());
+            for _ in 0..24 {
+                scalar_24 = ScalarValue::Tuple(vec![Some(scalar_24)]);
+            }
+            let receiving = ResidentVortexSession::new(16 << 20, 1).unwrap();
+            receiving
+                .with_native_execution_context(&CancellationToken::default(), |context| {
+                    let s = values::shape(Some(&scalar_24), context).unwrap();
+                    assert_eq!(s.metadata_bytes, 24 * 128);
+                    let scalar_25 = ScalarValue::Tuple(vec![Some(scalar_24.clone())]);
+                    assert!(values::shape(Some(&scalar_25), context).is_err());
+
+                    // 2. Deep dtype + scalar value copy at depth 512 without stack recursion.
+                    let mut dt = DType::Primitive(PType::I64, Nullability::Nullable);
+                    let mut val = Some(ScalarValue::Primitive(9_i64.into()));
+                    for level in 0..512 {
+                        if level % 2 == 0 {
+                            dt = DType::List(Arc::new(dt), Nullability::Nullable);
+                        } else {
+                            dt = DType::Struct(
+                                StructFields::new(["x"].into(), vec![dt]),
+                                Nullability::Nullable,
+                            );
+                        }
+                        val = Some(ScalarValue::Tuple(vec![val]));
+                    }
+                    let copied_dt = values::copy_dtype(&dt).unwrap();
+                    assert_eq!(copied_dt, dt);
+                    let scalar = Scalar::try_new(copied_dt, val).unwrap();
+                    let mut copier = Copier {
+                        context,
+                        metadata: Arc::new(context.memory().reserve(4096).unwrap()),
+                        arrays: BTreeMap::new(),
+                        buffers: BTreeMap::new(),
+                        report: NativeTransferReport::default(),
+                    };
+                    let (copied_scalar, bytes) = copier.copy_scalar(&scalar, dt).unwrap();
+                    assert_eq!(copied_scalar, scalar);
+                    assert_eq!(bytes, 8);
+                    Ok(())
+                })
+                .unwrap();
+            assert_eq!(receiving.snapshot().memory.reserved_bytes, 0);
+
+            // 3. Deep wrapper chain of Slice/Chunked on Plan::visit and RecordViews::collect.
+            let leaf = record(PrimitiveArray::from_iter([1_i64, 2, 3, 4]).into_array());
+            let mut wrapped = leaf;
+            for level in 0..100 {
+                wrapped = if level % 2 == 0 {
+                    SliceArray::try_new(wrapped.clone(), 0..wrapped.len())
+                        .unwrap()
+                        .into_array()
+                } else {
+                    let dt = wrapped.dtype().clone();
+                    ChunkedArray::try_new(vec![wrapped], dt)
+                        .unwrap()
+                        .into_array()
+                };
+            }
+            let copied = copy(&wrapped, &receiving);
+            assert_eq!(copied.arrays.values.len(), 1);
+            drop(copied);
+            assert_eq!(receiving.snapshot().memory.reserved_bytes, 0);
+        })
+        .unwrap();
+    handle.join().unwrap();
+}

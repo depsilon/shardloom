@@ -355,21 +355,31 @@ impl StructArray {
         self.fields().find(field_name).map(|(_, field)| field)
     }
 
+    pub(crate) fn slice_parts(&self) -> (&DataType, &Option<NullBuffer>, &[ArrayRef]) {
+        (&self.data_type, &self.nulls, &self.fields)
+    }
+
+    pub(crate) fn from_sliced_parts(
+        len: usize,
+        data_type: DataType,
+        nulls: Option<NullBuffer>,
+        fields: Vec<ArrayRef>,
+    ) -> Self {
+        Self {
+            len,
+            data_type,
+            nulls,
+            fields: fields.into(),
+        }
+    }
+
     /// Returns a zero-copy slice of this array with the indicated offset and length.
     pub fn slice(&self, offset: usize, len: usize) -> Self {
         assert!(
             offset.saturating_add(len) <= self.len,
             "the length + offset of the sliced StructArray cannot exceed the existing length"
         );
-
-        let fields = self.fields.iter().map(|a| a.slice(offset, len)).collect();
-
-        Self {
-            len,
-            data_type: self.data_type.clone(),
-            nulls: self.nulls.as_ref().map(|n| n.slice(offset, len)),
-            fields,
-        }
+        super::slice_iter::slice_struct(self, offset, len)
     }
 
     /// Returns the children of this [`StructArray`] with the struct's validity
@@ -439,22 +449,17 @@ impl StructArray {
 
 impl From<ArrayData> for StructArray {
     fn from(data: ArrayData) -> Self {
-        let (data_type, len, nulls, offset, _buffers, child_data) = data.into_parts();
+        super::data_import::struct_from_data(data)
+    }
+}
 
-        let parent_offset = offset;
-        let parent_len = len;
-
-        let fields = child_data
-            .into_iter()
-            .map(|cd| {
-                if parent_offset != 0 || parent_len != cd.len() {
-                    make_array(cd.slice(parent_offset, parent_len))
-                } else {
-                    make_array(cd)
-                }
-            })
-            .collect();
-
+impl StructArray {
+    pub(super) fn from_parts(
+        len: usize,
+        data_type: DataType,
+        nulls: Option<NullBuffer>,
+        fields: super::release::Children,
+    ) -> Self {
         Self {
             len,
             data_type,

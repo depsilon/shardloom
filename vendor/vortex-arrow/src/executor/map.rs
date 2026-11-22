@@ -20,21 +20,27 @@ use vortex_error::VortexResult;
 use vortex_error::vortex_ensure;
 use vortex_error::vortex_ensure_eq;
 
-use crate::ArrowExporter;
-use crate::executor::list::to_arrow_list;
+use crate::executor::ExportFrame;
+use crate::executor::ExportStep;
+use crate::executor::list::start_arrow_list;
+
+pub(super) struct MapExportFrame {
+    entries_field: FieldRef,
+    keys_sorted: bool,
+}
 
 /// Converts a Vortex Map array into an Arrow [`MapArray`](ArrowMapArray).
 ///
 /// The Map entries are exported through the ListView-to-Arrow List path and then repackaged with
 /// Arrow's Map field metadata. When the requested Arrow field asserts sorted keys, the Vortex Map
 /// dtype must already make the same assertion.
-pub(super) fn to_arrow_map(
+pub(super) fn start_arrow_map(
     array: ArrayRef,
     entries_field: &FieldRef,
     keys_sorted: bool,
-    exporter: &ArrowExporter<'_>,
+    stack: &mut Vec<ExportFrame>,
     ctx: &mut ExecutionCtx,
-) -> VortexResult<ArrowArrayRef> {
+) -> VortexResult<ExportStep> {
     vortex_ensure!(
         matches!(array.dtype(), DType::Map(..)),
         "Arrow map export requires a map dtype, got {}",
@@ -52,8 +58,18 @@ pub(super) fn to_arrow_map(
     );
 
     let entries = array.entries().clone();
-    let entries_list_type = DataType::List(Arc::clone(entries_field));
-    let entries_list = to_arrow_list::<i32>(entries, entries_field, exporter, ctx)?;
+    stack.push(ExportFrame::Map(MapExportFrame {
+        entries_field: FieldRef::clone(entries_field),
+        keys_sorted,
+    }));
+    start_arrow_list::<i32>(entries, entries_field, ctx)
+}
+
+pub(super) fn finish_arrow_map(
+    frame: MapExportFrame,
+    entries_list: ArrowArrayRef,
+) -> VortexResult<ArrowArrayRef> {
+    let entries_list_type = DataType::List(FieldRef::clone(&frame.entries_field));
     vortex_ensure_eq!(
         entries_list.data_type(),
         &entries_list_type,
@@ -63,11 +79,11 @@ pub(super) fn to_arrow_map(
     let entries_list = entries_list.as_list::<i32>();
     let entries = entries_list.values().as_struct().clone();
     let map = ArrowMapArray::try_new(
-        Arc::clone(entries_field),
+        frame.entries_field,
         entries_list.offsets().clone(),
         entries,
         entries_list.nulls().cloned(),
-        keys_sorted,
+        frame.keys_sorted,
     )?;
 
     Ok(Arc::new(map))

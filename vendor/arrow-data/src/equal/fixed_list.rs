@@ -15,18 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::data::{ArrayData, contains_nulls};
+use crate::data::contains_nulls;
 use arrow_schema::DataType;
 
-use super::equal_range;
+use super::{EqualFrame, EqualSlice};
 
-pub(super) fn fixed_list_equal(
-    lhs: &ArrayData,
-    rhs: &ArrayData,
-    lhs_start: usize,
-    rhs_start: usize,
-    len: usize,
+pub(super) fn push_fixed_list_equal<'a>(
+    slice: EqualSlice<'a>,
+    stack: &mut Vec<EqualFrame<'a>>,
 ) -> bool {
+    let EqualSlice {
+        lhs,
+        rhs,
+        lhs_start,
+        rhs_start,
+        len,
+    } = slice;
     let size = match lhs.data_type() {
         DataType::FixedSizeList(_, i) => *i as usize,
         _ => unreachable!(),
@@ -38,34 +42,65 @@ pub(super) fn fixed_list_equal(
     // Only checking one null mask here because by the time the control flow reaches
     // this point, the equality of the two masks would have already been verified.
     if !contains_nulls(lhs.nulls(), lhs_start, len) {
-        equal_range(
-            lhs_values,
-            rhs_values,
-            (lhs_start + lhs.offset()) * size,
-            (rhs_start + rhs.offset()) * size,
-            size * len,
-        )
+        stack.push(EqualFrame::Range(EqualSlice {
+            lhs: lhs_values,
+            rhs: rhs_values,
+            lhs_start: (lhs_start + lhs.offset()) * size,
+            rhs_start: (rhs_start + rhs.offset()) * size,
+            len: size * len,
+        }));
+        true
     } else {
-        // get a ref of the null buffer bytes, to use in testing for nullness
-        let lhs_nulls = lhs.nulls().unwrap();
-        let rhs_nulls = rhs.nulls().unwrap();
-        // with nulls, we need to compare item by item whenever it is not null
-        (0..len).all(|i| {
-            let lhs_pos = lhs_start + i;
-            let rhs_pos = rhs_start + i;
-
-            let lhs_is_null = lhs_nulls.is_null(lhs_pos);
-            let rhs_is_null = rhs_nulls.is_null(rhs_pos);
-
-            lhs_is_null
-                || (lhs_is_null == rhs_is_null)
-                    && equal_range(
-                        lhs_values,
-                        rhs_values,
-                        (lhs_pos + lhs.offset()) * size,
-                        (rhs_pos + rhs.offset()) * size,
-                        size, // 1 * size since we are comparing a single entry
-                    )
-        })
+        step_fixed_list_null_rows(slice, size, 0, stack)
     }
+}
+
+pub(super) fn step_fixed_list_null_rows<'a>(
+    slice: EqualSlice<'a>,
+    size: usize,
+    row_idx: usize,
+    stack: &mut Vec<EqualFrame<'a>>,
+) -> bool {
+    let EqualSlice {
+        lhs,
+        rhs,
+        lhs_start,
+        rhs_start,
+        len,
+    } = slice;
+    let lhs_values = &lhs.child_data()[0];
+    let rhs_values = &rhs.child_data()[0];
+    // get a ref of the null buffer bytes, to use in testing for nullness
+    let lhs_nulls = lhs.nulls().unwrap();
+    let rhs_nulls = rhs.nulls().unwrap();
+    // with nulls, we need to compare item by item whenever it is not null
+    for i in row_idx..len {
+        let lhs_pos = lhs_start + i;
+        let rhs_pos = rhs_start + i;
+
+        let lhs_is_null = lhs_nulls.is_null(lhs_pos);
+        let rhs_is_null = rhs_nulls.is_null(rhs_pos);
+        if lhs_is_null {
+            continue;
+        }
+        if lhs_is_null != rhs_is_null {
+            return false;
+        }
+        if i + 1 < len {
+            stack.push(EqualFrame::FixedListNullRows {
+                slice,
+                size,
+                row_idx: i + 1,
+            });
+        }
+        stack.push(EqualFrame::Range(EqualSlice {
+            lhs: lhs_values,
+            rhs: rhs_values,
+            lhs_start: (lhs_pos + lhs.offset()) * size,
+            rhs_start: (rhs_pos + rhs.offset()) * size,
+            len: size, // 1 * size since we are comparing a single entry
+        }));
+        return true;
+    }
+    true
 }

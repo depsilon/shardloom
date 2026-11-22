@@ -97,21 +97,8 @@ impl Plan {
         })
     }
 
-    fn visit(
-        &mut self,
-        array: &ArrayRef,
-        depth: usize,
-        context: &NativeExecutionContext<'_>,
-    ) -> Result<bool> {
-        context.check_cancelled()?;
-        if depth > MAX_ENCODING_DEPTH {
-            return Err(memory_error("native transfer encoding depth exceeds 128"));
-        }
-        if self.nodes.contains_key(&array.addr()) {
-            self.reused_array_references = add(self.reused_array_references, 1)?;
-            return Ok(true);
-        }
-        let kind = match array.encoding_id().as_ref() {
+    fn classify_kind(array: &ArrayRef) -> Option<Kind> {
+        Some(match array.encoding_id().as_ref() {
             "vortex.constant" => Kind::Constant,
             "vortex.sparse" => Kind::Sparse,
             "vortex.slice" => Kind::Slice,
@@ -140,9 +127,17 @@ impl Plan {
             | "fastlanes.rle"
             | "fastlanes.delta"
             | "vortex.masked" => Kind::Serialized,
-            // Classification precedes execution. This preserves the existing
-            // bounded native materializer for other admitted physical providers.
-            _ => return Ok(false),
+            _ => return None,
+        })
+    }
+
+    fn admit_node(
+        &mut self,
+        array: ArrayRef,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Option<(usize, Vec<ArrayRef>)>> {
+        let Some(kind) = Self::classify_kind(&array) else {
+            return Ok(None);
         };
         let scalar_shape = match kind {
             Kind::Constant => values::shape(array.as_::<Constant>().scalar().value(), context)?,
@@ -157,11 +152,8 @@ impl Plan {
             array.nbuffers() as u64
         };
         let slots = array.slots().len() as u64;
-        // Pinned serializers have fixed scalar metadata. Checked parts preserve
-        // Zstd frame coordinates and patch caches; ALPRD's dictionary is copied
-        // directly. Constants and sparse fills never synthesize protobuf.
         let (metadata_limit, retained_buffers) =
-            self.buffer_metadata_bounds(array, kind, buffers)?;
+            self.buffer_metadata_bounds(&array, kind, buffers)?;
         let schema_bytes = native_payload_schema::encoded_schema_bytes(array.dtype(), context)?;
         let retained = add(
             schema_bytes,
@@ -176,8 +168,6 @@ impl Plan {
                 )?,
             )?,
         )?;
-        // All transient serializer/provider vectors, including Chunked's cached
-        // offsets, are admitted before any serializer or buffer accessor runs.
         let scratch = add(
             mul(metadata_limit, 4)?,
             add(mul(slots, 128)?, mul(buffers, 256)?)?,
@@ -189,20 +179,53 @@ impl Plan {
             self.bookkeeping.bytes(),
             mul(add(buffers, 2)?, MAP_ENTRY_BYTES)?,
         )?)?;
+        let addr = array.addr();
+        let children = array.children_iter().cloned().collect::<Vec<_>>();
         self.nodes.insert(
-            array.addr(),
+            addr,
             Node {
-                source: array.clone(),
+                source: array,
                 kind,
                 metadata_limit,
             },
         );
-        for child in array.children_iter() {
-            if !self.visit(child, depth + 1, context)? {
-                return Ok(false);
+        Ok(Some((addr, children)))
+    }
+
+    fn visit(
+        &mut self,
+        root: &ArrayRef,
+        initial_depth: usize,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<bool> {
+        enum Work {
+            Enter(ArrayRef, usize),
+            Exit(usize),
+        }
+
+        let mut stack = vec![Work::Enter(root.clone(), initial_depth)];
+        while let Some(work) = stack.pop() {
+            match work {
+                Work::Exit(addr) => self.order.push(addr)?,
+                Work::Enter(array, depth) => {
+                    context.check_cancelled()?;
+                    if depth > MAX_ENCODING_DEPTH {
+                        return Err(memory_error("native transfer encoding depth exceeds 128"));
+                    }
+                    if self.nodes.contains_key(&array.addr()) {
+                        self.reused_array_references = add(self.reused_array_references, 1)?;
+                        continue;
+                    }
+                    let Some((addr, children)) = self.admit_node(array, context)? else {
+                        return Ok(false);
+                    };
+                    stack.push(Work::Exit(addr));
+                    for child in children.into_iter().rev() {
+                        stack.push(Work::Enter(child, depth + 1));
+                    }
+                }
             }
         }
-        self.order.push(array.addr())?;
         Ok(true)
     }
 

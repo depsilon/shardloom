@@ -194,10 +194,10 @@ fn export(source: &ResidentMemorySource, case: &Value) -> RecordBatch {
         &[],
         case["arrow_preserving_fields"].as_array().unwrap(),
     );
-    let DataType::Struct(fields) = target.clone() else {
+    let DataType::Struct(ref fields) = target else {
         panic!("expected record schema")
     };
-    let schema = Arc::new(Schema::new(fields));
+    let schema = Arc::new(Schema::new(fields.clone()));
     source
         .0
         .session

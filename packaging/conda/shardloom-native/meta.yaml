@@ -1,0 +1,69 @@
+{% set version = "1.1.0" %}
+{% set python_min = "3.10" %}
+
+package:
+  name: shardloom-native
+  version: {{ version }}
+
+source:
+  path: ../../..
+
+build:
+  number: 0
+  script:
+    - export PYO3_PYTHON="${PYTHON}"  # [unix]
+    - export PYO3_BUILD_EXTENSION_MODULE=1  # [unix]
+    - export CARGO_PROFILE_RELEASE_STRIP=symbols  # [unix]
+    - export CARGO_PROFILE_RELEASE_LTO=fat  # [unix]
+    - ${PYTHON} scripts/build_native_python.py --repo-root . --output-dir "${SRC_DIR}/staged-native-lib" --release --offline  # [unix]
+    - cargo auditable build --locked --offline --release -p shardloom-cli --features release-user-surfaces  # [unix]
+    - ${PYTHON} scripts/stage_native_python_package.py --repo-root . --stage-dir "${SRC_DIR}/staged-native-pkg" --native-library "${SRC_DIR}/staged-native-lib/_native.abi3.so" --cli-binary "${CARGO_TARGET_DIR:-target}/release/shardloom"  # [unix]
+    - ${PYTHON} -m pip install "${SRC_DIR}/staged-native-pkg" --no-deps --no-build-isolation -vv  # [unix]
+    - cargo-bundle-licenses --format yaml --output THIRDPARTY.yml  # [unix]
+
+requirements:
+  build:
+    - {{ stdlib("c") }}
+    - {{ compiler("c") }}
+    - {{ compiler("rust") }}
+    - cargo-auditable
+    - cargo-bundle-licenses
+  host:
+    - python {{ python_min }}
+    - pip
+    - setuptools >=77
+  run:
+    - python >={{ python_min }}
+
+test:
+  imports:
+    - shardloom
+    - shardloom._native
+    - shardloom.foundry
+  commands:
+    - python -m pip check
+    - python -c "import shardloom as sl; from shardloom import _native; assert _native.__version__ == sl.__version__; ctx = sl.context(transport='native', memory_bytes=64<<20, max_parallelism=1); res = ctx.from_rows([{'k': 'ok', 'v': 1}]).collect(check=True); assert res.envelope.field('fallback_attempted') == 'false'; ctx.close()"
+  requires:
+    - pip
+    - python {{ python_min }}
+
+about:
+  home: https://shardloom.io
+  license: Apache-2.0
+  license_file:
+    - LICENSE
+    - THIRDPARTY.yml
+  summary: Platform-specific ShardLoom Python package with bundled native extension and CLI.
+  description: |
+    Platform-specific ShardLoom native Python runtime (`cp310-abi3`) combining
+    `shardloom._native` and the bundled release `shardloom` CLI executable with
+    optional `shardloom.foundry` transform adapter support. This package must
+    not add Spark, DataFusion, DuckDB, Polars, pandas, Dask, or Velox as
+    runtime fallback dependencies. Local recipe scaffold only; no package
+    publication or target-environment certification is implied.
+  doc_url: https://github.com/depsilon/shardloom/tree/main/docs
+  dev_url: https://github.com/depsilon/shardloom
+
+extra:
+  recipe-maintainers:
+    - depsilon

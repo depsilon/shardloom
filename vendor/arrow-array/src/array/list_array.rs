@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::array::{get_offsets_from_buffer, make_array, print_long_array};
+use crate::array::print_long_array;
 use crate::builder::{ArrayBuilder, GenericListBuilder, PrimitiveBuilder};
 use crate::{
     Array, ArrayAccessor, ArrayRef, ArrowPrimitiveType, FixedSizeListArray,
-    iterator::GenericListArrayIter, new_empty_array,
+    iterator::GenericListArrayIter, make_array, new_empty_array,
 };
-use arrow_buffer::{ArrowNativeType, NullBuffer, OffsetBuffer};
+use arrow_buffer::{ArrowNativeType, Buffer, NullBuffer, OffsetBuffer};
 use arrow_data::{ArrayData, ArrayDataBuilder};
 use arrow_schema::{ArrowError, DataType, FieldRef};
 use num_integer::Integer;
@@ -560,8 +560,25 @@ impl<OffsetSize: OffsetSizeTrait> From<FixedSizeListArray> for GenericListArray<
     }
 }
 
+pub(super) type ParsedListData = (DataType, usize, Option<NullBuffer>, usize, Buffer, ArrayData);
+
 impl<OffsetSize: OffsetSizeTrait> GenericListArray<OffsetSize> {
     fn try_new_from_array_data(data: ArrayData) -> Result<Self, ArrowError> {
+        let (data_type, len, nulls, offset, buffer, values) = Self::parse_array_data(data)?;
+        let values = make_array(values);
+        // SAFETY:
+        // ArrayData is valid, and verified type above
+        let value_offsets = unsafe { super::get_offsets_from_buffer(buffer, offset, len) };
+
+        Ok(Self::from_parts(
+            data_type,
+            nulls,
+            values.into(),
+            value_offsets,
+        ))
+    }
+
+    pub(super) fn parse_array_data(data: ArrayData) -> Result<ParsedListData, ArrowError> {
         let (data_type, len, nulls, offset, mut buffers, mut child_data) = data.into_parts();
 
         if buffers.len() != 1 {
@@ -596,17 +613,21 @@ impl<OffsetSize: OffsetSizeTrait> GenericListArray<OffsetSize> {
             )));
         }
 
-        let values = make_array(values);
-        // SAFETY:
-        // ArrayData is valid, and verified type above
-        let value_offsets = unsafe { get_offsets_from_buffer(buffer, offset, len) };
+        Ok((data_type, len, nulls, offset, buffer, values))
+    }
 
-        Ok(Self {
+    pub(super) fn from_parts(
+        data_type: DataType,
+        nulls: Option<NullBuffer>,
+        values: super::release::Child,
+        value_offsets: OffsetBuffer<OffsetSize>,
+    ) -> Self {
+        Self {
             data_type,
             nulls,
-            values: values.into(),
+            values,
             value_offsets,
-        })
+        }
     }
 }
 
