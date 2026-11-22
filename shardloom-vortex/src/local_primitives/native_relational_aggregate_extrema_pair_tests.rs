@@ -103,12 +103,13 @@ fn copy_states(source: &[State]) -> Vec<State> {
         .collect()
 }
 
-fn sum_bits(sum: NumericAggregateSum) -> (u8, u64, u64) {
+fn sum_bits(sum: NumericAggregateSum) -> (u8, u128, u64) {
     match sum {
-        NumericAggregateSum::Ordered(value) => (0, value.to_bits(), 0),
+        NumericAggregateSum::Ordered(value) => (0, u128::from(value.to_bits()), 0),
         NumericAggregateSum::Integer { sum, correction } => {
-            (1, sum.to_bits(), correction.to_bits())
+            (1, u128::from(sum.to_bits()), correction.to_bits())
         }
+        NumericAggregateSum::ExactInteger(value) => (2, value.into_i128().cast_unsigned(), 0),
     }
 }
 

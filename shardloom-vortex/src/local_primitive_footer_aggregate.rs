@@ -364,13 +364,18 @@ fn parse_exact_integer_sum_stat(
         let StatValue::Int64(total) = value else {
             return Err(failed("sum statistic is not a signed integer"));
         };
-        let sign = if total < 0 { -1.0 } else { 1.0 };
-        (numeric_sum_from_u64(total.unsigned_abs(), sign), total == 0)
+        (
+            NumericAggregateSum::exact_integer(i128::from(total)),
+            total == 0,
+        )
     } else {
         let StatValue::UInt64(total) = value else {
             return Err(failed("sum statistic is not an unsigned integer"));
         };
-        (numeric_sum_from_u64(total, 1.0), total == 0)
+        (
+            NumericAggregateSum::exact_integer(i128::from(total)),
+            total == 0,
+        )
     };
     if !sum.is_finite() {
         return Err(failed("exact sum statistic is non-finite"));
@@ -413,19 +418,6 @@ fn verify_exact_64bit_int_sum_bounds(
     }
     *exact_statistics += 2;
     Ok(true)
-}
-
-fn numeric_sum_from_u64(abs: u64, sign: f64) -> NumericAggregateSum {
-    let mut sum = NumericAggregateSum::default();
-    let high = u32::try_from(abs >> 32).expect("upper 32 bits fit in u32");
-    let low = u32::try_from(abs & u64::from(u32::MAX)).expect("lower 32 bits fit in u32");
-    if high != 0 {
-        sum.add(sign * f64::from(high) * 4_294_967_296.0, true);
-    }
-    if low != 0 || high == 0 {
-        sum.add(sign * f64::from(low), true);
-    }
-    sum
 }
 
 fn complete_sum_or_avg_measure(

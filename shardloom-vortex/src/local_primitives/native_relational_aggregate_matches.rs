@@ -2,7 +2,7 @@
 
 use super::{
     Aggregate, Function, GroupOrdinals, KeyColumn, NativeExecutionContext, Result, Spec, failed,
-    update, update_numeric_parts,
+    update, update_integer_parts, update_numeric_parts,
 };
 use crate::local_primitives::{
     native_numeric_owner::NativeNumericOwner,
@@ -77,9 +77,20 @@ impl Aggregate<'_> {
                 context,
             )?;
         } else if matches!(measure.function, Function::Sum | Function::Avg) {
-            owner
-                .ok_or_else(|| failed("matched numeric measure is absent"))?
-                .visit_selected_numeric(rows, |row, value, integer| {
+            let owner = owner.ok_or_else(|| failed("matched numeric measure is absent"))?;
+            if owner.is_integer() {
+                owner.visit_selected_integer(rows, |row, value| {
+                    if row.is_multiple_of(1024) {
+                        context.check_cancelled()?;
+                    }
+                    if let Some(value) = value {
+                        let state = &mut self.states.values[ordinals.at(row)];
+                        update_integer_parts(&mut state.count, &mut state.sum, value)?;
+                    }
+                    Ok(())
+                })?;
+            } else {
+                owner.visit_selected_numeric(rows, |row, value, integer| {
                     if row.is_multiple_of(1024) {
                         context.check_cancelled()?;
                     }
@@ -96,6 +107,7 @@ impl Aggregate<'_> {
                     }
                     Ok(())
                 })?;
+            }
         } else {
             for (row, group) in ordinals.iter() {
                 if row.is_multiple_of(1024) {

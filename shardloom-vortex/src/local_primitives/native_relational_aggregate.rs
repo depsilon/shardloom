@@ -1213,6 +1213,18 @@ fn accumulate_numeric(
         counts.aggregate_numeric_bound_batches += 1;
         counts.aggregate_numeric_bound_rows += owner.len() as u64;
     });
+    if owner.is_integer() {
+        return owner.visit_integer(|row, value| {
+            // NULL rows still participate in the original cancellation cadence.
+            if row.is_multiple_of(1024) {
+                context.check_cancelled()?;
+            }
+            if let Some(value) = value {
+                update_integer_parts(&mut state.count, &mut state.sum, value)?;
+            }
+            Ok(())
+        });
+    }
     owner.visit_numeric(|row, value, integer| {
         // NULL rows still participate in the original cancellation cadence.
         if row.is_multiple_of(1024) {
@@ -1223,6 +1235,15 @@ fn accumulate_numeric(
         }
         Ok(())
     })
+}
+
+fn update_integer_parts(count: &mut u64, sum: &mut NumericAggregateSum, value: i128) -> Result<()> {
+    update_count(count, 1)?;
+    sum.add_i128(value);
+    if !sum.is_finite() {
+        return Err(failed("aggregate sum became nonfinite"));
+    }
+    Ok(())
 }
 
 fn update_numeric(
@@ -1285,6 +1306,18 @@ fn accumulate_grouped_numeric(
         counts.aggregate_numeric_bound_batches += 1;
         counts.aggregate_numeric_bound_rows += owner.len() as u64;
     });
+    if owner.is_integer() {
+        return owner.visit_integer(|row, value| {
+            if row.is_multiple_of(1024) {
+                context.check_cancelled()?;
+            }
+            if let Some(value) = value {
+                let state = &mut states[ordinals.at(row) * width + measure_index];
+                update_integer_parts(&mut state.count, &mut state.sum, value)?;
+            }
+            Ok(())
+        });
+    }
     owner.visit_numeric(|row, value, integer| {
         if row.is_multiple_of(1024) {
             context.check_cancelled()?;
@@ -1538,20 +1571,20 @@ fn update_sum_parts(
     policy: shardloom_core::FloatPolicy,
 ) -> Result<()> {
     let value = value.ok_or_else(|| failed("numeric argument absent"))?;
-    let numeric = number(value)?;
-    if !policy.admits(numeric) {
-        validate_finite_scalar(numeric)?;
+    match value {
+        Cell::NegativeInteger(value) => sum.add_i128(i128::from(*value)),
+        Cell::NonnegativeInteger(value) => sum.add_i128(i128::from(*value)),
+        _ => {
+            let numeric = number(value)?;
+            if !policy.admits(numeric) {
+                validate_finite_scalar(numeric)?;
+            }
+            if specials.add(numeric)? {
+                return Ok(());
+            }
+            sum.add(numeric, false);
+        }
     }
-    if specials.add(numeric)? {
-        return Ok(());
-    }
-    sum.add(
-        numeric,
-        matches!(
-            value,
-            Cell::NegativeInteger(_) | Cell::NonnegativeInteger(_)
-        ),
-    );
     if !sum.is_finite() {
         return Err(failed("aggregate sum became nonfinite"));
     }
@@ -1626,7 +1659,7 @@ fn final_value<'a>(state: &'a State, measure: &Measure) -> Result<Value<'a>> {
             state
                 .specials
                 .result()
-                .unwrap_or_else(|| super::simple_average_value(state.sum.total(), state.count)),
+                .unwrap_or_else(|| state.sum.average(state.count)),
         ),
         Function::Min | Function::Max => match &state.extreme {
             None | Some(Cell::Null) => Value::Null,

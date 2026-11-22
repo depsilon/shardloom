@@ -723,14 +723,14 @@ Items and sub-items already delivered on `v1.1.0` (`#1543`, `#1711`, `#1713`) ar
 with verified repository evidence; genuinely remaining items stay `[ ]` in exact execution order
 with `CG-1` through `CG-23` open and `claim_gate_status=not_claim_grade`.
 
-- [ ] `E2E-FIX-01` complete exact `i128` integer `SUM`/`AVG` accumulators (C7 JSON, Python materialization guards, and Timestamp units already landed in `v1.1.0`).
+- [x] `E2E-FIX-01` complete exact `i128` integer `SUM`/`AVG` accumulators (C7 JSON, Python materialization guards, and Timestamp units already landed in `v1.1.0`).
   - Queue identifier only: `E2E-FIX-01` executes remaining pre-optimization correctness repairs under canonical `PERF-04`, `PERF-08`, and `CG-5`/`CG-20` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
   - V1 scope classification: `required_for_v1`.
   - Execution checklist:
     - [x] C7 whole-file JSON typed construction shipped prior to `v0.4.0`.
     - [x] Python `_bounded_materialization_report` / `_bounded_schema_report` (`python/src/shardloom/query.py:6923-6962`) delegate directly to `self.collect(...)` without early-return dead guards.
     - [x] Four-unit Arrow `Timestamp` (`Second`, `Millisecond`, `Microsecond`, `Nanosecond`) normalization landed under `NATIVE-TIMESTAMP-PROVIDER` (`#1543`).
-    - [ ] Replace remaining `#[allow(clippy::cast_precision_loss)]` lossy `f64` integer `SUM`/`AVG` accumulators (`> 2^53` precision truncation) across `shardloom-vortex/src/local_primitives.rs` (`lines 8964, 9027, 9334, 9340, 9398, 14044, 14050, 18812, 26594, 29392, 29612, 30008, 45164, 45299, 46723, 47395, 47925, 47943, 49189`) with checked `i128` integer accumulation and exact overflow/formatting tests.
+    - [x] Replaced lossy `f64` integer `SUM`/`AVG` accumulators (`> 2^53` precision truncation) across `shardloom-vortex` (`NumericAggregateSum::ExactInteger(CompactI128)`, `BoundNumericCell`, direct/compact/fused/encoded/footer/relational paths) while keeping `NumericAggregateSum` 24 bytes / 8-byte aligned and preserving the `DType::Primitive(PType::F64)` output schema, with exact `> 2^53` cancellation, `average(count)`, and overflow-promotion tests.
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 
@@ -767,9 +767,9 @@ with `CG-1` through `CG-23` open and `claim_gate_status=not_claim_grade`.
   - V1 scope classification: `required_for_v1`.
   - Execution checklist:
     - [ ] Complete an RFC + Apache-2.0 provenance review (`docs/skills/license-provenance.md`) for an optional/default `mimalloc` `#[global_allocator]` strictly in `shardloom-cli/src/main.rs` (keeping `unsafe_code = "forbid"` in all library crates) and screen against `E2E-VERIFY-01` Full43 sys-CPU/page-fault/RSS gates.
-    - [ ] Replace non-test `Ordering::SeqCst` worker counters (`shardloom-vortex/src/local_primitives/exact_distinct_pairs.rs:493`, `native_numeric_accessor.rs:269`, `compound_count_partial.rs:525`) with `Relaxed` / worker-local accumulators.
-    - [ ] Replace per-call `CurrentThreadRuntime::new()` on production worker paths (`resident_worker_group.rs:94,115,141`, `local_primitive_collect.rs:1518`, `local_primitives.rs:2622`, `prepared_source_binding.rs:471`) with shared runtime handles.
-    - [ ] Gate eager `serde_json::json!` construction (`587` sites in `local_primitives.rs`) behind lazy `explain`/`publication_proof` tier rendering (`hot_runtime` skips unused synthesis).
+    - [ ] Audit/reduce remaining `Ordering::SeqCst` atomic sites (`native_local_selection_observation.rs` opt-in global observer; `exact_distinct_pairs.rs:493`, `native_numeric_accessor.rs:269`, and `compound_count_partial.rs:525` are verified `#[cfg(test)]` fault/probe injectors) and keep hot worker accumulators thread-local/`Relaxed`.
+    - [ ] Replace per-call `CurrentThreadRuntime::new()` on production worker paths (`ingest_runtime.rs:35`, `local_primitives.rs:2622`, `prepared_source_binding.rs:471`, `resident_session.rs:688`, `vortex_ingest.rs:14493`; `resident_worker_group.rs:94,115,141` and `local_primitive_collect.rs:1518` are verified `#[cfg(test)]`) with shared runtime handles.
+    - [ ] Gate the `17` production `serde_json::json!` sites in `local_primitives.rs` (`lines 17464..38385`; the other `570` of `587` are inside `mod tests`) behind lazy `explain`/`publication_proof` tier rendering (`hot_runtime` skips unused synthesis).
     - [ ] Make non-durable `sync_all()` (`memory_file_generation.rs:518,537`, `local_primitive_native_sink.rs:882`) explicit opt-in / final-commit-only.
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
@@ -779,7 +779,7 @@ with `CG-1` through `CG-23` open and `claim_gate_status=not_claim_grade`.
   - V1 scope classification: `required_for_v1`.
   - Execution checklist:
     - [x] Land Slice 1 exact Vortex footer metadata aggregate completion (`shardloom-vortex/src/local_primitive_footer_aggregate*.rs`, PR `#1713`) and selected file statistics in `local_primitive_native_writer.rs:132`.
-    - [ ] Refactor `reader_generated_encoded_kernel_inputs_from_vortex_chunk` (`local_primitives.rs:16026`) so `BitPacked`/`Dict`/`Sparse`/`RunEnd` emit lightweight metadata descriptors without heap `Vec` unpacking.
+    - [ ] Keep `reader_generated_encoded_kernel_inputs_from_vortex_chunk` (`local_primitives.rs:16026`, verified `#[cfg(test)]`) as test parity only while verifying production `BitPacked`/`Dict`/`Sparse`/`RunEnd` encoded-input paths emit lightweight descriptors without heap `Vec` unpacking.
     - [ ] Eliminate the `execution_session.clear()` resets (`15` sites in `shardloom-cli/src/{lib.rs,public_resident_aggregate.rs,public_resident_count.rs}`) and per-query `with_segment_source` resets (`resident_execution_context.rs:864`, `resident_session.rs:1356`) so file-keyed `VortexFile` + `LayoutReader` caches survive across queries under concurrency stress tests, and preserve `And` pushdown (`force_residual_predicate_for_source_ordinals` at `local_primitives.rs:23854,24699`; screen `predicate_ordering_used: false` at `runtime_utilization.rs:397`).
     - [ ] Expand footer/`ZonedLayout`/pruning coverage (`F32`/`F64`, `Bool`, `Utf8`, `InList`, `Or`, constant `NotEq`, `IsNull`/`IsNotNull`, partitioned files) and run the gated coalesced async byte-range I/O + bounded prefetch screen over `SegmentSource`/`ScanBuilder::with_row_indices` (absorbed `E2E-ARCH-03`).
   - Claim boundary: `claim_gate_status=not_claim_grade`.

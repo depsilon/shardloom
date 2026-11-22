@@ -431,14 +431,8 @@ pub(super) fn update(
                 return Ok(());
             }
             if fused {
-                let numeric = finite_numeric(value, None)?;
                 add(&mut count, weight)?;
-                add_repeated(
-                    &mut base_sum,
-                    numeric,
-                    weight,
-                    matches!(value, StatValue::Int64(_) | StatValue::UInt64(_)),
-                )?;
+                add_stat_repeated(&mut base_sum, None, value, weight)?;
             }
             for state in &mut weighted_states {
                 update_weighted(state, value, weight)?;
@@ -499,8 +493,13 @@ fn finish_fused_column(
             )
         {
             let offset = state.argument_offset.unwrap_or(0);
-            let adjusted =
-                base_sum.with_offset(int64_stat_to_float64(offset) * uint64_stat_to_float64(count));
+            let adjusted = if offset == 0 {
+                base_sum
+            } else if let Some(total_offset) = i128::from(offset).checked_mul(i128::from(count)) {
+                base_sum.with_i128_offset(total_offset)
+            } else {
+                base_sum.with_offset(int64_stat_to_float64(offset) * uint64_stat_to_float64(count))
+            };
             if !adjusted.is_finite() {
                 return Err(failed("fused argument offset became non-finite"));
             }
@@ -533,16 +532,39 @@ fn update_weighted(state: &mut SimpleAggregateState, value: &StatValue, weight: 
             add(&mut state.count, weight)
         }
         SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg => {
-            let numeric = finite_numeric(value, state.argument_offset)?;
             add(&mut state.count, weight)?;
-            add_repeated(
-                &mut state.sum,
-                numeric,
-                weight,
-                matches!(value, StatValue::Int64(_) | StatValue::UInt64(_)),
-            )
+            add_stat_repeated(&mut state.sum, state.argument_offset, value, weight)
         }
     }
+}
+
+fn add_stat_repeated(
+    sum: &mut NumericAggregateSum,
+    offset: Option<i64>,
+    value: &StatValue,
+    weight: u64,
+) -> Result<()> {
+    let integer_operand = match value {
+        StatValue::Int64(v) => Some(i128::from(*v)),
+        StatValue::UInt64(v) => Some(i128::from(*v)),
+        _ => None,
+    };
+    if let Some(operand) = integer_operand {
+        let adjusted = operand + i128::from(offset.unwrap_or(0));
+        sum.add_i128_repeated(adjusted, weight);
+        if !sum.is_finite() {
+            return Err(failed("numeric sum became non-finite"));
+        }
+        return Ok(());
+    }
+    let numeric = finite_numeric(value, offset)?;
+    for _ in 0..weight {
+        sum.add(numeric, false);
+        if !sum.is_finite() {
+            return Err(failed("numeric sum became non-finite"));
+        }
+    }
+    Ok(())
 }
 
 fn finite_numeric(value: &StatValue, offset: Option<i64>) -> Result<f64> {
@@ -554,28 +576,6 @@ fn finite_numeric(value: &StatValue, offset: Option<i64>) -> Result<f64> {
         return Err(failed("numeric value became non-finite"));
     }
     Ok(numeric)
-}
-
-fn add_repeated(
-    sum: &mut NumericAggregateSum,
-    value: f64,
-    count: u64,
-    integer_input: bool,
-) -> Result<()> {
-    if integer_input {
-        sum.add_integer_repeated(value, count);
-        if !sum.is_finite() {
-            return Err(failed("numeric sum became non-finite"));
-        }
-        return Ok(());
-    }
-    for _ in 0..count {
-        sum.add(value, false);
-        if !sum.is_finite() {
-            return Err(failed("numeric sum became non-finite"));
-        }
-    }
-    Ok(())
 }
 
 fn add(total: &mut u64, increment: u64) -> Result<()> {

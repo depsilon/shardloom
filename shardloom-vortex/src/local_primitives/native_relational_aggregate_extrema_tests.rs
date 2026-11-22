@@ -53,10 +53,11 @@ fn assert_same(actual: &State, expected: &State) {
     assert_eq!(actual.count, expected.count);
     assert_eq!(actual.extreme, expected.extreme);
     let sum_bits = |sum: NumericAggregateSum| match sum {
-        NumericAggregateSum::Ordered(value) => (0, value.to_bits(), 0),
+        NumericAggregateSum::Ordered(value) => (0, u128::from(value.to_bits()), 0),
         NumericAggregateSum::Integer { sum, correction } => {
-            (1, sum.to_bits(), correction.to_bits())
+            (1, u128::from(sum.to_bits()), correction.to_bits())
         }
+        NumericAggregateSum::ExactInteger(value) => (2, value.into_i128().cast_unsigned(), 0),
     };
     assert_eq!(sum_bits(actual.sum), sum_bits(expected.sum));
 }

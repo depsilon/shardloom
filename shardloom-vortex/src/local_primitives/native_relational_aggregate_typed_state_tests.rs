@@ -542,8 +542,7 @@ fn typed_grouped_state_sizes_growth_restoration_and_denials_are_credited() {
             }
             table.integers[0] = Integer {
                 count: 3,
-                sum: 1e18,
-                correction: 1.0,
+                sum: crate::local_primitives::CompactI128::from_i128(1_000_000_000_000_000_001),
             };
             let expected = table.state(1, 0);
             let mut restored = ReservedVec::new(&memory)?;

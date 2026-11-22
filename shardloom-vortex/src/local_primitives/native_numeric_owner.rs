@@ -42,6 +42,14 @@ enum BoundNumericValues<'a> {
     F16(&'a [f16]),
 }
 
+/// Exact single-row numeric cell preserving 128-bit integer precision across
+/// native bindings until final floating-point conversion.
+#[derive(Clone, Copy)]
+pub(super) enum BoundNumericCell {
+    Integer(i128),
+    Float(f64),
+}
+
 /// Borrowed slice + optional validity mask for static, zero-allocation row dispatch.
 #[derive(Clone, Copy)]
 pub(super) struct BoundNumericColumn<'a> {
@@ -73,27 +81,25 @@ impl BoundNumericColumn<'_> {
         Ok(self.valid.is_none_or(|valid| valid.value(row)))
     }
 
-    #[allow(clippy::cast_precision_loss)] // Matches integer_wide! widening semantics.
-    pub(super) fn numeric_at(self, row: usize) -> Result<Option<(f64, bool)>> {
+    pub(super) fn exact_at(self, row: usize) -> Result<Option<BoundNumericCell>> {
         if !self.is_valid_row(row)? {
             return Ok(None);
         }
         Ok(Some(match self.values {
-            BoundNumericValues::U8(values) => (f64::from(values[row]), true),
-            BoundNumericValues::U16(values) => (f64::from(values[row]), true),
-            BoundNumericValues::U32(values) => (f64::from(values[row]), true),
-            BoundNumericValues::U64(values) => (values[row] as f64, true),
-            BoundNumericValues::I8(values) => (f64::from(values[row]), true),
-            BoundNumericValues::I16(values) => (f64::from(values[row]), true),
-            BoundNumericValues::I32(values) => (f64::from(values[row]), true),
-            BoundNumericValues::I64(values) => (values[row] as f64, true),
+            BoundNumericValues::U8(values) => BoundNumericCell::Integer(i128::from(values[row])),
+            BoundNumericValues::U16(values) => BoundNumericCell::Integer(i128::from(values[row])),
+            BoundNumericValues::U32(values) => BoundNumericCell::Integer(i128::from(values[row])),
+            BoundNumericValues::U64(values) => BoundNumericCell::Integer(i128::from(values[row])),
+            BoundNumericValues::I8(values) => BoundNumericCell::Integer(i128::from(values[row])),
+            BoundNumericValues::I16(values) => BoundNumericCell::Integer(i128::from(values[row])),
+            BoundNumericValues::I32(values) => BoundNumericCell::Integer(i128::from(values[row])),
+            BoundNumericValues::I64(values) => BoundNumericCell::Integer(i128::from(values[row])),
             BoundNumericValues::F32(values) => {
-                (shardloom_core::float_policy::widen_f32(values[row]), false)
+                BoundNumericCell::Float(shardloom_core::float_policy::widen_f32(values[row]))
             }
-            BoundNumericValues::F64(values) => (values[row], false),
-            BoundNumericValues::F16(values) => (
+            BoundNumericValues::F64(values) => BoundNumericCell::Float(values[row]),
+            BoundNumericValues::F16(values) => BoundNumericCell::Float(
                 shardloom_core::float_policy::widen_f16_bits(values[row].to_bits()),
-                false,
             ),
         }))
     }
@@ -250,6 +256,20 @@ impl NativeNumericOwner {
     pub(super) fn stat_value(&self, row: usize) -> Result<StatValue> {
         numeric_dispatch!(self, stat_typed, row)
     }
+    fn exact_typed<T: Numeric, const ALL_VALID: bool>(
+        &self,
+        row: usize,
+    ) -> Result<Option<BoundNumericCell>> {
+        Ok(self.value::<T, ALL_VALID>(row)?.map(|value| {
+            value.ordinal().map_or_else(
+                || BoundNumericCell::Float(value.numeric()),
+                BoundNumericCell::Integer,
+            )
+        }))
+    }
+    pub(super) fn exact_value(&self, row: usize) -> Result<Option<BoundNumericCell>> {
+        numeric_dispatch!(self, exact_typed, row)
+    }
     fn distinct_typed<T: Numeric, const ALL_VALID: bool>(
         &self,
         row: usize,
@@ -401,6 +421,59 @@ impl NativeNumericOwner {
         Ok(())
     }
 
+    pub(super) fn visit_integer(
+        &self,
+        visit: impl FnMut(usize, Option<i128>) -> Result<()>,
+    ) -> Result<()> {
+        numeric_dispatch!(self, visit_integer_typed, visit)
+    }
+
+    #[cfg(unix)]
+    pub(super) fn visit_selected_integer(
+        &self,
+        rows: &[usize],
+        visit: impl FnMut(usize, Option<i128>) -> Result<()>,
+    ) -> Result<()> {
+        numeric_dispatch!(self, visit_selected_integer_typed, rows, visit)
+    }
+
+    #[cfg(unix)]
+    fn visit_selected_integer_typed<T: Numeric, const ALL_VALID: bool>(
+        &self,
+        rows: &[usize],
+        mut visit: impl FnMut(usize, Option<i128>) -> Result<()>,
+    ) -> Result<()> {
+        if !T::Wide::INTEGER {
+            return Err(failed("native integer selection requires integer dtype"));
+        }
+        for (position, &row) in rows.iter().enumerate() {
+            let value = self
+                .value::<T, ALL_VALID>(row)?
+                .map(|value| value.ordinal().expect("integer dtype provides i128"));
+            visit(position, value)?;
+        }
+        Ok(())
+    }
+
+    fn visit_integer_typed<T: Numeric, const ALL_VALID: bool>(
+        &self,
+        mut visit: impl FnMut(usize, Option<i128>) -> Result<()>,
+    ) -> Result<()> {
+        if !T::Wide::INTEGER {
+            return Err(failed("native integer traversal requires integer dtype"));
+        }
+        for (row, value) in self.primitive.as_slice::<T>().iter().enumerate() {
+            let value = (ALL_VALID || self.valid.value(row)).then(|| {
+                value
+                    .widen()
+                    .ordinal()
+                    .expect("integer dtype provides i128")
+            });
+            visit(row, value)?;
+        }
+        Ok(())
+    }
+
     /// Visit original-width storage with exact integer values and floating bits.
     /// Type/validity dispatch surrounds the loop; no scalar array calls, key
     /// owners or column-sized widened values are constructed. NULL rows remain
@@ -514,8 +587,12 @@ impl NativeNumericOwner {
                     .get(row)
                     .ok_or_else(|| failed("native typed row index was out of bounds"))?;
                 if ALL_VALID || valid.value(row) {
-                    measures[average_index]
-                        .add_numeric(value.widen().numeric(), T::Wide::INTEGER)?;
+                    let wide = value.widen();
+                    if let Some(ordinal) = wide.ordinal() {
+                        measures[average_index].add_i128(ordinal)?;
+                    } else {
+                        measures[average_index].add_numeric(wide.numeric(), false)?;
+                    }
                 }
                 for count in &mut measures[average_index + 1..] {
                     count.increment_count()?;
@@ -556,8 +633,12 @@ impl NativeNumericOwner {
                     .get(row)
                     .ok_or_else(|| failed("native typed row index was out of bounds"))?;
                 if ALL_VALID || valid.value(row) {
-                    measures[usize::from(COUNT_FIRST)]
-                        .add_numeric(value.widen().numeric(), T::Wide::INTEGER)?;
+                    let wide = value.widen();
+                    if let Some(ordinal) = wide.ordinal() {
+                        measures[usize::from(COUNT_FIRST)].add_i128(ordinal)?;
+                    } else {
+                        measures[usize::from(COUNT_FIRST)].add_numeric(wide.numeric(), false)?;
+                    }
                 }
                 if !COUNT_FIRST {
                     measures[1].increment_count()?;
@@ -805,7 +886,15 @@ impl NativeNumericOwner {
             if !(ALL_VALID || self.valid.value(row)) {
                 return Ok(());
             }
-            let value = value.widen().numeric();
+            let wide = value.widen();
+            if let Some(ordinal) = wide.ordinal() {
+                count = count
+                    .checked_add(1)
+                    .ok_or_else(|| failed("direct fused numeric count overflowed"))?;
+                sum.add_i128(ordinal);
+                return Ok(());
+            }
+            let value = wide.numeric();
             if !value.is_finite() {
                 return Err(failed(
                     "direct fused numeric update encountered non-finite value",
@@ -814,7 +903,7 @@ impl NativeNumericOwner {
             count = count
                 .checked_add(1)
                 .ok_or_else(|| failed("direct fused numeric count overflowed"))?;
-            sum.add(value, T::Wide::INTEGER);
+            sum.add(value, false);
             if !sum.is_finite() {
                 return Err(failed("direct fused numeric sum became non-finite"));
             }

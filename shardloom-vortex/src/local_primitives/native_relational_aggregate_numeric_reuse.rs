@@ -106,6 +106,9 @@ pub(super) fn same_sum(left: NumericAggregateSum, right: NumericAggregateSum) ->
             left.to_bits() == right.to_bits()
                 && left_correction.to_bits() == right_correction.to_bits()
         }
+        (NumericAggregateSum::ExactInteger(left), NumericAggregateSum::ExactInteger(right)) => {
+            left == right
+        }
         _ => false,
     }
 }

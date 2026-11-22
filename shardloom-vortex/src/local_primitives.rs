@@ -398,12 +398,12 @@ mod weighted_count_spill_intake;
 #[path = "local_primitives/weighted_count_spill_query.rs"]
 mod weighted_count_spill_query;
 #[cfg(feature = "vortex-local-primitives")]
-use native_numeric_owner::NativeNumericOwner;
+use native_numeric_owner::{BoundNumericCell, NativeNumericOwner};
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/numeric_aggregate_sum.rs"]
 mod numeric_aggregate_sum;
 #[cfg(feature = "vortex-local-primitives")]
-use numeric_aggregate_sum::NumericAggregateSum;
+use numeric_aggregate_sum::{CompactI128, NumericAggregateSum};
 #[cfg(all(
     feature = "vortex-local-primitives",
     feature = "vortex-write",
@@ -26634,27 +26634,37 @@ impl SimpleAggregateStates {
                 if matches!(value, StatValue::Null) {
                     continue;
                 }
-                let numeric = stat_value_to_f64(value)?;
-                if !numeric.is_finite() {
-                    return Err(ShardLoomError::InvalidOperation(
-                        "local Vortex simple aggregate fused update encountered non-finite numeric value; no fallback execution was attempted"
-                            .to_string(),
-                    ));
-                }
                 count = count.checked_add(1).ok_or_else(|| {
                     ShardLoomError::InvalidOperation(
                         "local Vortex simple aggregate fused count overflowed u64".to_string(),
                     )
                 })?;
-                base_sum.add(
-                    numeric,
-                    matches!(value, StatValue::Int64(_) | StatValue::UInt64(_)),
-                );
+                match value {
+                    StatValue::Int64(v) => base_sum.add_i128(i128::from(*v)),
+                    StatValue::UInt64(v) => base_sum.add_i128(i128::from(*v)),
+                    _ => {
+                        let numeric = stat_value_to_f64(value)?;
+                        if !numeric.is_finite() {
+                            return Err(ShardLoomError::InvalidOperation(
+                                "local Vortex simple aggregate fused update encountered non-finite numeric value; no fallback execution was attempted"
+                                    .to_string(),
+                            ));
+                        }
+                        base_sum.add(numeric, false);
+                    }
+                }
             }
             for index in state_indices {
                 let state = &mut self.states[index];
                 let offset = state.argument_offset.unwrap_or(0);
-                let adjusted_sum = base_sum.with_offset(offset as f64 * count as f64);
+                let adjusted_sum = if offset == 0 {
+                    base_sum
+                } else if let Some(total_offset) = i128::from(offset).checked_mul(i128::from(count))
+                {
+                    base_sum.with_i128_offset(total_offset)
+                } else {
+                    base_sum.with_offset(offset as f64 * count as f64)
+                };
                 if !adjusted_sum.is_finite() {
                     return Err(ShardLoomError::InvalidOperation(
                         "local Vortex simple aggregate fused argument offset produced a non-finite value; no fallback execution was attempted"
@@ -26932,8 +26942,15 @@ impl SimpleAggregateStates {
             for index in state_indices {
                 let state = &mut self.states[index];
                 let offset = state.argument_offset.unwrap_or(0);
-                let adjusted_sum = base_sum
-                    .with_offset(int64_stat_to_float64(offset) * uint64_stat_to_float64(count));
+                let adjusted_sum = if offset == 0 {
+                    base_sum
+                } else if let Some(total_offset) = i128::from(offset).checked_mul(i128::from(count))
+                {
+                    base_sum.with_i128_offset(total_offset)
+                } else {
+                    base_sum
+                        .with_offset(int64_stat_to_float64(offset) * uint64_stat_to_float64(count))
+                };
                 if !adjusted_sum.is_finite() {
                     return Err(ShardLoomError::InvalidOperation(
                         "local Vortex simple aggregate direct fused argument offset produced a non-finite value; no fallback execution was attempted"
@@ -28937,15 +28954,13 @@ impl CompactAggregateMeasures {
                     }
                 }
                 SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg => {
-                    let Some(numeric) =
-                        compact_aggregate_direct_measure_value(spec, accessors, row_index)?
-                    else {
-                        continue;
-                    };
-                    let integer = spec.value_transform == AggregateValueTransform::Identity
-                        && accessors[spec.column_index.expect("numeric measure has a source")]
-                            .numeric_input_is_integer(row_index)?;
-                    value.add_numeric(numeric, integer)?;
+                    match compact_aggregate_direct_measure_cell(spec, accessors, row_index)? {
+                        Some(BoundNumericCell::Integer(integer)) => value.add_i128(integer)?,
+                        Some(BoundNumericCell::Float(numeric)) => {
+                            value.add_numeric(numeric, false)?;
+                        }
+                        None => {}
+                    }
                 }
                 SimpleAggregateFunction::CountDistinct
                 | SimpleAggregateFunction::Min
@@ -28991,7 +29006,7 @@ impl CompactAggregateMeasures {
                     SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg,
                     TransformedDictionaryCompactMeasureUpdate::DirectNumeric(column_index),
                 ) => {
-                    let Some(numeric) = aggregate_direct_numeric_value(
+                    let Some(cell) = aggregate_direct_numeric_cell(
                         accessors.get(*column_index).ok_or_else(|| {
                             ShardLoomError::InvalidOperation(
                                 "local Vortex transformed-dictionary compact numeric column index was missing; no fallback execution was attempted"
@@ -28999,7 +29014,8 @@ impl CompactAggregateMeasures {
                             )
                         })?,
                         row_index,
-                    )? else {
+                    )?
+                    else {
                         continue;
                     };
                     value.count = value.count.checked_add(1).ok_or_else(|| {
@@ -29008,10 +29024,10 @@ impl CompactAggregateMeasures {
                                 .to_string(),
                         )
                     })?;
-                    value.sum.add(
-                        numeric,
-                        accessors[*column_index].numeric_input_is_integer(row_index)?,
-                    );
+                    match cell {
+                        BoundNumericCell::Integer(integer) => value.sum.add_i128(integer),
+                        BoundNumericCell::Float(numeric) => value.sum.add(numeric, false),
+                    }
                     if !value.sum.is_finite() {
                         return Err(ShardLoomError::InvalidOperation(
                             "local Vortex transformed-dictionary compact numeric sum became non-finite; no fallback execution was attempted"
@@ -29188,8 +29204,8 @@ impl CompactAggregateMeasures {
                     }
                 }
                 SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg => {
-                    let Some(numeric) =
-                        compact_aggregate_materialized_measure_value(spec, columns, row_index)?
+                    let Some(cell) =
+                        compact_aggregate_materialized_measure_cell(spec, columns, row_index)?
                     else {
                         continue;
                     };
@@ -29199,13 +29215,10 @@ impl CompactAggregateMeasures {
                                 .to_string(),
                         )
                     })?;
-                    let integer = spec.value_transform == AggregateValueTransform::Identity
-                        && matches!(
-                            columns[spec.column_index.expect("numeric measure has a source")]
-                                [row_index],
-                            StatValue::Int64(_) | StatValue::UInt64(_)
-                        );
-                    value.sum.add(numeric, integer);
+                    match cell {
+                        BoundNumericCell::Integer(integer) => value.sum.add_i128(integer),
+                        BoundNumericCell::Float(numeric) => value.sum.add(numeric, false),
+                    }
                     if !value.sum.is_finite() {
                         return Err(ShardLoomError::InvalidOperation(
                             "local Vortex compact materialized numeric aggregate sum became non-finite; no fallback execution was attempted"
@@ -29859,7 +29872,7 @@ impl NumericPairCompactMeasures {
                 }
                 NumericPairCompactMeasureUpdate::Sum(column_index)
                 | NumericPairCompactMeasureUpdate::Avg(column_index) => {
-                    let Some(numeric) = aggregate_direct_numeric_value(
+                    let Some(cell) = aggregate_direct_numeric_cell(
                         accessors.get(column_index).ok_or_else(|| {
                             ShardLoomError::InvalidOperation(
                                 "local Vortex numeric-pair numeric column index was missing; no fallback execution was attempted"
@@ -29876,7 +29889,10 @@ impl NumericPairCompactMeasures {
                             "local Vortex numeric-pair numeric count overflowed u64".to_string(),
                         )
                     })?;
-                    value.sum.add(numeric, accessors[column_index].numeric_input_is_integer(row_index)?);
+                    match cell {
+                        BoundNumericCell::Integer(integer) => value.sum.add_i128(integer),
+                        BoundNumericCell::Float(numeric) => value.sum.add(numeric, false),
+                    }
                     if !value.sum.is_finite() {
                         return Err(ShardLoomError::InvalidOperation(
                             "local Vortex numeric-pair numeric sum became non-finite; no fallback execution was attempted"
@@ -29913,9 +29929,9 @@ impl CompactAggregateMeasureValue {
                 if self.count == 0 {
                     Ok(GroupedAggregateOrderValue::Null)
                 } else {
-                    Ok(GroupedAggregateOrderValue::Float64(simple_average_value(
-                        self.sum.total(), self.count,
-                    )))
+                    Ok(GroupedAggregateOrderValue::Float64(
+                        self.sum.average(self.count),
+                    ))
                 }
             }
             SimpleAggregateFunction::CountDistinct
@@ -29933,11 +29949,11 @@ impl CompactAggregateMeasureValue {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-fn compact_aggregate_direct_measure_value(
+fn compact_aggregate_direct_measure_cell(
     spec: &CompactAggregateMeasureSpec,
     accessors: &[AggregateDirectColumnAccessor],
     row_index: usize,
-) -> Result<Option<f64>> {
+) -> Result<Option<BoundNumericCell>> {
     let column_index = spec.column_index.ok_or_else(|| {
         ShardLoomError::InvalidOperation(
             "local Vortex compact aggregate measure requires a column; no fallback execution was attempted"
@@ -29951,8 +29967,10 @@ fn compact_aggregate_direct_measure_value(
         )
     })?;
     match spec.value_transform {
-        AggregateValueTransform::Identity => aggregate_direct_numeric_value(accessor, row_index),
-        AggregateValueTransform::Length => aggregate_direct_utf8_length_value(accessor, row_index),
+        AggregateValueTransform::Identity => aggregate_direct_numeric_cell(accessor, row_index),
+        AggregateValueTransform::Length => {
+            aggregate_direct_utf8_length_value(accessor, row_index).map(|v| v.map(BoundNumericCell::Float))
+        }
         AggregateValueTransform::ConstantInt(_)
         | AggregateValueTransform::AddOffset(_)
         | AggregateValueTransform::SignedAddOffset(_)
@@ -30006,11 +30024,11 @@ fn dictionary_group_compact_measure_spec_admitted(
 
 #[cfg(feature = "vortex-local-primitives")]
 #[allow(clippy::cast_precision_loss)]
-fn compact_aggregate_materialized_measure_value(
+fn compact_aggregate_materialized_measure_cell(
     spec: &CompactAggregateMeasureSpec,
     columns: &[Vec<StatValue>],
     row_index: usize,
-) -> Result<Option<f64>> {
+) -> Result<Option<BoundNumericCell>> {
     let column_index = spec.column_index.ok_or_else(|| {
         ShardLoomError::InvalidOperation(
             "local Vortex compact materialized aggregate measure requires a column; no fallback execution was attempted"
@@ -30030,9 +30048,13 @@ fn compact_aggregate_materialized_measure_value(
         return Ok(None);
     }
     match spec.value_transform {
-        AggregateValueTransform::Identity => stat_value_to_f64(value).map(Some),
+        AggregateValueTransform::Identity => match value {
+            StatValue::Int64(v) => Ok(Some(BoundNumericCell::Integer(i128::from(*v)))),
+            StatValue::UInt64(v) => Ok(Some(BoundNumericCell::Integer(i128::from(*v)))),
+            _ => stat_value_to_f64(value).map(|v| Some(BoundNumericCell::Float(v))),
+        },
         AggregateValueTransform::Length => match value {
-            StatValue::Utf8(value) => Ok(Some(value.len() as f64)),
+            StatValue::Utf8(value) => Ok(Some(BoundNumericCell::Float(value.len() as f64))),
             other => Err(ShardLoomError::InvalidOperation(format!(
                 "local Vortex compact materialized length aggregate requires UTF-8 input, got {}; no fallback execution was attempted",
                 other.dtype().as_str()
@@ -42420,20 +42442,6 @@ fn aggregate_materialized_string_partial_key(
 
 #[cfg(feature = "vortex-local-primitives")]
 impl AggregateDirectColumnAccessor {
-    fn numeric_input_is_integer(&self, row: usize) -> Result<bool> {
-        Ok(match self {
-            Self::NativeNumeric(owner) => owner.is_integer(),
-            Self::UInt64(_) | Self::NullableUInt64 { .. }
-            | Self::Int64(_) | Self::NullableInt64 { .. } => true,
-            Self::Materialized { values, .. } => matches!(values.get(row).ok_or_else(|| {
-                ShardLoomError::InvalidOperation("local Vortex numeric input row was out of bounds; no fallback execution was attempted".into())
-            })?, StatValue::Int64(_) | StatValue::UInt64(_)),
-            Self::Boolean(_) | Self::NullableBoolean { .. }
-            | Self::Float64(_) | Self::NullableFloat64 { .. }
-            | Self::Utf8Dictionary { .. } => false,
-        })
-    }
-
     fn materialized(values: Vec<StatValue>, blocker: &'static str) -> Self {
         Self::Materialized { values, blocker }
     }
@@ -45166,13 +45174,26 @@ fn aggregate_direct_numeric_value(
     accessor: &AggregateDirectColumnAccessor,
     row_index: usize,
 ) -> Result<Option<f64>> {
+    Ok(
+        aggregate_direct_numeric_cell(accessor, row_index)?.map(|cell| match cell {
+            BoundNumericCell::Integer(value) => value as f64,
+            BoundNumericCell::Float(value) => value,
+        }),
+    )
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_direct_numeric_cell(
+    accessor: &AggregateDirectColumnAccessor,
+    row_index: usize,
+) -> Result<Option<BoundNumericCell>> {
     if let AggregateDirectColumnAccessor::NativeNumeric(owner) = accessor {
-        return owner.numeric_value(row_index);
+        return owner.exact_value(row_index);
     }
     if let Some(values) = accessor.u64_values() {
         return values
             .get(row_index)
-            .map(|value| Some(*value as f64))
+            .map(|value| Some(BoundNumericCell::Integer(i128::from(*value))))
             .ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
                     "local Vortex aggregate direct uint64 numeric row index was out of bounds; no fallback execution was attempted"
@@ -45183,7 +45204,7 @@ fn aggregate_direct_numeric_value(
     if let Some(values) = accessor.i64_values() {
         return values
             .get(row_index)
-            .map(|value| Some(*value as f64))
+            .map(|value| Some(BoundNumericCell::Integer(i128::from(*value))))
             .ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
                     "local Vortex aggregate direct int64 numeric row index was out of bounds; no fallback execution was attempted"
@@ -45195,6 +45216,7 @@ fn aggregate_direct_numeric_value(
         return values
             .get(row_index)
             .copied()
+            .map(BoundNumericCell::Float)
             .map(Some)
             .ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
@@ -45213,14 +45235,15 @@ fn aggregate_direct_numeric_value(
         }
         AggregateDirectColumnAccessor::NullableUInt64 { values, row_nulls } => {
             aggregate_nullable_primitive_value(values, row_nulls, row_index, "uint64 numeric")
-                .map(|value| value.map(|value| value as f64))
+                .map(|value| value.map(|value| BoundNumericCell::Integer(i128::from(value))))
         }
         AggregateDirectColumnAccessor::NullableInt64 { values, row_nulls } => {
             aggregate_nullable_primitive_value(values, row_nulls, row_index, "int64 numeric")
-                .map(|value| value.map(|value| value as f64))
+                .map(|value| value.map(|value| BoundNumericCell::Integer(i128::from(value))))
         }
         AggregateDirectColumnAccessor::NullableFloat64 { values, row_nulls } => {
             aggregate_nullable_primitive_value(values, row_nulls, row_index, "float64 numeric")
+                .map(|value| value.map(BoundNumericCell::Float))
         }
         AggregateDirectColumnAccessor::Materialized { values, .. } => {
             let value = values.get(row_index).ok_or_else(|| {
@@ -45229,10 +45252,11 @@ fn aggregate_direct_numeric_value(
                         .to_string(),
                 )
             })?;
-            if matches!(value, StatValue::Null) {
-                Ok(None)
-            } else {
-                stat_value_to_f64(value).map(Some)
+            match value {
+                StatValue::Null => Ok(None),
+                StatValue::Int64(v) => Ok(Some(BoundNumericCell::Integer(i128::from(*v)))),
+                StatValue::UInt64(v) => Ok(Some(BoundNumericCell::Integer(i128::from(*v)))),
+                _ => stat_value_to_f64(value).map(|v| Some(BoundNumericCell::Float(v))),
             }
         }
         AggregateDirectColumnAccessor::Utf8Dictionary { .. } => {
@@ -45244,7 +45268,7 @@ fn aggregate_direct_numeric_value(
         AggregateDirectColumnAccessor::NativeNumeric(_) | AggregateDirectColumnAccessor::UInt64(_)
         | AggregateDirectColumnAccessor::Int64(_)
         | AggregateDirectColumnAccessor::Float64(_) => unreachable!(
-            "direct numeric accessors are handled before aggregate_direct_numeric_value match"
+            "direct numeric accessors are handled before aggregate_direct_numeric_cell match"
         ),
     }
 }
@@ -45260,21 +45284,35 @@ fn aggregate_direct_numeric_sum_count(
     let mut count = 0_u64;
     let mut sum = NumericAggregateSum::default();
     let mut update_row = |row_index| -> Result<()> {
-        let Some(value) = aggregate_direct_numeric_value(accessor, row_index)? else {
+        let Some(cell) = aggregate_direct_numeric_cell(accessor, row_index)? else {
             return Ok(());
         };
-        if !value.is_finite() {
-            return Err(ShardLoomError::InvalidOperation(
-                "local Vortex aggregate direct fused numeric update encountered non-finite value; no fallback execution was attempted"
-                    .to_string(),
-            ));
+        match cell {
+            BoundNumericCell::Integer(integer) => {
+                count = count.checked_add(1).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex aggregate direct fused numeric count overflowed u64"
+                            .to_string(),
+                    )
+                })?;
+                sum.add_i128(integer);
+            }
+            BoundNumericCell::Float(value) => {
+                if !value.is_finite() {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "local Vortex aggregate direct fused numeric update encountered non-finite value; no fallback execution was attempted"
+                            .to_string(),
+                    ));
+                }
+                count = count.checked_add(1).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex aggregate direct fused numeric count overflowed u64"
+                            .to_string(),
+                    )
+                })?;
+                sum.add(value, false);
+            }
         }
-        count = count.checked_add(1).ok_or_else(|| {
-            ShardLoomError::InvalidOperation(
-                "local Vortex aggregate direct fused numeric count overflowed u64".to_string(),
-            )
-        })?;
-        sum.add(value, accessor.numeric_input_is_integer(row_index)?);
         if !sum.is_finite() {
             return Err(ShardLoomError::InvalidOperation(
                 "local Vortex aggregate direct fused numeric sum became non-finite; no fallback execution was attempted"
@@ -47189,14 +47227,15 @@ impl SimpleAggregateState {
                 Ok(())
             }
             SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg => {
-                let Some(numeric) = self.direct_numeric_measure_value(accessor, row_index)? else {
-                    return Ok(());
-                };
-                self.update_direct_numeric_value(
-                    numeric,
-                    self.value_transform == AggregateValueTransform::Identity
-                        && accessor.numeric_input_is_integer(row_index)?,
-                )
+                match self.direct_numeric_measure_cell(accessor, row_index)? {
+                    Some(BoundNumericCell::Integer(value)) => {
+                        self.update_direct_integer_value(value)
+                    }
+                    Some(BoundNumericCell::Float(numeric)) => {
+                        self.update_direct_numeric_value(numeric, false)
+                    }
+                    None => Ok(()),
+                }
             }
         }
     }
@@ -47213,6 +47252,23 @@ impl SimpleAggregateState {
                 "local Vortex grouped aggregate direct count overflowed u64".to_string(),
             )
         })?;
+        Ok(())
+    }
+
+    fn update_direct_integer_value(&mut self, value: i128) -> Result<()> {
+        let adjusted = value + i128::from(self.argument_offset.unwrap_or(0));
+        self.count = self.count.checked_add(1).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex grouped aggregate direct numeric count overflowed u64".to_string(),
+            )
+        })?;
+        self.sum.add_i128(adjusted);
+        if !self.sum.is_finite() {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex grouped aggregate direct numeric sum became non-finite; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
         Ok(())
     }
 
@@ -47769,28 +47825,39 @@ impl SimpleAggregateState {
         row_indices: Option<&[usize]>,
     ) -> Result<()> {
         let update_row = |state: &mut Self, row_index| -> Result<()> {
-            let Some(mut numeric) = state.direct_numeric_measure_value(accessor, row_index)? else {
+            let Some(cell) = state.direct_numeric_measure_cell(accessor, row_index)? else {
                 return Ok(());
             };
-            if let Some(offset) = state.argument_offset {
-                numeric += int64_stat_to_float64(offset);
+            match cell {
+                BoundNumericCell::Integer(value) => {
+                    let adjusted = value + i128::from(state.argument_offset.unwrap_or(0));
+                    state.count = state.count.checked_add(1).ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "local Vortex simple aggregate direct numeric count overflowed u64"
+                                .to_string(),
+                        )
+                    })?;
+                    state.sum.add_i128(adjusted);
+                }
+                BoundNumericCell::Float(mut numeric) => {
+                    if let Some(offset) = state.argument_offset {
+                        numeric += int64_stat_to_float64(offset);
+                    }
+                    if !numeric.is_finite() {
+                        return Err(ShardLoomError::InvalidOperation(
+                            "local Vortex simple aggregate direct numeric update encountered non-finite value; no fallback execution was attempted"
+                                .to_string(),
+                        ));
+                    }
+                    state.count = state.count.checked_add(1).ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "local Vortex simple aggregate direct numeric count overflowed u64"
+                                .to_string(),
+                        )
+                    })?;
+                    state.sum.add(numeric, false);
+                }
             }
-            if !numeric.is_finite() {
-                return Err(ShardLoomError::InvalidOperation(
-                    "local Vortex simple aggregate direct numeric update encountered non-finite value; no fallback execution was attempted"
-                        .to_string(),
-                ));
-            }
-            state.count = state.count.checked_add(1).ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "local Vortex simple aggregate direct numeric count overflowed u64".to_string(),
-                )
-            })?;
-            state.sum.add(
-                numeric,
-                state.value_transform == AggregateValueTransform::Identity
-                    && accessor.numeric_input_is_integer(row_index)?,
-            );
             if !state.sum.is_finite() {
                 return Err(ShardLoomError::InvalidOperation(
                     "local Vortex simple aggregate direct numeric sum became non-finite; no fallback execution was attempted"
@@ -47834,14 +47901,17 @@ impl SimpleAggregateState {
         Ok(())
     }
 
-    fn direct_numeric_measure_value(
+    fn direct_numeric_measure_cell(
         &self,
         accessor: &AggregateDirectColumnAccessor,
         row_index: usize,
-    ) -> Result<Option<f64>> {
+    ) -> Result<Option<BoundNumericCell>> {
         match self.value_transform {
-            AggregateValueTransform::Identity => aggregate_direct_numeric_value(accessor, row_index),
-            AggregateValueTransform::Length => aggregate_direct_utf8_length_value(accessor, row_index),
+            AggregateValueTransform::Identity => aggregate_direct_numeric_cell(accessor, row_index),
+            AggregateValueTransform::Length => {
+                aggregate_direct_utf8_length_value(accessor, row_index)
+                    .map(|value| value.map(BoundNumericCell::Float))
+            }
             AggregateValueTransform::ConstantInt(_)
             | AggregateValueTransform::AddOffset(_)
             | AggregateValueTransform::SignedAddOffset(_)
@@ -47887,20 +47957,24 @@ impl SimpleAggregateState {
                     .insert(AggregateDistinctValue::from(transformed_value));
             }
             SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg => {
-                let numeric = self.aggregate_numeric_value(transformed_value)?;
-                if !numeric.is_finite() {
-                    return Err(ShardLoomError::InvalidOperation(
-                        "local Vortex simple aggregate encountered non-finite numeric value; no fallback execution was attempted"
-                            .to_string(),
-                    ));
+                let integer_operand = match transformed_value {
+                    StatValue::Int64(v) => Some(i128::from(*v)),
+                    StatValue::UInt64(v) => Some(i128::from(*v)),
+                    _ => None,
+                };
+                if let Some(operand) = integer_operand {
+                    let adjusted = operand + i128::from(self.argument_offset.unwrap_or(0));
+                    self.sum.add_i128(adjusted);
+                } else {
+                    let numeric = self.aggregate_numeric_value(transformed_value)?;
+                    if !numeric.is_finite() {
+                        return Err(ShardLoomError::InvalidOperation(
+                            "local Vortex simple aggregate encountered non-finite numeric value; no fallback execution was attempted"
+                                .to_string(),
+                        ));
+                    }
+                    self.sum.add(numeric, false);
                 }
-                self.sum.add(
-                    numeric,
-                    matches!(
-                        transformed_value,
-                        StatValue::Int64(_) | StatValue::UInt64(_)
-                    ),
-                );
             }
             SimpleAggregateFunction::Min => {
                 self.min = Some(simple_aggregate_min_value(

@@ -3,7 +3,7 @@
 
 use super::{
     Function, GroupOrdinals, Measure, NumericAggregateSum, Spec, State, Value, failed,
-    numeric_reuse, update_count, update_numeric_parts, update_sum_parts,
+    numeric_reuse, update_count, update_integer_parts, update_numeric_parts, update_sum_parts,
 };
 use crate::{
     local_primitives::{
@@ -339,39 +339,7 @@ impl Table {
             }
             Slot::Numeric(index) => {
                 if let Some(KeyColumn::Numeric(owner)) = values {
-                    if rows.map_or(owner.len(), <[usize]>::len) != ordinals.len() {
-                        return Err(failed("numeric group ordinals changed row count"));
-                    }
-                    if ordinals.len() != 0 {
-                        #[cfg(all(test, debug_assertions))]
-                        super::super::native_relational_observation::record(|counts| {
-                            counts.aggregate_numeric_bound_batches += 1;
-                            counts.aggregate_numeric_bound_rows += ordinals.len() as u64;
-                        });
-                    }
-                    let update = |row: usize, value, integer| {
-                        if row.is_multiple_of(1024) {
-                            context.check_cancelled()?;
-                        }
-                        if let Some(value) = value {
-                            let state =
-                                &mut self.numbers[ordinals.at(row) * self.numeric_width + index];
-                            update_numeric_parts(
-                                &mut state.count,
-                                &mut state.sum,
-                                &mut state.specials,
-                                value,
-                                integer,
-                                context.float_policy(),
-                            )?;
-                        }
-                        Ok(())
-                    };
-                    if let Some(rows) = rows {
-                        owner.visit_selected_numeric(rows, update)?;
-                    } else {
-                        owner.visit_numeric(update)?;
-                    }
+                    self.consume_numeric_owner(index, ordinals, owner, rows, context)?;
                 } else {
                     for (row, group) in ordinals.iter() {
                         if row.is_multiple_of(1024) {
@@ -400,6 +368,67 @@ impl Table {
         context.check_cancelled()
     }
 
+    fn consume_numeric_owner(
+        &mut self,
+        index: usize,
+        ordinals: &GroupOrdinals,
+        owner: &crate::local_primitives::native_numeric_owner::NativeNumericOwner,
+        rows: Option<&[usize]>,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        if rows.map_or(owner.len(), <[usize]>::len) != ordinals.len() {
+            return Err(failed("numeric group ordinals changed row count"));
+        }
+        if ordinals.len() != 0 {
+            #[cfg(all(test, debug_assertions))]
+            super::super::native_relational_observation::record(|counts| {
+                counts.aggregate_numeric_bound_batches += 1;
+                counts.aggregate_numeric_bound_rows += ordinals.len() as u64;
+            });
+        }
+        if owner.is_integer() {
+            let update = |row: usize, value: Option<i128>| {
+                if row.is_multiple_of(1024) {
+                    context.check_cancelled()?;
+                }
+                if let Some(value) = value {
+                    let state = &mut self.numbers[ordinals.at(row) * self.numeric_width + index];
+                    update_integer_parts(&mut state.count, &mut state.sum, value)?;
+                }
+                Ok(())
+            };
+            if let Some(rows) = rows {
+                owner.visit_selected_integer(rows, update)?;
+            } else {
+                owner.visit_integer(update)?;
+            }
+        } else {
+            let update = |row: usize, value, integer| {
+                if row.is_multiple_of(1024) {
+                    context.check_cancelled()?;
+                }
+                if let Some(value) = value {
+                    let state = &mut self.numbers[ordinals.at(row) * self.numeric_width + index];
+                    update_numeric_parts(
+                        &mut state.count,
+                        &mut state.sum,
+                        &mut state.specials,
+                        value,
+                        integer,
+                        context.float_policy(),
+                    )?;
+                }
+                Ok(())
+            };
+            if let Some(rows) = rows {
+                owner.visit_selected_numeric(rows, update)?;
+            } else {
+                owner.visit_numeric(update)?;
+            }
+        }
+        Ok(())
+    }
+
     pub(super) fn finish(
         &self,
         index: usize,
@@ -421,10 +450,7 @@ impl Table {
                 }
                 match function {
                     Function::Sum => Ok(Value::Float(state.sum.total())),
-                    Function::Avg => Ok(Value::Float(super::super::simple_average_value(
-                        state.sum.total(),
-                        state.count,
-                    ))),
+                    Function::Avg => Ok(Value::Float(state.sum.average(state.count))),
                     _ => Err(failed("compact aggregate result has incompatible measure")),
                 }
             }

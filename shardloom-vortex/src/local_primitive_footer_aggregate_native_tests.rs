@@ -867,3 +867,87 @@ fn footer_aggregate_native_multitype_declines_match_scan() {
         runtime::execute_vortex_local_primitive_with_policy(&nan_req_s, policy).unwrap_err();
     assert_eq!(err_c.to_string(), err_s.to_string());
 }
+
+#[test]
+fn footer_aggregate_native_wide_i64_cancellation_preserves_exact_sum_and_avg() {
+    let dir = std::env::temp_dir().join(format!(
+        "shardloom-footer-wide-cancel-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed),
+    ));
+    fs::create_dir(&dir).unwrap();
+    let _guard = DirGuard(dir.clone());
+    let rows = 4_usize;
+    let array = StructArray::try_new(
+        ["wide"].into(),
+        vec![
+            PrimitiveArray::from_iter([i64::MAX, -i64::MAX, (1_i64 << 54) + 5, -(1_i64 << 54)])
+                .into_array(),
+        ],
+        rows,
+        Validity::NonNullable,
+    )
+    .unwrap()
+    .into_array();
+
+    let runtime = SingleThreadRuntime::default();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    for (name, stats) in [
+        (
+            "complete",
+            vec![
+                Stat::Min,
+                Stat::Max,
+                Stat::Sum,
+                Stat::NullCount,
+                Stat::NaNCount,
+            ],
+        ),
+        ("disabled", vec![]),
+    ] {
+        let mut file = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(dir.join(format!("{name}.vortex")))
+            .unwrap();
+        let mut writer = session
+            .write_options()
+            .with_strategy(Arc::new(FlatLayoutStrategy::default()))
+            .with_file_statistics(stats.iter().filter_map(Stat::aggregate_fn).collect())
+            .blocking(&runtime)
+            .writer(&mut file, array.dtype().clone());
+        writer.push(array.clone()).unwrap();
+        writer.finish().unwrap();
+        file.sync_all().unwrap();
+    }
+
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 2).unwrap();
+    let uri = |name: &str| {
+        DatasetUri::new(dir.join(format!("{name}.vortex")).display().to_string()).unwrap()
+    };
+    let measures = vec![
+        measure("sum", Some("wide"), "wide_sum"),
+        measure("avg", Some("wide"), "wide_avg"),
+    ];
+    let rep_c = runtime::execute_vortex_local_primitive_with_policy(
+        &VortexQueryPrimitiveRequest::simple_aggregate(
+            uri("complete"),
+            VortexSimpleAggregateRequest::new(measures.clone()),
+        ),
+        policy,
+    )
+    .unwrap();
+    let rep_s = runtime::execute_vortex_local_primitive_with_policy(
+        &VortexQueryPrimitiveRequest::simple_aggregate(
+            uri("disabled"),
+            VortexSimpleAggregateRequest::new(measures),
+        ),
+        policy,
+    )
+    .unwrap();
+    assert_eq!(
+        payload(&rep_c)["values"],
+        json!({"wide_sum": 5.0, "wide_avg": 1.25})
+    );
+    assert_eq!(payload(&rep_c)["values"], payload(&rep_s)["values"]);
+}

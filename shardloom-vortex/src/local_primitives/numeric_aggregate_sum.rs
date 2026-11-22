@@ -2,10 +2,29 @@
 //! f64, but compensate addition error instead of losing small contributions in a
 //! long accumulation. Floating inputs retain the original ordered additions.
 
+/// Little-endian 128-bit integer accumulator stored as two `u64` words so
+/// `NumericAggregateSum` remains 8-byte aligned and 24 bytes wide.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(super) struct CompactI128([u64; 2]);
+
+impl CompactI128 {
+    pub(super) const fn from_i128(value: i128) -> Self {
+        let unsigned = value.cast_unsigned();
+        #[allow(clippy::cast_possible_truncation)]
+        Self([unsigned as u64, (unsigned >> 64) as u64])
+    }
+
+    pub(super) const fn into_i128(self) -> i128 {
+        let unsigned = (self.0[0] as u128) | ((self.0[1] as u128) << 64);
+        unsigned.cast_signed()
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub(super) enum NumericAggregateSum {
     Ordered(f64),
     Integer { sum: f64, correction: f64 },
+    ExactInteger(CompactI128),
 }
 
 impl Default for NumericAggregateSum {
@@ -15,10 +34,20 @@ impl Default for NumericAggregateSum {
 }
 
 impl NumericAggregateSum {
+    pub(super) const fn exact_integer(value: i128) -> Self {
+        Self::ExactInteger(CompactI128::from_i128(value))
+    }
+
     pub(super) fn add(&mut self, value: f64, integer_input: bool) {
         if !integer_input {
             *self = Self::Ordered(self.total() + value);
             return;
+        }
+        if let Self::ExactInteger(acc) = *self {
+            let mut sum = 0.0;
+            let mut correction = 0.0;
+            Self::add_i128_to_parts(&mut sum, &mut correction, acc.into_i128());
+            *self = Self::Integer { sum, correction };
         }
         if let Self::Ordered(sum) = *self {
             *self = Self::Integer {
@@ -30,6 +59,120 @@ impl NumericAggregateSum {
             unreachable!("integer accumulation mode was selected above")
         };
         Self::add_integer_parts(sum, correction, value);
+    }
+
+    pub(super) fn add_i128(&mut self, value: i128) {
+        match self {
+            Self::ExactInteger(acc) => {
+                let current = acc.into_i128();
+                if let Some(next) = current.checked_add(value) {
+                    *acc = CompactI128::from_i128(next);
+                    return;
+                }
+                let mut sum = 0.0;
+                let mut correction = 0.0;
+                Self::add_i128_to_parts(&mut sum, &mut correction, current);
+                Self::add_i128_to_parts(&mut sum, &mut correction, value);
+                *self = Self::Integer { sum, correction };
+            }
+            Self::Ordered(acc) if acc.to_bits() == 0.0_f64.to_bits() => {
+                *self = Self::exact_integer(value);
+            }
+            Self::Ordered(acc) => {
+                let mut sum = *acc;
+                let mut correction = 0.0;
+                Self::add_i128_to_parts(&mut sum, &mut correction, value);
+                *self = Self::Integer { sum, correction };
+            }
+            Self::Integer { sum, correction } => {
+                Self::add_i128_to_parts(sum, correction, value);
+            }
+        }
+    }
+
+    /// Exact 128-bit integer addition decomposed into four 32-bit exact f64 limbs
+    /// when a mixed float or `i128` overflow forces compensated float representation.
+    #[allow(clippy::cast_precision_loss)]
+    pub(super) fn add_i128_to_parts(sum: &mut f64, correction: &mut f64, value: i128) {
+        if value == 0 {
+            return;
+        }
+        if value.unsigned_abs() <= (1_u128 << 53) {
+            Self::add_integer_parts(sum, correction, value as f64);
+            return;
+        }
+        let sign = if value < 0 { -1.0 } else { 1.0 };
+        let abs = value.unsigned_abs();
+        let limb3 = ((abs >> 96) & 0xFFFF_FFFF) as u32;
+        let limb2 = ((abs >> 64) & 0xFFFF_FFFF) as u32;
+        let limb1 = ((abs >> 32) & 0xFFFF_FFFF) as u32;
+        let limb0 = (abs & 0xFFFF_FFFF) as u32;
+        if limb3 != 0 {
+            Self::add_integer_parts(
+                sum,
+                correction,
+                sign * f64::from(limb3) * f64::from_bits((1023_u64 + 96) << 52),
+            );
+        }
+        if limb2 != 0 {
+            Self::add_integer_parts(
+                sum,
+                correction,
+                sign * f64::from(limb2) * f64::from_bits((1023_u64 + 64) << 52),
+            );
+        }
+        if limb1 != 0 {
+            Self::add_integer_parts(
+                sum,
+                correction,
+                sign * f64::from(limb1) * f64::from_bits((1023_u64 + 32) << 52),
+            );
+        }
+        if limb0 != 0 {
+            Self::add_integer_parts(sum, correction, sign * f64::from(limb0));
+        }
+    }
+
+    pub(super) fn add_i128_repeated(&mut self, value: i128, count: u64) {
+        if count == 0 {
+            return;
+        }
+        if count == 1 {
+            self.add_i128(value);
+            return;
+        }
+        if let Some(product) = i128::from(count).checked_mul(value) {
+            self.add_i128(product);
+            return;
+        }
+        #[allow(clippy::cast_precision_loss)]
+        let value_f64 = value as f64;
+        self.add_integer_repeated(value_f64, count);
+    }
+
+    pub(super) fn with_i128_offset(mut self, offset: i128) -> Self {
+        self.add_i128(offset);
+        self
+    }
+
+    #[allow(clippy::cast_precision_loss)]
+    pub(super) fn average(self, count: u64) -> f64 {
+        const MAX_EXACT_F64_INT: u128 = 1_u128 << 53;
+        match self {
+            Self::ExactInteger(acc) if count > 0 => {
+                let total = acc.into_i128();
+                if total.unsigned_abs() <= MAX_EXACT_F64_INT
+                    && u128::from(count) <= MAX_EXACT_F64_INT
+                {
+                    return (total as f64) / (count as f64);
+                }
+                let divisor = i128::from(count);
+                let quotient = total / divisor;
+                let remainder = total % divisor;
+                (quotient as f64) + (remainder as f64) / (count as f64)
+            }
+            _ => self.total() / (count as f64),
+        }
     }
 
     /// The same ordered compensation with a representation fixed by binding.
@@ -80,28 +223,40 @@ impl NumericAggregateSum {
 
     pub(super) fn merge(&mut self, other: Self) {
         match other {
-            Self::Ordered(value) => self.add(value, matches!(self, Self::Integer { .. })),
+            Self::Ordered(value)
+                if value.to_bits() == 0.0_f64.to_bits()
+                    && matches!(self, Self::ExactInteger(_)) => {}
+            Self::Ordered(value) => self.add(
+                value,
+                matches!(self, Self::Integer { .. } | Self::ExactInteger(_)),
+            ),
             Self::Integer { sum, correction } => {
                 self.add(sum, true);
                 self.add(correction, true);
             }
+            Self::ExactInteger(value) => self.add_i128(value.into_i128()),
         }
     }
 
     pub(super) fn with_offset(mut self, offset: f64) -> Self {
-        self.add(offset, matches!(self, Self::Integer { .. }));
+        self.add(
+            offset,
+            matches!(self, Self::Integer { .. } | Self::ExactInteger(_)),
+        );
         self
     }
 
+    #[allow(clippy::cast_precision_loss)]
     pub(super) fn total(self) -> f64 {
         match self {
             Self::Ordered(sum) => sum,
             Self::Integer { sum, correction } => sum + correction,
+            Self::ExactInteger(sum) => sum.into_i128() as f64,
         }
     }
 
     pub(super) fn is_finite(self) -> bool {
-        self.total().is_finite()
+        matches!(self, Self::ExactInteger(_)) || self.total().is_finite()
     }
 }
 
@@ -179,5 +334,64 @@ mod tests {
         let mut overflow = NumericAggregateSum::default();
         overflow.add_integer_repeated(f64::MAX, 2);
         assert!(!overflow.is_finite());
+    }
+
+    #[test]
+    fn compact_exact_integer_keeps_24_byte_layout_and_preserves_wide_cancellation() {
+        assert_eq!(std::mem::size_of::<NumericAggregateSum>(), 24);
+        assert_eq!(std::mem::align_of::<NumericAggregateSum>(), 8);
+
+        let mut cancelled = NumericAggregateSum::default();
+        cancelled.add_i128(i128::from(i64::MAX));
+        cancelled.add_i128(7);
+        cancelled.add_i128(-i128::from(i64::MAX));
+        assert!(matches!(cancelled, NumericAggregateSum::ExactInteger(_)));
+        assert_eq!(cancelled.total(), 7.0);
+
+        let mut wide_pair = NumericAggregateSum::default();
+        wide_pair.add_i128((1_i128 << 54) + 3);
+        wide_pair.add_i128(-(1_i128 << 54));
+        assert_eq!(wide_pair.total(), 3.0);
+
+        let mut empty = NumericAggregateSum::default();
+        let mut exact = NumericAggregateSum::exact_integer((1_i128 << 62) + 3);
+        exact.merge(empty);
+        assert!(matches!(exact, NumericAggregateSum::ExactInteger(_)));
+        exact.add_i128(-(1_i128 << 62));
+        assert_eq!(exact.total(), 3.0);
+
+        empty.merge(NumericAggregateSum::exact_integer(19));
+        assert!(matches!(empty, NumericAggregateSum::ExactInteger(_)));
+        assert_eq!(empty.total(), 19.0);
+    }
+
+    #[test]
+    fn exact_integer_average_repeated_offset_and_overflow_promotion_preserve_accuracy() {
+        // (2^54 + 1) / 3 rounds toward 6004799503160662.0 rather than truncating to 2^54 first.
+        let unaligned = NumericAggregateSum::exact_integer((1_i128 << 54) + 1);
+        assert_eq!(unaligned.average(3), 6_004_799_503_160_662.0);
+
+        #[allow(clippy::cast_precision_loss)]
+        let shifted_avg = ((1_i64 << 53) + 3) as f64;
+        let pair = NumericAggregateSum::exact_integer((1_i128 << 54) + 6);
+        assert_eq!(pair.average(2), shifted_avg);
+
+        let mut large_cancel = NumericAggregateSum::default();
+        large_cancel.add_i128((1_i128 << 55) + 10);
+        large_cancel.add_i128(-(1_i128 << 55));
+        assert_eq!(large_cancel.average(2), 5.0);
+
+        let mut repeated = NumericAggregateSum::default();
+        repeated.add_i128_repeated((1_i128 << 53) + 1, 3);
+        let adjusted = repeated.with_i128_offset(-3 * (1_i128 << 53));
+        assert_eq!(adjusted.total(), 3.0);
+
+        let mut overflow = NumericAggregateSum::exact_integer(i128::MAX);
+        overflow.add_i128(1);
+        assert!(matches!(overflow, NumericAggregateSum::Integer { .. }));
+        assert!(overflow.is_finite());
+        overflow.add_i128(-i128::MAX);
+        assert!(overflow.is_finite());
+        assert_eq!(overflow.total(), 1.0);
     }
 }

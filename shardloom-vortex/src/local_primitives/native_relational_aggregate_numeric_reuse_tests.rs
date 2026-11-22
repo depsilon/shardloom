@@ -72,6 +72,9 @@ fn assert_sum_bits(actual: NumericAggregateSum, expected: NumericAggregateSum) {
             assert_eq!(a.to_bits(), e.to_bits());
             assert_eq!(ac.to_bits(), ec.to_bits());
         }
+        (NumericAggregateSum::ExactInteger(a), NumericAggregateSum::ExactInteger(e)) => {
+            assert_eq!(a, e);
+        }
         _ => panic!("numeric accumulator modes differ"),
     }
 }
