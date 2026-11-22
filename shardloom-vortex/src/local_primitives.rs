@@ -413,6 +413,9 @@ use numeric_aggregate_sum::{CompactI128, NumericAggregateSum};
 #[path = "local_primitive_columnar_compat_sink.rs"]
 mod columnar_compat_sink;
 #[cfg(all(test, feature = "vortex-local-primitives"))]
+#[path = "local_primitives/differential_oracle_tests.rs"]
+mod differential_oracle_tests;
+#[cfg(all(test, feature = "vortex-local-primitives"))]
 #[path = "local_primitives/independent_reference_regression_tests.rs"]
 mod independent_reference_regression_tests;
 #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
@@ -17452,20 +17455,13 @@ fn count_where_report(
     predicate: &PredicateExpr,
 ) -> Result<VortexLocalPrimitiveExecutionReport> {
     let rows_selected = usize_to_u64(scan.result_row_count)?;
-    let mut result_summary = count_where_result_summary_json(
+    let empty_provider_filter_work = scan.empty_provider_filter_work(Some(predicate))?;
+    let result_summary = count_where_result_summary_json(
         rows_selected,
         predicate,
         &scan.embedded_derived_column_rewrites,
-    )?;
-    let empty_provider_filter_work = scan.empty_provider_filter_work(Some(predicate))?;
-    if empty_provider_filter_work {
-        let mut summary: serde_json::Value = serde_json::from_str(&result_summary)
-            .map_err(|error| ShardLoomError::InvalidOperation(error.to_string()))?;
-        summary["scan_work_scope"] = serde_json::json!(
-            "nonempty_unpruned_provider_filter_with_no_returned_arrays;conservative_read_decode_materialization_flags;not_observed_bytes;no_scalar_rows_or_Arrow_conversion"
-        );
-        result_summary = summary.to_string();
-    }
+        empty_provider_filter_work,
+    );
     Ok(VortexLocalPrimitiveExecutionReport {
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
@@ -17525,18 +17521,37 @@ fn count_where_result_summary_json(
     rows_selected: u64,
     predicate: &PredicateExpr,
     embedded_derived_column_rewrites: &[String],
-) -> Result<String> {
-    let mut summary = serde_json::json!({
-        "count": rows_selected,
-        "predicate": predicate.summary(),
-        "count_where_strategy": "exact_vortex_filter_count",
-    })
-    .to_string();
-    annotate_embedded_derived_column_rewrite_summary(
-        &mut summary,
-        embedded_derived_column_rewrites,
-    )?;
-    Ok(summary)
+    empty_provider_filter_work: bool,
+) -> String {
+    let mut object = serde_json::Map::new();
+    object.insert("count".to_string(), serde_json::json!(rows_selected));
+    object.insert(
+        "predicate".to_string(),
+        serde_json::json!(predicate.summary()),
+    );
+    object.insert(
+        "count_where_strategy".to_string(),
+        serde_json::json!("exact_vortex_filter_count"),
+    );
+    if !embedded_derived_column_rewrites.is_empty() {
+        object.insert(
+            "embedded_derived_column_rewrite_status".to_string(),
+            serde_json::json!("applied"),
+        );
+        object.insert(
+            "embedded_derived_column_rewrites".to_string(),
+            serde_json::json!(embedded_derived_column_rewrites),
+        );
+    }
+    if empty_provider_filter_work {
+        object.insert(
+            "scan_work_scope".to_string(),
+            serde_json::json!(
+                "nonempty_unpruned_provider_filter_with_no_returned_arrays;conservative_read_decode_materialization_flags;not_observed_bytes;no_scalar_rows_or_Arrow_conversion"
+            ),
+        );
+    }
+    serde_json::Value::Object(object).to_string()
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -52786,6 +52801,41 @@ mod tests {
         assert!(!report.data_materialized);
         assert!(!report.row_read);
         assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn count_where_result_summary_json_renders_single_pass_with_and_without_scope() {
+        let plain = count_where_result_summary_json(7, &PredicateExpr::AlwaysTrue, &[], false);
+        let plain_json: serde_json::Value = serde_json::from_str(&plain).expect("valid json");
+        assert_eq!(plain_json["count"], serde_json::json!(7));
+        assert_eq!(
+            plain_json["count_where_strategy"],
+            serde_json::json!("exact_vortex_filter_count")
+        );
+        assert!(plain_json.get("scan_work_scope").is_none());
+        assert!(
+            plain_json
+                .get("embedded_derived_column_rewrite_status")
+                .is_none()
+        );
+
+        let scoped = count_where_result_summary_json(
+            0,
+            &PredicateExpr::AlwaysTrue,
+            &["derived_col".into()],
+            true,
+        );
+        let scoped_json: serde_json::Value = serde_json::from_str(&scoped).expect("valid json");
+        assert_eq!(scoped_json["count"], serde_json::json!(0));
+        assert_eq!(
+            scoped_json["embedded_derived_column_rewrite_status"],
+            serde_json::json!("applied")
+        );
+        assert_eq!(
+            scoped_json["embedded_derived_column_rewrites"],
+            serde_json::json!(["derived_col"])
+        );
+        assert!(scoped_json["scan_work_scope"].is_string());
     }
 
     #[test]

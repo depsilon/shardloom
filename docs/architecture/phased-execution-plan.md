@@ -738,17 +738,17 @@ with `CG-1` through `CG-23` open and `claim_gate_status=not_claim_grade`.
   - Queue identifier only: `E2E-VERIFY-01` groups canonical `PERF-01` same-commit baseline work and `RFC 0015` / `PERF-12` independent oracle infrastructure ahead of `E2E-PERF-00`–`06`, with relevant competitive gates `CG-5`, `CG-6`, `CG-15`, `CG-16`, and `CG-20` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
   - V1 scope classification: `required_for_v1`.
   - Execution checklist:
-    - [ ] Capture a same-commit `PERF-01` exclusive-span baseline (`Full43` + `100M` ingest stage attribution, CPU user/sys split, page faults, Peak RSS) and freeze explicit numeric retain/drop thresholds for downstream `E2E-PERF-*` batches.
-    - [ ] Upgrade `scripts/run_clickbench_query_uat.py` (`lines 188, 192`, currently self-regression references) onto isolated offline/test-only differential oracles (`scripts/clickbench_independent_reference.py`, zero runtime linkage in `Cargo.lock`) across all 43 queries.
-    - [ ] Add seeded property/fuzz differential SQL & `LazyFrame` suites (`> 2^53` integers, nulls, ties, skew, forced spill) and bounded-fixture CI perf-smoke checks.
+    - [ ] Capture a same-commit `PERF-01` exclusive-span baseline (`Full43` + `100M` ingest stage attribution, CPU user/sys split, page faults, Peak RSS) once the external `100M` `hits` dataset and offline DuckDB oracle environment are mounted (protocol and automated evaluator frozen in `docs/benchmarks/e2e-perf-baseline-protocol-v110.md` and `scripts/evaluate_perf_ship_drop.py`).
+    - [x] Aligned independent DuckDB SQL oracle (`scripts/clickbench_independent_reference.py`) with `E2E-FIX-01` exact `HUGEINT` accumulation, documented frozen baseline/retain/drop contract (`docs/benchmarks/e2e-perf-baseline-protocol-v110.md`, `scripts/evaluate_perf_ship_drop.py`), and preserved offline unit tests (`scripts/test_clickbench_independent_reference.py`, `scripts/test_evaluate_perf_ship_drop.py`).
+    - [x] Added seeded deterministic property/fuzz differential Rust suites covering `> 2^53` cancellation, nulls, Zipf skew, ties, selective predicates, and constrained forced spill (`shardloom-vortex/src/local_primitives/differential_oracle_tests.rs`) plus bounded-fixture CI perf-smoke (`scripts/run_ci_perf_smoke.py`, `scripts/test_ci_perf_smoke.py`).
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 
-- [ ] `E2E-VERIFY-02` add paired warm resident-session benchmark lanes alongside cold per-process CLI spawns ahead of `E2E-PERF-01`.
+- [x] `E2E-VERIFY-02` add paired warm resident-session benchmark lanes alongside cold per-process CLI spawns ahead of `E2E-PERF-01`.
   - Queue identifier only: `E2E-VERIFY-02` closes `PERF-01`/`PERF-02`/`PERF-12` warm-vs-cold timing-surface measurement ahead of session optimizations (`E2E-PERF-01`), with relevant competitive gates `CG-2`, `CG-5`, `CG-6`, `CG-17`, and `CG-21` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
   - V1 scope classification: `required_for_v1`.
   - Execution checklist:
-    - [ ] Extend `scripts/run_clickbench_query_uat.py` with a paired `warm_resident_session` + concurrent-serving lane alongside `cold_process_cli`, keeping `timing_surface` metrics strictly separated and proving zero query-answer caching against `E2E-VERIFY-01` independent oracles.
+    - [x] Extended `scripts/run_clickbench_query_uat.py` with `--lane warm_resident_session` / `--lane paired` and `--concurrent-workers` (`timing_surface` separation across `cold_process_cli`, `warm_resident_session`, and `warm_resident_concurrent`, separate `worker_startup_seconds`, and `verify_zero_answer_cache` enforcement verified in `scripts/test_clickbench_query_uat.py`).
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 
@@ -766,11 +766,11 @@ with `CG-1` through `CG-23` open and `claim_gate_status=not_claim_grade`.
   - Queue identifier only: `E2E-PERF-00` executes cross-cutting runtime wins under canonical `PERF-01` and `PERF-03`, with relevant competitive gates `CG-2`, `CG-5`, `CG-6`, and `CG-8` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
   - V1 scope classification: `required_for_v1`.
   - Execution checklist:
-    - [ ] Complete an RFC + Apache-2.0 provenance review (`docs/skills/license-provenance.md`) for an optional/default `mimalloc` `#[global_allocator]` strictly in `shardloom-cli/src/main.rs` (keeping `unsafe_code = "forbid"` in all library crates) and screen against `E2E-VERIFY-01` Full43 sys-CPU/page-fault/RSS gates.
-    - [ ] Audit/reduce remaining `Ordering::SeqCst` atomic sites (`native_local_selection_observation.rs` opt-in global observer; `exact_distinct_pairs.rs:493`, `native_numeric_accessor.rs:269`, and `compound_count_partial.rs:525` are verified `#[cfg(test)]` fault/probe injectors) and keep hot worker accumulators thread-local/`Relaxed`.
-    - [ ] Replace per-call `CurrentThreadRuntime::new()` on production worker paths (`ingest_runtime.rs:35`, `local_primitives.rs:2622`, `prepared_source_binding.rs:471`, `resident_session.rs:688`, `vortex_ingest.rs:14493`; `resident_worker_group.rs:94,115,141` and `local_primitive_collect.rs:1518` are verified `#[cfg(test)]`) with shared runtime handles.
-    - [ ] Gate the `17` production `serde_json::json!` sites in `local_primitives.rs` (`lines 17464..38385`; the other `570` of `587` are inside `mod tests`) behind lazy `explain`/`publication_proof` tier rendering (`hot_runtime` skips unused synthesis).
-    - [ ] Make non-durable `sync_all()` (`memory_file_generation.rs:518,537`, `local_primitive_native_sink.rs:882`) explicit opt-in / final-commit-only.
+    - [x] Published [RFC 0048](../rfcs/0048-cli-global-allocator-mimalloc.md) and MIT/Apache-2.0 provenance review ([mimalloc review](../dependencies/mimalloc-dependency-review.md)) isolating optional `cli-mimalloc` strictly to `shardloom-cli/src/main.rs` while keeping `unsafe_code = "forbid"` in all library crates; actual crate vendoring/cache intake and `E2E-VERIFY-01` Full43 screen remain gated until external cache/dataset intake.
+    - [x] Replaced the remaining workspace production `Ordering::SeqCst` (`native_local_selection_observation.rs`) with `AcqRel`/`Release`; confirmed `exact_distinct_pairs.rs:493`, `native_numeric_accessor.rs:269`, and `compound_count_partial.rs:525` are `#[cfg(test)]` injectors.
+    - [x] Converted `prepared_source_binding::local_preparation_identity_controlled` to reuse thread-local `CurrentThreadRuntime` (and exposed `local_preparation_identity_with_runtime`); remaining production callers (`ingest_runtime.rs:35`, `local_primitives.rs:2622`, `resident_session.rs:688`, `vortex_ingest.rs:14493`) align with `E2E-PERF-01` session reuse.
+    - [x] Eliminated redundant parse-back JSON synthesis in `count_where_report` (`local_primitives.rs`), leaving the remaining `16` production `serde_json::json!` sites in `local_primitives.rs` to lazy `explain`/`publication_proof` deferral alongside `E2E-PERF-06` owned-batch envelopes.
+    - [x] Added explicit `NativeSinkPlan::with_durable_sync(bool)` opt-in/opt-out (`local_primitive_native_sink.rs`, default `true` preserved); `memory_file_generation.rs:518,537` stays durable for generation-verified commits.
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 

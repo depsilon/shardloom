@@ -79,6 +79,15 @@ class IndependentPlanTests(unittest.TestCase):
         record = execute_plan(Result(["value"], [(None,), (1.0,), (-0.0,)]), plan)
         self.assertEqual(json.dumps(record["values"]), '[{"value": null}, {"value": 1.0}, {"value": -0.0}]')
 
+    def test_integer_aggregates_accumulate_in_hugeint_without_double_prerounding(self):
+        plans = query_plan(QUERIES)
+        q4_sql = plans[3]["equivalent_sql"]
+        self.assertIn("CAST(SUM(CAST(UserID AS HUGEINT)) AS DOUBLE) / COUNT(UserID)", q4_sql)
+        self.assertNotIn("CAST(UserID AS DOUBLE)", q4_sql)
+        q30_sql = plans[29]["equivalent_sql"]
+        self.assertIn("CAST(SUM((CAST(ResolutionWidth AS HUGEINT) + 1)) AS DOUBLE)", q30_sql)
+        self.assertNotIn("AS DOUBLE)", q30_sql.replace(") AS DOUBLE)", ""))
+
 
 @unittest.skipUnless(os.environ.get("SHARDLOOM_TEST_INDEPENDENT_SQL") == "1",
                      "explicit independent DuckDB fixture environment required")
@@ -109,26 +118,28 @@ class IndependentSqlTests(unittest.TestCase):
         self.assertEqual([sums[f"sum_ResolutionWidth_{i}"] for i in range(90)],
                          [32768.0 + 2 * i for i in range(90)])
 
-    def test_large_integer_average_uses_exact_total_of_converted_inputs(self):
+    def test_large_integer_average_uses_exact_total_before_f64_conversion(self):
         self.connection.execute("CREATE TABLE hits (UserID BIGINT)")
         values = [10**18, 1, -(10**18), None]
         self.connection.executemany("INSERT INTO hits VALUES (?)", [(value,) for value in values])
-        expected = float(sum(int(float(value)) for value in values if value is not None)) / 3
+        expected = float(sum(value for value in values if value is not None)) / 3
         self.assertEqual(self.values(4), [{"avg_UserID_0": expected}])
+        self.assertEqual(expected, 1.0 / 3.0)
         ordinary = self.connection.execute("SELECT AVG(CAST(UserID AS DOUBLE)) FROM hits").fetchone()[0]
         self.assertNotEqual(ordinary, expected)
         self.connection.execute("DELETE FROM hits")
         self.connection.execute("INSERT INTO hits VALUES (NULL),(NULL)")
         self.assertEqual(self.values(4), [{"avg_UserID_0": None}])
 
-    def test_integer_oracle_preserves_initial_conversion_and_final_f64_rounding(self):
+    def test_integer_oracle_preserves_exact_64bit_sum_before_final_f64_rounding(self):
         self.connection.execute("CREATE TABLE hits (UserID UBIGINT)")
-        values = [2**64 - 1, 2**53 + 3, 7, None]
+        values = [2**64 - 1, -(2**53 + 3), 7, None]
+        # UBIGINT exact cancellation/sum path over >2^53 values without intermediate double rounding.
+        self.connection.execute("DELETE FROM hits")
+        values = [2**63 + 5, 2**53 + 3, 7, None]
         self.connection.executemany("INSERT INTO hits VALUES (?)", [(value,) for value in values])
-        converted = [int(float(value)) for value in values if value is not None]
-        expected = float(sum(converted)) / len(converted)
+        expected = float(sum(value for value in values if value is not None)) / 3
         self.assertEqual(self.values(4), [{"avg_UserID_0": expected}])
-        self.assertNotEqual(sum(converted), sum(value for value in values if value is not None))
 
     def test_raw_sort_source_ties_and_group_key_ties_are_distinct(self):
         self.connection.execute(f"CREATE TABLE hits (UserID BIGINT, SearchPhrase VARCHAR, "

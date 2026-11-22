@@ -9,6 +9,7 @@ regression evidence, not an independent correctness oracle or an official rank.
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import datetime as dt
 import gzip
 import hashlib
@@ -18,6 +19,7 @@ import os
 from pathlib import Path
 import platform
 import re
+import selectors
 import signal
 import subprocess
 import sys
@@ -365,6 +367,369 @@ def score(records: list[dict], query_count: int, selected: list[int] | None = No
     }
 
 
+def verify_zero_answer_cache(fields: dict) -> None:
+    """Reject any query-answer cache reuse so warm timing reflects real execution."""
+    for key in (
+        "query_answer_cache_hit",
+        "answer_cache_hit",
+        "cached_result_reused",
+        "resident_answer_cache_hit",
+    ):
+        value = fields.get(key)
+        if value is True or (isinstance(value, str) and value.strip().lower() == "true"):
+            raise ValueError(f"forbidden query answer cache hit reported via {key}")
+
+
+class PersistentResidentWorker:
+    """Long-lived worker client over newline-delimited JSON stdin/stdout."""
+
+    def __init__(self, binary: Path, stderr_path: Path):
+        self.binary = Path(binary)
+        self.stderr_path = Path(stderr_path)
+        self.error_file = self.stderr_path.open("xb")
+        started = time.perf_counter()
+        try:
+            self.process = subprocess.Popen(
+                [str(self.binary), "python-worker"],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=self.error_file,
+                start_new_session=True,
+                bufsize=0,
+            )
+        except BaseException:
+            self.error_file.close()
+            raise
+        self.start_seconds = time.perf_counter() - started
+        self.buffer = b""
+
+    def run_query(self, command: list[str], stdout_path: Path, timeout: float, guard) -> dict:
+        started = time.perf_counter()
+        failures: list[str] = []
+        worker_args = (
+            command[1:] if command and Path(command[0]).name == self.binary.name else list(command)
+        )
+        payload = (json.dumps({"args": worker_args}, separators=(",", ":")) + "\n").encode("utf-8")
+        if len(payload) > 4096:
+            raise ValueError("bounded persistent worker request exceeded 4096 bytes")
+        assert self.process.stdin is not None and self.process.stdout is not None
+        self.process.stdin.write(payload)
+        self.process.stdin.flush()
+        deadline = started + timeout
+        next_guard = started + 0.25
+        with selectors.DefaultSelector() as selector:
+            selector.register(self.process.stdout, selectors.EVENT_READ)
+            while b"\n" not in self.buffer:
+                now = time.perf_counter()
+                if now >= deadline:
+                    failures.append("persistent resident worker timeout")
+                    stop_process(self.process)
+                    break
+                if len(self.buffer) > 8 * MIB or self.stderr_path.stat().st_size > 8 * MIB:
+                    failures.append("persistent resident worker output exceeded 8 MiB")
+                    stop_process(self.process)
+                    break
+                if now >= next_guard:
+                    guard()
+                    next_guard = time.perf_counter() + 0.25
+                if not selector.select(min(0.1, max(0.0, deadline - now))):
+                    continue
+                chunk = os.read(self.process.stdout.fileno(), 65536)
+                if not chunk:
+                    failures.append("persistent resident worker exited before completing response")
+                    break
+                self.buffer += chunk
+        if b"\n" in self.buffer:
+            line, self.buffer = self.buffer.split(b"\n", 1)
+            elapsed = time.perf_counter() - started
+            if len(line) > 8 * MIB or self.buffer:
+                failures.append("persistent resident worker emitted oversized or extra output")
+            stdout_path.write_bytes(line + b"\n")
+            guard()
+            return {
+                "returncode": 0 if not failures else 1,
+                "seconds": elapsed,
+                "guard_failures": failures,
+            }
+        elapsed = time.perf_counter() - started
+        stdout_path.write_bytes(self.buffer)
+        guard()
+        return {"returncode": 1, "seconds": elapsed, "guard_failures": failures}
+
+    def close(self) -> None:
+        stop_process(self.process)
+        for pipe in (self.process.stdin, self.process.stdout):
+            if pipe is not None:
+                pipe.close()
+        self.error_file.close()
+
+
+def _warm_surface_name(concurrent_workers: int) -> str:
+    return "warm_resident_concurrent" if concurrent_workers > 1 else "warm_resident_session"
+
+
+def _source_generation_dict(stat_result: os.stat_result) -> dict[str, int]:
+    return {
+        "device": stat_result.st_dev,
+        "inode": stat_result.st_ino,
+        "size_bytes": stat_result.st_size,
+        "mtime_ns": stat_result.st_mtime_ns,
+        "ctime_ns": stat_result.st_ctime_ns,
+    }
+
+
+def _write_summary_checked(summary: dict, summary_path: Path, guard) -> None:
+    summary_path.write_text(json.dumps(summary, indent=2, allow_nan=False) + "\n")
+    try:
+        guard()
+    except StorageGuardError as error:
+        reason = str(error)
+        summary.update(
+            complete=False,
+            full_result_validation=False,
+            status="failed",
+            storage_error=reason,
+            failure="storage budget rejected: " + reason,
+        )
+        summary_path.write_text(json.dumps(summary, indent=2, allow_nan=False) + "\n")
+        raise
+
+
+def _save_lane_summary(summary: dict, records: list[dict], summary_path: Path, logs: Path, guard) -> None:
+    summary["timing_totals"] = timing_totals(records)
+    summary["timing_csv"] = str(logs / "query-timings.csv")
+    write_timing_csv(logs / "query-timings.csv", records)
+    _write_summary_checked(summary, summary_path, guard)
+
+
+def _execute_lane(
+    *,
+    lane_name: str,
+    concurrent_workers: int,
+    args,
+    selected: list[int],
+    queries: list[str],
+    submitted_queries: list[str],
+    references: list,
+    queries_sha256: str,
+    query_dialect: str,
+    source: Path,
+    identity: os.stat_result,
+    logs: Path,
+    packet_receipt,
+    override,
+    harness: dict[str, str],
+    reference_kind: str,
+    guard,
+) -> dict:
+    logs.mkdir(parents=True, exist_ok=True)
+    records: list[dict] = []
+    is_cold = lane_name == "cold_process_cli"
+    surface_name = "cold_process_cli" if is_cold else _warm_surface_name(concurrent_workers)
+    cache_policy = (
+        "new_process_per_run_os_page_cache_uncontrolled_no_answer_cache"
+        if is_cold
+        else "persistent_resident_worker_shared_session_no_answer_cache"
+    )
+    timing_boundary = (
+        "native process creation through completed public CLI output and process exit"
+        if is_cold
+        else "resident worker JSON request through completed response line; worker startup measured separately"
+    )
+    summary = {
+        "schema_version": "shardloom.clickbench.public_result_regression.v2",
+        "build_commit": args.build_commit,
+        "binary_sha256": file_sha256(args.binary),
+        "queries_sha256": queries_sha256,
+        "source": str(source),
+        "input_format": args.input_format,
+        "input_execution_contract": (
+            "direct_original_parquet_no_preparation"
+            if args.input_format == "parquet"
+            else "existing_native_vortex_input"
+        ),
+        "query_dialect": query_dialect,
+        "source_bytes": identity.st_size,
+        "platform": platform.platform(),
+        "source_generation": _source_generation_dict(identity),
+        "machine": platform.machine(),
+        "cpu_count": os.cpu_count(),
+        "memory_gb": args.memory_gb,
+        "max_parallelism": args.max_parallelism,
+        "timing_surface": surface_name,
+        "concurrent_workers": 1 if is_cold else concurrent_workers,
+        "worker_startup_seconds": [],
+        "zero_answer_cache_verified": False,
+        "timing_boundary": timing_boundary,
+        "engine_timing_required": not args.allow_missing_engine_timing,
+        "cpu_timing_boundary": "native child CPU work; overlaps wall time and other worker CPU",
+        "selected_query_ids": selected,
+        "repeats": args.repeats,
+        "score_scope": "full_43" if selected == list(range(1, 44)) else "targeted_queries_only",
+        "cache_policy": cache_policy,
+        "reference": str(args.reference_dir) if args.reference_dir is not None else None,
+        "reference_packet": packet_receipt,
+        "reference_override": override,
+        "reference_kind": reference_kind,
+        "correctness_boundary": correctness_boundary(
+            reference_kind, reference_override=override is not None
+        ),
+        "harness_sha256": harness,
+        "completed_identity_check": False,
+        "reference_packet_identity_verified": False if packet_receipt is not None else None,
+        "harness_identity_verified": False,
+        "records": records,
+    }
+    summary_path = logs / "summary.json"
+    tasks = [
+        (index, query, expected, run)
+        for index, (query, expected) in enumerate(zip(queries, references), 1)
+        if index in selected
+        for run in range(1, args.repeats + 1)
+    ]
+
+    state_lock = threading.Lock()
+    stop_event = threading.Event()
+
+    def process_result(index: int, run: int, query: str, expected, command: list[str], prefix: Path, result: dict, worker_id: int | None) -> bool:
+        result.update(
+            query=index,
+            run=run,
+            command=command,
+            query_statement=query,
+            executed_query_statement=submitted_queries[index - 1],
+            timing_surface=surface_name,
+            worker_id=worker_id,
+            zero_answer_cache_verified=False,
+            passed=False,
+        )
+        validation_started = time.perf_counter()
+        try:
+            if result["returncode"] != 0 or result["guard_failures"]:
+                raise ValueError("native command or watchdog failed")
+            envelope = strict_json(prefix.with_suffix(".stdout.json").read_text())
+            fields = report_fields(envelope)
+            verify_zero_answer_cache(fields)
+            result["zero_answer_cache_verified"] = True
+            result["execution_report"] = execution_report(fields)
+            validate_input_execution(fields, args.input_format)
+            result.update(
+                query_phase_timings(
+                    fields,
+                    result["seconds"],
+                    allow_missing=args.allow_missing_engine_timing,
+                )
+            )
+            actual = extract_result(envelope)
+            if not equivalent(actual, expected):
+                raise ValueError("complete result differs from retained reference")
+            if source.stat() != identity:
+                current = source.stat()
+                if _source_generation_dict(current) != _source_generation_dict(identity):
+                    raise ValueError("source changed during UAT")
+            result["result_sha256"] = hashlib.sha256(
+                json.dumps(actual, sort_keys=True, allow_nan=False).encode()
+            ).hexdigest()
+            result["passed"] = True
+            result["validation"] = "complete_values"
+        except (OSError, ValueError) as error:
+            result["failure"] = str(error)
+        result["validation_seconds"] = time.perf_counter() - validation_started
+        stdout_path = prefix.with_suffix(".stdout.json")
+        stderr_path = prefix.with_suffix(".stderr.txt")
+        result["stdout_bytes"] = stdout_path.stat().st_size if stdout_path.exists() else 0
+        result["stderr_bytes"] = stderr_path.stat().st_size if stderr_path.exists() else 0
+        with state_lock:
+            if args.compress_logs:
+                result["completed_log_archives"] = [
+                    compress_completed_log(prefix.with_suffix(suffix), guard)
+                    for suffix in (".stdout.json", ".stderr.txt")
+                    if prefix.with_suffix(suffix).exists() and prefix.with_suffix(suffix).stat().st_size
+                ]
+            records.append(result)
+            summary.update(
+                score(records, 43, selected, repeats=args.repeats, timing_key="engine_execution_seconds")
+            )
+            summary["secondary_process_wall"] = score(records, 43, selected, repeats=args.repeats)
+            summary["zero_answer_cache_verified"] = bool(records) and all(
+                r.get("zero_answer_cache_verified") for r in records
+            )
+            summary["full_result_validation"] = (
+                summary["complete"]
+                and summary["zero_answer_cache_verified"]
+                and selected == list(range(1, 44))
+                and all(record.get("validation") == "complete_values" for record in records)
+            )
+            _save_lane_summary(summary, records, summary_path, logs, guard)
+        print(json.dumps(result), flush=True)
+        return bool(result["passed"])
+
+    if is_cold:
+        for index, query, expected, run in tasks:
+            prefix = logs / f"q{index:02d}_run{run}"
+            command = public_workflow_command(
+                args.binary,
+                submitted_queries[index - 1],
+                input_path=source,
+                input_format=args.input_format,
+                memory_gb=args.memory_gb,
+                max_parallelism=args.max_parallelism,
+            )
+            result = run_profiled_command(command, prefix, args.timeout, guard)
+            if not process_result(index, run, query, expected, command, prefix, result, None):
+                return summary
+    else:
+        workers: list[PersistentResidentWorker] = []
+        try:
+            for worker_idx in range(concurrent_workers):
+                worker = PersistentResidentWorker(
+                    args.binary,
+                    logs / f"{surface_name}_worker_{worker_idx}.stderr.txt",
+                )
+                workers.append(worker)
+            summary["worker_startup_seconds"] = [worker.start_seconds for worker in workers]
+            buckets: list[list[tuple[int, str, object, int]]] = [[] for _ in range(concurrent_workers)]
+            for task_idx, task in enumerate(tasks):
+                buckets[task_idx % concurrent_workers].append(task)
+
+            def run_bucket(worker_idx: int) -> bool:
+                worker = workers[worker_idx]
+                for index, query, expected, run in buckets[worker_idx]:
+                    if stop_event.is_set():
+                        return False
+                    prefix = logs / f"q{index:02d}_run{run}"
+                    command = public_workflow_command(
+                        args.binary,
+                        submitted_queries[index - 1],
+                        input_path=source,
+                        input_format=args.input_format,
+                        memory_gb=args.memory_gb,
+                        max_parallelism=args.max_parallelism,
+                    )
+                    prefix.with_suffix(".stderr.txt").write_text("")
+                    res = worker.run_query(command, prefix.with_suffix(".stdout.json"), args.timeout, guard)
+                    if not process_result(index, run, query, expected, command, prefix, res, worker_idx):
+                        stop_event.set()
+                        return False
+                return True
+
+            if concurrent_workers == 1:
+                run_bucket(0)
+            else:
+                with ThreadPoolExecutor(max_workers=concurrent_workers) as pool:
+                    futures = [pool.submit(run_bucket, idx) for idx in range(concurrent_workers)]
+                    for future in futures:
+                        future.result()
+        finally:
+            for worker in workers:
+                worker.close()
+        if not summary.get("complete"):
+            return summary
+
+    _save_lane_summary(summary, records, summary_path, logs, guard)
+    return summary
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", required=True, type=Path)
@@ -384,6 +749,11 @@ def main() -> int:
     parser.add_argument("--query-ids", help="comma-separated targeted query ids; never a full-suite score")
     parser.add_argument("--repeats", type=int, default=1,
                         help="executions per query (default: 1); repeated trials require an explicit value")
+    parser.add_argument("--lane", choices=("cold_process_cli", "warm_resident_session", "paired"),
+                        default="cold_process_cli",
+                        help="execution lane: cold CLI spawns, warm persistent worker, or paired separate lanes")
+    parser.add_argument("--concurrent-workers", type=int, default=1,
+                        help="number of concurrent persistent workers on warm/paired lanes (default: 1)")
     parser.add_argument("--allow-missing-engine-timing", action="store_true",
                         help="historical binary comparison only; missing engine clocks remain unavailable")
     parser.add_argument("--compress-logs", action="store_true", help="losslessly archive each completed stdout/stderr after validation, within the unchanged log budget")
@@ -393,6 +763,10 @@ def main() -> int:
         parser.error("--reference-override can only be used with --reference-dir")
     if args.memory_gb <= 0 or args.max_parallelism <= 0 or not math.isfinite(args.timeout) or args.timeout <= 0:
         parser.error("memory, parallelism and timeout must be positive")
+    if args.concurrent_workers < 1:
+        parser.error("--concurrent-workers must be positive")
+    if args.lane == "cold_process_cli" and args.concurrent_workers > 1:
+        parser.error("--concurrent-workers > 1 requires --lane warm_resident_session or --lane paired")
     try:
         selected = [int(value) for value in args.query_ids.split(",")] if args.query_ids else list(range(1, 44))
         score([], 43, selected, repeats=args.repeats)
@@ -415,8 +789,7 @@ def main() -> int:
     root.mkdir(parents=True, exist_ok=True)
     lock = root / ".ingest-uat.lock"
     lock.mkdir()  # Deliberately shared with ingest: no overlapping large UAT.
-    records = []
-    summary = {}
+    summary: dict = {}
     try:
         logs.mkdir(parents=True, exist_ok=False)
         packet_receipt = None
@@ -446,121 +819,120 @@ def main() -> int:
             if packet_receipt is not None else "retained_native_regression"
         )
         summary_path = logs / "summary.json"
-
-        def save_summary() -> None:
-            summary["timing_totals"] = timing_totals(records)
-            summary["timing_csv"] = str(logs / "query-timings.csv")
-            write_timing_csv(logs / "query-timings.csv", records)
-            summary_path.write_text(json.dumps(summary, indent=2, allow_nan=False) + "\n")
-            try:
-                guard()
-            except StorageGuardError as error:
-                reason = str(error)
-                summary.update(
-                    complete=False,
-                    full_result_validation=False,
-                    status="failed",
-                    storage_error=reason,
-                    failure="storage budget rejected: " + reason,
-                )
-                summary_path.write_text(json.dumps(summary, indent=2, allow_nan=False) + "\n")
-                raise
-
-        summary = {
-            "schema_version": "shardloom.clickbench.public_result_regression.v2",
-            "build_commit": args.build_commit, "binary_sha256": file_sha256(args.binary),
-            "queries_sha256": queries_sha256, "source": str(source),
-            "input_format": args.input_format,
-            "input_execution_contract": ("direct_original_parquet_no_preparation"
-                                         if args.input_format == "parquet" else "existing_native_vortex_input"),
-            "query_dialect": query_dialect,
-            "source_bytes": identity.st_size, "platform": platform.platform(),
-            "source_generation": {"device": identity.st_dev, "inode": identity.st_ino,
-                                  "size_bytes": identity.st_size, "mtime_ns": identity.st_mtime_ns,
-                                  "ctime_ns": identity.st_ctime_ns},
-            "machine": platform.machine(), "cpu_count": os.cpu_count(),
-            "memory_gb": args.memory_gb, "max_parallelism": args.max_parallelism,
-            "storage_preflight": storage_preflight,
-            "log_budget_bytes": {
+        if args.lane == "paired":
+            warm_name = _warm_surface_name(args.concurrent_workers)
+            cold_summary = _execute_lane(
+                lane_name="cold_process_cli",
+                concurrent_workers=1,
+                args=args,
+                selected=selected,
+                queries=queries,
+                submitted_queries=submitted_queries,
+                references=references,
+                queries_sha256=queries_sha256,
+                query_dialect=query_dialect,
+                source=source,
+                identity=identity,
+                logs=logs / "cold_process_cli",
+                packet_receipt=packet_receipt,
+                override=override,
+                harness=harness,
+                reference_kind=reference_kind,
+                guard=guard,
+            )
+            cold_summary["storage_preflight"] = storage_preflight
+            cold_summary["log_budget_bytes"] = {
                 "retained": math.floor(args.max_log_mib * MIB),
                 "active_run": math.floor(args.max_run_log_mib * MIB),
-            },
-            "timing_boundary": "native process creation through completed public CLI output and process exit",
-            "engine_timing_required": not args.allow_missing_engine_timing,
-            "cpu_timing_boundary": "native child CPU work; overlaps wall time and other worker CPU",
-            "selected_query_ids": selected,
-            "repeats": args.repeats,
-            "score_scope": "full_43" if selected == list(range(1, 44)) else "targeted_queries_only",
-            "cache_policy": "new_process_per_run_os_page_cache_uncontrolled_no_answer_cache",
-            "reference": str(args.reference_dir) if args.reference_dir is not None else None,
-            "reference_packet": packet_receipt,
-            "reference_override": override,
-            "reference_kind": reference_kind,
-            "correctness_boundary": correctness_boundary(
-                reference_kind, reference_override=override is not None
-            ),
-            "harness_sha256": harness,
-            "completed_identity_check": False,
-            "reference_packet_identity_verified": False if packet_receipt is not None else None,
-            "harness_identity_verified": False,
-            "records": records,
-        }
-        for index, (query, expected) in enumerate(zip(queries, references), 1):
-            if index not in selected:
-                continue
-            for run in range(1, args.repeats + 1):
-                prefix = logs / f"q{index:02d}_run{run}"
-                command = public_workflow_command(
-                    args.binary, submitted_queries[index - 1], input_path=source, input_format=args.input_format,
-                    memory_gb=args.memory_gb, max_parallelism=args.max_parallelism,
-                )
-                result = run_profiled_command(command, prefix, args.timeout, guard)
-                result.update(query=index, run=run, command=command, query_statement=query,
-                              executed_query_statement=submitted_queries[index - 1], passed=False)
-                validation_started = time.perf_counter()
-                try:
-                    if result["returncode"] != 0 or result["guard_failures"]:
-                        raise ValueError("native command or watchdog failed")
-                    envelope = strict_json(prefix.with_suffix(".stdout.json").read_text())
-                    fields = report_fields(envelope)
-                    result["execution_report"] = execution_report(fields)
-                    validate_input_execution(fields, args.input_format)
-                    result.update(query_phase_timings(fields, result["seconds"],
-                                                     allow_missing=args.allow_missing_engine_timing))
-                    actual = extract_result(envelope)
-                    if not equivalent(actual, expected):
-                        raise ValueError("complete result differs from retained reference")
-                    if source.stat() != identity:
-                        # Access time is not a generation marker.
-                        current = source.stat()
-                        if (current.st_dev, current.st_ino, current.st_size, current.st_mtime_ns, current.st_ctime_ns) != (identity.st_dev, identity.st_ino, identity.st_size, identity.st_mtime_ns, identity.st_ctime_ns):
-                            raise ValueError("source changed during UAT")
-                    result["result_sha256"] = hashlib.sha256(json.dumps(actual, sort_keys=True, allow_nan=False).encode()).hexdigest()
-                    result["passed"] = True
-                    result["validation"] = "complete_values"
-                except (OSError, ValueError) as error:
-                    result["failure"] = str(error)
-                result["validation_seconds"] = time.perf_counter() - validation_started
-                result["stdout_bytes"] = prefix.with_suffix(".stdout.json").stat().st_size
-                result["stderr_bytes"] = prefix.with_suffix(".stderr.txt").stat().st_size
-                if args.compress_logs:
-                    result["completed_log_archives"] = [
-                        compress_completed_log(prefix.with_suffix(suffix), guard)
-                        for suffix in (".stdout.json", ".stderr.txt")
-                        if prefix.with_suffix(suffix).stat().st_size
-                    ]
-                records.append(result)
-                summary.update(score(records, 43, selected, repeats=args.repeats,
-                                     timing_key="engine_execution_seconds"))
-                summary["secondary_process_wall"] = score(records, 43, selected, repeats=args.repeats)
-                summary["full_result_validation"] = (
-                    summary["complete"] and selected == list(range(1, 44))
-                    and all(record.get("validation") == "complete_values" for record in records)
-                )
-                save_summary()
-                print(json.dumps(result), flush=True)
-                if not result["passed"]:
-                    return 1
+            }
+            warm_summary = _execute_lane(
+                lane_name="warm_resident_session",
+                concurrent_workers=args.concurrent_workers,
+                args=args,
+                selected=selected,
+                queries=queries,
+                submitted_queries=submitted_queries,
+                references=references,
+                queries_sha256=queries_sha256,
+                query_dialect=query_dialect,
+                source=source,
+                identity=identity,
+                logs=logs / warm_name,
+                packet_receipt=packet_receipt,
+                override=override,
+                harness=harness,
+                reference_kind=reference_kind,
+                guard=guard,
+            )
+            warm_summary["storage_preflight"] = storage_preflight
+            warm_summary["log_budget_bytes"] = cold_summary["log_budget_bytes"]
+            summary = {
+                "schema_version": "shardloom.clickbench.public_result_regression.v2",
+                "build_commit": args.build_commit,
+                "binary_sha256": cold_summary["binary_sha256"],
+                "queries_sha256": queries_sha256,
+                "source": str(source),
+                "input_format": args.input_format,
+                "lane": "paired",
+                "timing_surface": "paired_separate_lanes",
+                "cache_policy": "separate_cold_and_warm_lanes_no_answer_cache",
+                "selected_query_ids": selected,
+                "repeats": args.repeats,
+                "concurrent_workers": args.concurrent_workers,
+                "storage_preflight": storage_preflight,
+                "log_budget_bytes": cold_summary["log_budget_bytes"],
+                "complete": bool(cold_summary["complete"] and warm_summary["complete"]),
+                "full_result_validation": bool(
+                    cold_summary["full_result_validation"] and warm_summary["full_result_validation"]
+                ),
+                "zero_answer_cache_verified": bool(
+                    cold_summary["zero_answer_cache_verified"] and warm_summary["zero_answer_cache_verified"]
+                ),
+                "timing_available": False,
+                "timing_unavailable_reason": "see_separate_lane_scores",
+                "lanes": {
+                    "cold_process_cli": cold_summary,
+                    warm_name: warm_summary,
+                },
+                "harness_sha256": harness,
+                "completed_identity_check": False,
+                "reference_packet_identity_verified": False if packet_receipt is not None else None,
+                "harness_identity_verified": False,
+            }
+            if not summary["complete"]:
+                _write_summary_checked(summary, summary_path, guard)
+                return 1
+        else:
+            lane_summary = _execute_lane(
+                lane_name=args.lane,
+                concurrent_workers=args.concurrent_workers,
+                args=args,
+                selected=selected,
+                queries=queries,
+                submitted_queries=submitted_queries,
+                references=references,
+                queries_sha256=queries_sha256,
+                query_dialect=query_dialect,
+                source=source,
+                identity=identity,
+                logs=logs,
+                packet_receipt=packet_receipt,
+                override=override,
+                harness=harness,
+                reference_kind=reference_kind,
+                guard=guard,
+            )
+            lane_summary["storage_preflight"] = storage_preflight
+            lane_summary["log_budget_bytes"] = {
+                "retained": math.floor(args.max_log_mib * MIB),
+                "active_run": math.floor(args.max_run_log_mib * MIB),
+            }
+            summary = lane_summary
+            summary["lanes"] = {lane_summary["timing_surface"]: dict(lane_summary)}
+            if not summary.get("complete"):
+                _write_summary_checked(summary, summary_path, guard)
+                return 1
+
         identity_errors: list[str] = []
 
         def verify_identity(label: str, path: Path, expected_sha256: str) -> bool:
@@ -590,18 +962,19 @@ def main() -> int:
             binary_unchanged and queries_unchanged
             and (packet_unchanged is not False) and harness_unchanged
         )
-        summary["reference_packet_identity_verified"] = packet_unchanged
-        summary["harness_identity_verified"] = harness_unchanged
-        summary["completed_identity_check"] = identity_verified
+        for target_summary in [summary, *summary.get("lanes", {}).values()]:
+            target_summary["reference_packet_identity_verified"] = packet_unchanged
+            target_summary["harness_identity_verified"] = harness_unchanged
+            target_summary["completed_identity_check"] = identity_verified
         if not identity_verified:
             summary.update(
                 complete=False,
                 full_result_validation=False,
                 failure="identity verification failed: " + "; ".join(identity_errors),
             )
-            save_summary()
+            _write_summary_checked(summary, summary_path, guard)
             return 1
-        save_summary()
+        _write_summary_checked(summary, summary_path, guard)
         return 0
     finally:
         lock.rmdir()

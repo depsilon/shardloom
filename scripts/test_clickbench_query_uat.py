@@ -917,6 +917,165 @@ class ClickBenchUatTests(unittest.TestCase):
             with self.assertRaises(ProcessLookupError):
                 os.kill(pid, 0)
 
+    def _fake_worker_factory(self, *, inject_cache_hit: bool = False):
+        schema = {"Struct": [{"names": ["value"], "dtypes": [{"Primitive": ["i64", False]}]}, False]}
+
+        class FakeWorker:
+            def __init__(self, binary, stderr_path):
+                self.binary = binary
+                self.stderr_path = Path(stderr_path)
+                self.stderr_path.write_text("")
+                self.start_seconds = 0.025
+                self.closed = False
+
+            def run_query(self, command, stdout_path, timeout, guard):
+                sql_idx = command.index("--sql") + 1
+                stmt = command[sql_idx]
+                qid = int(stmt.split()[1])
+                result_rows = [{"value": qid}]
+                fields = [
+                    {"key": "public_workflow_fallback_attempted", "value": "false"},
+                    {"key": "public_workflow_external_engine_invoked", "value": "false"},
+                    {"key": "fallback_attempted", "value": False},
+                    {"key": "external_engine_invoked", "value": False},
+                    {"key": "execution_backend", "value": "native_vortex"},
+                    {"key": "execution_mode", "value": "native"},
+                    {"key": "native_source_demand_files", "value": "1"},
+                    {"key": "native_source_demand_sources", "value": "1"},
+                    {"key": "native_source_demand_parquet_sources", "value": "1"},
+                    {"key": "native_source_demand_formats", "value": "parquet"},
+                    {"key": "native_source_demand_prepared_input_bytes_written", "value": "0"},
+                    {"key": "result_values_json", "value": json.dumps(result_rows)},
+                    {"key": "result_payload_complete", "value": "true"},
+                    {"key": "output_row_count", "value": "1"},
+                    {"key": "result_schema_json", "value": json.dumps(schema)},
+                    {"key": "result_schema_format", "value": "vortex.dtype.serde.v1"},
+                    {"key": "native_query_timing_reported", "value": "true"},
+                    {"key": "native_query_execution_nanos", "value": "15000000"},
+                    {"key": "native_result_serialization_nanos", "value": "1000000"},
+                    {"key": "native_query_timing_clock", "value": TIMING_CLOCK},
+                    {"key": "native_query_timing_boundary", "value": TIMING_BOUNDARY},
+                    {"key": "native_input_end_observed", "value": "true"},
+                    {"key": "native_input_output_ownership_detached", "value": "true"},
+                ]
+                if inject_cache_hit:
+                    fields.append({"key": "answer_cache_hit", "value": "true"})
+                Path(stdout_path).write_text(json.dumps({
+                    "status": "success",
+                    "fallback": {"attempted": False, "allowed": False},
+                    "fields": fields,
+                }))
+                guard()
+                return {"returncode": 0, "guard_failures": [], "seconds": 0.02}
+
+            def close(self):
+                self.closed = True
+
+        return FakeWorker
+
+    def test_warm_resident_session_and_concurrent_lanes_separate_startup_and_surfaces(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            query_path, packet_path, binary, source, uat_root = self._runner_fixture(root)
+            fake_worker = self._fake_worker_factory()
+            for concurrent, expected_surface in [(1, "warm_resident_session"), (2, "warm_resident_concurrent")]:
+                argv = [
+                    "run_clickbench_query_uat.py",
+                    "--binary", str(binary), "--input", str(source), "--input-format", "vortex",
+                    "--uat-root", str(uat_root), "--queries", str(query_path),
+                    "--reference-packet", str(packet_path), "--build-commit", "abc123",
+                    "--query-ids", "1,2", "--lane", "warm_resident_session",
+                    "--concurrent-workers", str(concurrent),
+                ]
+                with patch.object(query_uat, "PersistentResidentWorker", fake_worker), \
+                        patch.object(sys, "argv", argv), contextlib.redirect_stdout(io.StringIO()):
+                    rc = query_uat.main()
+                self.assertEqual(rc, 0)
+            summaries = sorted((uat_root / "logs").glob("full43_*/summary.json"))
+            self.assertEqual(len(summaries), 2)
+            warm_single = json.loads(summaries[0].read_text())
+            warm_conc = json.loads(summaries[1].read_text())
+            self.assertEqual(warm_single["timing_surface"], "warm_resident_session")
+            self.assertEqual(warm_single["worker_startup_seconds"], [0.025])
+            self.assertTrue(warm_single["zero_answer_cache_verified"])
+            self.assertEqual(warm_conc["timing_surface"], "warm_resident_concurrent")
+            self.assertEqual(warm_conc["concurrent_workers"], 2)
+            self.assertEqual(warm_conc["worker_startup_seconds"], [0.025, 0.025])
+            self.assertEqual({r["worker_id"] for r in warm_conc["records"]}, {0, 1})
+
+    def test_paired_lane_keeps_cold_and_warm_scores_strictly_separate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            query_path, packet_path, binary, source, uat_root = self._runner_fixture(root)
+            schema = {"Struct": [{"names": ["value"], "dtypes": [{"Primitive": ["i64", False]}]}, False]}
+
+            def fake_cold(command, prefix, timeout, guard):
+                stmt = command[command.index("--sql") + 1]
+                qid = int(stmt.split()[1])
+                prefix.with_suffix(".stdout.json").write_text(json.dumps({
+                    "status": "success",
+                    "fields": [
+                        {"key": "public_workflow_fallback_attempted", "value": "false"},
+                        {"key": "public_workflow_external_engine_invoked", "value": "false"},
+                        {"key": "result_values_json", "value": json.dumps([{"value": qid}])},
+                        {"key": "result_payload_complete", "value": "true"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "result_schema_json", "value": json.dumps(schema)},
+                        {"key": "result_schema_format", "value": "vortex.dtype.serde.v1"},
+                        {"key": "native_query_timing_reported", "value": "true"},
+                        {"key": "native_query_execution_nanos", "value": "50000000"},
+                        {"key": "native_result_serialization_nanos", "value": "2000000"},
+                        {"key": "native_query_timing_clock", "value": TIMING_CLOCK},
+                        {"key": "native_query_timing_boundary", "value": TIMING_BOUNDARY},
+                    ],
+                }))
+                prefix.with_suffix(".stderr.txt").write_text("")
+                return {"returncode": 0, "guard_failures": [], "seconds": 0.1}
+
+            argv = [
+                "run_clickbench_query_uat.py",
+                "--binary", str(binary), "--input", str(source), "--input-format", "vortex",
+                "--uat-root", str(uat_root), "--queries", str(query_path),
+                "--reference-packet", str(packet_path), "--build-commit", "abc123",
+                "--query-ids", "1,2", "--repeats", "2", "--lane", "paired",
+            ]
+            with patch.object(query_uat, "run_profiled_command", fake_cold), \
+                    patch.object(query_uat, "PersistentResidentWorker", self._fake_worker_factory()), \
+                    patch.object(sys, "argv", argv), contextlib.redirect_stdout(io.StringIO()):
+                rc = query_uat.main()
+            self.assertEqual(rc, 0)
+            summary = json.loads(next((uat_root / "logs").glob("full43_*/summary.json")).read_text())
+            self.assertEqual(summary["timing_surface"], "paired_separate_lanes")
+            self.assertFalse(summary["timing_available"])
+            self.assertEqual(summary["lanes"]["cold_process_cli"]["timing_surface"], "cold_process_cli")
+            self.assertEqual(summary["lanes"]["warm_resident_session"]["timing_surface"], "warm_resident_session")
+            self.assertTrue(summary["zero_answer_cache_verified"])
+
+    def test_warm_lane_rejects_answer_cache_hit_and_invalid_cold_concurrency(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            query_path, packet_path, binary, source, uat_root = self._runner_fixture(root)
+            argv = [
+                "run_clickbench_query_uat.py",
+                "--binary", str(binary), "--input", str(source), "--input-format", "vortex",
+                "--uat-root", str(uat_root), "--queries", str(query_path),
+                "--reference-packet", str(packet_path), "--build-commit", "abc123",
+                "--query-ids", "1", "--lane", "warm_resident_session",
+            ]
+            with patch.object(query_uat, "PersistentResidentWorker", self._fake_worker_factory(inject_cache_hit=True)), \
+                    patch.object(sys, "argv", argv), contextlib.redirect_stdout(io.StringIO()):
+                rc = query_uat.main()
+            self.assertEqual(rc, 1)
+            summary = json.loads(next((uat_root / "logs").glob("full43_*/summary.json")).read_text())
+            self.assertFalse(summary["zero_answer_cache_verified"])
+            self.assertIn("cache hit", summary["records"][0]["failure"])
+
+            bad_argv = [*argv[:-1], "cold_process_cli", "--concurrent-workers", "2"]
+            with patch.object(sys, "argv", bad_argv), self.assertRaises(SystemExit) as ctx:
+                with contextlib.redirect_stderr(io.StringIO()):
+                    query_uat.main()
+            self.assertEqual(ctx.exception.code, 2)
+
 
 if __name__ == "__main__":
     unittest.main()

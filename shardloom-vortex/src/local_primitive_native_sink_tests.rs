@@ -1032,3 +1032,34 @@ fn native_sink_declines_complex_structured_expressions_without_effects() {
     assert!(!output.exists());
     assert!(!temporary_output_path(&output).unwrap().exists());
 }
+
+#[test]
+fn native_sink_plan_supports_explicit_durable_sync_opt_out() {
+    let fixture = Fixture::new();
+    let source = fixture.source(6);
+    let request = VortexQueryPrimitiveRequest::project(
+        DatasetUri::new(source.display().to_string()).unwrap(),
+        ProjectionRequest::columns(vec![ColumnRef::new("shipment_sequence").unwrap()]),
+    );
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 2).unwrap();
+
+    let default_plan = prepare(&request, &source, policy).unwrap().unwrap();
+    assert!(default_plan.durable_sync);
+    let durable_out = fixture.0.join("durable.vortex");
+    let durable_report = default_plan
+        .write(&request, &durable_out, false, policy)
+        .unwrap();
+    assert_eq!(durable_report.rows_written, 6);
+
+    let opt_out_plan = prepare(&request, &source, policy)
+        .unwrap()
+        .unwrap()
+        .with_durable_sync(false);
+    assert!(!opt_out_plan.durable_sync);
+    let nondurable_out = fixture.0.join("nondurable.vortex");
+    let nondurable_report = opt_out_plan
+        .write(&request, &nondurable_out, false, policy)
+        .unwrap();
+    assert_eq!(nondurable_report.rows_written, 6);
+    assert_eq!(read_complete(&durable_out), read_complete(&nondurable_out));
+}

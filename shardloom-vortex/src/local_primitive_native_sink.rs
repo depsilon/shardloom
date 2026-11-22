@@ -57,6 +57,7 @@ pub(super) struct NativeSinkPlan {
     pub(super) row_count: u64,
     pub(super) limit: Option<u64>,
     pub(super) metadata_pruned: bool,
+    pub(super) durable_sync: bool,
     schema_metadata: shardloom_exec::live_memory::MemoryLease,
 }
 
@@ -319,6 +320,7 @@ fn prepare_with_source(
         row_count,
         limit: request.source_order_limit.map(usize_to_u64).transpose()?,
         metadata_pruned,
+        durable_sync: true,
         schema_metadata: metadata,
     }))
 }
@@ -389,6 +391,15 @@ fn prepare_source_projection(
 }
 
 impl NativeSinkPlan {
+    /// Control whether `sync_all()` is issued before reopening and atomically
+    /// committing the output file (`true` by default for durable publications).
+    #[must_use]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(super) const fn with_durable_sync(mut self, durable_sync: bool) -> Self {
+        self.durable_sync = durable_sync;
+        self
+    }
+
     #[cfg(feature = "universal-format-io")]
     pub(super) fn with_columnar_sources<'a>(
         mut self,
@@ -475,6 +486,7 @@ impl NativeSinkPlan {
             row_count: upper_rows.max(1),
             limit: None,
             metadata_pruned: false,
+            durable_sync: true,
             schema_metadata: metadata,
         })
     }
@@ -584,6 +596,7 @@ impl NativeSinkPlan {
             columns,
             limit: None,
             metadata_pruned: false,
+            durable_sync: true,
             schema_metadata: metadata,
         })
     }
@@ -879,7 +892,9 @@ impl NativeSinkPlan {
                 }
                 #[cfg(test)]
                 let started = overlap_timing::clock();
-                output.file.sync_all().map_err(vortex_error)?;
+                if self.durable_sync {
+                    output.file.sync_all().map_err(vortex_error)?;
+                }
                 let reopened = runtime
                     .block_on(session.open_options().open_path(&output.temporary))
                     .map_err(vortex_error)?;
