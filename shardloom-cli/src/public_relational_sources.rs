@@ -18,7 +18,29 @@ use std::{
 
 #[path = "public_relational_native_declaration.rs"]
 mod typed;
+pub(super) use typed::{SourceCacheFn, prepare_primitive_in_session_with_cache};
 pub(crate) use typed::{prepare_native_in_session, prepare_primitive_in_session};
+
+pub(super) fn evict_statement_sources(
+    request: &PublicWorkflowRouteRequest,
+    session: &mut super::super::PublicExecutionSession,
+) {
+    session.evict_prepared_request_inputs(request);
+    let Ok(statement) = source_statement(request) else {
+        return;
+    };
+    let Ok(leaves) = native_relational::source_leaves(statement.as_ref()) else {
+        return;
+    };
+    for leaf in leaves {
+        if leaf.memory_input.is_some() {
+            continue;
+        }
+        if let Ok(path) = declared_path(&leaf, request) {
+            session.evict_prepared_path(&path);
+        }
+    }
+}
 
 /// Only the source spelling is used for declaration and collection validation;
 /// primitive operators retain their payload and never execute this scan text.
@@ -128,6 +150,33 @@ fn prepare_sql_in_session(
     cancellation: &CancellationToken,
     preparations: PublicSourcePreparations,
 ) -> Result<(PreparedVortexRelational, bool, usize), ShardLoomError> {
+    prepare_sql_in_session_with_cache(
+        statement,
+        request,
+        session,
+        inputs,
+        cancellation,
+        preparations,
+        None,
+        None,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn prepare_sql_in_session_with_cache(
+    statement: &str,
+    request: &PublicWorkflowRouteRequest,
+    session: &shardloom_vortex::resident_session::ResidentVortexSession,
+    inputs: impl FnOnce(
+        &mut shardloom_vortex::local_primitives::prepared_relational::VortexRelationalPreparation<
+            '_,
+        >,
+    ) -> Result<(), ShardLoomError>,
+    cancellation: &CancellationToken,
+    preparations: PublicSourcePreparations,
+    preseeded_uri: Option<&DatasetUri>,
+    cache: Option<SourceCacheFn<'_>>,
+) -> Result<(PreparedVortexRelational, bool, usize), ShardLoomError> {
     cancellation.check()?;
     let bytes = statement
         .len()
@@ -138,7 +187,7 @@ fn prepare_sql_in_session(
     validate_bindings(statement, request)?;
     let declaration = crate::native::NativeRelationDeclaration::sql(statement, Vec::new())?;
     metadata.resize((bytes.max(declaration.metadata_bytes)) as u64)?;
-    typed::prepare_native_with_sources(
+    typed::prepare_native_with_sources_and_cache(
         &declaration,
         request,
         session,
@@ -148,6 +197,8 @@ fn prepare_sql_in_session(
         None,
         preparations,
         Some(statement),
+        preseeded_uri,
+        cache,
     )
 }
 
@@ -165,6 +216,8 @@ fn named_file_sql_declaration(
     schemas: &mut shardloom_vortex::local_primitives::prepared_relational::VortexRelationalPreparation<'_>,
     cancellation: &CancellationToken,
     metadata: &mut shardloom_exec::live_memory::MemoryLease,
+    already_seeded: &mut std::collections::BTreeSet<PathBuf>,
+    cache: &mut Option<SourceCacheFn<'_>>,
 ) -> Result<Option<crate::native::NativeRelationDeclaration>, ShardLoomError> {
     let Some(statement) = statement else {
         return Ok(None);
@@ -199,17 +252,23 @@ fn named_file_sql_declaration(
         super::super::PublicVortexPrimitive::Aggregate,
         uri.clone(),
     )?;
-    let source = shardloom_vortex::local_primitives::prepared_dispatch::prepare_source_in_session(
-        &primitive,
-        native_vortex_materializing_policy(request)?,
-        session,
-        cancellation,
-    )?;
+    let source = if let Some(cached) = cache.as_deref_mut().and_then(|f| f(uri).transpose()) {
+        cached?
+    } else {
+        shardloom_vortex::local_primitives::prepared_dispatch::prepare_source_in_session(
+            &primitive,
+            native_vortex_materializing_policy(request)?,
+            session,
+            cancellation,
+        )?
+    };
     let extended =
         shardloom_vortex::local_primitives::prepared_dispatch::request_requires_relational(
             &source, &primitive,
         )?;
-    schemas.register_prepared_source(uri, source)?;
+    if typed::mark_seeded_uri(already_seeded, uri)? {
+        schemas.register_prepared_source(uri, source)?;
+    }
     // Extended types already used shared names, except for the established
     // signed arithmetic compatibility rule. Keep that distinction unchanged.
     let statement = super::super::resident_sql::typed_statement(statement, &naming, !extended);
@@ -237,6 +296,7 @@ fn named_file_sql_declaration(
     not(all(feature = "vortex-write", feature = "universal-format-io")),
     allow(clippy::needless_pass_by_value)
 )]
+#[cfg(test)]
 pub(super) fn prepare_with_source_in_session(
     statement: &str,
     request: &PublicWorkflowRouteRequest,
@@ -245,6 +305,26 @@ pub(super) fn prepare_with_source_in_session(
     session: &shardloom_vortex::resident_session::ResidentVortexSession,
     cancellation: &CancellationToken,
 ) -> Result<(PreparedVortexRelational, usize), ShardLoomError> {
+    prepare_with_source_in_session_and_cache(
+        statement,
+        request,
+        source,
+        preparations,
+        session,
+        cancellation,
+        None,
+    )
+}
+
+pub(super) fn prepare_with_source_in_session_and_cache(
+    statement: &str,
+    request: &PublicWorkflowRouteRequest,
+    source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
+    preparations: PublicSourcePreparations,
+    session: &shardloom_vortex::resident_session::ResidentVortexSession,
+    cancellation: &CancellationToken,
+    cache: Option<SourceCacheFn<'_>>,
+) -> Result<(PreparedVortexRelational, usize), ShardLoomError> {
     cancellation.check()?;
     let statement = super::super::resident_sql::typed_statement_for_source(
         statement,
@@ -252,17 +332,23 @@ pub(super) fn prepare_with_source_in_session(
         source.as_ref(),
     )?;
     let statement = statement.as_ref();
-    let (operation, _, normalized) = prepare_sql_in_session(
+    let preseeded_uri = if source.is_some() {
+        let uri = request
+            .input_uri
+            .as_ref()
+            .ok_or_else(|| failed("source URI is absent"))?;
+        Some(DatasetUri::new(uri)?)
+    } else {
+        None
+    };
+    let seeded_in_inputs = preseeded_uri.clone();
+    let (operation, _, normalized) = prepare_sql_in_session_with_cache(
         statement,
         request,
         session,
         |schemas| {
-            if let Some(source) = source {
-                let uri = request
-                    .input_uri
-                    .as_ref()
-                    .ok_or_else(|| failed("source URI is absent"))?;
-                schemas.register_prepared_source(&DatasetUri::new(uri)?, source)?;
+            if let (Some(source), Some(uri)) = (source, seeded_in_inputs.as_ref()) {
+                schemas.register_prepared_source(uri, source)?;
             }
             register_memory_inputs(schemas, request, &mut |_, input, owner| {
                 cancellation.check()?;
@@ -273,6 +359,8 @@ pub(super) fn prepare_with_source_in_session(
         },
         cancellation,
         preparations,
+        preseeded_uri.as_ref(),
+        cache,
     )?;
     Ok((operation, normalized))
 }
@@ -517,6 +605,7 @@ pub(crate) fn has_file_collection(
 #[derive(Default)]
 struct Sources {
     bound: BTreeMap<PathBuf, Vec<DatasetUri>>,
+    single_file_vortex_uris: Vec<DatasetUri>,
     metadata: Option<shardloom_exec::live_memory::MemoryLease>,
     normalized: usize,
     has_collections: bool,
@@ -564,11 +653,15 @@ impl Sources {
                 memory,
                 source_metadata_bytes(&path, binding.sources.iter().map(String::as_str))?,
             )?;
-            binding
+            let parsed = binding
                 .sources
                 .into_iter()
                 .map(DatasetUri::new)
-                .collect::<Result<Vec<_>, _>>()?
+                .collect::<Result<Vec<_>, _>>()?;
+            if binding.mode == "single_file" {
+                self.single_file_vortex_uris.extend(parsed.iter().cloned());
+            }
+            parsed
         } else if format == "memory" {
             self.reserve_metadata(memory, source_metadata_bytes(&path, std::iter::once(raw))?)?;
             vec![DatasetUri::new(raw)?]

@@ -29,6 +29,17 @@ impl Worker {
 }
 
 fn completed(result: &Value, expected: &Value, opens: usize, executions: usize, reused: bool) {
+    completed_with_footer(result, expected, opens, executions, !reused, reused);
+}
+
+fn completed_with_footer(
+    result: &Value,
+    expected: &Value,
+    opens: usize,
+    executions: usize,
+    footer_opened: bool,
+    lowering_reused: bool,
+) {
     assert_eq!(result["status"], "success", "{result}");
     let rows = field(result, "result_jsonl")
         .lines()
@@ -50,11 +61,11 @@ fn completed(result: &Value, expected: &Value, opens: usize, executions: usize, 
     );
     assert_eq!(
         field(result, "resident_footer_open_performed_this_call"),
-        (!reused).to_string()
+        footer_opened.to_string()
     );
     assert_eq!(
         field(result, "resident_unary_lowering_reused"),
-        reused.to_string()
+        lowering_reused.to_string()
     );
     assert_eq!(
         field(result, "output_row_count"),
@@ -163,11 +174,12 @@ fn worker_unary_reuses_sources_and_delivers_complete_values_for_each_flat_family
     ];
     for (case, (primitive, extra, expected)) in cases.into_iter().enumerate() {
         for execution in 1..=3 {
-            completed(
+            completed_with_footer(
                 &worker.unary(&path, primitive, &extra),
                 &expected,
-                case + 1,
+                1,
                 case * 3 + execution,
+                case == 0 && execution == 1,
                 execution > 1,
             );
         }
@@ -223,11 +235,12 @@ fn worker_unary_computations_apply_source_filters_before_values_and_schema() {
     for (case, (primitive, mut extra, expected)) in cases.into_iter().enumerate() {
         extra.extend(["--vortex-predicate", "gt:value:3"]);
         for execution in 1..=3 {
-            completed(
+            completed_with_footer(
                 &worker.unary(&path, primitive, &extra),
                 &expected,
-                case + 1,
+                1,
                 case * 3 + execution,
+                case == 0 && execution == 1,
                 execution > 1,
             );
         }
@@ -308,11 +321,12 @@ fn worker_unary_rebinds_changed_columns_and_resources_and_rejects_source_replace
         3,
         false,
     );
-    completed(
+    completed_with_footer(
         &worker.unary(&path, "distinct", &["--vortex-columns", "value"]),
         &full,
-        3,
+        2,
         4,
+        false,
         false,
     );
     completed(
@@ -322,7 +336,7 @@ fn worker_unary_rebinds_changed_columns_and_resources_and_rejects_source_replace
             &["--vortex-columns", "value", "--max-parallelism", "1"],
         ),
         &full,
-        4,
+        3,
         5,
         false,
     );
@@ -333,7 +347,7 @@ fn worker_unary_rebinds_changed_columns_and_resources_and_rejects_source_replace
             &["--vortex-columns", "value", "--max-parallelism", "1"],
         ),
         &full,
-        4,
+        3,
         6,
         true,
     );
@@ -349,7 +363,7 @@ fn worker_unary_rebinds_changed_columns_and_resources_and_rejects_source_replace
             ],
         ),
         &json!([{"metric":50}]),
-        5,
+        4,
         7,
         false,
     );
@@ -510,7 +524,7 @@ fn worker_unary_explode_preserves_nullable_list_elements_and_reuses_preparation(
         );
     }
     for execution in 1..=2 {
-        completed(
+        completed_with_footer(
             &worker.unary(
                 &source,
                 "explode",
@@ -524,8 +538,9 @@ fn worker_unary_explode_preserves_nullable_list_elements_and_reuses_preparation(
                 ],
             ),
             &json!([{"shipment":2,"items":7},{"shipment":2,"items":null},{"shipment":2,"items":8}]),
-            3,
+            2,
             execution + 4,
+            false,
             execution > 1,
         );
     }

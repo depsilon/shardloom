@@ -62,7 +62,6 @@ fn worker_reuses_integer_extrema_and_average_with_filters_order_and_empty_result
             {"function":"max","column":"metric","alias":"hi"},
             {"function":"avg","column":"metric","alias":"mean"}]})
         .to_string();
-        let mut opens = 0;
         let mut executions = 0;
         for (predicate, expected) in [
             (None, json!({"lo":10,"hi":50,"mean":30.0})),
@@ -74,15 +73,14 @@ fn worker_reuses_integer_extrema_and_average_with_filters_order_and_empty_result
         ] {
             for execution in 1..=3 {
                 executions += 1;
-                if execution == 1 {
-                    opens += 1;
-                }
-                completed(
+                let footer_opened = predicate.is_none() && execution == 1;
+                completed_with_footer(
                     &worker.aggregate(&path, &scalar, predicate, None, "1", workers),
                     &expected,
-                    &opens.to_string(),
+                    "1",
                     &executions.to_string(),
-                    execution == 1,
+                    footer_opened,
+                    execution > 1,
                 );
             }
         }
@@ -94,18 +92,16 @@ fn worker_reuses_integer_extrema_and_average_with_filters_order_and_empty_result
         .to_string();
         for execution in 1..=3 {
             executions += 1;
-            if execution == 1 {
-                opens += 1;
-            }
-            completed(
+            completed_with_footer(
                 &worker.aggregate(&path, &grouped, None, Some("2"), "1", workers),
                 &json!([
                     {"value":4,"lo":40,"hi":40,"mean":40.0},
                     {"value":3,"lo":30,"hi":30,"mean":30.0},
                 ]),
-                &opens.to_string(),
+                "1",
                 &executions.to_string(),
-                execution == 1,
+                false,
+                execution > 1,
             );
         }
     }
@@ -120,6 +116,17 @@ fn values(result: &Value) -> Value {
 }
 
 fn completed(result: &Value, expected: &Value, opens: &str, executions: &str, opened: bool) {
+    completed_with_footer(result, expected, opens, executions, opened, !opened);
+}
+
+fn completed_with_footer(
+    result: &Value,
+    expected: &Value,
+    opens: &str,
+    executions: &str,
+    footer_opened: bool,
+    lowering_reused: bool,
+) {
     assert_eq!(result["status"], "success", "{result}");
     assert_eq!(
         values(result),
@@ -150,11 +157,11 @@ fn completed(result: &Value, expected: &Value, opens: &str, executions: &str, op
     }
     assert_eq!(
         field(result, "resident_footer_open_performed_this_call"),
-        opened.to_string()
+        footer_opened.to_string()
     );
     assert_eq!(
         field(result, "resident_aggregate_lowering_reused"),
-        (!opened).to_string()
+        lowering_reused.to_string()
     );
 }
 
@@ -177,22 +184,23 @@ fn worker_reuses_aggregate_lowering_with_complete_fresh_scalar_and_grouped_value
         {"function":"count_distinct","column":"metric","alias":"unique_alias"}],
         "order_by":[{"column":"unique_alias","descending":true},{"column":"value","descending":false}],
         "offset":1}).to_string();
-    for (opened, opened_count, completed_count) in [(true, "2", "4"), (false, "2", "5")] {
-        completed(
+    for (lowering_reused, opened_count, completed_count) in [(false, "1", "4"), (true, "1", "5")] {
+        completed_with_footer(
             &worker.aggregate(&path, &grouped, None, Some("2"), "1", "2"),
             &json!([{"value":2,"unique_alias":1},{"value":3,"unique_alias":1}]),
             opened_count,
             completed_count,
-            opened,
+            false,
+            lowering_reused,
         );
     }
-    // Changing filter, source limit, memory and CPU grants invalidates the old
-    // operation rather than reusing a stale plan or a wider runtime.
+    // Changing filter keeps the retained source under the same resource grant,
+    // while changing memory and CPU grants rebinds the session cleanly.
     for (memory, workers, opens, executions, opened) in [
-        ("1", "1", "3", "6", true),
-        ("1", "1", "3", "7", false),
-        ("2", "1", "4", "8", true),
-        ("2", "2", "5", "9", true),
+        ("1", "1", "2", "6", true),
+        ("1", "1", "2", "7", false),
+        ("2", "1", "3", "8", true),
+        ("2", "2", "4", "9", true),
     ] {
         completed(
             &worker.aggregate(&path, &aggregate, Some("gt:value:2"), None, memory, workers),
@@ -206,17 +214,18 @@ fn worker_reuses_aggregate_lowering_with_complete_fresh_scalar_and_grouped_value
     completed(
         &worker.aggregate(&path, &aggregate, None, None, "1", "2"),
         &json!({"rows_alias":5,"unique_alias":5,"total_alias":150.0}),
-        "6",
+        "5",
         "10",
         true,
     );
-    assert_completed(&worker.collect(&path, "metric", "2"), "7", "11");
-    completed(
+    assert_completed(&worker.collect(&path, "metric", "2"), "5", "11");
+    completed_with_footer(
         &worker.aggregate(&path, &aggregate, None, None, "1", "2"),
         &json!({"rows_alias":5,"unique_alias":5,"total_alias":150.0}),
-        "8",
+        "5",
         "12",
-        true,
+        false,
+        false,
     );
 }
 
@@ -266,35 +275,34 @@ fn worker_reuses_transformed_aggregate_and_rebinds_changed_requests() {
     let mut worker = Worker::new();
     let aggregate = scalar();
     let mut executions = 1;
-    let mut opens = 1;
-    completed(
+    completed_with_footer(
         &worker.aggregate(&path, &aggregate, None, None, "1", "2"),
         &json!({"rows_alias":5,"unique_alias":5,"total_alias":150.0}),
-        &opens.to_string(),
+        "1",
         &executions.to_string(),
         true,
+        false,
     );
     let avg =
         json!({"measures":[{"function":"avg","column":"metric","alias":"mean_alias","argument_offset":1}]}).to_string();
     for execution in 1..=2 {
         executions += 1;
-        if execution == 1 {
-            opens += 1;
-        }
-        completed(
+        completed_with_footer(
             &worker.aggregate(&path, &avg, None, None, "1", "2"),
             &json!({"mean_alias":31.0}),
-            &opens.to_string(),
+            "1",
             &executions.to_string(),
-            execution == 1,
+            false,
+            execution > 1,
         );
     }
-    completed(
+    completed_with_footer(
         &worker.aggregate(&path, &aggregate, None, None, "1", "2"),
         &json!({"rows_alias":5,"unique_alias":5,"total_alias":150.0}),
-        "3",
+        "1",
         "4",
-        true,
+        false,
+        false,
     );
 }
 
@@ -325,13 +333,14 @@ fn worker_true_empty_source_aggregate_reuses_only_preparation_and_invalidates_ch
         {"function":"count_distinct","column":"metric","alias":"unique_alias"},
         {"function":"sum","column":"metric","alias":"total_alias"}]})
     .to_string();
-    for (opened, opens, executions) in [(true, "2", "4"), (false, "2", "5")] {
-        completed(
+    for (reused, opens, executions) in [(false, "1", "4"), (true, "1", "5")] {
+        completed_with_footer(
             &worker.aggregate(&source, &grouped, None, None, "1", "2"),
             &json!([]),
             opens,
             executions,
-            opened,
+            false,
+            reused,
         );
     }
     let replacement = root.join("replacement.vortex");
@@ -343,7 +352,7 @@ fn worker_true_empty_source_aggregate_reuses_only_preparation_and_invalidates_ch
     completed(
         &worker.aggregate(&source, &aggregate, None, None, "1", "2"),
         &json!({"rows_alias":5,"unique_alias":5,"total_alias":150.0}),
-        "3",
+        "2",
         "6",
         true,
     );

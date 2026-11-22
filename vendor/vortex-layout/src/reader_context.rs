@@ -4,6 +4,9 @@
 use std::any::Any;
 use std::sync::Arc;
 
+use vortex_array::memory::HostAllocatorRef;
+use vortex_array::memory::HostMemorySessionExt as _;
+use vortex_session::VortexSession;
 use vortex_session::registry::Id;
 use vortex_utils::aliases::hash_map::HashMap;
 
@@ -21,12 +24,14 @@ use vortex_utils::aliases::hash_map::HashMap;
 #[derive(Clone, Default)]
 pub struct LayoutReaderContext {
     values: Arc<HashMap<Id, Arc<dyn Any + Send + Sync>>>,
+    storage_allocator: Option<HostAllocatorRef>,
 }
 
 impl std::fmt::Debug for LayoutReaderContext {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("LayoutReaderContext")
             .field("ids", &self.values.keys().collect::<Vec<_>>())
+            .field("has_storage_allocator", &self.storage_allocator.is_some())
             .finish()
     }
 }
@@ -35,6 +40,24 @@ impl LayoutReaderContext {
     /// Creates a new, empty context.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Returns a derived context that overrides the host allocator used for
+    /// reader-owned structural storage tables without mutating `VortexSession`.
+    pub fn with_storage_allocator(&self, allocator: HostAllocatorRef) -> Self {
+        Self {
+            values: Arc::clone(&self.values),
+            storage_allocator: Some(allocator),
+        }
+    }
+
+    /// Returns the reader-owned structural storage allocator, defaulting to the
+    /// session host allocator when unset.
+    pub fn storage_allocator(&self, session: &VortexSession) -> HostAllocatorRef {
+        self.storage_allocator
+            .as_ref()
+            .map(Arc::clone)
+            .unwrap_or_else(|| session.host_allocator())
     }
 
     /// Returns a new context that publishes `value` under `id`.
@@ -47,6 +70,7 @@ impl LayoutReaderContext {
         values.insert(id, value);
         Self {
             values: Arc::new(values),
+            storage_allocator: self.storage_allocator.clone(),
         }
     }
 

@@ -32,13 +32,14 @@ pub(super) struct Completion {
     source_rows: u64,
     exact_statistics: usize,
     measures: usize,
+    partitions_covered: Option<usize>,
 }
 
 impl Completion {
     pub(super) fn annotate(&self, summary: &mut String) -> Result<()> {
         let mut payload: serde_json::Value = serde_json::from_str(summary).map_err(vortex_error)?;
         payload["aggregate_update_strategy"] = "exact_file_footer_scalar_completion".into();
-        payload["metadata_aggregate"] = serde_json::json!({
+        let mut proof = serde_json::json!({
             "schema_version": 1,
             "provider_version": crate::UPSTREAM_VORTEX_PROVIDER_VERSION,
             "source": "held_vortex_file_footer",
@@ -52,12 +53,16 @@ impl Completion {
             "source_payload_arrays_read": 0,
             "file_preparation_reads_excluded": true,
         });
+        if let Some(partitions_covered) = self.partitions_covered {
+            proof["partitions_covered"] = partitions_covered.into();
+        }
+        payload["metadata_aggregate"] = proof;
         *summary = payload.to_string();
         Ok(())
     }
 }
 
-fn admitted_shape(request: &VortexQueryPrimitiveRequest) -> bool {
+pub(super) fn admitted_shape(request: &VortexQueryPrimitiveRequest) -> bool {
     request.kind == VortexQueryPrimitiveKind::SimpleAggregate
         && request.predicate.is_none()
         && request.simple_aggregate.as_ref().is_some_and(|aggregate| {
@@ -98,29 +103,69 @@ pub(super) fn complete(
     )
 }
 
-fn complete_from_stats(
-    dtype: &DType,
-    rows: u64,
-    statistics: Option<&FileStatistics>,
+#[cfg_attr(not(unix), allow(dead_code))]
+pub(super) fn complete_partitioned(
+    files: &[VortexFile],
     request: &VortexQueryPrimitiveRequest,
     states: &mut SimpleAggregateStates,
 ) -> Result<Option<Completion>> {
-    if !admitted_shape(request) {
+    if files.is_empty() || !admitted_shape(request) {
         return Ok(None);
     }
-    let DType::Struct(fields, Nullability::NonNullable) = dtype else {
-        return Ok(None);
-    };
+    if files.len() == 1 {
+        return complete(&files[0], request, states);
+    }
     let aggregate = required_simple_aggregate(request)?;
     if states.states.len() != aggregate.measures.len() {
         return Err(failed("measure state cardinality differs"));
     }
-    // Fixed-size query-local staging avoids an unreserved input-sized allocation.
-    let mut values: [Option<Value>; MAX_MEASURES] = std::array::from_fn(|_| None);
-    let mut exact_statistics = 0;
-    for (index, measure) in aggregate.measures.iter().enumerate() {
+    validate_fresh_scalar_states(aggregate, states)?;
+
+    let mut combined: [Option<Value>; MAX_MEASURES] = std::array::from_fn(|_| None);
+    let mut exact_statistics = 0_usize;
+    let mut source_rows = 0_u64;
+    for file in files {
+        let Some((partition_values, partition_stats)) = stage_values_from_stats(
+            file.dtype(),
+            file.row_count(),
+            file.file_stats(),
+            request,
+            &mut exact_statistics,
+        )?
+        else {
+            return Ok(None);
+        };
+        let _ = partition_stats;
+        source_rows = source_rows
+            .checked_add(file.row_count())
+            .ok_or_else(|| failed("partitioned source row count overflowed u64"))?;
+        for (slot, next) in combined
+            .iter_mut()
+            .zip(partition_values)
+            .take(aggregate.measures.len())
+        {
+            let next = next.ok_or_else(|| failed("incomplete staged partition measure"))?;
+            let Some(merged) = merge_staged_value(slot.take(), next)? else {
+                return Ok(None);
+            };
+            *slot = Some(merged);
+        }
+    }
+    install_staged_values(combined, aggregate, states)?;
+    Ok(Some(Completion {
+        source_rows,
+        exact_statistics,
+        measures: aggregate.measures.len(),
+        partitions_covered: Some(files.len()),
+    }))
+}
+
+fn validate_fresh_scalar_states(
+    aggregate: &crate::VortexSimpleAggregateRequest,
+    states: &SimpleAggregateStates,
+) -> Result<()> {
+    for (measure, state) in aggregate.measures.iter().zip(&states.states) {
         let function = SimpleAggregateFunction::parse(&measure.function)?;
-        let state = &states.states[index];
         if state.function != function
             || state.alias != measure.alias
             || state.count != 0
@@ -131,6 +176,116 @@ fn complete_from_stats(
         {
             return Err(failed("requires fresh matching scalar state"));
         }
+    }
+    Ok(())
+}
+
+fn merge_staged_value(current: Option<Value>, next: Value) -> Result<Option<Value>> {
+    match (current, next) {
+        (None, value) => Ok(Some(value)),
+        (Some(Value::Count(a)), Value::Count(b)) => {
+            Ok(Some(Value::Count(a.checked_add(b).ok_or_else(|| {
+                failed("partitioned count overflowed u64")
+            })?)))
+        }
+        (Some(Value::Min(a)), Value::Min(b)) => {
+            let merged = match (a, b) {
+                (None, other) | (other, None) => other,
+                (Some(left), Some(right)) => {
+                    let Some(ord) = stat_value_cmp(&left, &right) else {
+                        return Ok(None);
+                    };
+                    Some(if ord == std::cmp::Ordering::Greater {
+                        right
+                    } else {
+                        left
+                    })
+                }
+            };
+            Ok(Some(Value::Min(merged)))
+        }
+        (Some(Value::Max(a)), Value::Max(b)) => {
+            let merged = match (a, b) {
+                (None, other) | (other, None) => other,
+                (Some(left), Some(right)) => {
+                    let Some(ord) = stat_value_cmp(&left, &right) else {
+                        return Ok(None);
+                    };
+                    Some(if ord == std::cmp::Ordering::Less {
+                        right
+                    } else {
+                        left
+                    })
+                }
+            };
+            Ok(Some(Value::Max(merged)))
+        }
+        (
+            Some(Value::SumOrAvg {
+                count: a_count,
+                sum: mut a_sum,
+            }),
+            Value::SumOrAvg {
+                count: b_count,
+                sum: b_sum,
+            },
+        ) => {
+            let count = a_count
+                .checked_add(b_count)
+                .ok_or_else(|| failed("partitioned sum count overflowed u64"))?;
+            a_sum.merge(b_sum);
+            if !a_sum.is_finite() {
+                return Err(failed("partitioned exact sum statistic is non-finite"));
+            }
+            Ok(Some(Value::SumOrAvg { count, sum: a_sum }))
+        }
+        _ => Err(failed("mismatched staged measure kinds across partitions")),
+    }
+}
+
+fn install_staged_values(
+    values: [Option<Value>; MAX_MEASURES],
+    aggregate: &crate::VortexSimpleAggregateRequest,
+    states: &mut SimpleAggregateStates,
+) -> Result<()> {
+    for (state, value) in states
+        .states
+        .iter_mut()
+        .zip(values)
+        .take(aggregate.measures.len())
+    {
+        match value.ok_or_else(|| failed("incomplete staged measure"))? {
+            Value::Count(value) => state.count = value,
+            Value::Min(value) => state.min = value,
+            Value::Max(value) => state.max = value,
+            Value::SumOrAvg { count, sum } => {
+                state.count = count;
+                state.sum = sum;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn stage_values_from_stats(
+    dtype: &DType,
+    rows: u64,
+    statistics: Option<&FileStatistics>,
+    request: &VortexQueryPrimitiveRequest,
+    exact_statistics: &mut usize,
+) -> Result<Option<([Option<Value>; MAX_MEASURES], usize)>> {
+    if !admitted_shape(request) {
+        return Ok(None);
+    }
+    let DType::Struct(fields, Nullability::NonNullable) = dtype else {
+        return Ok(None);
+    };
+    let aggregate = required_simple_aggregate(request)?;
+    // Fixed-size query-local staging avoids an unreserved input-sized allocation.
+    let mut values: [Option<Value>; MAX_MEASURES] = std::array::from_fn(|_| None);
+    let initial_exact = *exact_statistics;
+    for (index, measure) in aggregate.measures.iter().enumerate() {
+        let function = SimpleAggregateFunction::parse(&measure.function)?;
         let Some(column) = &measure.column else {
             if function != SimpleAggregateFunction::Count {
                 return Ok(None);
@@ -150,36 +305,45 @@ fn complete_from_stats(
             return Ok(None);
         }
         let stats = statistics.and_then(|statistics| statistics.stats_sets().get(field_index));
-        let nulls = read_null_count(stats, &field_dtype, rows, &mut exact_statistics)?;
-        let Some(value) = complete_column_measure(
-            function,
-            &field_dtype,
-            rows,
-            nulls,
-            stats,
-            &mut exact_statistics,
-        )?
+        let nulls = read_null_count(stats, &field_dtype, rows, exact_statistics)?;
+        let Some(value) =
+            complete_column_measure(function, &field_dtype, rows, nulls, stats, exact_statistics)?
         else {
             return Ok(None);
         };
         values[index] = Some(value);
     }
     verify_min_max_consistency(&values, aggregate)?;
-    for (state, value) in states.states.iter_mut().zip(values) {
-        match value.ok_or_else(|| failed("incomplete staged measure"))? {
-            Value::Count(value) => state.count = value,
-            Value::Min(value) => state.min = value,
-            Value::Max(value) => state.max = value,
-            Value::SumOrAvg { count, sum } => {
-                state.count = count;
-                state.sum = sum;
-            }
-        }
+    Ok(Some((values, *exact_statistics - initial_exact)))
+}
+
+fn complete_from_stats(
+    dtype: &DType,
+    rows: u64,
+    statistics: Option<&FileStatistics>,
+    request: &VortexQueryPrimitiveRequest,
+    states: &mut SimpleAggregateStates,
+) -> Result<Option<Completion>> {
+    if !admitted_shape(request) {
+        return Ok(None);
     }
+    let aggregate = required_simple_aggregate(request)?;
+    if states.states.len() != aggregate.measures.len() {
+        return Err(failed("measure state cardinality differs"));
+    }
+    validate_fresh_scalar_states(aggregate, states)?;
+    let mut exact_statistics = 0;
+    let Some((values, _)) =
+        stage_values_from_stats(dtype, rows, statistics, request, &mut exact_statistics)?
+    else {
+        return Ok(None);
+    };
+    install_staged_values(values, aggregate, states)?;
     Ok(Some(Completion {
         source_rows: rows,
         exact_statistics,
         measures: aggregate.measures.len(),
+        partitions_covered: None,
     }))
 }
 
@@ -551,7 +715,12 @@ pub(super) fn report_is_safe(
         .as_ref()
         .map_or(0, |aggregate| aggregate.measures.len());
     let max_statistics = max_exact_statistics_for_request(request);
-    payload["rows"].as_u64() == report.rows_projected
+    let partition_count = proof
+        .get("partitions_covered")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(1);
+    partition_count >= 1
+        && payload["rows"].as_u64() == report.rows_projected
         && payload["aggregate_update_strategy"] == "exact_file_footer_scalar_completion"
         && proof["schema_version"] == 1
         && proof["provider_version"] == crate::UPSTREAM_VORTEX_PROVIDER_VERSION
@@ -563,7 +732,7 @@ pub(super) fn report_is_safe(
         && proof["file_preparation_reads_excluded"] == true
         && proof["exact_statistics_consumed"]
             .as_u64()
-            .is_some_and(|statistics| statistics <= max_statistics)
+            .is_some_and(|statistics| statistics <= max_statistics.saturating_mul(partition_count))
         && proof["measures_proven"] == measure_count
         && proof["nonnullable_struct_root"] == true
         && proof["all_measures_completed"] == true

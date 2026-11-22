@@ -316,10 +316,15 @@ impl super::ResidentVortexSession {
         self.0
             .opens
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let layout_slots = Arc::new(super::execution_context::ResidentLayoutSlotPool::default());
+        self.0
+            .source_segments
+            .register_layout_pool(Arc::downgrade(&layout_slots));
         let source = super::PreparedVortexSource(Arc::new(super::PreparedSourceOwner {
             file,
             identity: Some(Arc::clone(&observer.identity)),
             runtime: Arc::clone(&self.0),
+            layout_slots,
             #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
             preparation: None,
         }));

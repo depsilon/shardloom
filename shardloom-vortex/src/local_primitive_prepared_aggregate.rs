@@ -371,12 +371,58 @@ pub fn prepare_aggregate_for_optional_reuse_in_session(
     session: &ResidentVortexSession,
     cancellation: &CancellationToken,
 ) -> Result<Option<PreparedAggregateDisposition>> {
+    prepare_aggregate_for_optional_reuse_with_source_loader(
+        request,
+        policy,
+        session,
+        cancellation,
+        |path| session.prepare_file_with_cancellation(path, cancellation),
+    )
+}
+
+/// Prepare an optional retained aggregate using the caller's native session, a
+/// caller-supplied source loader, and the cancellation/deadline token.
+/// Canonically inadmissible requests return `None` before opening any source.
+///
+/// # Errors
+/// Rejects cancellation, invalid resource grants, mismatched session owners,
+/// unreadable or changed sources, and invalid native lowering.
+pub fn prepare_aggregate_for_optional_reuse_with_source_loader(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &ResidentVortexSession,
+    cancellation: &CancellationToken,
+    open_source: impl FnOnce(&std::path::Path) -> Result<PreparedVortexSource>,
+) -> Result<Option<PreparedAggregateDisposition>> {
     if canonical(request).is_err() {
         return Ok(None);
     }
     validate_policy(policy)?;
     cancellation.check()?;
-    let operation = prepare_candidate_in_session(request, policy, session, cancellation)?;
+    let operation =
+        prepare_candidate_with_source_loader(request, policy, session, cancellation, open_source)?;
+    Ok(Some(PreparedAggregateDisposition::Reusable(operation)))
+}
+
+/// Prepare an optional retained aggregate against an already opened source
+/// without reopening the file. Canonically inadmissible requests return `None`.
+///
+/// # Errors
+/// Rejects cancellation, invalid resource grants, mismatched or changed
+/// sources, and invalid native lowering.
+pub fn prepare_aggregate_for_optional_reuse_from_source(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    source: PreparedVortexSource,
+    cancellation: &CancellationToken,
+) -> Result<Option<PreparedAggregateDisposition>> {
+    if canonical(request).is_err() {
+        return Ok(None);
+    }
+    validate_policy(policy)?;
+    cancellation.check()?;
+    let operation = prepare_aggregate_from_source(request, policy, source)?;
+    cancellation.check()?;
     Ok(Some(PreparedAggregateDisposition::Reusable(operation)))
 }
 
@@ -452,6 +498,18 @@ fn prepare_candidate_in_session(
     session: &ResidentVortexSession,
     cancellation: &CancellationToken,
 ) -> Result<PreparedVortexAggregate> {
+    prepare_candidate_with_source_loader(request, policy, session, cancellation, |path| {
+        session.prepare_file_with_cancellation(path, cancellation)
+    })
+}
+
+fn prepare_candidate_with_source_loader(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &ResidentVortexSession,
+    cancellation: &CancellationToken,
+    open_source: impl FnOnce(&std::path::Path) -> Result<PreparedVortexSource>,
+) -> Result<PreparedVortexAggregate> {
     cancellation.check()?;
     let (policy, physical_policy) = prepared_policy(request, policy, session)?;
     cancellation.check()?;
@@ -461,7 +519,13 @@ fn prepare_candidate_in_session(
         .ok_or_else(|| failed("source URI is required"))?;
     let path = local_vortex_path(uri, request.kind)?
         .ok_or_else(|| failed("requires one local Vortex file"))?;
-    let source = session.prepare_file_with_cancellation(path, cancellation)?;
+    let source = open_source(&path)?;
+    if !source.retained_session().same_owner(session) {
+        return Err(failed(
+            "retained source belongs to a different session owner",
+        ));
+    }
+    source.validate_generation()?;
     cancellation.check()?;
     let prepared = prepare_bound_aggregate(
         request,

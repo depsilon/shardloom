@@ -249,6 +249,17 @@ mod resident_relational;
 #[path = "native_runtime.rs"]
 pub mod native;
 
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+const MAX_CACHED_PREPARED_SOURCES: usize = 16;
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[derive(Clone)]
+struct CachedPreparedSource {
+    uri_key: String,
+    canonical_path: PathBuf,
+    source: shardloom_vortex::resident_session::PreparedVortexSource,
+}
+
 /// Caller-owned prepared execution. Only the latest admitted operation is retained;
 /// results are never cached and every execution validates its source generation.
 #[derive(Default)]
@@ -257,6 +268,10 @@ pub(crate) struct PublicExecutionSession {
     command_owner: Option<std::sync::Arc<native::EmbeddedExecutionOwner>>,
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     cache_owner: Option<shardloom_vortex::resident_session::ResidentVortexSession>,
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    cache_resources: Option<(u64, usize)>,
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    prepared_sources: Vec<CachedPreparedSource>,
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     collect: Option<PreparedPublicCollect>,
     #[cfg(all(feature = "vortex-local-primitives", unix))]
@@ -296,10 +311,9 @@ impl PublicExecutionSession {
         not(all(feature = "vortex-local-primitives", unix)),
         allow(clippy::unused_self)
     )]
-    pub(crate) fn clear(&mut self) {
-        // Discard prepared work without replacing the runtime that owns its
-        // credits. The worker's next explicit allocation reconfigures that same
-        // owner; a previous call never becomes implicit resource configuration.
+    pub(crate) fn clear_operation_slots(&mut self) {
+        // Release per-operation prepared lowers while retaining opened
+        // immutable file sources owned by the current native session.
         #[cfg(all(feature = "vortex-local-primitives", unix))]
         {
             self.collect = None;
@@ -309,6 +323,203 @@ impl PublicExecutionSession {
             self.unary = None;
             self.relational = None;
         }
+    }
+
+    // Reduced builds have no prepared native fields to release.
+    #[cfg_attr(
+        not(all(feature = "vortex-local-primitives", unix)),
+        allow(clippy::unused_self, dead_code)
+    )]
+    pub(crate) fn clear(&mut self) {
+        // Discard prepared work without replacing the runtime that owns its
+        // credits. The worker's next explicit allocation reconfigures that same
+        // owner; a previous call never becomes implicit resource configuration.
+        self.clear_operation_slots();
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        {
+            self.prepared_sources.clear();
+            self.cache_resources = None;
+        }
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    fn canonical_source_key(path: &Path) -> PathBuf {
+        std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    fn resolve_local_path_for_uri_str(uri: &str) -> Option<PathBuf> {
+        if let Ok(parsed) = DatasetUri::new(uri) {
+            return Self::resolve_local_vortex_path_for_uri(&parsed);
+        }
+        if uri.contains("://") && !uri.starts_with("file://") {
+            return None;
+        }
+        Some(PathBuf::from(uri.strip_prefix("file://").unwrap_or(uri)))
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    fn resolve_local_vortex_path_for_uri(uri: &DatasetUri) -> Option<PathBuf> {
+        use shardloom_core::UriScheme;
+        match uri.scheme() {
+            UriScheme::LocalPath => Some(PathBuf::from(uri.as_str())),
+            UriScheme::File => Some(PathBuf::from(
+                uri.as_str()
+                    .strip_prefix("file://")
+                    .unwrap_or_else(|| uri.as_str()),
+            )),
+            UriScheme::S3 | UriScheme::Gcs | UriScheme::Adls | UriScheme::Other => None,
+        }
+    }
+
+    #[cfg_attr(
+        not(all(feature = "vortex-local-primitives", unix)),
+        allow(clippy::unused_self, dead_code)
+    )]
+    fn evict_prepared_path(&mut self, path: &Path) {
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        {
+            let canonical = Self::canonical_source_key(path);
+            let uri_key = path.to_string_lossy();
+            self.prepared_sources.retain(|entry| {
+                entry.canonical_path != canonical
+                    && entry.canonical_path != path
+                    && entry.uri_key != uri_key.as_ref()
+                    && Path::new(&entry.uri_key) != path
+            });
+        }
+        #[cfg(not(all(feature = "vortex-local-primitives", unix)))]
+        let _ = path;
+    }
+
+    #[cfg_attr(
+        not(all(feature = "vortex-local-primitives", unix)),
+        allow(clippy::unused_self, dead_code)
+    )]
+    fn evict_prepared_uri(&mut self, uri: &str) {
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        {
+            self.prepared_sources.retain(|entry| entry.uri_key != uri);
+            if let Some(path) = Self::resolve_local_path_for_uri_str(uri) {
+                self.evict_prepared_path(&path);
+            }
+        }
+        #[cfg(not(all(feature = "vortex-local-primitives", unix)))]
+        let _ = uri;
+    }
+
+    #[cfg_attr(
+        not(all(feature = "vortex-local-primitives", unix)),
+        allow(clippy::unused_self)
+    )]
+    fn evict_prepared_binding(&mut self, binding: &NativeVortexInputBinding) {
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        for source in &binding.sources {
+            self.evict_prepared_uri(source);
+        }
+        #[cfg(not(all(feature = "vortex-local-primitives", unix)))]
+        let _ = binding;
+    }
+
+    #[cfg_attr(
+        not(all(feature = "vortex-local-primitives", unix)),
+        allow(clippy::unused_self)
+    )]
+    fn evict_prepared_request_inputs(&mut self, request: &PublicWorkflowRouteRequest) {
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        {
+            if let Some(uri) = request.input_uri.as_deref() {
+                self.evict_prepared_uri(uri);
+            }
+            for key in request.source_bindings.keys() {
+                self.evict_prepared_uri(key);
+            }
+        }
+        #[cfg(not(all(feature = "vortex-local-primitives", unix)))]
+        let _ = request;
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    fn remember_prepared_file_source_inner(
+        &mut self,
+        uri_key: String,
+        canonical_path: PathBuf,
+        source: shardloom_vortex::resident_session::PreparedVortexSource,
+    ) {
+        self.prepared_sources
+            .retain(|entry| entry.canonical_path != canonical_path && entry.uri_key != uri_key);
+        if self.prepared_sources.len() >= MAX_CACHED_PREPARED_SOURCES {
+            self.prepared_sources.remove(0);
+        }
+        self.prepared_sources.push(CachedPreparedSource {
+            uri_key,
+            canonical_path,
+            source,
+        });
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    fn get_or_prepare_file_source(
+        &mut self,
+        path: &Path,
+        session: &shardloom_vortex::resident_session::ResidentVortexSession,
+        cancellation: &shardloom_exec::compute_pool::CancellationToken,
+    ) -> Result<
+        (
+            shardloom_vortex::resident_session::PreparedVortexSource,
+            bool,
+        ),
+        ShardLoomError,
+    > {
+        cancellation.check()?;
+        if self
+            .cache_owner
+            .as_ref()
+            .is_some_and(|owner| !owner.same_owner(session))
+        {
+            self.clear();
+        }
+        if self.cache_owner.is_none() {
+            self.cache_owner = Some(session.clone());
+        }
+        let uri_key = path.to_string_lossy().into_owned();
+        let canonical_path = Self::canonical_source_key(path);
+        if let Some(pos) = self
+            .prepared_sources
+            .iter()
+            .position(|entry| entry.canonical_path == canonical_path || entry.uri_key == uri_key)
+        {
+            let candidate = self.prepared_sources[pos].source.clone();
+            if candidate.same_session_owner(session) && candidate.validate_generation().is_ok() {
+                let entry = self.prepared_sources.remove(pos);
+                self.prepared_sources.push(entry);
+                return Ok((candidate, true));
+            }
+            self.prepared_sources.remove(pos);
+        }
+        let source = session.prepare_file_with_cancellation(path, cancellation)?;
+        self.remember_prepared_file_source_inner(uri_key, canonical_path, source.clone());
+        Ok((source, false))
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    fn get_or_prepare_uri_source(
+        &mut self,
+        uri: &DatasetUri,
+        session: &shardloom_vortex::resident_session::ResidentVortexSession,
+        cancellation: &shardloom_exec::compute_pool::CancellationToken,
+    ) -> Result<
+        Option<(
+            shardloom_vortex::resident_session::PreparedVortexSource,
+            bool,
+        )>,
+        ShardLoomError,
+    > {
+        let Some(path) = Self::resolve_local_vortex_path_for_uri(uri) else {
+            return Ok(None);
+        };
+        let (source, reused) = self.get_or_prepare_file_source(&path, session, cancellation)?;
+        Ok(Some((source, reused)))
     }
 
     #[cfg(all(test, feature = "vortex-local-primitives", unix))]
@@ -362,13 +573,17 @@ impl PublicExecutionSession {
         admission: &crate::command_context::CommandAdmission<'_>,
     ) -> Result<(), ShardLoomError> {
         let native = admission.native_session()?;
+        let resources = admission.resources();
+        let resource_key = (resources.memory_bytes(), resources.max_parallelism());
         if self
             .cache_owner
             .as_ref()
             .is_none_or(|owner| !owner.same_owner(native))
+            || self.cache_resources != Some(resource_key)
         {
             self.clear();
             self.cache_owner = Some(native.clone());
+            self.cache_resources = Some(resource_key);
         }
         Ok(())
     }
@@ -411,7 +626,7 @@ impl PublicExecutionSession {
                 .as_ref()
                 .is_some_and(|entry| &entry.request != retained)
         {
-            self.clear();
+            self.clear_operation_slots();
         }
     }
 }
@@ -456,7 +671,7 @@ pub(crate) fn handle_public_workflow_run(
     let request = match PublicWorkflowRouteRequest::parse_execution_in_context(args, context) {
         Ok(request) => request,
         Err(error) => {
-            execution_session.clear();
+            execution_session.clear_operation_slots();
             return emit_error("run", format, "public workflow run failed", &error);
         }
     };
@@ -483,7 +698,7 @@ pub(crate) fn handle_public_workflow_run(
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     execution_session.invalidate_changed_request(&request, &plan);
     if plan.status != CommandStatus::Success {
-        execution_session.clear();
+        execution_session.clear_operation_slots();
         return emit_blocked_facade("run", format, &request, &plan);
     }
     let resources = match request.resources.resolve() {
@@ -542,7 +757,8 @@ pub(crate) fn handle_public_workflow_run(
                 &admission,
             );
             if result != ExitCode::SUCCESS {
-                execution_session.clear();
+                execution_session.clear_operation_slots();
+                execution_session.evict_prepared_request_inputs(&request);
             }
             result
         }
@@ -2717,7 +2933,7 @@ fn execute_native_vortex_primitive_run_with_extra(
         return exit;
     }
     if request.requested_output != "collect" {
-        execution_session.clear();
+        execution_session.clear_operation_slots();
     }
     let Some(primitive) = normalized_vortex_primitive(request) else {
         let blocked = native_vortex_payload_blocked_route(
@@ -2741,7 +2957,8 @@ fn execute_native_vortex_primitive_run_with_extra(
     let binding = match native_vortex_input_binding_for_request(request, admission) {
         Ok(binding) => binding,
         Err(error) => {
-            execution_session.clear();
+            execution_session.clear_operation_slots();
+            execution_session.evict_prepared_request_inputs(request);
             return emit_error(
                 "run",
                 format,
@@ -2751,7 +2968,9 @@ fn execute_native_vortex_primitive_run_with_extra(
         }
     };
     if binding.mode != "single_file" {
-        execution_session.clear();
+        execution_session.clear_operation_slots();
+        execution_session.evict_prepared_request_inputs(request);
+        execution_session.evict_prepared_binding(&binding);
         return execute_native_vortex_bound_primitive_run_with_extra(
             request,
             plan,
@@ -2856,12 +3075,13 @@ fn execute_native_vortex_materializing_with_session(
             );
         }
     }
-    execution_session.clear();
-    execute_native_vortex_materializing_primitive_run_with_extra(
+    execution_session.clear_operation_slots();
+    execute_native_vortex_materializing_primitive_run_with_extra_and_session(
         request,
         plan,
         format,
         extra_fields,
+        Some(execution_session),
         primitive,
         admission,
     )
@@ -2893,7 +3113,7 @@ fn execute_native_vortex_owned_collect(
 }
 
 #[cfg(all(feature = "vortex-local-primitives", unix))]
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 fn execute_native_vortex_owned_collect_with_source(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
@@ -2921,18 +3141,32 @@ fn execute_native_vortex_owned_collect_with_source(
             .is_some_and(|entry| entry.request == *request)
         {
             // Release the previous reader/runtime before admitting the next budget.
-            execution_session.clear();
+            execution_session.clear_operation_slots();
+            let native_session = admission.native_session()?;
+            let cancellation = admission.cancellation();
             let operation = if let Some(source) = source {
                 shardloom_vortex::local_primitives::collect::prepare_rows_from_source_controlled(
                     &primitive_request,
                     source,
-                    &admission.cancellation(),
+                    &cancellation,
+                )?
+            } else if let Some(uri) = primitive_request.source_uri.as_ref()
+                && let Some((source, _)) = execution_session.get_or_prepare_uri_source(
+                    uri,
+                    native_session,
+                    &cancellation,
+                )?
+            {
+                shardloom_vortex::local_primitives::collect::prepare_rows_from_source_controlled(
+                    &primitive_request,
+                    source,
+                    &cancellation,
                 )?
             } else {
                 shardloom_vortex::local_primitives::collect::prepare_rows_in_session_controlled(
                     &primitive_request,
-                    admission.native_session()?,
-                    &admission.cancellation(),
+                    native_session,
+                    &cancellation,
                 )?
             };
             execution_session.collect = Some(PreparedPublicCollect {
@@ -2952,7 +3186,9 @@ fn execute_native_vortex_owned_collect_with_source(
     let result = match result {
         Ok(result) => result,
         Err(error) => {
-            execution_session.clear();
+            execution_session.clear_operation_slots();
+            execution_session.evict_prepared_request_inputs(request);
+            execution_session.evict_prepared_binding(binding);
             return native_vortex_materializing_error(format, primitive, &error);
         }
     };
@@ -3264,32 +3500,53 @@ fn execute_native_vortex_sort_collect(
     mut extra_fields: Vec<(String, String)>,
     primitive_request: &shardloom_vortex::VortexQueryPrimitiveRequest,
     binding: &NativeVortexInputBinding,
+    execution_session: Option<&mut PublicExecutionSession>,
     source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
     admission: &CommandAdmission<'_>,
 ) -> ExitCode {
-    use shardloom_vortex::local_primitives::prepared_dispatch;
+    use shardloom_vortex::local_primitives::{prepared_dispatch, prepared_relational};
+    let mut execution_session = execution_session;
     let result = (|| {
         admission.check()?;
         let policy = native_vortex_materializing_policy(request)?;
+        let native_session = admission.native_session()?;
+        let cancellation = admission.cancellation();
+        prepared_relational::validate_session_policy(policy, native_session)?;
         let source = match source {
             Some(source) => source,
-            None => prepared_dispatch::prepare_source_in_session(
-                primitive_request,
-                policy,
-                admission.native_session()?,
-                &admission.cancellation(),
-            )?,
+            None => {
+                if let (Some(session), Some(uri)) = (
+                    execution_session.as_deref_mut(),
+                    primitive_request.source_uri.as_ref(),
+                ) && let Some((cached, _)) =
+                    session.get_or_prepare_uri_source(uri, native_session, &cancellation)?
+                {
+                    cached
+                } else {
+                    prepared_dispatch::prepare_source_in_session(
+                        primitive_request,
+                        policy,
+                        native_session,
+                        &cancellation,
+                    )?
+                }
+            }
         };
         prepared_dispatch::collect_sort_controlled(
             primitive_request,
             policy,
             &source,
-            &admission.cancellation(),
+            &cancellation,
         )
     })();
     let result = match result {
         Ok(result) => result,
         Err(error) => {
+            if let Some(session) = execution_session {
+                session.clear_operation_slots();
+                session.evict_prepared_request_inputs(request);
+                session.evict_prepared_binding(binding);
+            }
             return native_vortex_materializing_error(
                 format,
                 PublicVortexPrimitive::SortRows,
@@ -3327,6 +3584,7 @@ fn execute_native_vortex_sort_collect(
     ExitCode::SUCCESS
 }
 
+#[cfg(all(feature = "vortex-local-primitives", unix))]
 fn execute_native_vortex_materializing_primitive_run_with_extra(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
@@ -3335,11 +3593,32 @@ fn execute_native_vortex_materializing_primitive_run_with_extra(
     primitive: PublicVortexPrimitive,
     admission: &CommandAdmission<'_>,
 ) -> ExitCode {
-    execute_native_vortex_materializing_with_source(
+    execute_native_vortex_materializing_primitive_run_with_extra_and_session(
         request,
         plan,
         format,
         extra_fields,
+        None,
+        primitive,
+        admission,
+    )
+}
+
+fn execute_native_vortex_materializing_primitive_run_with_extra_and_session(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+    format: OutputFormat,
+    extra_fields: Vec<(String, String)>,
+    execution_session: Option<&mut PublicExecutionSession>,
+    primitive: PublicVortexPrimitive,
+    admission: &CommandAdmission<'_>,
+) -> ExitCode {
+    execute_native_vortex_materializing_with_source_and_session(
+        request,
+        plan,
+        format,
+        extra_fields,
+        execution_session,
         primitive,
         #[cfg(all(feature = "vortex-local-primitives", unix))]
         None,
@@ -3347,18 +3626,21 @@ fn execute_native_vortex_materializing_primitive_run_with_extra(
     )
 }
 
-#[allow(clippy::too_many_lines)] // Keep feature-gated source dispatch and its certificate emission together.
-fn execute_native_vortex_materializing_with_source(
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // Keep feature-gated source dispatch and its certificate emission together.
+fn execute_native_vortex_materializing_with_source_and_session(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
     format: OutputFormat,
     mut extra_fields: Vec<(String, String)>,
+    mut execution_session: Option<&mut PublicExecutionSession>,
     primitive: PublicVortexPrimitive,
     #[cfg(all(feature = "vortex-local-primitives", unix))] source: Option<
         shardloom_vortex::resident_session::PreparedVortexSource,
     >,
     admission: &CommandAdmission<'_>,
 ) -> ExitCode {
+    #[cfg(not(all(feature = "vortex-local-primitives", unix)))]
+    let _ = &mut execution_session;
     if let Err(error) = admission.check() {
         return native_vortex_materializing_error(format, primitive, &error);
     }
@@ -3378,8 +3660,21 @@ fn execute_native_vortex_materializing_with_source(
     }
     let binding = match native_vortex_input_binding_for_request(request, admission) {
         Ok(binding) => binding,
-        Err(error) => return native_vortex_materializing_error(format, primitive, &error),
+        Err(error) => {
+            if let Some(session) = execution_session {
+                session.clear_operation_slots();
+                session.evict_prepared_request_inputs(request);
+            }
+            return native_vortex_materializing_error(format, primitive, &error);
+        }
     };
+    if binding.mode != "single_file"
+        && let Some(session) = execution_session.as_deref_mut()
+    {
+        session.clear_operation_slots();
+        session.evict_prepared_request_inputs(request);
+        session.evict_prepared_binding(&binding);
+    }
     let (primitive_request, primitive_arg, source_uris) =
         match native_vortex_bound_request_and_arg(request, primitive, &binding) {
             Ok(value) => value,
@@ -3401,12 +3696,45 @@ fn execute_native_vortex_materializing_with_source(
             extra_fields,
             &primitive_request,
             &binding,
+            execution_session,
             source,
             admission,
         );
     }
     #[cfg(all(feature = "vortex-local-primitives", unix))]
-    let prepared = source.map(|source| {
+    let resolved_sort_source = if primitive == PublicVortexPrimitive::SortRows
+        && binding.mode == "single_file"
+        && source.is_none()
+        && let (Some(session), Some(uri)) = (
+            execution_session.as_deref_mut(),
+            primitive_request.source_uri.as_ref(),
+        ) {
+        let native_session = match admission.native_session() {
+            Ok(s) => s,
+            Err(error) => return native_vortex_materializing_error(format, primitive, &error),
+        };
+        if let Err(error) =
+            shardloom_vortex::local_primitives::prepared_relational::validate_session_policy(
+                policy,
+                native_session,
+            )
+        {
+            return native_vortex_materializing_error(format, primitive, &error);
+        }
+        match session.get_or_prepare_uri_source(uri, native_session, &admission.cancellation()) {
+            Ok(opt) => opt.map(|(s, _)| s),
+            Err(error) => {
+                session.clear_operation_slots();
+                session.evict_prepared_request_inputs(request);
+                session.evict_prepared_binding(&binding);
+                return native_vortex_materializing_error(format, primitive, &error);
+            }
+        }
+    } else {
+        source
+    };
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    let prepared = resolved_sort_source.map(|source| {
         shardloom_vortex::local_primitives::prepared_dispatch::execute_sort_controlled(
             &primitive_request,
             policy,
@@ -3421,7 +3749,14 @@ fn execute_native_vortex_materializing_with_source(
     let report = if let Some(report) = prepared {
         match report {
             Ok(report) => report,
-            Err(error) => return native_vortex_materializing_error(format, primitive, &error),
+            Err(error) => {
+                if let Some(session) = execution_session {
+                    session.clear_operation_slots();
+                    session.evict_prepared_request_inputs(request);
+                    session.evict_prepared_binding(&binding);
+                }
+                return native_vortex_materializing_error(format, primitive, &error);
+            }
         }
     } else if binding.mode == "single_file" {
         match execute_admitted_native_primitive(&primitive_request, None, policy, admission) {

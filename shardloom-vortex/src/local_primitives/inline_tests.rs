@@ -21310,3 +21310,282 @@ fn local_primitive_certificate_blocks_unsafe_effects() {
     assert!(!certificate.is_certified());
     assert!(certificate.data_materialized);
 }
+
+fn assert_conjunction_chunk_short_circuits(string_contains: &PredicateExpr) {
+    use vortex::VortexSessionDefault as _;
+    use vortex::io::runtime::BlockingRuntime as _;
+    use vortex::io::runtime::single::SingleThreadRuntime;
+    use vortex::io::session::RuntimeSessionExt as _;
+    use vortex::session::VortexSession;
+
+    let path = unique_vortex_path("conjunction-short-circuit");
+    write_wide_string_sort_fixture(&path).expect("fixture");
+    let runtime = SingleThreadRuntime::default();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let file = runtime
+        .block_on(open_local_vortex_file(&session, &path, None))
+        .expect("file");
+    let chunk = file
+        .scan()
+        .expect("scan")
+        .into_array_iter(&runtime)
+        .expect("iter")
+        .next()
+        .expect("chunk")
+        .expect("array");
+    let _ = std::fs::remove_file(&path);
+    let mut ctx = native_numeric_execution_ctx(&session);
+    let scan_columns = chunk
+        .dtype()
+        .as_struct_fields_opt()
+        .expect("struct")
+        .names()
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    let short_circuit = MaterializedPredicateEvaluator::compile(
+        &PredicateExpr::And(vec![
+            string_contains.clone(),
+            PredicateExpr::Compare {
+                column: ColumnRef::new("id").expect("id"),
+                op: ComparisonOp::Eq,
+                value: StatValue::Int64(999_999),
+            },
+        ]),
+        &scan_columns,
+    )
+    .expect("compile short circuit");
+    let candidates = short_circuit
+        .fast_candidate_row_indices_in_chunk(&chunk, &scan_columns, &mut ctx)
+        .expect("candidates");
+    assert_eq!(candidates, Some(Vec::new()));
+}
+
+#[test]
+fn conjunction_predicates_order_cheapest_selective_terms_first_and_short_circuit_empty() {
+    let string_contains = PredicateExpr::StringContains {
+        column: ColumnRef::new("URL").expect("url"),
+        needle: "google".to_string(),
+        negated: false,
+    };
+    let not_eq = PredicateExpr::Compare {
+        column: ColumnRef::new("id").expect("id"),
+        op: ComparisonOp::NotEq,
+        value: StatValue::Int64(7),
+    };
+    let is_not_null = PredicateExpr::IsNotNull {
+        column: ColumnRef::new("URL").expect("url"),
+    };
+    let range = PredicateExpr::Compare {
+        column: ColumnRef::new("EventTime").expect("time"),
+        op: ComparisonOp::GtEq,
+        value: StatValue::Int64(10),
+    };
+    let small_in = PredicateExpr::InList {
+        column: ColumnRef::new("RegionID").expect("region"),
+        values: vec![StatValue::Int64(1), StatValue::Int64(2)],
+        negated: false,
+    };
+    let eq_id = PredicateExpr::Compare {
+        column: ColumnRef::new("id").expect("id"),
+        op: ComparisonOp::Eq,
+        value: StatValue::Int64(4),
+    };
+    let is_null = PredicateExpr::IsNull {
+        column: ColumnRef::new("Referer").expect("ref"),
+    };
+    let always_false = PredicateExpr::AlwaysFalse;
+    let raw = vec![
+        string_contains.clone(),
+        not_eq.clone(),
+        is_not_null.clone(),
+        range.clone(),
+        small_in.clone(),
+        eq_id.clone(),
+        is_null.clone(),
+        always_false.clone(),
+    ];
+    let ordered = order_conjunction_predicates(&raw);
+    assert_eq!(
+        ordered,
+        vec![
+            &always_false,
+            &is_null,
+            &eq_id,
+            &small_in,
+            &range,
+            &is_not_null,
+            &not_eq,
+            &string_contains,
+        ]
+    );
+
+    let columns = vec![
+        "id".to_string(),
+        "URL".to_string(),
+        "EventTime".to_string(),
+        "RegionID".to_string(),
+        "Referer".to_string(),
+    ];
+    let compiled = MaterializedPredicateEvaluator::compile(
+        &PredicateExpr::And(vec![string_contains.clone(), always_false, eq_id.clone()]),
+        &columns,
+    )
+    .expect("compile");
+    match &compiled {
+        MaterializedPredicateEvaluator::And(terms) => {
+            assert!(matches!(
+                terms[0],
+                MaterializedPredicateEvaluator::AlwaysFalse
+            ));
+            assert!(matches!(
+                terms[1],
+                MaterializedPredicateEvaluator::Compare { .. }
+            ));
+            assert!(matches!(
+                terms[2],
+                MaterializedPredicateEvaluator::StringContains { .. }
+            ));
+        }
+        other => panic!("expected And, got {other:?}"),
+    }
+
+    assert_conjunction_chunk_short_circuits(&string_contains);
+}
+
+#[test]
+fn sort_rows_wide_and_predicate_uses_row_idx_pushdown() {
+    let path = unique_vortex_path("sort-rows-wide-and-pushdown");
+    write_wide_string_sort_fixture(&path).expect("fixture");
+    let request = VortexQueryPrimitiveRequest::sort_rows(
+        DatasetUri::new(path.display().to_string()).expect("uri"),
+        ProjectionRequest::All,
+        Some(PredicateExpr::And(vec![
+            PredicateExpr::StringContains {
+                column: ColumnRef::new("URL").expect("url"),
+                needle: "google".to_string(),
+                negated: false,
+            },
+            PredicateExpr::Compare {
+                column: ColumnRef::new("EventTime").expect("time"),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Int64(10),
+            },
+        ])),
+        VortexSortRowsRequest::new(vec![crate::VortexAggregateOrderExpr::new(
+            "EventTime",
+            false,
+        )]),
+        1,
+    );
+
+    let report = execute_vortex_local_primitive_with_policy(
+        &request,
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).expect("policy"),
+    )
+    .expect("report");
+    let _ = std::fs::remove_file(&path);
+
+    assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+    assert!(report.filter_pushdown_applied);
+    assert!(report.upstream_filter_expression_used);
+    assert_eq!(report.rows_selected, Some(1));
+    let summary = report.result_summary.expect("summary");
+    assert!(summary.contains("\"wide_output_second_pass\":true"));
+    assert!(
+        summary.contains("\"sort_predicate_strategy\":\"vortex_filter_pushdown_with_row_idx\"")
+    );
+    assert!(summary.contains("\"late_materialization_source_row_id_projection_applied\":true"));
+    assert!(summary.contains("\"id\":4"));
+}
+
+#[test]
+fn encoded_chunk_descriptor_inspects_encoded_struct_and_primitive_chunks_without_decoding() {
+    use vortex::array::{
+        IntoArray as _, VortexSessionExecute as _,
+        arrays::{ConstantArray, DictArray, PrimitiveArray, StructArray, VarBinViewArray},
+        dtype::FieldNames,
+        scalar::Scalar,
+        validity::Validity,
+    };
+    use vortex::encodings::{fastlanes::BitPackedData, runend::RunEnd, sparse::Sparse};
+
+    let mut ctx = vortex::session::VortexSession::empty().create_execution_ctx();
+    let bitpacked = BitPackedData::encode(
+        &[0_u8, 1, 0, 1, 1]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array(),
+        1,
+        &mut ctx,
+    )
+    .expect("bitpacked")
+    .as_array()
+    .clone();
+    let dict = DictArray::try_new(
+        [0_u32, 1, 0, 1, 0]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array(),
+        VarBinViewArray::from_iter_str(["a", "b"]).into_array(),
+    )
+    .expect("dict")
+    .into_array();
+    let sparse = Sparse::try_new(
+        [1_u64, 3]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array(),
+        [42_i32, 77]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array(),
+        5,
+        Scalar::from(0_i32),
+        &mut ctx,
+    )
+    .expect("sparse")
+    .into_array();
+    let runend = RunEnd::try_new(
+        [2_u64, 5]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array(),
+        [5_i64, 9]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array(),
+        &mut ctx,
+    )
+    .expect("runend")
+    .into_array();
+    let constant = ConstantArray::new(Scalar::from(99_i64), 5).into_array();
+
+    let single = VortexEncodedChunkDescriptor::inspect(&constant);
+    assert_eq!(single.row_count, 5);
+    assert_eq!(single.fields.len(), 1);
+    assert!(single.fields[0].is_constant);
+
+    let chunk = StructArray::try_new(
+        FieldNames::from(["bp", "dict", "sparse", "runend", "constant"]),
+        vec![bitpacked, dict, sparse, runend, constant],
+        5,
+        Validity::NonNullable,
+    )
+    .expect("struct")
+    .into_array();
+    let descriptor = VortexEncodedChunkDescriptor::inspect(&chunk);
+    assert_eq!(descriptor.row_count, 5);
+    assert_eq!(descriptor.fields.len(), 5);
+    assert_eq!(descriptor.fields[0].column_name, "bp");
+    assert!(!descriptor.fields[0].is_constant);
+    assert!(descriptor.fields[0].encoding_id.contains("bitpacked"));
+    assert_eq!(descriptor.fields[1].column_name, "dict");
+    assert!(descriptor.fields[1].encoding_id.contains("dict"));
+    assert_eq!(descriptor.fields[2].column_name, "sparse");
+    assert!(descriptor.fields[2].encoding_id.contains("sparse"));
+    assert_eq!(descriptor.fields[3].column_name, "runend");
+    assert!(descriptor.fields[3].encoding_id.contains("runend"));
+    assert_eq!(descriptor.fields[4].column_name, "constant");
+    assert!(descriptor.fields[4].is_constant);
+}

@@ -26,7 +26,6 @@ use vortex_array::dtype::FieldMask;
 use vortex_array::expr::BoundExpression;
 use vortex_array::memory::HostAllocatorRef;
 use vortex_array::memory::HostMemoryReservation;
-use vortex_array::memory::HostMemorySessionExt;
 use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
 use vortex_error::vortex_ensure;
@@ -80,6 +79,7 @@ impl ChunkedReader {
         session: &VortexSession,
         ctx: LayoutReaderContext,
     ) -> VortexResult<Self> {
+        let allocator = ctx.storage_allocator(session);
         let lazy_children = if cfg!(debug_assertions) {
             // format!() has non-marginal overhead for short queries like random
             // access benchmarks
@@ -106,7 +106,7 @@ impl ChunkedReader {
             layout,
             name,
             lazy_children,
-            allocator: session.host_allocator(),
+            allocator,
             chunk_skips: OnceCell::new(),
         })
     }

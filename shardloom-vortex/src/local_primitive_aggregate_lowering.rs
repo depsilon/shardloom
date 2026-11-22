@@ -70,6 +70,7 @@ impl AggregateLowering {
         let mut plan = projection_scan_plan(dtype, &projection, request.kind)?;
         if let Some(predicate) = &pushdown {
             plan.filter = Some(predicate_to_vortex_expr(predicate, dtype, request.kind)?);
+            plan.pushdown_predicate = Some(predicate.clone());
         }
         Ok(Self {
             rewrite,

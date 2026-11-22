@@ -182,7 +182,8 @@ pub(super) fn run_with_source(
     ) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
-            session.clear();
+            session.clear_operation_slots();
+            sources::evict_statement_sources(request, session);
             emit_error("run", format, "native relational execution failed", &error)
         }
     }
@@ -211,23 +212,38 @@ fn execute(
         admission,
         &admission.cancellation(),
     )?;
+    let opens_before = admission.native_session()?.snapshot().prepared_source_opens;
     if !reused {
-        session.clear();
+        session.clear_operation_slots();
+        let native_session = admission.native_session()?.clone();
+        let cancellation = admission.cancellation();
+        let cache_enabled =
+            preparations.sources.is_empty() && request.execution_policy != "prepare_once";
+        let mut cache_lookup = |uri: &shardloom_core::DatasetUri| {
+            if !cache_enabled {
+                return Ok(None);
+            }
+            session
+                .get_or_prepare_uri_source(uri, &native_session, &cancellation)
+                .map(|opt| opt.map(|(cached, _)| cached))
+        };
         let (operation, prepared_sources) = if primitive {
-            let (operation, _, normalized) = sources::prepare_primitive_in_session(
+            let (operation, _, normalized) = sources::prepare_primitive_in_session_with_cache(
                 request,
-                admission.native_session()?,
-                &admission.cancellation(),
+                &native_session,
+                &cancellation,
+                Some(&mut cache_lookup),
             )?;
             (operation, normalized)
         } else {
-            sources::prepare_with_source_in_session(
+            sources::prepare_with_source_in_session_and_cache(
                 statement,
                 request,
                 source,
                 preparations.clone(),
-                admission.native_session()?,
-                &admission.cancellation(),
+                &native_session,
+                &cancellation,
+                Some(&mut cache_lookup),
             )?
         };
         session.relational = Some(PreparedPublicRelational {
@@ -237,6 +253,8 @@ fn execute(
             preparations,
         });
     }
+    let footer_opened_this_call =
+        !reused && admission.native_session()?.snapshot().prepared_source_opens > opens_before;
     let prepared = session.relational.as_ref().ok_or_else(|| {
         ShardLoomError::InvalidOperation("native relational preparation did not complete".into())
     })?;
@@ -260,12 +278,13 @@ fn execute(
     ));
     if is_write_request(request) {
         #[cfg(feature = "vortex-write")]
-        return execute_write_controlled(
+        return execute_write_controlled_with_footer_open(
             request,
             format,
             operation,
             fields,
             reused,
+            Some(footer_opened_this_call),
             &admission.cancellation(),
         );
         #[cfg(not(feature = "vortex-write"))]
@@ -273,7 +292,14 @@ fn execute(
             "native relational writers require vortex-write".into(),
         ));
     }
-    execute_collect(format, operation, fields, reused, &admission.cancellation())
+    execute_collect_with_footer_open(
+        format,
+        operation,
+        fields,
+        reused,
+        Some(footer_opened_this_call),
+        &admission.cancellation(),
+    )
 }
 
 fn execute_collect(
@@ -283,18 +309,44 @@ fn execute_collect(
     reused: bool,
     cancellation: &CancellationToken,
 ) -> Result<(), ShardLoomError> {
+    execute_collect_with_footer_open(format, operation, fields, reused, None, cancellation)
+}
+
+fn execute_collect_with_footer_open(
+    format: OutputFormat,
+    operation: &PreparedVortexRelational,
+    fields: Vec<(String, String)>,
+    reused: bool,
+    footer_opened_this_call: Option<bool>,
+    cancellation: &CancellationToken,
+) -> Result<(), ShardLoomError> {
     let collected = operation.collect_jsonl(cancellation)?;
-    emit_collected(format, collected, fields, reused);
+    emit_collected_with_footer_open(format, collected, fields, reused, footer_opened_this_call);
     Ok(())
 }
 
 fn emit_collected(
     format: OutputFormat,
     collected: shardloom_vortex::local_primitives::prepared_relational::CollectedVortexRelational,
-    mut fields: Vec<(String, String)>,
+    fields: Vec<(String, String)>,
     reused: bool,
 ) {
-    append_execution(&mut fields, &collected.execution, reused);
+    emit_collected_with_footer_open(format, collected, fields, reused, None);
+}
+
+fn emit_collected_with_footer_open(
+    format: OutputFormat,
+    collected: shardloom_vortex::local_primitives::prepared_relational::CollectedVortexRelational,
+    mut fields: Vec<(String, String)>,
+    reused: bool,
+    footer_opened_this_call: Option<bool>,
+) {
+    append_execution_with_footer_open(
+        &mut fields,
+        &collected.execution,
+        reused,
+        footer_opened_this_call,
+    );
     crate::execution_resources::append_query_timing_fields(&mut fields, Some(collected.timing));
     let (jsonl, _ownership) = collected.result_jsonl.into_parts();
     let (schema, _schema_ownership) = collected.result_schema_json.into_parts();
@@ -328,6 +380,27 @@ fn execute_write_controlled(
     reused: bool,
     cancellation: &CancellationToken,
 ) -> Result<(), ShardLoomError> {
+    execute_write_controlled_with_footer_open(
+        request,
+        format,
+        operation,
+        fields,
+        reused,
+        None,
+        cancellation,
+    )
+}
+
+#[cfg(feature = "vortex-write")]
+fn execute_write_controlled_with_footer_open(
+    request: &PublicWorkflowRouteRequest,
+    format: OutputFormat,
+    operation: &PreparedVortexRelational,
+    fields: Vec<(String, String)>,
+    reused: bool,
+    footer_opened_this_call: Option<bool>,
+    cancellation: &CancellationToken,
+) -> Result<(), ShardLoomError> {
     let targets =
         native_vortex_primitive_row_export_targets(request, "run").map_err(|blocked| {
             ShardLoomError::InvalidOperation(format!(
@@ -344,7 +417,13 @@ fn execute_write_controlled(
         cancellation,
     )?;
     let mut fields = fields;
-    let primary = append_written_fanout(&mut fields, &targets, written, reused);
+    let primary = append_written_fanout_with_footer_open(
+        &mut fields,
+        &targets,
+        written,
+        reused,
+        footer_opened_this_call,
+    );
     emit(
         "run",
         format,
@@ -386,8 +465,19 @@ pub(super) fn append_written(
 pub(super) fn append_written_fanout(
     fields: &mut Vec<(String, String)>,
     targets: &[super::NativeVortexPrimitiveRowExportTarget],
+    written: shardloom_vortex::local_primitives::prepared_relational::WrittenVortexRelationalFanout,
+    reused: bool,
+) -> shardloom_vortex::VortexLocalPrimitiveRowExportReport {
+    append_written_fanout_with_footer_open(fields, targets, written, reused, None)
+}
+
+#[cfg(feature = "vortex-write")]
+fn append_written_fanout_with_footer_open(
+    fields: &mut Vec<(String, String)>,
+    targets: &[super::NativeVortexPrimitiveRowExportTarget],
     mut written: shardloom_vortex::local_primitives::prepared_relational::WrittenVortexRelationalFanout,
     reused: bool,
+    footer_opened_this_call: Option<bool>,
 ) -> shardloom_vortex::VortexLocalPrimitiveRowExportReport {
     append_native_vortex_primitive_row_export_fields(fields, &written.outputs[0]);
     super::append_native_vortex_primitive_row_export_target_fields_with_execution(
@@ -401,7 +491,7 @@ pub(super) fn append_written_fanout(
             "native_query_once_direct_output"
         },
     );
-    append_execution(fields, &written.execution, reused);
+    append_execution_with_footer_open(fields, &written.execution, reused, footer_opened_this_call);
     append_output_replay_fields(fields, written.replay.as_ref());
     written.outputs.remove(0)
 }
@@ -548,6 +638,16 @@ pub(super) fn append_execution(
     fields: &mut Vec<(String, String)>,
     result: &ExecutedVortexRelational,
     reused: bool,
+) {
+    append_execution_with_footer_open(fields, result, reused, None);
+}
+
+#[allow(clippy::too_many_lines)]
+fn append_execution_with_footer_open(
+    fields: &mut Vec<(String, String)>,
+    result: &ExecutedVortexRelational,
+    reused: bool,
+    footer_opened_this_call: Option<bool>,
 ) {
     if !result.observations.is_empty() {
         fields.push((
@@ -910,7 +1010,9 @@ pub(super) fn append_execution(
         ),
         (
             "resident_footer_open_performed_this_call".into(),
-            (!reused && result.prepared_file_sources > 0).to_string(),
+            footer_opened_this_call
+                .unwrap_or(!reused && result.prepared_file_sources > 0)
+                .to_string(),
         ),
         ("resident_relational_handle_retained".into(), "true".into()),
         (

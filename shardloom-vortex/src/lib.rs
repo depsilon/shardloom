@@ -175,6 +175,8 @@ pub mod read_planning;
 pub mod relational_query;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 pub mod resident_memory_source;
+#[cfg(feature = "vortex-local-primitives")]
+pub(crate) mod resident_segment_prefetch;
 #[cfg(all(feature = "vortex-local-primitives", not(target_arch = "wasm32")))]
 pub mod resident_session;
 #[cfg(any(

@@ -82,6 +82,7 @@ impl Binder<'_> {
                         )
                     })
                     .transpose()?;
+                plan.pushdown_predicate.clone_from(predicate);
                 **projection = self.batch_sources.values[*index]
                     .schema
                     .prepare_projection(

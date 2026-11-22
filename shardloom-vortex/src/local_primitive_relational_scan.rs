@@ -128,7 +128,11 @@ fn run_file(
         let pruning_checks = u64::from(plan.filter.is_some());
         add(&metrics.scans_started, 1)?;
         if let Some(filter) = &plan.filter {
-            let excluded = file.can_prune(filter).map_err(vortex_error)?;
+            let excluded = crate::local_primitives::file_pruning::can_prune_file_with_predicate(
+                file,
+                filter,
+                plan.pushdown_predicate.as_ref(),
+            )?;
             context.record_capability_decision(
                 NativeIoCapability::RegionExclusion,
                 if excluded {

@@ -326,6 +326,30 @@ pub fn prepare_unary_for_optional_reuse_in_session(
     session: &ResidentVortexSession,
     cancellation: &CancellationToken,
 ) -> Result<Option<PreparedVortexUnary>> {
+    prepare_unary_for_optional_reuse_with_source_loader(
+        request,
+        policy,
+        session,
+        cancellation,
+        |path| session.prepare_file_with_cancellation(path, cancellation),
+    )
+}
+
+/// Choose retained native execution from the source schema using an existing
+/// session, a caller-supplied source loader, and the caller's cancellation/deadline
+/// token. Structured projection remains assigned to its separate native provider
+/// and returns `None` before opening any source.
+///
+/// # Errors
+/// Rejects cancellation, malformed requests, policy failures, missing sources,
+/// mismatched session owners, changed generations, and invalid source schemas.
+pub fn prepare_unary_for_optional_reuse_with_source_loader(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &ResidentVortexSession,
+    cancellation: &CancellationToken,
+    open_source: impl FnOnce(&std::path::Path) -> Result<PreparedVortexSource>,
+) -> Result<Option<PreparedVortexUnary>> {
     // Structured projection has its own native provider and result schema.
     if request.structured_projection.is_some() {
         return Ok(None);
@@ -333,7 +357,32 @@ pub fn prepare_unary_for_optional_reuse_in_session(
     canonical(request, true)?;
     validate_policy(policy)?;
     cancellation.check()?;
-    prepare_candidate(request, policy, session, true, cancellation)
+    prepare_candidate_with_source_loader(request, policy, session, true, cancellation, open_source)
+}
+
+/// Choose retained native execution against an already opened source using its
+/// retained session and cancellation token. Structured projection remains
+/// assigned to its separate native provider and returns `None`.
+///
+/// # Errors
+/// Rejects cancellation, malformed requests, policy failures, changed or
+/// mismatched sources, and invalid schemas without opening another source.
+pub fn prepare_unary_for_optional_reuse_from_source(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    source: PreparedVortexSource,
+    cancellation: &CancellationToken,
+) -> Result<Option<PreparedVortexUnary>> {
+    if request.structured_projection.is_some() {
+        return Ok(None);
+    }
+    canonical(request, true)?;
+    validate_policy(policy)?;
+    cancellation.check()?;
+    let session = super::prepared_dispatch::source_session(&source, request, Some(policy))?;
+    prepare_candidate_with_source_loader(request, policy, &session, true, cancellation, |_| {
+        Ok(source)
+    })
 }
 
 fn prepare_candidate(
@@ -342,6 +391,19 @@ fn prepare_candidate(
     session: &ResidentVortexSession,
     optional: bool,
     cancellation: &CancellationToken,
+) -> Result<Option<PreparedVortexUnary>> {
+    prepare_candidate_with_source_loader(request, policy, session, optional, cancellation, |path| {
+        session.prepare_file_with_cancellation(path, cancellation)
+    })
+}
+
+fn prepare_candidate_with_source_loader(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &ResidentVortexSession,
+    optional: bool,
+    cancellation: &CancellationToken,
+    open_source: impl FnOnce(&std::path::Path) -> Result<PreparedVortexSource>,
 ) -> Result<Option<PreparedVortexUnary>> {
     cancellation.check()?;
     canonical(request, true)?;
@@ -363,7 +425,13 @@ fn prepare_candidate(
         .ok_or_else(|| failed("source URI is required"))?;
     let path = super::local_vortex_path(uri, request.kind)?
         .ok_or_else(|| failed("requires one local Vortex file"))?;
-    let source = session.prepare_file_with_cancellation(path, cancellation)?;
+    let source = open_source(&path)?;
+    if !source.retained_session().same_owner(session) {
+        return Err(failed(
+            "retained source belongs to a different session owner",
+        ));
+    }
+    source.validate_generation()?;
     cancellation.check()?;
     if optional {
         let plan = super::row_export_scan_plan(request, source.dtype())?;
@@ -972,7 +1040,13 @@ impl PreparedVortexUnary {
             self.plan.projection.is_some(),
         );
         let pruned = filter
-            .map(|filter| file.can_prune(filter).map_err(vortex_error))
+            .map(|filter| {
+                crate::local_primitives::file_pruning::can_prune_file_with_predicate(
+                    file,
+                    filter,
+                    self.plan.pushdown_predicate.as_ref(),
+                )
+            })
             .transpose()?
             .unwrap_or(false);
         if filter.is_some() {

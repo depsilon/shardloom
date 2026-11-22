@@ -582,3 +582,251 @@ fn concurrent_prepared_calls_share_one_session_admission_boundary() {
     assert_eq!(session.snapshot().completed_executions, 256);
     assert_eq!(session.snapshot().prepared_source_opens, 1);
 }
+
+fn write_zoned_slot_fixture(path: &std::path::Path, total_rows_i64: i64) {
+    use std::num::NonZeroUsize;
+    use vortex::{
+        array::aggregate_fn::{
+            AggregateFnVTableExt as _, NumericalAggregateOpts,
+            fns::{max::Max, min::Min, null_count::NullCount},
+        },
+        layout::{
+            LayoutStrategy,
+            layouts::{
+                chunked::writer::ChunkedLayoutStrategy,
+                flat::writer::FlatLayoutStrategy,
+                repartition::{RepartitionStrategy, RepartitionWriterOptions},
+                zoned::writer::{ZonedLayoutOptions, ZonedStrategy},
+            },
+        },
+    };
+
+    let total_rows = usize::try_from(total_rows_i64).unwrap();
+    let keys = PrimitiveArray::new(
+        (0..total_rows_i64).collect::<Vec<_>>(),
+        Validity::NonNullable,
+    )
+    .into_array();
+    let payload = PrimitiveArray::new(
+        (0..total_rows_i64).map(|v| v * 10).collect::<Vec<_>>(),
+        Validity::NonNullable,
+    )
+    .into_array();
+    let data = StructArray::try_new(
+        FieldNames::from(["key", "payload"]),
+        vec![keys, payload],
+        total_rows,
+        Validity::NonNullable,
+    )
+    .unwrap()
+    .into_array();
+
+    let flat: Arc<dyn LayoutStrategy> = Arc::new(FlatLayoutStrategy::default());
+    let functions = vec![
+        NullCount.bind(vortex::array::aggregate_fn::EmptyOptions),
+        Min.bind(NumericalAggregateOpts::skip_nans()),
+        Max.bind(NumericalAggregateOpts::skip_nans()),
+    ];
+    let strategy: Arc<dyn LayoutStrategy> = Arc::new(RepartitionStrategy::new(
+        ZonedStrategy::new(
+            ChunkedLayoutStrategy::new(flat.clone()),
+            flat,
+            ZonedLayoutOptions {
+                block_size: NonZeroUsize::new(128).unwrap(),
+                concurrency: NonZeroUsize::new(1).unwrap(),
+                aggregate_fns: Some(functions.into()),
+            },
+        ),
+        RepartitionWriterOptions {
+            block_size_minimum: 0,
+            block_len_multiple: 128,
+            block_size_target: None,
+            canonicalize: false,
+        },
+    ));
+    let rt = CurrentThreadRuntime::new();
+    let write_session = VortexSession::default().with_handle(rt.handle());
+    write_session
+        .write_options()
+        .with_strategy(strategy)
+        .with_file_statistics(Vec::new())
+        .blocking(&rt)
+        .write(
+            std::fs::File::create(path).unwrap(),
+            data.to_array_iterator(),
+        )
+        .unwrap();
+}
+
+fn scan_zoned_key_gt_count(
+    file: &VortexFile,
+    runtime: &CurrentThreadRuntime,
+    threshold: i64,
+) -> Result<(usize, usize)> {
+    use futures::TryStreamExt as _;
+    use vortex::array::expr::{get_item, gt, lit, root};
+
+    let reader = file.layout_reader().map_err(native_error)?;
+    let ptr = Arc::as_ptr(&reader).cast::<()>() as usize;
+    let filter = gt(get_item("key", root()), lit(threshold))
+        .bind(file.dtype())
+        .map_err(native_error)?;
+    let count = runtime
+        .block_on(
+            file.scan()
+                .map_err(native_error)?
+                .with_filter(filter)
+                .with_concurrency(1)
+                .into_array_stream()
+                .map_err(native_error)?
+                .try_collect::<Vec<_>>(),
+        )
+        .map_err(native_error)?
+        .iter()
+        .map(vortex::array::ArrayRef::len)
+        .sum::<usize>();
+    Ok((ptr, count))
+}
+
+#[test]
+fn layout_reader_cache_persists_across_queries_and_zoned_maps_are_not_reread() {
+    let dir = std::env::temp_dir().join(format!(
+        "shardloom-zoned-slot-{}-{}",
+        std::process::id(),
+        NEXT_FIXTURE.fetch_add(1, Ordering::Relaxed)
+    ));
+    std::fs::create_dir(&dir).unwrap();
+    let path = dir.join("zoned.vortex");
+    write_zoned_slot_fixture(&path, 1024);
+
+    let session = ResidentVortexSession::new(16 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    let (source, observer) = session
+        .prepare_observed_file(
+            &path,
+            super::read_observer::ReadObservationLimits::default(),
+        )
+        .unwrap();
+
+    // Q1 loads ZonedLayout zone maps and reads the matching chunk.
+    let q1_ptr = source
+        .with_native_execution(|file, _vsession, runtime| {
+            let (ptr, count) = scan_zoned_key_gt_count(file, runtime, 950)?;
+            assert_eq!(count, 73);
+            Ok(ptr)
+        })
+        .unwrap();
+    let snap_after_q1 = observer.snapshot().unwrap();
+
+    // Q2 cannot be pruned by file stats (written empty); it prunes strictly via
+    // the cached ZonedReader zone_map without triggering ANY new segment reads.
+    let q2_ptr = source
+        .with_native_execution(|file, _vsession, runtime| {
+            let (ptr, count) = scan_zoned_key_gt_count(file, runtime, 10_000)?;
+            assert_eq!(count, 0);
+            Ok(ptr)
+        })
+        .unwrap();
+    let snap_after_q2 = observer.snapshot().unwrap();
+    assert_eq!(
+        q1_ptr, q2_ptr,
+        "persistent slot must reuse the cached LayoutReader tree across queries"
+    );
+    assert_eq!(
+        snap_after_q2.completed_read_calls, snap_after_q1.completed_read_calls,
+        "second query must prune via already-cached zone maps without reading segments"
+    );
+    assert_eq!(
+        snap_after_q2.completed_read_bytes, snap_after_q1.completed_read_bytes,
+        "second query must read 0 additional bytes when cached zone maps prune all zones"
+    );
+
+    // Q3 reads a disjoint threshold and still reuses the exact cached LayoutReader.
+    let q3_ptr = source
+        .with_native_execution(|file, _vsession, runtime| {
+            let (ptr, count) = scan_zoned_key_gt_count(file, runtime, 1000)?;
+            assert_eq!(count, 23);
+            Ok(ptr)
+        })
+        .unwrap();
+    assert_eq!(q1_ptr, q3_ptr);
+
+    #[cfg(feature = "vortex-local-primitives")]
+    {
+        let policy = super::segment_reuse::SegmentReusePolicy::default();
+        let (q4_ptr, _reuse) = source
+            .with_native_execution_cached_retry_with_drivers(
+                policy,
+                false,
+                |file, _, runtime, _| {
+                    let (ptr, count) = scan_zoned_key_gt_count(file, runtime, 980)?;
+                    assert_eq!(count, 43);
+                    Ok(ptr)
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            q1_ptr, q4_ptr,
+            "SegmentReuse delegate swap must not reset VortexFile::layout_reader_cache"
+        );
+    }
+
+    drop((source, observer, session));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn cancelled_or_failed_operation_discards_layout_slot_without_poisoning_next_query() {
+    let fixture = Fixture::new();
+    let session = ResidentVortexSession::new(8 << 20, 2).unwrap();
+    let memory = session.memory().clone();
+    let source = session.prepare_file(fixture.input()).unwrap();
+    let token = CancellationToken::default();
+    token.cancel();
+    assert!(
+        source
+            .with_native_execution_controlled(&token, |_, _| Ok(()))
+            .is_err()
+    );
+    let failed = source.with_native_execution(|_, _, _| Err::<(), _>(resident_error("boom")));
+    assert!(failed.is_err());
+    let rows = source
+        .prepare_projection(&["value"], 5, 65536)
+        .unwrap()
+        .execute()
+        .unwrap();
+    assert_eq!(rows.row_count(), 5);
+    drop((rows, source, session));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn concurrent_serving_layout_slots_stress_preserves_isolation_and_zero_leak() {
+    let fixture = Fixture::new();
+    let session =
+        ResidentVortexSession::with_serving_policy(16 << 20, 4, ResidentServingPolicy::default())
+            .unwrap();
+    let memory = session.memory().clone();
+    let source = session.prepare_file(fixture.input()).unwrap();
+    std::thread::scope(|scope| {
+        for thread_idx in 0..4 {
+            let source = &source;
+            scope.spawn(move || {
+                let proj = source.prepare_projection(&["value"], 5, 65536).unwrap();
+                for iter in 0..16 {
+                    if (thread_idx + iter) % 2 == 0 {
+                        let batch = proj.execute().unwrap();
+                        assert_eq!(batch.row_count(), 5);
+                    } else {
+                        assert_eq!(source.prepare_count().execute().unwrap(), 5);
+                    }
+                }
+            });
+        }
+    });
+    assert_eq!(session.io_snapshot().unwrap().active_requests, 0);
+    assert_eq!(session.admission_snapshot().unwrap().active_cpu_lanes, 0);
+    drop((source, session));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}

@@ -208,7 +208,13 @@ fn consult_metadata_pruning(
     let metadata_pruned = plan
         .filter
         .as_ref()
-        .map(|filter| file.can_prune(filter).map_err(vortex_error))
+        .map(|filter| {
+            crate::local_primitives::file_pruning::can_prune_file_with_predicate(
+                file,
+                filter,
+                plan.pushdown_predicate.as_ref(),
+            )
+        })
         .transpose()?;
     cancellation.check()?;
     Ok(metadata_pruned)

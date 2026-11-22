@@ -8,10 +8,15 @@ use super::{
 };
 use futures::FutureExt as _;
 use shardloom_core::Result;
-use shardloom_exec::{compute_pool::CancellationToken, live_memory::MemoryLease};
+use shardloom_exec::{
+    compute_pool::CancellationToken,
+    live_memory::{LiveMemoryPool, MemoryLease},
+};
 use std::{
-    borrow::Cow,
-    sync::{Arc, Mutex, MutexGuard, OnceLock},
+    sync::{
+        Arc, Mutex, MutexGuard, OnceLock, RwLock,
+        atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
+    },
     time::{Duration, Instant},
 };
 use vortex::array::scalar_fn::fns::binary::observation::{CompareWork, CompareWorkScope};
@@ -20,7 +25,9 @@ use vortex::encodings::fsst::matcher_reuse::{
     MatcherReuse, MatcherReuseScope, MatcherReuseSnapshot,
 };
 use vortex::{
-    error::{SharedVortexResult, vortex_err},
+    array::memory::{HostAllocator, HostMemoryReservation, WritableHostBuffer},
+    buffer::Alignment,
+    error::{SharedVortexResult, VortexResult, vortex_err},
     file::{
         OpenOptionsSessionExt as _, SegmentMap, VortexFile,
         segments::{FileSegmentSource, RequestMetrics},
@@ -249,6 +256,19 @@ impl NativeExecutionContext<'_> {
             .map_err(|_| resident_error("native file execution evidence poisoned"))?
             .source(identity, self.memory())
             .map(|(_, work)| work)
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn path_source_and_read_work(
+        &self,
+        path: &std::path::Path,
+    ) -> Result<Option<(Arc<SourceIdentity>, Arc<super::file_evidence::ReadWork>)>> {
+        let path = std::path::absolute(path).map_err(super::native_error)?;
+        Ok(self
+            .file_evidence
+            .lock()
+            .map_err(|_| resident_error("native file execution evidence poisoned"))?
+            .source_for_path(&path))
     }
 
     /// Record the completed logical contract at its execution owner. The caller
@@ -718,11 +738,10 @@ impl NativeExecutionContext<'_> {
         identity
             .validate()
             .map_err(|error| vortex_err!("{error}"))?;
-        let view = self
-            .file_view(&file, Some(&identity))
-            .map(Cow::into_owned)
+        let source = self
+            .build_operation_segment_source(&file, &identity)
             .map_err(|error| vortex_err!("{error}"))?;
-        drop(file);
+        let view = file.with_segment_source(source);
         #[cfg(all(feature = "native-binary-objects", unix))]
         {
             // Metadata reads completed synchronously. Keep this I/O scope live
@@ -817,19 +836,45 @@ impl NativeExecutionContext<'_> {
             .ok_or_else(|| resident_error("native file execution has no I/O owner"))
     }
 
-    pub(super) fn file_view<'a>(
+    pub(super) fn checkout_file_view<'a>(
         &self,
+        slots: &Arc<ResidentLayoutSlotPool>,
         file: &'a VortexFile,
         identity: Option<&Arc<SourceIdentity>>,
-    ) -> Result<Cow<'a, VortexFile>> {
+    ) -> Result<FileViewLease<'a>> {
         let Some(identity) = identity else {
-            return Ok(Cow::Borrowed(file));
+            return Ok(FileViewLease::Borrowed(file));
         };
+        #[cfg(unix)]
+        let retain_enabled = self.owner.source_segments.is_enabled();
+        #[cfg(not(unix))]
+        let retain_enabled = true;
+        let operation_source = self.build_operation_segment_source(file, identity)?;
+        let slot = slots.checkout(
+            file,
+            &self.owner.memory,
+            Arc::clone(&operation_source),
+            self.operation,
+        );
+        Ok(FileViewLease::Slot(Box::new(SlotGuard {
+            pool: Arc::clone(slots),
+            slot: Some(slot),
+            operation_source: Some(operation_source),
+            operation: self.operation,
+            retain_enabled,
+            clean: false,
+        })))
+    }
+
+    fn build_operation_segment_source(
+        &self,
+        file: &VortexFile,
+        identity: &Arc<SourceIdentity>,
+    ) -> Result<Arc<dyn SegmentSource>> {
         self.check_general_execution()?;
         let scope = self.file_io_scope()?;
-        // Keep the held descriptor, parsed footer and user metadata. A fresh
-        // provider reader tree gives this operation an exact I/O lifetime; it
-        // does not reopen the file or cache an answer. Batch readers are unchanged.
+        // Keep the held descriptor, parsed footer and user metadata while giving
+        // each operation an exact I/O lifetime; it never reopens or caches answers.
         let reader = super::ResidentFileReadAt {
             identity: Arc::clone(identity),
             allocator: self.owner.session.host_allocator(),
@@ -861,7 +906,366 @@ impl NativeExecutionContext<'_> {
         });
         #[cfg(all(test, unix, feature = "vortex-write"))]
         let source = super::file_pruning_tests::observe_operation_segments(source);
-        Ok(Cow::Owned(file.clone().with_segment_source(source)))
+        Ok(source)
+    }
+}
+
+const MAX_LAYOUT_SLOTS: usize = 16;
+
+#[derive(Debug, Clone)]
+struct SlotHostAllocator {
+    inner: crate::owned_buffers::ReservedHostAllocator,
+    external_live: Arc<AtomicU64>,
+}
+
+struct TrackedExternalReservation {
+    _inner: HostMemoryReservation,
+    bytes: u64,
+    external_live: Arc<AtomicU64>,
+}
+
+impl Drop for TrackedExternalReservation {
+    fn drop(&mut self) {
+        self.external_live.fetch_sub(self.bytes, Ordering::Release);
+    }
+}
+
+impl HostAllocator for SlotHostAllocator {
+    fn allocate(&self, len: usize, alignment: Alignment) -> VortexResult<WritableHostBuffer> {
+        self.inner.allocate(len, alignment)
+    }
+
+    fn reserve_external(&self, len: usize) -> VortexResult<HostMemoryReservation> {
+        let inner = self.inner.reserve_external(len)?;
+        let bytes = u64::try_from(len)
+            .map_err(|_| vortex_err!("native slot external reservation size overflow"))?;
+        self.external_live.fetch_add(bytes, Ordering::Relaxed);
+        Ok(HostMemoryReservation::new(TrackedExternalReservation {
+            _inner: inner,
+            bytes,
+            external_live: Arc::clone(&self.external_live),
+        }))
+    }
+}
+
+#[derive(Default)]
+struct SlotSegmentDispatch {
+    active: RwLock<Option<Arc<dyn SegmentSource>>>,
+    in_flight: Arc<AtomicUsize>,
+    poisoned: Arc<AtomicBool>,
+}
+
+struct InFlightGuard {
+    in_flight: Arc<AtomicUsize>,
+}
+
+impl Drop for InFlightGuard {
+    fn drop(&mut self) {
+        self.in_flight.fetch_sub(1, Ordering::Release);
+    }
+}
+
+impl SlotSegmentDispatch {
+    fn set(&self, delegate: Option<Arc<dyn SegmentSource>>) {
+        let mut active = self
+            .active
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        *active = delegate;
+    }
+
+    fn has_inflight(&self) -> bool {
+        self.in_flight.load(Ordering::Acquire) != 0
+    }
+
+    fn is_poisoned(&self) -> bool {
+        self.poisoned.load(Ordering::Acquire)
+    }
+}
+
+impl SegmentSource for SlotSegmentDispatch {
+    fn request(&self, id: SegmentId) -> SegmentFuture {
+        let delegate = self
+            .active
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        if let Some(delegate) = delegate {
+            self.in_flight.fetch_add(1, Ordering::AcqRel);
+            let guard = InFlightGuard {
+                in_flight: Arc::clone(&self.in_flight),
+            };
+            let poisoned = Arc::clone(&self.poisoned);
+            let future = delegate.request(id);
+            async move {
+                let _guard = guard;
+                let result = future.await;
+                if result.is_err() {
+                    poisoned.store(true, Ordering::Release);
+                }
+                result
+            }
+            .boxed()
+        } else {
+            self.poisoned.store(true, Ordering::Release);
+            futures::future::ready(Err(vortex_err!("resident file segment dispatch is closed")))
+                .boxed()
+        }
+    }
+}
+
+pub(super) struct ResidentLayoutSlot {
+    file: VortexFile,
+    dispatch: Arc<SlotSegmentDispatch>,
+    published: bool,
+    pending_operation: Option<u64>,
+}
+
+/// Pool of `VortexFile` handles whose persistent `SegmentSource` dispatch
+/// preserves `LayoutReader` and V2 scan caches across queries while isolating
+/// each operation's `IoScope`, cancellation, evidence, and segment-reuse hooks.
+#[derive(Default)]
+pub(super) struct ResidentLayoutSlotPool {
+    idle: Mutex<Vec<ResidentLayoutSlot>>,
+    external_live: Arc<AtomicU64>,
+}
+
+impl ResidentLayoutSlotPool {
+    pub(super) fn retained_external_bytes(&self) -> u64 {
+        self.external_live.load(Ordering::Acquire)
+    }
+
+    pub(super) fn clear(&self) {
+        let drained = {
+            let mut idle = self
+                .idle
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            std::mem::take(&mut *idle)
+        };
+        drop(drained);
+    }
+
+    pub(super) fn try_clear(&self) {
+        if let Ok(mut idle) = self.idle.try_lock() {
+            idle.clear();
+        }
+    }
+
+    #[cfg(unix)]
+    pub(super) fn complete_operation(&self, operation: u64) {
+        let mut idle = self
+            .idle
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        for slot in &mut *idle {
+            if !slot.published && slot.pending_operation == Some(operation) {
+                slot.published = true;
+                slot.pending_operation = None;
+            }
+        }
+    }
+
+    #[cfg(unix)]
+    pub(super) fn discard_uncompleted_operation(&self, operation: u64) {
+        let mut discarded = Vec::new();
+        {
+            let mut idle = self
+                .idle
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            let mut index = 0;
+            while index < idle.len() {
+                if !idle[index].published && idle[index].pending_operation == Some(operation) {
+                    discarded.push(idle.swap_remove(index));
+                } else {
+                    index += 1;
+                }
+            }
+        }
+        drop(discarded);
+    }
+
+    fn checkout(
+        &self,
+        base_file: &VortexFile,
+        memory: &LiveMemoryPool,
+        delegate: Arc<dyn SegmentSource>,
+        operation: u64,
+    ) -> ResidentLayoutSlot {
+        let existing = {
+            let mut idle = self
+                .idle
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            idle.iter()
+                .rposition(|slot| slot.published || slot.pending_operation == Some(operation))
+                .map(|index| idle.remove(index))
+        };
+        let slot = existing.unwrap_or_else(|| {
+            let dispatch = Arc::new(SlotSegmentDispatch::default());
+            let slot_allocator: vortex::array::memory::HostAllocatorRef =
+                Arc::new(SlotHostAllocator {
+                    inner: crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
+                    external_live: Arc::clone(&self.external_live),
+                });
+            let reader_ctx =
+                vortex::layout::LayoutReaderContext::new().with_storage_allocator(slot_allocator);
+            let file = base_file
+                .clone()
+                .with_layout_reader_context(reader_ctx)
+                .with_segment_source(Arc::clone(&dispatch) as Arc<dyn SegmentSource>);
+            ResidentLayoutSlot {
+                file,
+                dispatch,
+                published: false,
+                pending_operation: Some(operation),
+            }
+        });
+        slot.dispatch.set(Some(delegate));
+        slot
+    }
+
+    fn checkin(&self, slot: ResidentLayoutSlot) {
+        let overflow = {
+            let mut idle = self
+                .idle
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            if idle.len() < MAX_LAYOUT_SLOTS {
+                idle.push(slot);
+                None
+            } else {
+                Some(slot)
+            }
+        };
+        drop(overflow);
+    }
+}
+
+pub(super) struct SlotGuard {
+    pool: Arc<ResidentLayoutSlotPool>,
+    slot: Option<ResidentLayoutSlot>,
+    operation_source: Option<Arc<dyn SegmentSource>>,
+    operation: u64,
+    retain_enabled: bool,
+    clean: bool,
+}
+
+impl Drop for SlotGuard {
+    fn drop(&mut self) {
+        self.operation_source = None;
+        if let Some(slot) = self.slot.take() {
+            slot.dispatch.set(None);
+            if self.clean
+                && self.retain_enabled
+                && !slot.dispatch.has_inflight()
+                && !slot.dispatch.is_poisoned()
+            {
+                self.pool.checkin(slot);
+            }
+        }
+    }
+}
+
+pub(super) enum FileViewLease<'a> {
+    Borrowed(&'a VortexFile),
+    Slot(Box<SlotGuard>),
+}
+
+impl FileViewLease<'_> {
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(super) fn is_slot(&self) -> bool {
+        matches!(self, Self::Slot(_))
+    }
+
+    pub(super) fn file(&self) -> &VortexFile {
+        match self {
+            Self::Borrowed(file) => file,
+            Self::Slot(guard) => {
+                &guard
+                    .slot
+                    .as_ref()
+                    .expect("slot lease active until drop")
+                    .file
+            }
+        }
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(super) fn operation_segment_source(&self) -> Arc<dyn SegmentSource> {
+        match self {
+            Self::Borrowed(file) => file.segment_source(),
+            Self::Slot(guard) => guard
+                .operation_source
+                .as_ref()
+                .expect("operation segment source active")
+                .clone(),
+        }
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(super) fn set_delegate(&self, delegate: Arc<dyn SegmentSource>) {
+        if let Self::Slot(guard) = self
+            && let Some(slot) = &guard.slot
+        {
+            slot.dispatch.set(Some(delegate));
+        }
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(super) fn restore_operation_delegate(&self) {
+        if let Self::Slot(guard) = self
+            && let Some(slot) = &guard.slot
+        {
+            slot.dispatch.set(guard.operation_source.clone());
+        }
+    }
+
+    pub(super) fn detach_operation(&mut self) {
+        if let Self::Slot(guard) = self {
+            guard.operation_source = None;
+            if let Some(slot) = &guard.slot {
+                slot.dispatch.set(None);
+                if slot.dispatch.has_inflight() || slot.dispatch.is_poisoned() {
+                    guard.clean = false;
+                    guard.slot = None;
+                }
+            }
+        }
+    }
+
+    pub(super) fn mark_completed(&mut self) {
+        if let Self::Slot(guard) = self
+            && guard.retain_enabled
+            && let Some(slot) = &mut guard.slot
+            && slot.file.has_cached_layout_reader()
+            && !slot.dispatch.has_inflight()
+            && !slot.dispatch.is_poisoned()
+        {
+            #[cfg(unix)]
+            if !slot.published {
+                slot.pending_operation = Some(guard.operation);
+            }
+            #[cfg(not(unix))]
+            {
+                slot.published = true;
+                slot.pending_operation = None;
+            }
+            guard.clean = true;
+        }
+    }
+
+    pub(super) fn preserve_if_previously_completed_and_healthy(&mut self) {
+        if let Self::Slot(guard) = self
+            && guard.retain_enabled
+            && let Some(slot) = &guard.slot
+            && slot.published
+            && !slot.dispatch.has_inflight()
+            && !slot.dispatch.is_poisoned()
+        {
+            guard.clean = true;
+        }
     }
 }
 

@@ -645,6 +645,7 @@ impl Binder<'_> {
                         None => filter,
                     });
                     *prior_predicate = Some(provider::conjoin(prior_predicate.take(), predicate));
+                    plan.pushdown_predicate.clone_from(prior_predicate);
                     *finite_float_predicate |= used_facts;
                     self.refresh_batch_projection(source, columns, plan)?;
                     return Ok(true);

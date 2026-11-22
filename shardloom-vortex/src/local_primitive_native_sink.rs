@@ -305,7 +305,13 @@ fn prepare_with_source(
     let metadata_pruned = scan_plan
         .filter
         .as_ref()
-        .map(|filter| source.file().can_prune(filter).map_err(vortex_error))
+        .map(|filter| {
+            crate::local_primitives::file_pruning::can_prune_file_with_predicate(
+                source.file(),
+                filter,
+                scan_plan.pushdown_predicate.as_ref(),
+            )
+        })
         .transpose()?
         .unwrap_or(false);
     let row_count = source.file().row_count();

@@ -117,6 +117,7 @@ fn reuse_columns(
     .unwrap();
     plan.filter =
         Some(super::super::predicate_to_vortex_expr(predicate, file.dtype(), kind).unwrap());
+    plan.pushdown_predicate = Some(predicate.clone());
     let (scan, stats) = super::admit(file, &plan, Some(predicate), Some(memory), cancellation)
         .unwrap()
         .unwrap();

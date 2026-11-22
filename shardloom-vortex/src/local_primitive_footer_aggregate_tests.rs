@@ -1038,3 +1038,79 @@ fn footer_aggregate_enforces_64bit_and_float_sum_avg_bounds() {
         .is_none()
     );
 }
+
+#[test]
+fn footer_aggregate_merges_staged_partition_values_and_declines_incompatible_measures() {
+    let min_zero = Some(Value::Min(None));
+    let min_one = Some(Value::Min(Some(StatValue::Int64(-5))));
+    let min_two = Value::Min(Some(StatValue::Int64(12)));
+    assert!(matches!(
+        merge_staged_value(min_zero, min_two).unwrap(),
+        Some(Value::Min(Some(StatValue::Int64(12))))
+    ));
+    let merged_min = merge_staged_value(min_one, Value::Min(Some(StatValue::Int64(-9)))).unwrap();
+    assert!(matches!(
+        merged_min,
+        Some(Value::Min(Some(StatValue::Int64(-9))))
+    ));
+
+    let max_zero = Some(Value::Max(None));
+    let merged_max = merge_staged_value(max_zero, Value::Max(Some(StatValue::Int64(7)))).unwrap();
+    assert!(matches!(
+        merged_max,
+        Some(Value::Max(Some(StatValue::Int64(7))))
+    ));
+    let merged_max2 =
+        merge_staged_value(merged_max, Value::Max(Some(StatValue::Int64(42)))).unwrap();
+    assert!(matches!(
+        merged_max2,
+        Some(Value::Max(Some(StatValue::Int64(42))))
+    ));
+
+    let sum_part = Some(Value::SumOrAvg {
+        count: 2,
+        sum: NumericAggregateSum::exact_integer(100),
+    });
+    let sum_next = Value::SumOrAvg {
+        count: 3,
+        sum: NumericAggregateSum::exact_integer(-25),
+    };
+    match merge_staged_value(sum_part, sum_next).unwrap().unwrap() {
+        Value::SumOrAvg { count, sum } => {
+            assert_eq!(count, 5);
+            assert_eq!(sum.total(), 75.0);
+        }
+        _ => panic!("expected SumOrAvg"),
+    }
+
+    let req = request();
+    let completion = Completion {
+        source_rows: 10,
+        exact_statistics: 18,
+        measures: 4,
+        partitions_covered: Some(3),
+    };
+    let mut s = states(&req);
+    let mut staged: [Option<Value>; MAX_MEASURES] = std::array::from_fn(|_| None);
+    staged[0] = Some(Value::Count(10));
+    staged[1] = Some(Value::Min(Some(StatValue::Int64(1))));
+    staged[2] = Some(Value::Max(Some(StatValue::Int64(20))));
+    staged[3] = Some(Value::Count(8));
+    install_staged_values(staged, required_simple_aggregate(&req).unwrap(), &mut s).unwrap();
+    let mut summary = s.result_summary(&[]).unwrap();
+    completion.annotate(&mut summary).unwrap();
+    let mut report = VortexLocalPrimitiveExecutionReport::feature_disabled(
+        VortexQueryPrimitiveKind::SimpleAggregate,
+        crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1).unwrap(),
+    );
+    report.mode = VortexLocalPrimitiveExecutionMode::MetadataPreservingAggregate;
+    report.embedded_layout.metadata_persisted_in_artifact = true;
+    report.embedded_layout.footer_row_count = 10;
+    report.rows_scanned = 10;
+    report.rows_selected = Some(10);
+    report.rows_projected = Some(1);
+    report.result_summary = Some(format!(
+        "partitioned_vortex_sources=3;simple_aggregate values={summary}"
+    ));
+    assert!(report_is_safe(&req, &report));
+}

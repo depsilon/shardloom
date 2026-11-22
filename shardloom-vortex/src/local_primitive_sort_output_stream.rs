@@ -304,11 +304,42 @@ pub(super) fn deliver(
     if selected.is_empty() {
         output.push_values(columns, 0, |_, _| Err(failed("empty result was accessed")))?;
     }
+    #[cfg(unix)]
+    let mut _prefetch_guard: Option<crate::resident_segment_prefetch::PrefetchScanGuard> = None;
+    #[cfg(unix)]
+    let mut prefetched_file_holder: Option<VortexFile> = None;
+    #[cfg(unix)]
+    if !selected.is_empty() && path.is_file() {
+        let held_source = context.path_source_and_read_work(&path)?;
+        let projected_segments = crate::resident_segment_prefetch::collect_projected_segment_ids(
+            file.footer().layout(),
+            &plan.projected_columns,
+        )?;
+        let prefetch_source = crate::resident_segment_prefetch::BoundedPrefetchSegmentSource::new(
+            file.segment_source(),
+            path.clone(),
+            file.footer().segment_map(),
+            crate::resident_segment_prefetch::SegmentPrefetchPolicy::default(),
+            Some(context.memory().clone()),
+            context.cancellation().clone(),
+            held_source,
+        );
+        let guard = crate::resident_segment_prefetch::PrefetchScanGuard::new(
+            std::sync::Arc::clone(&prefetch_source),
+        );
+        prefetch_source.prefetch_segments(&projected_segments)?;
+        _prefetch_guard = Some(guard);
+        prefetched_file_holder = Some(file.clone().with_segment_source(prefetch_source));
+    }
+    #[cfg(unix)]
+    let scan_file = prefetched_file_holder.as_ref().unwrap_or(file);
+    #[cfg(not(unix))]
+    let scan_file = file;
     for window in selected.chunks(512) {
         context.check_cancelled()?;
         #[cfg(unix)]
         let observation = super::native_file_scan_evidence::Observation::file_plan(
-            file,
+            scan_file,
             &plan,
             shardloom_core::native_file_scan::NativeFileScanRoute::SortPayload,
             context,
@@ -321,13 +352,13 @@ pub(super) fn deliver(
         ordinals.dedup();
         if ordinals
             .last()
-            .is_some_and(|ordinal| *ordinal >= file.row_count())
+            .is_some_and(|ordinal| *ordinal >= scan_file.row_count())
         {
             return Err(failed("selected source ordinal exceeds the source"));
         }
         let indices = StrictSortedBuffer::try_new(Buffer::from_iter(ordinals.iter().copied()))
             .map_err(vortex_error)?;
-        let mut scan = file
+        let mut scan = scan_file
             .scan()
             .map_err(vortex_error)?
             .with_ordered(true)

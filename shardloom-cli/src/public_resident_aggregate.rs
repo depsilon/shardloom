@@ -14,7 +14,7 @@ use shardloom_vortex::{
     VortexLocalPrimitiveExecutionPolicy, VortexQueryPrimitiveRequest,
     local_primitives::prepared_aggregate::{
         CollectedVortexAggregate, PreparedAggregateDisposition, PreparedVortexAggregate,
-        prepare_aggregate_for_optional_reuse_in_session,
+        prepare_aggregate_for_optional_reuse_with_source_loader,
     },
 };
 
@@ -28,9 +28,9 @@ pub(super) struct PreparedPublicAggregate {
 struct Executed {
     value: CollectedVortexAggregate,
     primitive_arg: String,
-    opened: bool,
+    source_opened: bool,
     retained: bool,
-    lowering_retained: bool,
+    lowering_reused: bool,
 }
 
 pub(super) fn run(
@@ -58,22 +58,26 @@ pub(super) fn run_with_source(
     format: OutputFormat,
     extra_fields: Vec<(String, String)>,
     execution_session: &mut PublicExecutionSession,
-    source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
+    source: Option<(
+        shardloom_vortex::resident_session::PreparedVortexSource,
+        bool,
+    )>,
     admission: &CommandAdmission<'_>,
 ) -> ExitCode {
     if let Err(error) = admission.check() {
-        execution_session.clear();
+        execution_session.clear_operation_slots();
         return native_vortex_materializing_error(format, PublicVortexPrimitive::Aggregate, &error);
     }
     // Keep the ordinary materialization-policy rejection before any source open.
     if request.materialization_policy == "zero_decode" {
-        execution_session.clear();
+        execution_session.clear_operation_slots();
         return ordinary(request, plan, format, extra_fields, admission);
     }
     let binding = match native_vortex_input_binding_for_request(request, admission) {
         Ok(binding) => binding,
         Err(error) => {
-            execution_session.clear();
+            execution_session.clear_operation_slots();
+            execution_session.evict_prepared_request_inputs(request);
             return native_vortex_materializing_error(
                 format,
                 PublicVortexPrimitive::Aggregate,
@@ -82,19 +86,23 @@ pub(super) fn run_with_source(
         }
     };
     if binding.mode != "single_file" {
-        execution_session.clear();
+        execution_session.clear_operation_slots();
+        execution_session.evict_prepared_request_inputs(request);
+        execution_session.evict_prepared_binding(&binding);
         return ordinary(request, plan, format, extra_fields, admission);
     }
     match execute(request, &binding, execution_session, source, admission) {
         Ok(Some(executed)) => render(request, plan, format, extra_fields, &binding, executed),
         Ok(None) => {
-            execution_session.clear();
+            execution_session.clear_operation_slots();
             ordinary(request, plan, format, extra_fields, admission)
         }
         Err(error) => {
             // Invalidation is terminal for this call. A later explicit request
             // may prepare again; never reopen and retry the failed operation.
-            execution_session.clear();
+            execution_session.clear_operation_slots();
+            execution_session.evict_prepared_request_inputs(request);
+            execution_session.evict_prepared_binding(&binding);
             native_vortex_materializing_error(format, PublicVortexPrimitive::Aggregate, &error)
         }
     }
@@ -124,7 +132,10 @@ fn execute(
     request: &PublicWorkflowRouteRequest,
     binding: &NativeVortexInputBinding,
     execution_session: &mut PublicExecutionSession,
-    source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
+    source: Option<(
+        shardloom_vortex::resident_session::PreparedVortexSource,
+        bool,
+    )>,
     admission: &CommandAdmission<'_>,
 ) -> Result<Option<Executed>, ShardLoomError> {
     admission.check()?;
@@ -158,21 +169,33 @@ fn execute(
     let matches = execution_session.aggregate.as_ref().is_some_and(|entry| {
         entry.request == *request && entry.primitive == primitive && entry.policy == policy
     });
+    let mut source_opened = false;
     if !matches {
-        execution_session.clear();
-        let prepared = if let Some(source) = source {
+        execution_session.clear_operation_slots();
+        let native_session = admission.native_session()?;
+        let prepared = if let Some((source, source_reused)) = source {
             admission.check()?;
+            source_opened = !source_reused;
             Some(PreparedAggregateDisposition::Reusable(
                 shardloom_vortex::local_primitives::prepared_aggregate::prepare_aggregate_from_source(
                     &primitive, policy, source,
                 )?,
             ))
         } else {
-            prepare_aggregate_for_optional_reuse_in_session(
+            prepare_aggregate_for_optional_reuse_with_source_loader(
                 &primitive,
                 policy,
-                admission.native_session()?,
+                native_session,
                 &cancellation,
+                |path| {
+                    let (opened, reused) = execution_session.get_or_prepare_file_source(
+                        path,
+                        native_session,
+                        &cancellation,
+                    )?;
+                    source_opened = !reused;
+                    Ok(opened)
+                },
             )?
         };
         match prepared {
@@ -181,9 +204,9 @@ fn execute(
                 return Ok(Some(Executed {
                     value: operation.collect_jsonl(&cancellation)?,
                     primitive_arg,
-                    opened: true,
+                    source_opened,
                     retained: false,
-                    lowering_retained: false,
+                    lowering_reused: false,
                 }));
             }
             Some(PreparedAggregateDisposition::Reusable(operation)) => {
@@ -204,13 +227,14 @@ fn execute(
     Ok(Some(Executed {
         value: prepared.operation.collect_jsonl(&cancellation)?,
         primitive_arg,
-        opened: !matches,
+        source_opened,
         retained: true,
-        lowering_retained: prepared
-            .primitive
-            .simple_aggregate
-            .as_ref()
-            .is_some_and(|aggregate| aggregate.spill.is_none()),
+        lowering_reused: matches
+            && prepared
+                .primitive
+                .simple_aggregate
+                .as_ref()
+                .is_some_and(|aggregate| aggregate.spill.is_none()),
     }))
 }
 
@@ -266,7 +290,7 @@ fn render(
         ),
         (
             "resident_footer_open_performed_this_call".into(),
-            executed.opened.to_string(),
+            executed.source_opened.to_string(),
         ),
         (
             "resident_aggregate_handle_retained".into(),
@@ -274,7 +298,7 @@ fn render(
         ),
         (
             "resident_aggregate_lowering_reused".into(),
-            (executed.lowering_retained && !executed.opened).to_string(),
+            executed.lowering_reused.to_string(),
         ),
         (
             "resident_source_generation_validation".into(),

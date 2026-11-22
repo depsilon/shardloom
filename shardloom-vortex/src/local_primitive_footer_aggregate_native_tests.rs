@@ -951,3 +951,136 @@ fn footer_aggregate_native_wide_i64_cancellation_preserves_exact_sum_and_avg() {
     );
     assert_eq!(payload(&rep_c)["values"], payload(&rep_s)["values"]);
 }
+
+fn write_footer_partition_pair(
+    dir: &std::path::Path,
+    session: &VortexSession,
+    runtime: &SingleThreadRuntime,
+    idx: usize,
+    (ints, floats): (&[Option<i64>], &[Option<f64>]),
+    all_stats: &[vortex::array::aggregate_fn::AggregateFnRef],
+    (stats_uris, scan_uris): (&mut Vec<DatasetUri>, &mut Vec<DatasetUri>),
+) {
+    let array = StructArray::try_new(
+        ["i", "f"].into(),
+        vec![
+            PrimitiveArray::from_option_iter(ints.iter().copied()).into_array(),
+            PrimitiveArray::from_option_iter(floats.iter().copied()).into_array(),
+        ],
+        ints.len(),
+        Validity::NonNullable,
+    )
+    .unwrap()
+    .into_array();
+    for (kind, file_stats, out) in [
+        ("complete", all_stats.to_vec(), stats_uris),
+        ("disabled", Vec::new(), scan_uris),
+    ] {
+        let path = dir.join(format!("{kind}-p{idx}.vortex"));
+        let mut file = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+            .unwrap();
+        let mut writer = session
+            .write_options()
+            .with_strategy(Arc::new(FlatLayoutStrategy::default()))
+            .with_file_statistics(file_stats)
+            .blocking(runtime)
+            .writer(&mut file, array.dtype().clone());
+        writer.push(array.clone()).unwrap();
+        writer.finish().unwrap();
+        file.sync_all().unwrap();
+        out.push(DatasetUri::new(path.display().to_string()).unwrap());
+    }
+}
+
+#[test]
+fn footer_aggregate_native_partitioned_completion_handles_mixed_and_empty_partitions() {
+    let dir = std::env::temp_dir().join(format!(
+        "shardloom-footer-partitioned-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed),
+    ));
+    fs::create_dir(&dir).unwrap();
+    let _guard = DirGuard(dir.clone());
+    let runtime = SingleThreadRuntime::default();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let all_stats: Vec<_> = [
+        Stat::Min,
+        Stat::Max,
+        Stat::Sum,
+        Stat::NullCount,
+        Stat::NaNCount,
+    ]
+    .into_iter()
+    .filter_map(|stat| Stat::aggregate_fn(&stat))
+    .collect();
+
+    let parts: [Vec<Option<i64>>; 3] = [
+        vec![],
+        vec![None, None],
+        vec![Some(-10), Some(20), Some(5), None],
+    ];
+    let f_parts: [Vec<Option<f64>>; 3] = [
+        vec![],
+        vec![None, None],
+        vec![Some(1.5), Some(-2.5), Some(9.25), None],
+    ];
+
+    let mut stats_uris = Vec::new();
+    let mut scan_uris = Vec::new();
+    for (idx, (ints, floats)) in parts.iter().zip(&f_parts).enumerate() {
+        write_footer_partition_pair(
+            &dir,
+            &session,
+            &runtime,
+            idx,
+            (ints, floats),
+            &all_stats,
+            (&mut stats_uris, &mut scan_uris),
+        );
+    }
+
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 2).unwrap();
+    let measures = vec![
+        measure("count", None, "all_rows"),
+        measure("count", Some("i"), "i_cnt"),
+        measure("min", Some("i"), "i_min"),
+        measure("max", Some("i"), "i_max"),
+        measure("sum", Some("i"), "i_sum"),
+        measure("avg", Some("i"), "i_avg"),
+        measure("min", Some("f"), "f_min"),
+        measure("max", Some("f"), "f_max"),
+    ];
+    let complete_req = VortexQueryPrimitiveRequest::simple_aggregate(
+        stats_uris[0].clone(),
+        VortexSimpleAggregateRequest::new(measures.clone()),
+    );
+    let scan_req = VortexQueryPrimitiveRequest::simple_aggregate(
+        scan_uris[0].clone(),
+        VortexSimpleAggregateRequest::new(measures),
+    );
+    let rep_c = runtime::execute_vortex_local_partitioned_primitive_with_policy(
+        &complete_req,
+        &stats_uris,
+        policy,
+    )
+    .unwrap();
+    let rep_s = runtime::execute_vortex_local_partitioned_primitive_with_policy(
+        &scan_req, &scan_uris, policy,
+    )
+    .unwrap();
+
+    assert!(runtime::footer_aggregate::report_is_safe(
+        &complete_req,
+        &rep_c
+    ));
+    assert_eq!(rep_c.arrays_read_count, 0);
+    assert_eq!(
+        payload(&rep_c)["metadata_aggregate"]["partitions_covered"],
+        3
+    );
+    assert!(rep_s.arrays_read_count > 0);
+    assert_eq!(payload(&rep_c)["values"], payload(&rep_s)["values"]);
+}
