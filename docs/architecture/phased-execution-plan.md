@@ -303,12 +303,12 @@ workflow, performance and acceptance work recorded in the historical notes.
   - [x] Open the ready PR and address review/check failures within this checkpoint.
   - [x] Leave remaining deep traversal after Foundry integration.
 
-- [ ] **Shared native capability incorporation**
-  Status: Local acceptance — the [November 18 result](native-shared-combined-acceptance-2026-11-18.md)
-  passes source, complete-workflow and installed-package checks. Hosted acceptance
-  remains pending required checks. The bounded performance screens admit no new
-  finite-feedback control; actual feedback stays deferred pending material owner
-  evidence. This item retains the November 17 priority and item 20/F ownership.
+- [x] **Shared native capability incorporation**
+  Status: Merged (#1699, `aa8407d6f`) — the [November 18 result](native-shared-combined-acceptance-2026-11-18.md)
+  passes source, complete-workflow and installed-package checks, and required
+  hosted CI checks passed in PR #1699. The bounded performance screens admit no
+  new finite-feedback control; actual feedback stays deferred pending material
+  owner evidence. This item retains the November 17 priority and item 20/F ownership.
   The [incorporation contract](native-shared-capability-incorporation-2026-11-17.md)
   extends item 20 and PulseWeave investigation F through existing admitted-operation,
   source, resource, operator and result owners. Item 23's completed adaptive
@@ -342,7 +342,7 @@ workflow, performance and acceptance work recorded in the historical notes.
   - [x] Record the shared-contract dependencies for later Chrysalis and Resonance work.
   - [x] Complete local correctness/resource checks, bounded performance dispositions,
     public-interface, source and installed-package acceptance.
-  - [ ] Complete required hosted review/checks and merge; keep audit gates blocking.
+  - [x] Complete required hosted review/checks and merge; keep audit gates blocking.
   - Next outcome and scope: hosted closeout proceeds independently while Chrysalis
     and Resonance use the locally accepted shared ownership foundation. The seven
     families bind 107 distinct executed tests, not blanket propagation coverage.
@@ -357,9 +357,10 @@ workflow, performance and acceptance work recorded in the historical notes.
     Preserve `fallback_attempted=false`, `external_engine_invoked=false` and
     `claim_gate_status=not_claim_grade`; CG-1 through CG-23 remain independent.
 
-- [ ] **Combined rich-data and analytical acceptance**
-  Status: Local acceptance — [complete mixed and analytical workflows](native-shared-combined-acceptance-2026-11-18.md#combined-user-workflows)
-  pass all 466 installed tests without skips. Hosted acceptance remains pending.
+- [x] **Combined rich-data and analytical acceptance**
+  Status: Merged (#1699, `aa8407d6f`) — [complete mixed and analytical workflows](native-shared-combined-acceptance-2026-11-18.md#combined-user-workflows)
+  pass all 466 installed tests without skips, and required hosted CI checks
+  passed in PR #1699.
   Verify the mixed workflow in the [rich-data contract](native-rich-data-lifecycle-2026-10-24.md)
   and remaining [analytical program](native-broad-query-program-2026-10-26.md).
   Execution checklist:
@@ -368,25 +369,26 @@ workflow, performance and acceptance work recorded in the historical notes.
   - [x] Verify complete mixed values, resource pressure and ownership across public interfaces.
   - [x] Record scoped acceptance, the existing remote-refresh deferral and remaining
     independent competitive gates; do not mark all of items 19/20 complete.
-  - [ ] Complete the enclosing batch's hosted acceptance.
+  - [x] Complete the enclosing batch's hosted acceptance.
 
-- [ ] **Chrysalis Cells and Map**
-  Status: Local acceptance (locally retained) — [RFC 0045](../rfcs/0045-partial-native-source-coverage.md),
+- [x] **Chrysalis Cells and Map**
+  Status: Merged (#1699, `aa8407d6f`, locally retained) — [RFC 0045](../rfcs/0045-partial-native-source-coverage.md),
   the [prospective comparison report](../benchmarks/native-chrysalis-partial-coverage-2026-11-21.md)
   and the [portable evidence packet](../release/evidence/chrysalis-partial-coverage-2026-11-21/README.md)
   bind local source, resource, `NativeSession::close()` optional reclamation, release
-  build and isolated installed-wheel acceptance (`468/468` installed tests without skips).
+  build and isolated installed-wheel acceptance (`468/468` installed tests without skips),
+  and required hosted CI checks passed in PR #1699.
   The frozen 18-request sequential comparison records `150.509625 → 149.794248 ms`
   engine time (`-0.48%`, with `numeric-overlap` `16.194250 → 12.276124 ms` and
   `text-overlap` `54.002292 → 52.303834 ms`, while all eight non-reusing control groups
   regress `+4.901207 ms` and `public_query_terminal_nanos` changes `169.037209 → 170.560665 ms`).
-  No large or general causal speedup, durability or competitive-gate closure is claimed;
-  hosted acceptance remains pending. The [shared-source extension](native-chrysalis-resonance-cells-2026-11-16.md)
+  No large or general causal speedup, durability or competitive-gate closure is claimed.
+  The [shared-source extension](native-chrysalis-resonance-cells-2026-11-16.md)
   governs the following Resonance investigation.
   Execution checklist:
   - [x] Complete the targeted RFC and existing-provider review.
   - [x] Implement the admitted bounded scope and complete-workflow acceptance.
-  - [ ] Complete the enclosing batch's hosted acceptance.
+  - [x] Complete the enclosing batch's hosted acceptance.
 
 - [x] **Resonance Cells and Leases**
   Status: Closed (not retained — attribution negative) — [RFC 0046](../rfcs/0046-resonance-cells-and-leases.md)
