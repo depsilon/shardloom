@@ -77,6 +77,15 @@ mod provider_batch_tests;
 pub(crate) mod local_dataset;
 
 mod orc_translation;
+#[cfg_attr(
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    )),
+    allow(unused_imports)
+)]
 pub(crate) use orc_translation::{
     schema as translate_orc_schema, wire_schema_matches as orc_wire_schema_matches,
 };

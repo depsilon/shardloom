@@ -70,8 +70,8 @@
     },
     {
       "repository_path": "scripts/run_clickbench_query_uat.py",
-      "bytes": 30336,
-      "sha256": "43cf7d9f3bca1dc1a27296c7b46db63a938527bb051c3f50edd0b95f85dbce6e"
+      "bytes": 44955,
+      "sha256": "af4f0aa6445dc07400367e7658f19e96b86a4daa011feaf1960bed53dd83276f"
     },
     {
       "repository_path": "scripts/clickbench_native_sql.py",

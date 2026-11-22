@@ -623,13 +623,13 @@ impl NativeExecutionContext<'_> {
         &self.owner.memory
     }
 
-    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    #[cfg(feature = "vortex-local-primitives")]
     #[must_use]
     pub(crate) fn provider_background_workers(&self) -> usize {
         self.owner.provider_background_workers
     }
 
-    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    #[cfg(feature = "vortex-local-primitives")]
     pub(crate) fn shared_compute_pool(
         &self,
         requested_parallelism: usize,

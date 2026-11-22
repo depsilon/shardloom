@@ -29,7 +29,7 @@ pub(crate) struct StorageAllocatedSegmentSource {
 }
 
 impl StorageAllocatedSegmentSource {
-    pub(crate) fn new(
+    pub(crate) fn wrap(
         inner: Arc<dyn SegmentSource>,
         allocator: HostAllocatorRef,
     ) -> Arc<dyn SegmentSource> {

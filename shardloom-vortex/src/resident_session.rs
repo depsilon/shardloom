@@ -17,9 +17,9 @@ use futures::{FutureExt as _, future::BoxFuture};
 // Bound each added local extent by useful request bytes while preserving
 // adjacent reads. The allocator and operation grant own the resulting backing.
 const COALESCING_AMPLIFICATION_LIMIT: std::num::NonZeroU64 = std::num::NonZeroU64::new(4).unwrap();
-use shardloom_core::{
-    FloatPolicy, RecursionLimit, Result, ShardLoomError, native_file_scan::NativeFileScanEvidence,
-};
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+use shardloom_core::native_file_scan::NativeFileScanEvidence;
+use shardloom_core::{FloatPolicy, RecursionLimit, Result, ShardLoomError};
 use shardloom_exec::compute_pool::{CancellationToken, ComputePool};
 use shardloom_exec::live_memory::{Budgeted, LiveMemoryPool, LiveMemorySnapshot, MemoryLease};
 use vortex::{
@@ -151,7 +151,7 @@ impl RuntimeOwner {
             .map_or(self.parallelism, |limit| limit.load(Ordering::Acquire))
     }
 
-    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    #[cfg(feature = "vortex-local-primitives")]
     pub(super) fn shared_compute_pool(
         &self,
         requested_parallelism: usize,
@@ -771,7 +771,7 @@ impl ResidentVortexSession {
         })))
     }
 
-    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    #[cfg(feature = "vortex-local-primitives")]
     pub(crate) fn shared_compute_pool(
         &self,
         max_parallelism: usize,

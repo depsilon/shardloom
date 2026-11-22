@@ -1451,6 +1451,19 @@ fn public_run_native_vortex_aggregate_emits_state_budget_and_pulseweave_evidence
         "shardloom.local_vortex_state_budget.v2"
     )));
     assert!(stdout.contains(&field("local_primitive_state_budget_required", "true")));
+    #[cfg(unix)]
+    {
+        assert!(stdout.contains(&field("local_primitive_scan_metadata_completed", "true")));
+        assert!(stdout.contains(&field(
+            "local_primitive_aggregate_update_strategy",
+            "exact_file_footer_scalar_completion"
+        )));
+        assert!(stdout.contains(&field(
+            "local_primitive_state_family",
+            "scalar_aggregate_state"
+        )));
+    }
+    #[cfg(not(unix))]
     assert!(stdout.contains(&field(
         "local_primitive_state_family",
         "scalar_aggregate_state+direct_dictionary_or_typed"
@@ -1505,14 +1518,28 @@ fn public_run_native_vortex_aggregate_emits_state_budget_and_pulseweave_evidence
         "local_primitive_physical_policy_rejected_alternatives",
         "state_heavy_hitter_capacity,row_ref_retention"
     )));
-    assert!(stdout.contains(&field(
-        "local_primitive_capillary_work_units",
-        "vortex_scan,aggregate_state,dictionary_or_typed_direct_scalar_aggregate"
-    )));
-    assert!(stdout.contains(&field(
-        "local_primitive_pulseweave_pressure_signals",
-        "aggregate_measure_count,aggregate_input_rows,row_materialization_bypass"
-    )));
+    #[cfg(unix)]
+    {
+        assert!(stdout.contains(&field(
+            "local_primitive_capillary_work_units",
+            "vortex_scan,aggregate_state"
+        )));
+        assert!(stdout.contains(&field(
+            "local_primitive_pulseweave_pressure_signals",
+            "aggregate_measure_count,aggregate_input_rows"
+        )));
+    }
+    #[cfg(not(unix))]
+    {
+        assert!(stdout.contains(&field(
+            "local_primitive_capillary_work_units",
+            "vortex_scan,aggregate_state,dictionary_or_typed_direct_scalar_aggregate"
+        )));
+        assert!(stdout.contains(&field(
+            "local_primitive_pulseweave_pressure_signals",
+            "aggregate_measure_count,aggregate_input_rows,row_materialization_bypass"
+        )));
+    }
     assert!(stdout.contains(&field(
         "local_primitive_spill_policy",
         "fail_closed_before_uncertified_spill"
@@ -1520,6 +1547,61 @@ fn public_run_native_vortex_aggregate_emits_state_budget_and_pulseweave_evidence
     assert!(stdout.contains(&field(
         "local_primitive_fail_closed_if_spill_required",
         "true"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[test]
+fn public_run_native_vortex_filtered_aggregate_emits_direct_scan_state_evidence() {
+    let fixture = local_primitive_struct_fixture();
+    let aggregate = r#"{"measures":[{"function":"sum","column":"metric","alias":"sum_metric"},{"function":"count","alias":"rows"}]}"#;
+    let (ok, stdout) = run_facade(&[
+        "run",
+        "dataframe",
+        "--input",
+        &fixture,
+        "--input-format",
+        "vortex",
+        "--request",
+        "collect",
+        "--bounded",
+        "true",
+        "--execution-policy",
+        "native_vortex",
+        "--vortex-primitive",
+        "aggregate",
+        "--vortex-aggregate",
+        aggregate,
+        "--vortex-predicate",
+        "gte:value:0",
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
+        "--format",
+        "json",
+    ]);
+
+    assert!(ok, "{stdout}");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("local_primitive_scan_metadata_completed", "false")));
+    assert!(stdout.contains(&field(
+        "local_primitive_aggregate_update_strategy",
+        "dictionary_or_typed_direct_scalar_update"
+    )));
+    assert!(stdout.contains(&field(
+        "local_primitive_state_family",
+        "scalar_aggregate_state+direct_dictionary_or_typed"
+    )));
+    assert!(stdout.contains(&field(
+        "local_primitive_capillary_work_units",
+        "vortex_scan,aggregate_state,dictionary_or_typed_direct_scalar_aggregate"
+    )));
+    assert!(stdout.contains(&field(
+        "local_primitive_pulseweave_pressure_signals",
+        "aggregate_measure_count,aggregate_input_rows,row_materialization_bypass"
     )));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
@@ -1713,14 +1795,38 @@ fn public_run_native_vortex_manifest_aggregate_uses_partitioned_state() {
     assert!(stdout.contains(&field("local_primitive_rows_scanned", "10")));
     assert!(stdout.contains(&field("local_primitive_rows_selected", "10")));
     assert!(stdout.contains(&field("local_primitive_rows_projected", "1")));
-    assert!(stdout.contains(&field(
-        "local_primitive_capillary_work_units",
-        "partitioned_vortex_source,vortex_scan,aggregate_state,dictionary_or_typed_direct_scalar_aggregate"
-    )));
-    assert!(stdout.contains(&field(
-        "local_primitive_pulseweave_pressure_signals",
-        "partition_count,aggregate_measure_count,aggregate_input_rows,row_materialization_bypass"
-    )));
+    #[cfg(unix)]
+    {
+        assert!(stdout.contains(&field(
+            "local_primitive_mode",
+            "metadata_preserving_aggregate"
+        )));
+        assert!(stdout.contains(&field(
+            "local_primitive_aggregate_update_strategy",
+            "exact_file_footer_scalar_completion"
+        )));
+        assert!(stdout.contains(&field("data_read", "false")));
+        assert!(stdout.contains(&field("upstream_vortex_scan_called", "false")));
+        assert!(stdout.contains(&field(
+            "local_primitive_capillary_work_units",
+            "partitioned_vortex_source,vortex_scan,aggregate_state"
+        )));
+        assert!(stdout.contains(&field(
+            "local_primitive_pulseweave_pressure_signals",
+            "partition_count,aggregate_measure_count,aggregate_input_rows"
+        )));
+    }
+    #[cfg(not(unix))]
+    {
+        assert!(stdout.contains(&field(
+            "local_primitive_capillary_work_units",
+            "partitioned_vortex_source,vortex_scan,aggregate_state,dictionary_or_typed_direct_scalar_aggregate"
+        )));
+        assert!(stdout.contains(&field(
+            "local_primitive_pulseweave_pressure_signals",
+            "partition_count,aggregate_measure_count,aggregate_input_rows,row_materialization_bypass"
+        )));
+    }
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }

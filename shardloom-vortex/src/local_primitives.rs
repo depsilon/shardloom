@@ -416,8 +416,10 @@ use native_numeric_owner::{BoundNumericCell, NativeNumericOwner};
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/numeric_aggregate_sum.rs"]
 mod numeric_aggregate_sum;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+use numeric_aggregate_sum::CompactI128;
 #[cfg(feature = "vortex-local-primitives")]
-use numeric_aggregate_sum::{CompactI128, NumericAggregateSum};
+use numeric_aggregate_sum::NumericAggregateSum;
 #[cfg(all(
     feature = "vortex-local-primitives",
     feature = "vortex-write",

@@ -77,7 +77,7 @@ impl DictReader {
             .slot(1)?
             .vortex_expect("DictLayout always has a codes child");
         let values_segment_source = match &storage_allocator {
-            Some(allocator) => crate::segments::StorageAllocatedSegmentSource::new(
+            Some(allocator) => crate::segments::StorageAllocatedSegmentSource::wrap(
                 Arc::clone(&segment_source),
                 Arc::clone(allocator),
             ),

@@ -58,7 +58,7 @@ impl ZonedReader {
     {
         let storage_allocator = ctx.explicit_storage_allocator().cloned();
         let zones_segment_source = match &storage_allocator {
-            Some(allocator) => crate::segments::StorageAllocatedSegmentSource::new(
+            Some(allocator) => crate::segments::StorageAllocatedSegmentSource::wrap(
                 Arc::clone(&segment_source),
                 Arc::clone(allocator),
             ),
