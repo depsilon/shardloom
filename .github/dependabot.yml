@@ -20,7 +20,12 @@ updates:
         patterns:
           - "arrow-*"
           - "parquet"
+          - "parquet-*"
           - "orc-rust"
+      jiff-stack:
+        patterns:
+          - "jiff"
+          - "jiff-*"
       rust-runtime-utilities:
         patterns:
           - "futures"

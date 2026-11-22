@@ -201,13 +201,14 @@ Runtime boundary:
 - Arrow conversion remains an explicit admitted boundary for artifact preparation and local output
   compatibility only; it must not become decoded Arrow execution by default.
 
-## Regex 1.13.1
+## Regex 1.13.1 and 1.13.2
 
 - Source: Dependabot PR <https://github.com/depsilon/shardloom/pull/1392> was absorbed into the
-  2026-08-29 dependency-intake PR and updates `regex = 1.13.1`.
-- `cargo info regex@1.13.1` reports license `MIT OR Apache-2.0`, Rust version `1.65`,
-  documentation <https://docs.rs/regex>, repository <https://github.com/rust-lang/regex>, and
-  crates.io version <https://crates.io/crates/regex/1.13.1>.
+  2026-08-29 dependency-intake PR (`regex = 1.13.1`), and November 21, 2026 Dependabot PR
+  <https://github.com/depsilon/shardloom/pull/1701> (consolidated in #1706) updates `Cargo.lock`
+  to `regex = 1.13.2`, `regex-automata = 0.4.19`, and `regex-syntax = 0.8.12`.
+- `regex = 1.13.2` retains license `MIT OR Apache-2.0` (`regex@1.13.1` / `1.13.2`), documentation
+  <https://docs.rs/regex>, and repository <https://github.com/rust-lang/regex>.
 - The dependency remains a parsing and validation helper in ShardLoom-owned code paths.
 - It does not add a runtime engine, query planner, external compute provider, or fallback execution
   path.
