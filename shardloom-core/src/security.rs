@@ -1281,9 +1281,39 @@ pub struct WorkspaceSafeLocalWriteReport {
     pub external_engine_invoked: bool,
 }
 
-impl WorkspaceSafeLocalWriteReport {
+/// Typed workspace-safe local write audit evidence replacing `Vec<(String, String)>` (`E2E-ARCH-01`).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct WorkspaceSafeLocalWriteEvidence {
+    pub workspace_path_safety_status: String,
+    pub workspace_path_safety_schema_version: String,
+    pub workspace_root: String,
+    pub canonical_workspace_root: String,
+    pub requested_output_path: String,
+    pub canonical_output_path: String,
+    pub within_workspace: String,
+    pub path_traversal_checked: String,
+    pub symlink_followed: String,
+    pub symlink_policy: String,
+    pub hardlink_policy: String,
+    pub hardlink_count: String,
+    pub overwrite_allowed: String,
+    pub overwrite_performed: String,
+    pub target_existed_before: String,
+    pub staging_path: String,
+    pub commit_mode: String,
+    pub commit_status: String,
+    pub cleanup_status: String,
+    pub rollback_status: String,
+    pub bytes_written: String,
+    pub output_digest: String,
+    pub fallback_attempted: String,
+    pub external_engine_invoked: String,
+}
+
+impl WorkspaceSafeLocalWriteEvidence {
+    /// Emits canonical key/value fields with an optional prefix in strict order.
     #[must_use]
-    pub fn evidence_fields(&self, prefix: &str) -> Vec<(String, String)> {
+    pub fn to_prefixed_fields(&self, prefix: &str) -> Vec<(String, String)> {
         let p = prefix.trim_matches('_');
         let key = |name: &str| -> String {
             if p.is_empty() {
@@ -1293,79 +1323,99 @@ impl WorkspaceSafeLocalWriteReport {
             }
         };
         vec![
-            (key("workspace_path_safety_status"), "enforced".to_string()),
+            (
+                key("workspace_path_safety_status"),
+                self.workspace_path_safety_status.clone(),
+            ),
             (
                 key("workspace_path_safety_schema_version"),
-                self.path_safety_report.schema_version.to_string(),
+                self.workspace_path_safety_schema_version.clone(),
             ),
-            (
-                key("workspace_root"),
-                self.path_safety_report.workspace_root.clone(),
-            ),
+            (key("workspace_root"), self.workspace_root.clone()),
             (
                 key("canonical_workspace_root"),
-                self.path_safety_report.canonical_workspace_root.clone(),
+                self.canonical_workspace_root.clone(),
             ),
             (
                 key("requested_output_path"),
-                self.path_safety_report.requested_output_path.clone(),
+                self.requested_output_path.clone(),
             ),
             (
                 key("canonical_output_path"),
-                self.path_safety_report.canonical_output_path.clone(),
+                self.canonical_output_path.clone(),
             ),
-            (
-                key("within_workspace"),
-                self.path_safety_report.within_workspace.to_string(),
-            ),
+            (key("within_workspace"), self.within_workspace.clone()),
             (
                 key("path_traversal_checked"),
-                self.path_safety_report.path_traversal_checked.to_string(),
+                self.path_traversal_checked.clone(),
             ),
-            (
-                key("symlink_followed"),
-                self.path_safety_report.symlink_followed.to_string(),
-            ),
-            (
-                key("symlink_policy"),
-                self.path_safety_report.symlink_policy.clone(),
-            ),
-            (
-                key("hardlink_policy"),
-                self.path_safety_report.hardlink_policy.clone(),
-            ),
-            (
-                key("hardlink_count"),
-                self.hardlink_count.map_or_else(
-                    || "unknown_or_not_applicable".to_string(),
-                    |n| n.to_string(),
-                ),
-            ),
-            (key("overwrite_allowed"), self.overwrite_allowed.to_string()),
-            (
-                key("overwrite_performed"),
-                self.overwrite_performed.to_string(),
-            ),
+            (key("symlink_followed"), self.symlink_followed.clone()),
+            (key("symlink_policy"), self.symlink_policy.clone()),
+            (key("hardlink_policy"), self.hardlink_policy.clone()),
+            (key("hardlink_count"), self.hardlink_count.clone()),
+            (key("overwrite_allowed"), self.overwrite_allowed.clone()),
+            (key("overwrite_performed"), self.overwrite_performed.clone()),
             (
                 key("target_existed_before"),
-                self.target_existed_before.to_string(),
+                self.target_existed_before.clone(),
             ),
-            (key("staging_path"), self.staging_path.display().to_string()),
+            (key("staging_path"), self.staging_path.clone()),
             (key("commit_mode"), self.commit_mode.clone()),
             (key("commit_status"), self.commit_status.clone()),
             (key("cleanup_status"), self.cleanup_status.clone()),
             (key("rollback_status"), self.rollback_status.clone()),
-            (key("bytes_written"), self.bytes_written.to_string()),
+            (key("bytes_written"), self.bytes_written.clone()),
             (key("output_digest"), self.output_digest.clone()),
-            (
-                key("fallback_attempted"),
-                self.fallback_attempted.to_string(),
-            ),
+            (key("fallback_attempted"), self.fallback_attempted.clone()),
             (
                 key("external_engine_invoked"),
-                self.external_engine_invoked.to_string(),
+                self.external_engine_invoked.clone(),
             ),
         ]
+    }
+}
+
+impl WorkspaceSafeLocalWriteReport {
+    /// Captures strongly-typed workspace write audit evidence (`E2E-ARCH-01`).
+    #[must_use]
+    pub fn typed_evidence(&self) -> WorkspaceSafeLocalWriteEvidence {
+        WorkspaceSafeLocalWriteEvidence {
+            workspace_path_safety_status: "enforced".to_string(),
+            workspace_path_safety_schema_version: self
+                .path_safety_report
+                .schema_version
+                .to_string(),
+            workspace_root: self.path_safety_report.workspace_root.clone(),
+            canonical_workspace_root: self.path_safety_report.canonical_workspace_root.clone(),
+            requested_output_path: self.path_safety_report.requested_output_path.clone(),
+            canonical_output_path: self.path_safety_report.canonical_output_path.clone(),
+            within_workspace: self.path_safety_report.within_workspace.to_string(),
+            path_traversal_checked: self.path_safety_report.path_traversal_checked.to_string(),
+            symlink_followed: self.path_safety_report.symlink_followed.to_string(),
+            symlink_policy: self.path_safety_report.symlink_policy.clone(),
+            hardlink_policy: self.path_safety_report.hardlink_policy.clone(),
+            hardlink_count: self.hardlink_count.map_or_else(
+                || "unknown_or_not_applicable".to_string(),
+                |n| n.to_string(),
+            ),
+            overwrite_allowed: self.overwrite_allowed.to_string(),
+            overwrite_performed: self.overwrite_performed.to_string(),
+            target_existed_before: self.target_existed_before.to_string(),
+            staging_path: self.staging_path.display().to_string(),
+            commit_mode: self.commit_mode.clone(),
+            commit_status: self.commit_status.clone(),
+            cleanup_status: self.cleanup_status.clone(),
+            rollback_status: self.rollback_status.clone(),
+            bytes_written: self.bytes_written.to_string(),
+            output_digest: self.output_digest.clone(),
+            fallback_attempted: self.fallback_attempted.to_string(),
+            external_engine_invoked: self.external_engine_invoked.to_string(),
+        }
+    }
+
+    #[must_use]
+    pub fn evidence_fields(&self, prefix: &str) -> Vec<(String, String)> {
+        self.typed_evidence().to_prefixed_fields(prefix)
     }
 
     #[must_use]
@@ -3793,5 +3843,42 @@ mod tests {
         assert!(!report.external_engine_invoked);
         assert!(report.rows.iter().all(|row| !row.sandbox_enforced));
         assert!(report.rows.iter().all(|row| !row.external_effect_executed));
+    }
+
+    #[test]
+    fn workspace_safe_local_write_typed_evidence_preserves_prefixed_keys() {
+        let dir = std::env::temp_dir();
+        let target = dir.join("typed-write-evidence.vortex");
+        let report = WorkspaceSafeLocalWriteReport {
+            schema_version: "shardloom.workspace_safe_write.v1",
+            report_id: "write.1".to_string(),
+            operation_label: "test".to_string(),
+            path_safety_report: WorkspacePathSafetyReport::evaluate(&dir, &target),
+            target_path: target.clone(),
+            staging_path: dir.join(".staging"),
+            target_existed_before: false,
+            overwrite_allowed: false,
+            overwrite_performed: false,
+            hardlink_count: Some(1),
+            commit_mode: "atomic".to_string(),
+            commit_status: "committed".to_string(),
+            cleanup_status: "cleaned".to_string(),
+            rollback_status: "not_needed".to_string(),
+            bytes_written: 42,
+            output_digest: "sha256:abc".to_string(),
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        };
+        let typed = report.typed_evidence();
+        assert_eq!(typed.bytes_written, "42");
+        assert_eq!(typed.output_digest, "sha256:abc");
+        let prefixed = report.evidence_fields("vortex_ingest_output");
+        assert_eq!(prefixed.len(), 24);
+        assert_eq!(prefixed, typed.to_prefixed_fields("vortex_ingest_output"));
+        assert!(
+            prefixed
+                .iter()
+                .any(|(k, v)| k == "vortex_ingest_output_bytes_written" && v == "42")
+        );
     }
 }

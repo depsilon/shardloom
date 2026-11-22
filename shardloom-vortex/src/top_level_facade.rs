@@ -1647,12 +1647,12 @@ mod tests {
                 && artifact
                     .fields
                     .iter()
-                    .any(|(key, value)| key == "runtime_execution_allowed" && value == "true")
+                    .any(|entry| entry.key == "runtime_execution_allowed" && entry.value == "true")
         }));
         assert!(result.inline_artifacts.iter().any(|artifact| {
             artifact.artifact_kind == "execution_certificate"
-                && artifact.fields.iter().any(|(key, value)| {
-                    key == "provider_version" && value == env!("CARGO_PKG_VERSION")
+                && artifact.fields.iter().any(|entry| {
+                    entry.key == "provider_version" && entry.value == env!("CARGO_PKG_VERSION")
                 })
         }));
         assert!(!result.fallback_attempted());
@@ -1706,7 +1706,7 @@ mod tests {
                 && artifact
                     .fields
                     .iter()
-                    .any(|(key, value)| key == "execution_certificate_id" && !value.is_empty())
+                    .any(|entry| entry.key == "execution_certificate_id" && !entry.value.is_empty())
         }));
         assert_eq!(
             result
@@ -1860,15 +1860,21 @@ mod tests {
                         allocation.status,
                         "blocked_resource_admission_unimplemented"
                     );
-                    assert!(allocation.fields.contains(&(
-                        "execution_resource_declared_memory_bytes".into(),
-                        bytes.to_string()
-                    )));
                     assert!(
-                        allocation.fields.contains(&(
-                            "execution_resource_memory_origin".into(),
-                            "context".into()
-                        ))
+                        allocation
+                            .fields
+                            .contains(&shardloom_core::OutputKeyValueField::new(
+                                "execution_resource_declared_memory_bytes",
+                                bytes.to_string(),
+                            ))
+                    );
+                    assert!(
+                        allocation
+                            .fields
+                            .contains(&shardloom_core::OutputKeyValueField::new(
+                                "execution_resource_memory_origin",
+                                "context",
+                            ))
                     );
                 }
             }

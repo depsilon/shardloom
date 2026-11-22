@@ -153,12 +153,12 @@ impl ShardLoomExecutionEvidenceSlot {
 }
 
 /// Inline artifact payload preserved with a top-level execution result.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ShardLoomExecutionInlineArtifact {
     pub artifact_id: String,
     pub artifact_kind: String,
     pub status: String,
-    pub fields: Vec<(String, String)>,
+    pub fields: Vec<shardloom_core::OutputKeyValueField>,
 }
 
 impl ShardLoomExecutionInlineArtifact {
@@ -178,7 +178,8 @@ impl ShardLoomExecutionInlineArtifact {
 
     #[must_use]
     pub fn with_field(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
-        self.fields.push((key.into(), value.into()));
+        self.fields
+            .push(shardloom_core::OutputKeyValueField::new(key, value));
         self
     }
 
@@ -190,7 +191,7 @@ impl ShardLoomExecutionInlineArtifact {
                 self.artifact_kind.clone(),
                 self.status.clone(),
             ),
-            |artifact, (key, value)| artifact.with_field(key.clone(), value.clone()),
+            |artifact, entry| artifact.with_field(entry.key.clone(), entry.value.clone()),
         )
     }
 }
@@ -1166,9 +1167,11 @@ pub use memory::{
 // policy/evidence code; provider crates decide whether an admitted route may
 // apply its batch plan.
 pub use pulseweave::{
-    EndoPulseDecision, FlowInventoryReport, ProofBoundAutoGate, PulseWeaveInput, PulseWeaveReport,
-    PulseWeaveTaskShape, ScarcityLedgerAction, ScarcityLedgerDecision, compute_scarcity_ledger,
-    evaluate_proofbound_auto_gate, plan_endopulse_adjustment, plan_flow_inventory, plan_pulseweave,
+    EndoPulseDecision, EndoPulseEvidence, FlowInventoryEvidence, FlowInventoryReport,
+    ProofBoundAutoGate, ProofBoundEvidence, PulseWeaveEvidence, PulseWeaveInput, PulseWeaveReport,
+    PulseWeaveTaskShape, ScarcityLedgerAction, ScarcityLedgerDecision, ScarcityLedgerEvidence,
+    compute_scarcity_ledger, evaluate_proofbound_auto_gate, plan_endopulse_adjustment,
+    plan_flow_inventory, plan_pulseweave,
 };
 
 // Recovery, retry, cancellation, cleanup, and commit promotion contracts.

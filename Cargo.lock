@@ -3100,6 +3100,7 @@ dependencies = [
  "jiff",
  "jiff-tzdb",
  "regex",
+ "serde",
  "sha2",
 ]
 
@@ -3107,6 +3108,7 @@ dependencies = [
 name = "shardloom-exec"
 version = "1.1.0"
 dependencies = [
+ "serde",
  "shardloom-core",
  "shardloom-plan",
 ]

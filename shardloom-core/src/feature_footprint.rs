@@ -258,11 +258,29 @@ impl ExternalBaselineAvailability {
     }
 }
 
+/// Typed workspace crate version entry for [`FeatureFootprintReport`].
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct CrateVersionEntry {
+    pub crate_name: String,
+    pub version: String,
+}
+
+impl CrateVersionEntry {
+    /// Creates a typed crate version entry.
+    #[must_use]
+    pub fn new(crate_name: impl Into<String>, version: impl Into<String>) -> Self {
+        Self {
+            crate_name: crate_name.into(),
+            version: version.into(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FeatureFootprintReport {
     pub schema_version: &'static str,
     pub engine_version: String,
-    pub crate_versions: Vec<(String, String)>,
+    pub crate_versions: Vec<CrateVersionEntry>,
     pub compiled_features: Vec<String>,
     pub enabled_features: Vec<String>,
     pub disabled_features: Vec<String>,
@@ -293,9 +311,9 @@ impl FeatureFootprintReport {
         Self {
             schema_version: "shardloom.feature_footprint.v1",
             engine_version: env!("CARGO_PKG_VERSION").to_string(),
-            crate_versions: vec![(
-                "shardloom-core".to_string(),
-                env!("CARGO_PKG_VERSION").to_string(),
+            crate_versions: vec![CrateVersionEntry::new(
+                "shardloom-core",
+                env!("CARGO_PKG_VERSION"),
             )],
             compiled_features: Vec::new(),
             enabled_features: Vec::new(),
