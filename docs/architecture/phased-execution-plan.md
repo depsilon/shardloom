@@ -714,8 +714,177 @@ workflow, performance and acceptance work recorded in the historical notes.
   - [x] Complete exact filtered retrieval and the selected lexical/hybrid workflows.
   - [x] Verify mixed workflow fidelity, resources and feature-specific acceptance.
 
+#### Reconciled E2E Queue Before Version 1.3.0
+
+Reconciles the revised 17-item end-to-end execution queue (`E2E-FIX-01` through `E2E-PYO3-01`)
+onto the current `v1.1.0` codebase ahead of **Version 1.3.0 source milestone** (see
+[v1.1.0 queue reconciliation](e2e-v110-queue-reconciliation-and-r3-inventory-2026-11-21.md)).
+Items and sub-items already delivered on `v1.1.0` (`#1543`, `#1711`, `#1713`) are checked `[x]`
+with verified repository evidence; genuinely remaining items stay `[ ]` in exact execution order
+with `CG-1` through `CG-23` open and `claim_gate_status=not_claim_grade`.
+
+- [ ] `E2E-FIX-01` complete exact `i128` integer `SUM`/`AVG` accumulators (C7 JSON, Python materialization guards, and Timestamp units already landed in `v1.1.0`).
+  - Queue identifier only: `E2E-FIX-01` executes remaining pre-optimization correctness repairs under canonical `PERF-04`, `PERF-08`, and `CG-5`/`CG-20` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
+  - V1 scope classification: `required_for_v1`.
+  - Execution checklist:
+    - [x] C7 whole-file JSON typed construction shipped prior to `v0.4.0`.
+    - [x] Python `_bounded_materialization_report` / `_bounded_schema_report` (`python/src/shardloom/query.py:6923-6962`) delegate directly to `self.collect(...)` without early-return dead guards.
+    - [x] Four-unit Arrow `Timestamp` (`Second`, `Millisecond`, `Microsecond`, `Nanosecond`) normalization landed under `NATIVE-TIMESTAMP-PROVIDER` (`#1543`).
+    - [ ] Replace remaining `#[allow(clippy::cast_precision_loss)]` lossy `f64` integer `SUM`/`AVG` accumulators (`> 2^53` precision truncation) across `shardloom-vortex/src/local_primitives.rs` (`lines 8964, 9027, 9334, 9340, 9398, 14044, 14050, 18812, 26594, 29392, 29612, 30008, 45164, 45299, 46723, 47395, 47925, 47943, 49189`) with checked `i128` integer accumulation and exact overflow/formatting tests.
+  - Claim boundary: `claim_gate_status=not_claim_grade`.
+  - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
+
+- [ ] `E2E-VERIFY-01` establish same-commit baseline, offline independent differential correctness oracles, and CI perf-smoke ahead of kernel rewrites.
+  - Queue identifier only: `E2E-VERIFY-01` groups canonical `PERF-01` same-commit baseline work and `RFC 0015` / `PERF-12` independent oracle infrastructure ahead of `E2E-PERF-00`–`06`, with relevant competitive gates `CG-5`, `CG-6`, `CG-15`, `CG-16`, and `CG-20` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
+  - V1 scope classification: `required_for_v1`.
+  - Execution checklist:
+    - [ ] Capture a same-commit `PERF-01` exclusive-span baseline (`Full43` + `100M` ingest stage attribution, CPU user/sys split, page faults, Peak RSS) and freeze explicit numeric retain/drop thresholds for downstream `E2E-PERF-*` batches.
+    - [ ] Upgrade `scripts/run_clickbench_query_uat.py` (`lines 188, 192`, currently self-regression references) onto isolated offline/test-only differential oracles (`scripts/clickbench_independent_reference.py`, zero runtime linkage in `Cargo.lock`) across all 43 queries.
+    - [ ] Add seeded property/fuzz differential SQL & `LazyFrame` suites (`> 2^53` integers, nulls, ties, skew, forced spill) and bounded-fixture CI perf-smoke checks.
+  - Claim boundary: `claim_gate_status=not_claim_grade`.
+  - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
+
+- [ ] `E2E-VERIFY-02` add paired warm resident-session benchmark lanes alongside cold per-process CLI spawns ahead of `E2E-PERF-01`.
+  - Queue identifier only: `E2E-VERIFY-02` closes `PERF-01`/`PERF-02`/`PERF-12` warm-vs-cold timing-surface measurement ahead of session optimizations (`E2E-PERF-01`), with relevant competitive gates `CG-2`, `CG-5`, `CG-6`, `CG-17`, and `CG-21` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
+  - V1 scope classification: `required_for_v1`.
+  - Execution checklist:
+    - [ ] Extend `scripts/run_clickbench_query_uat.py` with a paired `warm_resident_session` + concurrent-serving lane alongside `cold_process_cli`, keeping `timing_surface` metrics strictly separated and proving zero query-answer caching against `E2E-VERIFY-01` independent oracles.
+  - Claim boundary: `claim_gate_status=not_claim_grade`.
+  - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
+
+- [ ] `E2E-ARCH-01` reconcile canonical queue owners and finish R3 modularization & typed evidence bags (`shardloom-bench` extraction and `run_all_checks.py` landed).
+  - Queue identifier only: `E2E-ARCH-01` groups structural queue cleanup, compile/binary decoupling, and R3 cleanup (`AGENTS.md`, `RFC 0024`, `PERF-01`, `PERF-10`), with relevant competitive gates `CG-2`, `CG-5`, `CG-6`, and `CG-20` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
+  - V1 scope classification: `required_for_v1`.
+  - Execution checklist:
+    - [x] Remove `shardloom-vortex/src/traditional_analytics.rs` (`56.5K` LOC) from `shardloom-vortex`, land `DocumentReadCache` + `scripts/run_all_checks.py` (`#1711`), and publish the R3 module-boundary & public-symbol inventory (`e2e-v110-queue-reconciliation-and-r3-inventory-2026-11-21.md`).
+    - [ ] Split the 10 large files (`>= 9,800` LOC: `local_primitives.rs` `70,802`, `vortex_ingest.rs` `22,351`, `public_workflow_route.rs` `18,837`, `sql_syntax.rs` `17,581`, `query.py`, etc.) incrementally on touch using thin re-export facades without changing public symbols or envelopes.
+    - [ ] Replace remaining internal `Vec<(String, String)>` evidence bags in `shardloom-core` (`execution_resources.rs:322`, `output.rs:461,565,691`, `security.rs:1286`, `feature_footprint.rs:265`, `schema.rs:128`) and `shardloom-exec` (`lib.rs:161`, `pulseweave.rs:713`) with typed `serde` structs preserving `evidence_schema_registry.rs` and `typed_envelope_compatibility_lock.rs`.
+  - Claim boundary: `claim_gate_status=not_claim_grade`.
+  - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
+
+- [ ] `E2E-PERF-00` land engine-wide cross-cutting wins (global allocator RFC, hot `SeqCst` removal, runtime reuse, lazy JSON, opt-in `sync_all`).
+  - Queue identifier only: `E2E-PERF-00` executes cross-cutting runtime wins under canonical `PERF-01` and `PERF-03`, with relevant competitive gates `CG-2`, `CG-5`, `CG-6`, and `CG-8` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
+  - V1 scope classification: `required_for_v1`.
+  - Execution checklist:
+    - [ ] Complete an RFC + Apache-2.0 provenance review (`docs/skills/license-provenance.md`) for an optional/default `mimalloc` `#[global_allocator]` strictly in `shardloom-cli/src/main.rs` (keeping `unsafe_code = "forbid"` in all library crates) and screen against `E2E-VERIFY-01` Full43 sys-CPU/page-fault/RSS gates.
+    - [ ] Replace non-test `Ordering::SeqCst` worker counters (`shardloom-vortex/src/local_primitives/exact_distinct_pairs.rs:493`, `native_numeric_accessor.rs:269`, `compound_count_partial.rs:525`) with `Relaxed` / worker-local accumulators.
+    - [ ] Replace per-call `CurrentThreadRuntime::new()` on production worker paths (`resident_worker_group.rs:94,115,141`, `local_primitive_collect.rs:1518`, `local_primitives.rs:2622`, `prepared_source_binding.rs:471`) with shared runtime handles.
+    - [ ] Gate eager `serde_json::json!` construction (`587` sites in `local_primitives.rs`) behind lazy `explain`/`publication_proof` tier rendering (`hot_runtime` skips unused synthesis).
+    - [ ] Make non-durable `sync_all()` (`memory_file_generation.rs:518,537`, `local_primitive_native_sink.rs:882`) explicit opt-in / final-commit-only.
+  - Claim boundary: `claim_gate_status=not_claim_grade`.
+  - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
+
+- [ ] `E2E-PERF-01` preserve file-keyed resident sessions, `LayoutReader` cache, metadata/zone pruning, descriptor de-unpacking, and gated coalesced byte-range I/O (absorbing `E2E-ARCH-03`).
+  - Queue identifier only: `E2E-PERF-01` maps to canonical `PERF-01`, `PERF-02`, `PERF-07`, and `PERF-10`, with relevant competitive gates `CG-1`, `CG-2`, `CG-5`, `CG-6`, `CG-7`, `CG-17`, and `CG-20` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
+  - V1 scope classification: `required_for_v1`.
+  - Execution checklist:
+    - [x] Land Slice 1 exact Vortex footer metadata aggregate completion (`shardloom-vortex/src/local_primitive_footer_aggregate*.rs`, PR `#1713`) and selected file statistics in `local_primitive_native_writer.rs:132`.
+    - [ ] Refactor `reader_generated_encoded_kernel_inputs_from_vortex_chunk` (`local_primitives.rs:16026`) so `BitPacked`/`Dict`/`Sparse`/`RunEnd` emit lightweight metadata descriptors without heap `Vec` unpacking.
+    - [ ] Eliminate the `execution_session.clear()` resets (`15` sites in `shardloom-cli/src/{lib.rs,public_resident_aggregate.rs,public_resident_count.rs}`) and per-query `with_segment_source` resets (`resident_execution_context.rs:864`, `resident_session.rs:1356`) so file-keyed `VortexFile` + `LayoutReader` caches survive across queries under concurrency stress tests, and preserve `And` pushdown (`force_residual_predicate_for_source_ordinals` at `local_primitives.rs:23854,24699`; screen `predicate_ordering_used: false` at `runtime_utilization.rs:397`).
+    - [ ] Expand footer/`ZonedLayout`/pruning coverage (`F32`/`F64`, `Bool`, `Utf8`, `InList`, `Or`, constant `NotEq`, `IsNull`/`IsNotNull`, partitioned files) and run the gated coalesced async byte-range I/O + bounded prefetch screen over `SegmentSource`/`ScanBuilder::with_row_indices` (absorbed `E2E-ARCH-03`).
+  - Claim boundary: `claim_gate_status=not_claim_grade`.
+  - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
+
+- [ ] `E2E-PERF-02` unify `ComputePool` vs. `MorselScheduler`, recycle `Q34`/`Q35` scratch tables, close `R10`, and eliminate remaining `Vec<StatValue>` / scalar kernel bottlenecks.
+  - Queue identifier only: `E2E-PERF-02` maps to canonical `PERF-03`, `PERF-04`, `PERF-05`, `PERF-10`, and `PERF-INTAKE` `R10`, with relevant competitive gates `CG-2`, `CG-5`, `CG-6`, `CG-8`, `CG-14`, and `CG-15` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
+  - V1 scope classification: `required_for_v1`.
+  - Execution checklist:
+    - [x] Land `ComputePool` targeted wakeups & `OneshotSlot`, `Copy` static row kernels (`SimpleRowKernel`/`CompactRowKernel`), and `O(1)` compensated `add_integer_repeated` (`#1711`).
+    - [ ] Eliminate remaining per-query `ComputePool::new` calls (`aggregate_chunk_jobs.rs:257`, `vortex_ingest.rs:11500`) and unify `ComputePool` vs. `MorselScheduler` onto one session-persistent `PulseWeave`-throttled pool.
+    - [ ] Recycle `LiveMemoryPool`-bounded `Q34`/`Q35` worker-local scratch tables/buffers and resolve lock-free partition routing (`string_count_owner_scheduling.rs`, `compact_string_state.rs`, `PERF-INTAKE` `R10`) against prior rejections.
+    - [ ] Eliminate `Vec<StatValue>` chunk materialization in general aggregate/rolling loops and vectorize `encoded_numeric_reduction.rs` + numeric `Dict` multiplicity reductions under `unsafe_code = "forbid"`.
+  - Claim boundary: `claim_gate_status=not_claim_grade`.
+  - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
+
+- [ ] `E2E-PERF-03` close the `1.0×`-core Full43 tail, lift `CountWorkers` schema/nullability/`HAVING` cliffs, and close `PERF-INTAKE` `R2.a`–`R6.c`.
+  - Queue identifier only: `E2E-PERF-03` maps to canonical `PERF-04`, `PERF-05`, `PERF-10`, `PERF-12`, and `PERF-INTAKE` (`R2.a`, `R2.b`, `R3.a`, `R3.b`, `R4`, `R6.c`), with relevant competitive gates `CG-2`, `CG-5`, `CG-6`, `CG-15`, and `CG-20` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
+  - V1 scope classification: `required_for_v1`.
+  - Execution checklist:
+    - [ ] Admit nullable group keys, nullable struct roots, post-merge `HAVING`, multi-measure aggregates, `4+` keys, `Dict` integer chunks, and footer `DType` dispatch inside parallel `CountWorkers` (`Q28` `1.03×` -> multi-core).
+    - [ ] Parallelize scalar/grouped `COUNT(DISTINCT)` and `DistinctRows`/`DropDuplicateRows` (`Q06`, `Q10`, `Q12`, `Q14`–`Q16`), parallel `SortRows` Top-K, unordered `GROUP BY ... LIMIT K` (`Q18`), and zero-reopen late materialization (`Q33` single-pass directory release).
+    - [ ] Close `PERF-INTAKE` screens (`R2.a`, `R2.b`, `R3.a`, `R3.b`, `R4`, `R6.c`) with paired `E2E-VERIFY-01`/`02` ship/drop packets.
+  - Claim boundary: `claim_gate_status=not_claim_grade`.
+  - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
+
+- [ ] `E2E-PERF-04` govern Universal Ingest parallelism under one memory controller, eliminate `VarBinView` canonical inflation & `copy_batch` copies, and modernize readers.
+  - Queue identifier only: `E2E-PERF-04` maps to canonical `PERF-03`, `PERF-08`, and `PERF-09`, with relevant competitive gates `CG-1`, `CG-3`, `CG-5`, `CG-6`, and `CG-14` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
+  - V1 scope classification: `required_for_v1`.
+  - Execution checklist:
+    - [ ] Unclamp `IngestCpuLanes::pipeline` (`ingest_cpu_lanes.rs:75`, currently `pipeline_demand(requested, 1)`), `NumericDataStrategy`, `DictionaryPreservingStrategy`, and `BoundedIngestLayout` under one `LiveMemoryPool` / RSS governor.
+    - [ ] Eliminate `VarBinView` canonical text inflation before Zstd and replace `ingest_arrow_ownership::copy_batch` (`163`) bulk copies with zero-copy `LiveMemoryPool` lease-tracked Arrow buffer ownership.
+    - [ ] Reconcile `PERF-08` write-time streaming SHA-256 inside `publish_vortex_prepared_olap_single_artifact_state` (`vortex_ingest.rs:2712`) and modernize CSV/JSONL/JSON/IPC readers via first-batch profiling without hardcoded ClickBench column-name heuristics.
+  - Claim boundary: `claim_gate_status=not_claim_grade`.
+  - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
+
+- [ ] `E2E-PERF-06` complete universal `OwnedVortexResultBatch` sinks, zero-serialization composition, binary Python Arrow IPC worker, and lean hot-path envelopes.
+  - Queue identifier only: `E2E-PERF-06` maps to canonical `PERF-02`, `PERF-07`, `PERF-11`, `PERF-12`, and `CLICKBENCH-PRODUCTION-COLUMNAR-RESULT-DATAPLANE-1`, with relevant competitive gates `CG-3`, `CG-4`, `CG-5`, `CG-6`, `CG-20`, `CG-21`, and `CG-23` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
+  - V1 scope classification: `required_for_v1`.
+  - Execution checklist:
+    - [x] Remove `cli_output::emit_timed` and enable Snappy compression in `local_primitive_columnar_compat_sink.rs` (`v1.1.0`).
+    - [ ] Extend `ArrayRef`-backed `OwnedVortexResultBatch` across all operators, upgrade `PreparedVortexNativeSink` (`local_primitive_native_sink.rs:748`) to BtrBlocks + `ZonedLayout` + stats (preserving `output_payload.rs` `real_vortex_payload=false` separation), and lift `batch_rows: 2048` / `65,536`-row caps in `local_primitive_columnar_compat_sink.rs:73,124`.
+    - [ ] Route multi-step chains through zero-serialization `OwnedArraySource` with real min/max/null pruning, move persistent pure-Python worker transfers onto binary Arrow IPC framing, and keep `hot_runtime` envelopes lean without breaking `typed_envelope_compatibility_lock.rs`.
+  - Claim boundary: `claim_gate_status=not_claim_grade`.
+  - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
+
+- [ ] `E2E-ARCH-02` approve via RFC and integrate one Apache-2.0 pure-AST SQL parser crate ahead of relational convergence, retiring handwritten SQL splitters.
+  - Queue identifier only: `E2E-ARCH-02` maps to `RFC 0011`, `RFC 0021`, `RFC 0022`, `PERF-02`, and `PERF-10`, positioned right ahead of `E2E-PERF-05A`/`05B`/`05C`, with relevant competitive gates `CG-2`, `CG-5`, `CG-16`, `CG-20`, and `CG-21` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
+  - V1 scope classification: `required_for_v1`.
+  - Execution checklist:
+    - [ ] Author and approve a parser RFC (`docs/rfcs/`) and Apache-2.0 provenance audit (`Cargo.lock` verified zero DataFusion/DuckDB/Spark/Polars/Velox crates) for one pure-syntax SQL AST parser crate.
+    - [ ] Implement one canonical `SQL AST -> shardloom-plan` logical and expression binder (`RFC 0012` deterministic diagnostics) and retire handwritten splitters across `sql_syntax.rs`, `public_workflow_route.rs`, `sql_local_source_runtime.rs`, and `python/src/shardloom/query.py`.
+  - Claim boundary: `claim_gate_status=not_claim_grade`.
+  - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
+
+- [ ] `E2E-PERF-05A` wire canonical `shardloom-plan` execution, compiled columnar expression evaluation, `vortex_middle` pushdown, and full SQL/`LazyFrame` native hash-join convergence.
+  - Queue identifier only: `E2E-PERF-05A` splits the first relational convergence slice under canonical `PERF-02` and `PERF-10`, with relevant competitive gates `CG-2`, `CG-5`, `CG-6`, `CG-16`, `CG-20`, and `CG-21` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
+  - V1 scope classification: `required_for_v1`.
+  - Execution checklist:
+    - [x] Foundational native columnar joins landed in `NATIVE-JOIN-PRESSURE`.
+    - [ ] Wire `E2E-ARCH-02`'s canonical `shardloom-plan` binder into live execution, compile columnar expression chunk evaluators (replacing row-by-row `shardloom-core/src/expression.rs` / `BTreeMap` loops), push projections/filters into `vortex_middle`, and push build-side min/max + Bloom runtime filters into probe `ScanBuilder`s across all admitted SQL/`LazyFrame` joins.
+  - Claim boundary: `claim_gate_status=not_claim_grade`.
+  - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
+
+- [ ] `E2E-PERF-05B` converge native partitioned analytic windows, set operations, CTEs, and decorrelated subqueries onto AST-bound native execution.
+  - Queue identifier only: `E2E-PERF-05B` splits the second relational convergence slice under canonical `PERF-02` and `PERF-10`, with relevant competitive gates `CG-2`, `CG-5`, `CG-6`, `CG-16`, `CG-20`, and `CG-21` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
+  - V1 scope classification: `required_for_v1`.
+  - Execution checklist:
+    - [x] Foundational native windows, subqueries, and set ops landed (`NATIVE-WINDOW-PRESSURE`, `NATIVE-SCALAR-SUBQUERIES`, `NATIVE-STREAM-SETS`).
+    - [ ] Converge arbitrary AST-bound windows, uncapped set operations, reusable `OwnedArraySource` CTEs, and decorrelated semi/anti/scalar subqueries onto native `shardloom-vortex` execution, retiring `sql_local_source_runtime.rs` `MAX_LIMIT_ROWS = 10_000` (`line 103`) row-map fallback paths.
+  - Claim boundary: `claim_gate_status=not_claim_grade`.
+  - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
+
+- [ ] `E2E-PERF-05C` broaden and optimize high-throughput native Vortex query spill (`16K–64K` blocks, higher merge fan-in, streaming digests).
+  - Queue identifier only: `E2E-PERF-05C` splits the spill modernization slice under canonical `PERF-06` and `PERF-10`, with relevant competitive gates `CG-2`, `CG-5`, `CG-6`, and `CG-14` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
+  - V1 scope classification: `required_for_v1`.
+  - Execution checklist:
+    - [ ] Raise native spill block geometry from `MAX_BLOCK_ROWS = 1024` (`local_primitive_sort_spill.rs:38`) to `16K–64K` streaming blocks across sorts, general/compound/distinct aggregates, `DistinctRows`, and `E2E-PERF-05A` hash joins, raise k-way merge fan-in without per-row allocations, and replace triple `validate_run_bytes` SHA-256 disk re-reads (`local_primitive_query_run_store.rs:511,631,833`) with streaming write digests + footer checks.
+  - Claim boundary: `claim_gate_status=not_claim_grade`.
+  - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
+
+- [ ] `E2E-VERIFY-03` implement multi-table TPC-H and Star Schema Benchmark (SSB) oracle and cold/warm benchmark suites.
+  - Queue identifier only: `E2E-VERIFY-03` executes the multi-table benchmark and differential verification portion of `PERF-01`/`PERF-12`/`CG-5`/`CG-6` right after `E2E-PERF-05A`/`05B`/`05C`, under `docs/architecture/local-development-storage.md` non-synced storage guards (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
+  - V1 scope classification: `required_for_v1`.
+  - Execution checklist:
+    - [ ] Add reproducible multi-table TPC-H and SSB oracle + paired `cold_process_cli` / `warm_resident_session` benchmark suites stored under non-synced local workspace guards, verifying 100% parity against `E2E-VERIFY-01` independent differential oracles.
+  - Claim boundary: `claim_gate_status=not_claim_grade`.
+  - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
+
+- [ ] `E2E-PGO-01` execute post-unification `PERF-13` PGO training corpus, hot-symbol coverage gate, and paired ship/drop promotion screen.
+  - Queue identifier only: `E2E-PGO-01` places `PERF-13` PGO evaluation strictly after unified hot kernels (`E2E-PERF-01`–`06` and `E2E-VERIFY-03`), with relevant competitive gates `CG-5` and `CG-6` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
+  - V1 scope classification: `v1_candidate_pending_feasibility`.
+  - Execution checklist:
+    - [ ] Upgrade `scripts/pgo_local_experiment.py` with a non-ClickBench multi-family training corpus + `llvm-profdata` hot-symbol coverage gate and execute paired `profile-use` query (Full43 cold/warm + TPC-H/SSB) and 100M ingest ship/drop screens against portable ThinLTO.
+  - Claim boundary: `claim_gate_status=not_claim_grade`.
+  - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
+
+- [x] `E2E-PYO3-01` optional `PyO3` Arrow PyCapsule in-process Python bindings and `abi3` wheel matrix (`v1.1.0` shipped baseline).
+  - Queue identifier only: `E2E-PYO3-01` records that `shardloom-python` (`PyO3 =0.29.3`, `abi3-py310`), `capsules.rs` (`__arrow_c_stream__`), GIL-released `NativeSession`, `unsafe_code = "forbid"` across core crates, zero-dependency `python/pyproject.toml`, and 3-platform CI wheel acceptance shipped on `v1.1.0` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
+  - V1 scope classification: `required_for_v1`.
+  - Claim boundary: `claim_gate_status=not_claim_grade`.
+  - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
+
 - [ ] **Version 1.3.0 source milestone**
-  Status: Queued — follows AI data workflow acceptance.
+  Status: Queued — follows AI data workflow acceptance and the reconciled `E2E-FIX-01` through `E2E-PGO-01` queue (versions stay at `1.1.0` until maintainer authorization).
   This source milestone does not authorize package publication.
   Execution checklist:
   - [ ] Reconcile accepted scope, version sources and release evidence.
