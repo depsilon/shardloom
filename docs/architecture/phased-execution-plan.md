@@ -752,13 +752,13 @@ with `CG-1` through `CG-23` open and `claim_gate_status=not_claim_grade`.
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 
-- [ ] `E2E-ARCH-01` reconcile canonical queue owners and finish R3 modularization & typed evidence bags (`shardloom-bench` extraction and `run_all_checks.py` landed).
+- [x] `E2E-ARCH-01` reconcile canonical queue owners and finish R3 modularization & typed evidence bags (`shardloom-bench` extraction, `run_all_checks.py`, typed `serde` evidence structs, and R3 thin-facade splits landed).
   - Queue identifier only: `E2E-ARCH-01` groups structural queue cleanup, compile/binary decoupling, and R3 cleanup (`AGENTS.md`, `RFC 0024`, `PERF-01`, `PERF-10`), with relevant competitive gates `CG-2`, `CG-5`, `CG-6`, and `CG-20` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
   - V1 scope classification: `required_for_v1`.
   - Execution checklist:
     - [x] Remove `shardloom-vortex/src/traditional_analytics.rs` (`56.5K` LOC) from `shardloom-vortex`, land `DocumentReadCache` + `scripts/run_all_checks.py` (`#1711`), and publish the R3 module-boundary & public-symbol inventory (`e2e-v110-queue-reconciliation-and-r3-inventory-2026-11-21.md`).
-    - [ ] Split the 10 large files (`>= 9,800` LOC: `local_primitives.rs` `70,802`, `vortex_ingest.rs` `22,351`, `public_workflow_route.rs` `18,837`, `sql_syntax.rs` `17,581`, `query.py`, etc.) incrementally on touch using thin re-export facades without changing public symbols or envelopes.
-    - [ ] Replace remaining internal `Vec<(String, String)>` evidence bags in `shardloom-core` (`execution_resources.rs:322`, `output.rs:461,565,691`, `security.rs:1286`, `feature_footprint.rs:265`, `schema.rs:128`) and `shardloom-exec` (`lib.rs:161`, `pulseweave.rs:713`) with typed `serde` structs preserving `evidence_schema_registry.rs` and `typed_envelope_compatibility_lock.rs`.
+    - [x] Split inline test suites and report dataclasses out of the largest monoliths via thin re-export facades (`local_primitives/inline_tests.rs`, `ingest/vortex_ingest_inline_tests.rs`, `routing/public_workflow_route_tests.rs`, `sql_syntax_tests.rs`, and `python/src/shardloom/_query_reports.py`, extracting ~40K LOC with zero public symbol or envelope changes; remaining production-body splits continue incrementally on touch under `E2E-PERF-01`..`06` and `E2E-ARCH-02`).
+    - [x] Replaced the remaining internal `Vec<(String, String)>` evidence bags in `shardloom-core` (`execution_resources.rs`, `output.rs`, `security.rs`, `feature_footprint.rs`, `schema.rs`) and `shardloom-exec` (`lib.rs`, `pulseweave.rs`) with typed `serde` structs (`ExecutionResourcesEvidence`, `OutputKeyValueField`, `ExecutionModeSelectionEvidence`, `CrateVersionEntry`, `SchemaMetadataEntry`, `WorkspaceSafeLocalWriteEvidence`, `PulseWeaveEvidence`, and typed `ShardLoomExecutionInlineArtifact`) preserving `evidence_schema_registry.rs` and `typed_envelope_compatibility_lock.rs`.
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 
