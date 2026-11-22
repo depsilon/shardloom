@@ -152,3 +152,63 @@ fn observation_credit_refusal_precedes_worker_startup() {
     let ordinary = ComputePool::new(1, 1, 1, memory.clone()).unwrap();
     assert!(ordinary.close_and_snapshot().waits.is_none());
 }
+
+#[test]
+fn single_submission_wakes_one_idle_worker_without_thundering_herd() {
+    let memory = LiveMemoryPool::new(1024).unwrap();
+    let pool = ComputePool::with_wait_observation(4, 4, 256, memory.clone(), true).unwrap();
+    until(|| pool.snapshot().waits.unwrap().waiting_workers == 4);
+    let (entered_tx, entered_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let task = pool
+        .submit(
+            Budgeted::new(
+                move |_: &WorkerContext, _: &mut MemoryLease| {
+                    entered_tx.send(()).unwrap();
+                    release_rx.recv().unwrap();
+                    Ok(42_u64)
+                },
+                memory.reserve(32).unwrap(),
+            ),
+            CancellationToken::default(),
+        )
+        .unwrap();
+    entered_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+    let mid = pool.snapshot();
+    let waits = mid.waits.unwrap();
+    assert_eq!(mid.active_workers, 1);
+    assert_eq!(waits.waiting_workers, 3);
+    assert_eq!(waits.completed_empty_queue_waits, 1);
+    release_tx.send(()).unwrap();
+    assert_eq!(*task.join().unwrap().value(), 42);
+    let done = pool.close_and_snapshot();
+    assert_eq!(done.completed_jobs, 1);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn dropping_unjoined_task_releases_worker_credits_after_completion() {
+    let memory = LiveMemoryPool::new(1024).unwrap();
+    let pool = ComputePool::new(1, 2, 256, memory.clone()).unwrap();
+    let (entered_tx, entered_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let task = pool
+        .submit(
+            Budgeted::new(
+                move |_: &WorkerContext, _: &mut MemoryLease| {
+                    entered_tx.send(()).unwrap();
+                    release_rx.recv().unwrap();
+                    Ok(vec![9_u8; 64])
+                },
+                memory.reserve(64).unwrap(),
+            ),
+            CancellationToken::default(),
+        )
+        .unwrap();
+    entered_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+    drop(task);
+    release_tx.send(()).unwrap();
+    let done = pool.close_and_snapshot();
+    assert_eq!(done.completed_jobs, 1);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
