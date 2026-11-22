@@ -2,8 +2,8 @@
 //! No metadata answer is installed until every measure has been proven.
 
 use super::{
-    Result, ShardLoomError, SimpleAggregateFunction, SimpleAggregateStates, StatValue,
-    VortexLocalPrimitiveExecutionMode, VortexLocalPrimitiveExecutionReport,
+    NumericAggregateSum, Result, ShardLoomError, SimpleAggregateFunction, SimpleAggregateStates,
+    StatValue, VortexLocalPrimitiveExecutionMode, VortexLocalPrimitiveExecutionReport,
     VortexQueryPrimitiveKind, VortexQueryPrimitiveRequest, required_simple_aggregate,
     stat_value_cmp, vortex_error, vortex_scalar_to_stat_value,
 };
@@ -11,15 +11,21 @@ use vortex::array::{
     dtype::{DType, Nullability, PType},
     expr::stats::{Precision, Stat},
     scalar::Scalar,
+    stats::StatsSet,
 };
 use vortex::file::{FileStatistics, VortexFile};
 
 const MAX_MEASURES: usize = 64;
+const MAX_EXACT_F64_INT: u64 = 1_u64 << 53;
 
 enum Value {
     Count(u64),
     Min(Option<StatValue>),
     Max(Option<StatValue>),
+    SumOrAvg {
+        count: u64,
+        sum: NumericAggregateSum,
+    },
 }
 
 pub(super) struct Completion {
@@ -66,9 +72,14 @@ fn admitted_shape(request: &VortexQueryPrimitiveRequest) -> bool {
                 && aggregate.measures.iter().all(|measure| {
                     measure.argument_offset.is_none()
                         && measure.value_transform.is_none()
-                        && matches!(SimpleAggregateFunction::parse(&measure.function), Ok(
-                            SimpleAggregateFunction::Count | SimpleAggregateFunction::Min | SimpleAggregateFunction::Max
-                        ))
+                        && matches!(
+                            SimpleAggregateFunction::parse(&measure.function),
+                            Ok(SimpleAggregateFunction::Count
+                                | SimpleAggregateFunction::Min
+                                | SimpleAggregateFunction::Max
+                                | SimpleAggregateFunction::Sum
+                                | SimpleAggregateFunction::Avg)
+                        )
                 })
         })
 }
@@ -87,7 +98,6 @@ pub(super) fn complete(
     )
 }
 
-#[allow(clippy::too_many_lines)] // Keep proof staging and its single commit point together.
 fn complete_from_stats(
     dtype: &DType,
     rows: u64,
@@ -114,6 +124,7 @@ fn complete_from_stats(
         if state.function != function
             || state.alias != measure.alias
             || state.count != 0
+            || state.sum.total().to_bits() != 0.0_f64.to_bits()
             || state.min.is_some()
             || state.max.is_some()
             || !state.distinct_values.is_empty()
@@ -133,93 +144,340 @@ fn complete_from_stats(
         let Some(field_dtype) = fields.field_by_index(field_index) else {
             return Ok(None);
         };
-        let DType::Primitive(ptype, nullable) = &field_dtype else {
-            return Ok(None);
-        };
-        if !matches!(
-            ptype,
-            PType::I8
-                | PType::I16
-                | PType::I32
-                | PType::I64
-                | PType::U8
-                | PType::U16
-                | PType::U32
-                | PType::U64
-        ) {
-            return Ok(None);
-        }
         if statistics
             .is_some_and(|statistics| statistics.dtypes().get(field_index) != Some(&field_dtype))
         {
             return Ok(None);
         }
         let stats = statistics.and_then(|statistics| statistics.stats_sets().get(field_index));
-        let nulls = match stats.map(|stats| stats.get(Stat::NullCount)) {
-            Some(Precision::Exact(value)) => {
-                let scalar =
-                    Scalar::try_new(PType::U64.into(), Some(value)).map_err(vortex_error)?;
-                let value = scalar
-                    .as_primitive()
-                    .as_::<u64>()
-                    .ok_or_else(|| failed("NULL count is not a non-null u64"))?;
-                if value > rows || (*nullable == Nullability::NonNullable && value != 0) {
-                    return Err(failed("NULL count contradicts source rows or dtype"));
-                }
-                exact_statistics += 1;
-                Some(value)
-            }
-            _ if rows == 0 || *nullable == Nullability::NonNullable => Some(0),
-            _ => None,
-        };
-        // Exact non-null extrema suffice even if a nullable field lacks NullCount.
-        let value = match function {
-            SimpleAggregateFunction::Count => {
-                let Some(nulls) = nulls else {
-                    return Ok(None);
-                };
-                Value::Count(
-                    rows.checked_sub(nulls)
-                        .ok_or_else(|| failed("NULL count exceeds rows"))?,
-                )
-            }
-            SimpleAggregateFunction::Min | SimpleAggregateFunction::Max => {
-                let stat = if function == SimpleAggregateFunction::Min {
-                    Stat::Min
-                } else {
-                    Stat::Max
-                };
-                let extremum = match stats.map(|stats| stats.get(stat)) {
-                    Some(Precision::Exact(value)) => {
-                        if rows == 0 || nulls == Some(rows) {
-                            return Err(failed("extremum contradicts empty or all-NULL input"));
-                        }
-                        let stat_dtype = stat
-                            .dtype(&field_dtype)
-                            .ok_or_else(|| failed("integer statistic has no dtype"))?;
-                        let scalar =
-                            Scalar::try_new(stat_dtype, Some(value)).map_err(vortex_error)?;
-                        let value = vortex_scalar_to_stat_value(&scalar)
-                            .ok_or_else(|| failed("extremum is not a supported scalar"))?;
-                        if !matches!(value, StatValue::Int64(_) | StatValue::UInt64(_)) {
-                            return Err(failed("extremum is not a native integer"));
-                        }
-                        exact_statistics += 1;
-                        Some(value)
-                    }
-                    _ if rows == 0 || nulls == Some(rows) => None,
-                    _ => return Ok(None),
-                };
-                if function == SimpleAggregateFunction::Min {
-                    Value::Min(extremum)
-                } else {
-                    Value::Max(extremum)
-                }
-            }
-            _ => return Ok(None),
+        let nulls = read_null_count(stats, &field_dtype, rows, &mut exact_statistics)?;
+        let Some(value) = complete_column_measure(
+            function,
+            &field_dtype,
+            rows,
+            nulls,
+            stats,
+            &mut exact_statistics,
+        )?
+        else {
+            return Ok(None);
         };
         values[index] = Some(value);
     }
+    verify_min_max_consistency(&values, aggregate)?;
+    for (state, value) in states.states.iter_mut().zip(values) {
+        match value.ok_or_else(|| failed("incomplete staged measure"))? {
+            Value::Count(value) => state.count = value,
+            Value::Min(value) => state.min = value,
+            Value::Max(value) => state.max = value,
+            Value::SumOrAvg { count, sum } => {
+                state.count = count;
+                state.sum = sum;
+            }
+        }
+    }
+    Ok(Some(Completion {
+        source_rows: rows,
+        exact_statistics,
+        measures: aggregate.measures.len(),
+    }))
+}
+
+fn complete_column_measure(
+    function: SimpleAggregateFunction,
+    field_dtype: &DType,
+    rows: u64,
+    nulls: Option<u64>,
+    stats: Option<&StatsSet>,
+    exact_statistics: &mut usize,
+) -> Result<Option<Value>> {
+    match function {
+        SimpleAggregateFunction::Count => {
+            let Some(nulls) = nulls else {
+                return Ok(None);
+            };
+            let present = rows
+                .checked_sub(nulls)
+                .ok_or_else(|| failed("NULL count exceeds rows"))?;
+            Ok(Some(Value::Count(present)))
+        }
+        SimpleAggregateFunction::Min | SimpleAggregateFunction::Max => {
+            complete_minmax_measure(function, field_dtype, rows, nulls, stats, exact_statistics)
+        }
+        SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg => {
+            complete_sum_or_avg_measure(field_dtype, rows, nulls, stats, exact_statistics)
+        }
+        SimpleAggregateFunction::CountDistinct => Ok(None),
+    }
+}
+
+fn parse_exact_u64_stat(stats: Option<&StatsSet>, stat: Stat, label: &str) -> Result<Option<u64>> {
+    let Some(Precision::Exact(value)) = stats.map(|stats| stats.get(stat)) else {
+        return Ok(None);
+    };
+    let scalar = Scalar::try_new(PType::U64.into(), Some(value)).map_err(vortex_error)?;
+    scalar
+        .as_primitive()
+        .as_::<u64>()
+        .map(Some)
+        .ok_or_else(|| failed(&format!("{label} is not a non-null u64")))
+}
+
+fn read_null_count(
+    stats: Option<&StatsSet>,
+    field_dtype: &DType,
+    rows: u64,
+    exact_statistics: &mut usize,
+) -> Result<Option<u64>> {
+    if let Some(value) = parse_exact_u64_stat(stats, Stat::NullCount, "NULL count")? {
+        if value > rows || (!field_dtype.is_nullable() && value != 0) {
+            return Err(failed("NULL count contradicts source rows or dtype"));
+        }
+        *exact_statistics += 1;
+        return Ok(Some(value));
+    }
+    if rows == 0 || !field_dtype.is_nullable() {
+        return Ok(Some(0));
+    }
+    Ok(None)
+}
+
+fn is_admitted_integer_ptype(ptype: PType) -> bool {
+    matches!(
+        ptype,
+        PType::I8
+            | PType::I16
+            | PType::I32
+            | PType::I64
+            | PType::U8
+            | PType::U16
+            | PType::U32
+            | PType::U64
+    )
+}
+
+fn complete_minmax_measure(
+    function: SimpleAggregateFunction,
+    field_dtype: &DType,
+    rows: u64,
+    nulls: Option<u64>,
+    stats: Option<&StatsSet>,
+    exact_statistics: &mut usize,
+) -> Result<Option<Value>> {
+    let admitted = match field_dtype {
+        DType::Primitive(ptype, _) => {
+            is_admitted_integer_ptype(*ptype) || matches!(ptype, PType::F32 | PType::F64)
+        }
+        DType::Bool(_) | DType::Utf8(_) => true,
+        _ => false,
+    };
+    if !admitted {
+        return Ok(None);
+    }
+    let stat = if function == SimpleAggregateFunction::Min {
+        Stat::Min
+    } else {
+        Stat::Max
+    };
+    let extremum = if rows == 0 || nulls == Some(rows) {
+        if matches!(stats.map(|s| s.get(stat)), Some(Precision::Exact(_))) {
+            return Err(failed("extremum contradicts empty or all-NULL input"));
+        }
+        None
+    } else {
+        if matches!(field_dtype, DType::Primitive(PType::F32 | PType::F64, _)) {
+            let Some(nan_count) = parse_exact_u64_stat(stats, Stat::NaNCount, "NaN count")? else {
+                return Ok(None);
+            };
+            let valid_rows = rows.saturating_sub(nulls.unwrap_or(0));
+            if nan_count > valid_rows {
+                return Err(failed("NaN count contradicts source rows"));
+            }
+            if nan_count != 0 {
+                return Ok(None);
+            }
+            *exact_statistics += 1;
+        }
+        let Some(Precision::Exact(raw)) = stats.map(|s| s.get(stat)) else {
+            return Ok(None);
+        };
+        let stat_dtype = stat
+            .dtype(field_dtype)
+            .ok_or_else(|| failed("extremum statistic has no dtype"))?;
+        let scalar = Scalar::try_new(stat_dtype, Some(raw)).map_err(vortex_error)?;
+        let Some(value) = vortex_scalar_to_stat_value(&scalar) else {
+            return Err(failed("extremum is not a supported scalar"));
+        };
+        match field_dtype {
+            DType::Primitive(ptype, _) if is_admitted_integer_ptype(*ptype) => {
+                if !matches!(value, StatValue::Int64(_) | StatValue::UInt64(_)) {
+                    return Err(failed("extremum is not a native integer"));
+                }
+            }
+            DType::Primitive(PType::F32 | PType::F64, _) => {
+                let StatValue::Float64(number) = value else {
+                    return Err(failed("extremum is not a native float"));
+                };
+                if !number.is_finite() || number == 0.0 {
+                    // Signed zero (-0.0 vs +0.0) depends on scan encounter order; non-finite errors match full scan.
+                    return Ok(None);
+                }
+            }
+            DType::Bool(_) => {
+                if !matches!(value, StatValue::Boolean(_)) {
+                    return Err(failed("extremum is not a native boolean"));
+                }
+            }
+            DType::Utf8(_) => {
+                if !matches!(value, StatValue::Utf8(_)) {
+                    return Err(failed("extremum is not a native utf8 string"));
+                }
+            }
+            _ => return Ok(None),
+        }
+        *exact_statistics += 1;
+        Some(value)
+    };
+    Ok(Some(if function == SimpleAggregateFunction::Min {
+        Value::Min(extremum)
+    } else {
+        Value::Max(extremum)
+    }))
+}
+
+fn parse_exact_integer_sum_stat(
+    stats: Option<&StatsSet>,
+    field_dtype: &DType,
+    ptype: PType,
+) -> Result<Option<(NumericAggregateSum, bool)>> {
+    let Some(Precision::Exact(raw)) = stats.map(|s| s.get(Stat::Sum)) else {
+        return Ok(None);
+    };
+    let stat_dtype = Stat::Sum
+        .dtype(field_dtype)
+        .ok_or_else(|| failed("integer sum statistic has no dtype"))?;
+    let scalar = Scalar::try_new(stat_dtype, Some(raw)).map_err(vortex_error)?;
+    let Some(value) = vortex_scalar_to_stat_value(&scalar) else {
+        return Err(failed("sum statistic is not a supported scalar"));
+    };
+    let (sum, is_zero) = if ptype.is_signed_int() {
+        let StatValue::Int64(total) = value else {
+            return Err(failed("sum statistic is not a signed integer"));
+        };
+        let sign = if total < 0 { -1.0 } else { 1.0 };
+        (numeric_sum_from_u64(total.unsigned_abs(), sign), total == 0)
+    } else {
+        let StatValue::UInt64(total) = value else {
+            return Err(failed("sum statistic is not an unsigned integer"));
+        };
+        (numeric_sum_from_u64(total, 1.0), total == 0)
+    };
+    if !sum.is_finite() {
+        return Err(failed("exact sum statistic is non-finite"));
+    }
+    Ok(Some((sum, is_zero)))
+}
+
+fn verify_exact_64bit_int_sum_bounds(
+    stats: Option<&StatsSet>,
+    field_dtype: &DType,
+    ptype: PType,
+    exact_statistics: &mut usize,
+) -> Result<bool> {
+    let read_bound = |stat: Stat| -> Result<Option<StatValue>> {
+        let Some(Precision::Exact(raw)) = stats.map(|s| s.get(stat)) else {
+            return Ok(None);
+        };
+        let stat_dtype = stat
+            .dtype(field_dtype)
+            .ok_or_else(|| failed("integer extremum statistic has no dtype"))?;
+        let scalar = Scalar::try_new(stat_dtype, Some(raw)).map_err(vortex_error)?;
+        let Some(value) = vortex_scalar_to_stat_value(&scalar) else {
+            return Err(failed("extremum is not a supported scalar"));
+        };
+        let in_exact_range = match (ptype, &value) {
+            (PType::I64, StatValue::Int64(v)) => v.unsigned_abs() <= MAX_EXACT_F64_INT,
+            (PType::U64, StatValue::UInt64(v)) => *v <= MAX_EXACT_F64_INT,
+            _ => return Err(failed("extremum does not match 64-bit integer signedness")),
+        };
+        Ok(in_exact_range.then_some(value))
+    };
+    let Some(min) = read_bound(Stat::Min)? else {
+        return Ok(false);
+    };
+    let Some(max) = read_bound(Stat::Max)? else {
+        return Ok(false);
+    };
+    if stat_value_cmp(&min, &max) == Some(std::cmp::Ordering::Greater) {
+        return Err(failed("exact minimum exceeds exact maximum"));
+    }
+    *exact_statistics += 2;
+    Ok(true)
+}
+
+fn numeric_sum_from_u64(abs: u64, sign: f64) -> NumericAggregateSum {
+    let mut sum = NumericAggregateSum::default();
+    let high = u32::try_from(abs >> 32).expect("upper 32 bits fit in u32");
+    let low = u32::try_from(abs & u64::from(u32::MAX)).expect("lower 32 bits fit in u32");
+    if high != 0 {
+        sum.add(sign * f64::from(high) * 4_294_967_296.0, true);
+    }
+    if low != 0 || high == 0 {
+        sum.add(sign * f64::from(low), true);
+    }
+    sum
+}
+
+fn complete_sum_or_avg_measure(
+    field_dtype: &DType,
+    rows: u64,
+    nulls: Option<u64>,
+    stats: Option<&StatsSet>,
+    exact_statistics: &mut usize,
+) -> Result<Option<Value>> {
+    let DType::Primitive(ptype, _) = field_dtype else {
+        return Ok(None);
+    };
+    if !is_admitted_integer_ptype(*ptype) {
+        return Ok(None);
+    }
+    let Some(nulls) = nulls else {
+        return Ok(None);
+    };
+    let present = rows
+        .checked_sub(nulls)
+        .ok_or_else(|| failed("NULL count exceeds rows"))?;
+    if present == 0 {
+        if let Some((_, is_zero)) = parse_exact_integer_sum_stat(stats, field_dtype, *ptype)? {
+            if !is_zero {
+                return Err(failed("sum contradicts empty or all-NULL input"));
+            }
+            *exact_statistics += 1;
+        }
+        return Ok(Some(Value::SumOrAvg {
+            count: 0,
+            sum: NumericAggregateSum::default(),
+        }));
+    }
+    if matches!(ptype, PType::I64 | PType::U64)
+        && !verify_exact_64bit_int_sum_bounds(stats, field_dtype, *ptype, exact_statistics)?
+    {
+        return Ok(None);
+    }
+    let Some((sum, _)) = parse_exact_integer_sum_stat(stats, field_dtype, *ptype)? else {
+        return Ok(None);
+    };
+    *exact_statistics += 1;
+    Ok(Some(Value::SumOrAvg {
+        count: present,
+        sum,
+    }))
+}
+
+fn verify_min_max_consistency(
+    values: &[Option<Value>; MAX_MEASURES],
+    aggregate: &crate::VortexSimpleAggregateRequest,
+) -> Result<()> {
     for (min_index, min) in values.iter().enumerate().take(aggregate.measures.len()) {
         let Some(Value::Min(Some(min))) = min else {
             continue;
@@ -235,18 +493,24 @@ fn complete_from_stats(
             }
         }
     }
-    for (state, value) in states.states.iter_mut().zip(values) {
-        match value.ok_or_else(|| failed("incomplete staged measure"))? {
-            Value::Count(value) => state.count = value,
-            Value::Min(value) => state.min = value,
-            Value::Max(value) => state.max = value,
-        }
-    }
-    Ok(Some(Completion {
-        source_rows: rows,
-        exact_statistics,
-        measures: aggregate.measures.len(),
-    }))
+    Ok(())
+}
+
+fn max_exact_statistics_for_request(request: &VortexQueryPrimitiveRequest) -> u64 {
+    request.simple_aggregate.as_ref().map_or(0, |aggregate| {
+        aggregate
+            .measures
+            .iter()
+            .map(
+                |measure| match SimpleAggregateFunction::parse(&measure.function) {
+                    Ok(SimpleAggregateFunction::Count) => u64::from(measure.column.is_some()),
+                    Ok(SimpleAggregateFunction::Min | SimpleAggregateFunction::Max) => 3,
+                    Ok(SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg) => 4,
+                    _ => 0,
+                },
+            )
+            .sum()
+    })
 }
 
 pub(super) fn report_is_safe(
@@ -294,6 +558,7 @@ pub(super) fn report_is_safe(
         .simple_aggregate
         .as_ref()
         .map_or(0, |aggregate| aggregate.measures.len());
+    let max_statistics = max_exact_statistics_for_request(request);
     payload["rows"].as_u64() == report.rows_projected
         && payload["aggregate_update_strategy"] == "exact_file_footer_scalar_completion"
         && proof["schema_version"] == 1
@@ -306,12 +571,7 @@ pub(super) fn report_is_safe(
         && proof["file_preparation_reads_excluded"] == true
         && proof["exact_statistics_consumed"]
             .as_u64()
-            .is_some_and(|statistics| {
-                statistics
-                    <= u64::try_from(measure_count)
-                        .unwrap_or(u64::MAX)
-                        .saturating_mul(2)
-            })
+            .is_some_and(|statistics| statistics <= max_statistics)
         && proof["measures_proven"] == measure_count
         && proof["nonnullable_struct_root"] == true
         && proof["all_measures_completed"] == true

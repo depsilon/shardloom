@@ -679,3 +679,191 @@ fn footer_aggregate_native_generation_is_checked_before_and_after_metadata_compl
         assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
 }
+
+struct DirGuard(PathBuf);
+impl Drop for DirGuard {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+fn write_multitype_fixture(tag: &str) -> (DirGuard, PathBuf, usize) {
+    use vortex::array::arrays::{BoolArray, VarBinViewArray};
+
+    let dir = std::env::temp_dir().join(format!(
+        "shardloom-footer-multitype-{tag}-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed),
+    ));
+    fs::create_dir(&dir).unwrap();
+    let guard = DirGuard(dir.clone());
+    let rows = 5_usize;
+    let array = StructArray::try_new(
+        [
+            "i32_col", "i64_ok", "i64_wide", "f64_ok", "f64_nan", "flag", "text",
+        ]
+        .into(),
+        vec![
+            PrimitiveArray::from_option_iter([Some(10_i32), None, Some(-4), Some(20), Some(14)])
+                .into_array(),
+            PrimitiveArray::from_option_iter([Some(100_i64), Some(-20), None, Some(40), Some(80)])
+                .into_array(),
+            PrimitiveArray::from_option_iter([
+                Some((1_i64 << 53) + 7),
+                Some(1),
+                Some(2),
+                Some(3),
+                Some(4),
+            ])
+            .into_array(),
+            PrimitiveArray::from_option_iter([
+                Some(-2.5_f64),
+                None,
+                Some(4.5),
+                Some(1.5),
+                Some(8.5),
+            ])
+            .into_array(),
+            PrimitiveArray::from_option_iter([
+                Some(1.0_f64),
+                Some(f64::NAN),
+                Some(3.0),
+                None,
+                Some(2.0),
+            ])
+            .into_array(),
+            BoolArray::from_iter([Some(true), None, Some(false), Some(true), Some(true)])
+                .into_array(),
+            VarBinViewArray::from_iter_nullable_str([
+                Some("bravo"),
+                None,
+                Some("alpha"),
+                Some("delta"),
+                Some("charlie"),
+            ])
+            .into_array(),
+        ],
+        rows,
+        Validity::NonNullable,
+    )
+    .unwrap()
+    .into_array();
+
+    let runtime = SingleThreadRuntime::default();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    for (name, stats) in [
+        (
+            "complete",
+            vec![
+                Stat::Min,
+                Stat::Max,
+                Stat::Sum,
+                Stat::NullCount,
+                Stat::NaNCount,
+            ],
+        ),
+        ("disabled", vec![]),
+    ] {
+        let mut file = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(dir.join(format!("{name}.vortex")))
+            .unwrap();
+        let mut writer = session
+            .write_options()
+            .with_strategy(Arc::new(FlatLayoutStrategy::default()))
+            .with_file_statistics(stats.iter().filter_map(Stat::aggregate_fn).collect())
+            .blocking(&runtime)
+            .writer(&mut file, array.dtype().clone());
+        writer.push(array.clone()).unwrap();
+        writer.finish().unwrap();
+        file.sync_all().unwrap();
+    }
+    (guard, dir, rows)
+}
+
+#[test]
+fn footer_aggregate_native_multitype_metadata_completion_matches_scan() {
+    let (_guard, dir, rows) = write_multitype_fixture("complete");
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 2).unwrap();
+    let uri = |name: &str| {
+        DatasetUri::new(dir.join(format!("{name}.vortex")).display().to_string()).unwrap()
+    };
+    let metadata_measures = vec![
+        measure("count", Some("text"), "text_count"),
+        measure("count", Some("flag"), "flag_count"),
+        measure("min", Some("flag"), "flag_min"),
+        measure("max", Some("flag"), "flag_max"),
+        measure("count", Some("f64_ok"), "f64_count"),
+        measure("min", Some("f64_ok"), "f64_min"),
+        measure("max", Some("f64_ok"), "f64_max"),
+        measure("sum", Some("i32_col"), "i32_sum"),
+        measure("avg", Some("i32_col"), "i32_avg"),
+        measure("sum", Some("i64_ok"), "i64_sum"),
+        measure("avg", Some("i64_ok"), "i64_avg"),
+    ];
+    let complete_req = VortexQueryPrimitiveRequest::simple_aggregate(
+        uri("complete"),
+        VortexSimpleAggregateRequest::new(metadata_measures.clone()),
+    );
+    let scan_req = VortexQueryPrimitiveRequest::simple_aggregate(
+        uri("disabled"),
+        VortexSimpleAggregateRequest::new(metadata_measures),
+    );
+    let complete_report =
+        runtime::execute_vortex_local_primitive_with_policy(&complete_req, policy).unwrap();
+    let scan_report =
+        runtime::execute_vortex_local_primitive_with_policy(&scan_req, policy).unwrap();
+    assert!(runtime::footer_aggregate::report_is_safe(
+        &complete_req,
+        &complete_report
+    ));
+    assert_metadata(&complete_report, rows, 11);
+    assert!(scan_report.arrays_read_count > 0);
+    assert_eq!(
+        payload(&complete_report)["values"],
+        payload(&scan_report)["values"]
+    );
+}
+
+#[test]
+fn footer_aggregate_native_multitype_declines_match_scan() {
+    let (_guard, dir, _) = write_multitype_fixture("declines");
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 2).unwrap();
+    let uri = |name: &str| {
+        DatasetUri::new(dir.join(format!("{name}.vortex")).display().to_string()).unwrap()
+    };
+    for declined in [
+        measure("sum", Some("f64_ok"), "v"),
+        measure("sum", Some("i64_wide"), "v"),
+        measure("min", Some("text"), "v"),
+        measure("max", Some("text"), "v"),
+    ] {
+        let req_c = VortexQueryPrimitiveRequest::simple_aggregate(
+            uri("complete"),
+            VortexSimpleAggregateRequest::new(vec![declined.clone()]),
+        );
+        let req_s = VortexQueryPrimitiveRequest::simple_aggregate(
+            uri("disabled"),
+            VortexSimpleAggregateRequest::new(vec![declined]),
+        );
+        let rep_c = runtime::execute_vortex_local_primitive_with_policy(&req_c, policy).unwrap();
+        let rep_s = runtime::execute_vortex_local_primitive_with_policy(&req_s, policy).unwrap();
+        assert!(payload(&rep_c)["metadata_aggregate"].is_null());
+        assert!(rep_c.arrays_read_count > 0);
+        assert_eq!(payload(&rep_c)["values"], payload(&rep_s)["values"]);
+    }
+    let nan_req_c = VortexQueryPrimitiveRequest::simple_aggregate(
+        uri("complete"),
+        VortexSimpleAggregateRequest::new(vec![measure("min", Some("f64_nan"), "v")]),
+    );
+    let nan_req_s = VortexQueryPrimitiveRequest::simple_aggregate(
+        uri("disabled"),
+        VortexSimpleAggregateRequest::new(vec![measure("min", Some("f64_nan"), "v")]),
+    );
+    let err_c =
+        runtime::execute_vortex_local_primitive_with_policy(&nan_req_c, policy).unwrap_err();
+    let err_s =
+        runtime::execute_vortex_local_primitive_with_policy(&nan_req_s, policy).unwrap_err();
+    assert_eq!(err_c.to_string(), err_s.to_string());
+}
