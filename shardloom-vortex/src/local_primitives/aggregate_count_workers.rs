@@ -23,7 +23,7 @@ use std::{
 use vortex::{
     array::{
         ArrayRef, VortexSessionExecute as _,
-        arrays::{Constant, Dict, PrimitiveArray},
+        arrays::{Constant, Dict, PrimitiveArray, dict::DictArraySlotsExt as _},
         dtype::{DType, Nullability, PType},
         validity::Validity,
     },
@@ -42,6 +42,8 @@ enum KeyKind {
 struct NumericWork {
     canonicalization_nanos: u128,
     count_nanos: u128,
+    native_dictionary: bool,
+    dictionary_values: u64,
     native_constant: bool,
 }
 
@@ -67,6 +69,7 @@ pub(super) enum CountWorkers {
     ExactDistinct(super::exact_distinct_pairs::workers::ExactDistinctWorkers),
     MixedDistinct(super::mixed_distinct_workers::MixedDistinctWorkers),
     DictionaryPrepare(super::dictionary_prepare_workers::DictionaryPrepareWorkers),
+    GeneralGroup(super::general_group_workers::GeneralGroupWorkers),
 }
 
 impl CountWorkers {
@@ -89,6 +92,7 @@ impl CountWorkers {
             memory,
             cancellation,
             None,
+            true,
         )
     }
 
@@ -102,6 +106,7 @@ impl CountWorkers {
         memory: &LiveMemoryPool,
         cancellation: Option<&CancellationToken>,
         shared_pool: Option<&Arc<shardloom_exec::compute_pool::ComputePool>>,
+        allow_general: bool,
     ) -> Result<Option<Self>> {
         #[cfg(test)]
         let _admission_pressure = ADMISSION_TEST_PRESSURE
@@ -163,7 +168,7 @@ impl CountWorkers {
         )? {
             return Ok(Some(Self::Compound(workers)));
         }
-        SingleCountWorkers::admit_with_pool(
+        if let Some(workers) = SingleCountWorkers::admit_with_pool(
             states,
             dtype,
             columns,
@@ -172,8 +177,38 @@ impl CountWorkers {
             memory,
             cancellation,
             shared_pool,
-        )
-        .map(|workers| workers.map(Self::Single))
+        )? {
+            return Ok(Some(Self::Single(workers)));
+        }
+        if let Some(workers) =
+            super::dictionary_prepare_workers::DictionaryPrepareWorkers::admit_with_pool(
+                states,
+                dtype,
+                columns,
+                policy,
+                memory,
+                cancellation,
+                shared_pool,
+            )?
+        {
+            return Ok(Some(Self::DictionaryPrepare(workers)));
+        }
+        if allow_general
+            && let Some(workers) =
+                super::general_group_workers::GeneralGroupWorkers::admit_with_pool(
+                    states,
+                    dtype,
+                    columns,
+                    policy,
+                    session,
+                    memory,
+                    cancellation,
+                    shared_pool,
+                )?
+        {
+            return Ok(Some(Self::GeneralGroup(workers)));
+        }
+        Ok(None)
     }
     pub(super) fn before_next(&mut self, states: &mut GroupedAggregateStates<'_>) -> Result<()> {
         match self {
@@ -184,6 +219,7 @@ impl CountWorkers {
             Self::ExactDistinct(workers) => workers.before_next(states),
             Self::MixedDistinct(workers) => workers.before_next(states),
             Self::DictionaryPrepare(workers) => workers.before_next(states),
+            Self::GeneralGroup(workers) => workers.before_next(states),
         }
     }
     pub(super) fn submit(
@@ -199,6 +235,7 @@ impl CountWorkers {
             Self::ExactDistinct(workers) => workers.submit(chunk, states),
             Self::MixedDistinct(workers) => workers.submit(chunk, states),
             Self::DictionaryPrepare(workers) => workers.submit(chunk, states),
+            Self::GeneralGroup(workers) => workers.submit(chunk, states),
         }
     }
     pub(super) fn finish(&mut self, states: &mut GroupedAggregateStates<'_>) -> Result<()> {
@@ -209,6 +246,7 @@ impl CountWorkers {
             Self::Compound(workers) => workers.finish(states),
             Self::MixedDistinct(workers) => workers.finish(states),
             Self::DictionaryPrepare(workers) => workers.finish(states),
+            Self::GeneralGroup(workers) => workers.finish(states),
             Self::ExactDistinct(workers) => {
                 workers.finish(states)?;
                 states.finalized_distinct_counts = workers.take_exact_result();
@@ -225,6 +263,7 @@ impl CountWorkers {
             Self::ExactDistinct(workers) => workers.annotate_summary(summary),
             Self::MixedDistinct(workers) => workers.annotate_summary(summary),
             Self::DictionaryPrepare(workers) => workers.annotate_summary(summary),
+            Self::GeneralGroup(workers) => workers.annotate_summary(summary),
         }
     }
     pub(super) fn has_active_partitions(&self) -> bool {
@@ -234,7 +273,8 @@ impl CountWorkers {
             Self::PairPartitions(_)
             | Self::Triple(_)
             | Self::MixedDistinct(_)
-            | Self::DictionaryPrepare(_) => false,
+            | Self::DictionaryPrepare(_)
+            | Self::GeneralGroup(_) => false,
             Self::Single(workers) => workers.has_active_partitions(),
             Self::Compound(workers) => workers.has_active_partitions(),
             Self::ExactDistinct(workers) => workers.has_active_partitions(),
@@ -249,6 +289,7 @@ impl CountWorkers {
             Self::ExactDistinct(workers) => workers.cancel_for_source_replay(),
             Self::MixedDistinct(workers) => workers.cancel(),
             Self::DictionaryPrepare(workers) => workers.cancel(),
+            Self::GeneralGroup(workers) => workers.cancel(),
         }
     }
     #[cfg(test)]
@@ -267,6 +308,7 @@ impl CountWorkers {
             Self::ExactDistinct(workers) => workers.has_committed_groups(),
             Self::MixedDistinct(workers) => workers.has_committed_groups(),
             Self::DictionaryPrepare(workers) => workers.has_committed_groups(),
+            Self::GeneralGroup(workers) => workers.has_committed_groups(),
         };
         if chunks == 0 || !committed {
             return None;
@@ -294,6 +336,7 @@ impl CountWorkers {
             Self::PairPartitions(workers) => workers.provider_restore_requested(),
             Self::MixedDistinct(workers) => workers.retired(),
             Self::DictionaryPrepare(workers) => workers.retired(),
+            Self::GeneralGroup(workers) => workers.retired(),
             _ => false,
         }
     }
@@ -330,6 +373,9 @@ pub(super) fn request_may_be_admitted(
     if super::exact_distinct_pairs::workers::request_may_be_admitted(request) {
         return true;
     }
+    if super::general_group_workers::request_may_be_admitted(request, envelope) {
+        return true;
+    }
     let Ok(aggregate) = super::required_simple_aggregate(request) else {
         return false;
     };
@@ -362,30 +408,117 @@ pub(super) fn request_may_be_admitted(
 
 /// Multi-role shapes must restore provider CPU drivers when their original
 /// source schema or residual predicate cannot use the owned worker family.
+fn single_count_workers_may_be_admitted(
+    request: &VortexQueryPrimitiveRequest,
+    dtype: &DType,
+    envelope: super::VortexLocalPrimitiveResourceEnvelope,
+) -> bool {
+    let Ok(aggregate) = super::required_simple_aggregate(request) else {
+        return false;
+    };
+    let Ok(aggregate_plan) = super::rewrite_simple_aggregate_for_embedded_derived_columns(
+        dtype,
+        aggregate,
+        request.predicate.as_ref(),
+    ) else {
+        return false;
+    };
+    let residual = aggregate_plan.predicate.as_ref().and_then(|predicate| {
+        super::split_predicate_for_vortex_pushdown(predicate, request.kind).1
+    });
+    if residual.is_some() {
+        return false;
+    }
+    if !super::aggregate_group_key_dtypes_nonnullable(dtype, &aggregate_plan.aggregate) {
+        return false;
+    }
+    let DType::Struct(fields, _) = dtype else {
+        return false;
+    };
+    let columns = aggregate_plan
+        .aggregate
+        .projected_columns()
+        .iter()
+        .map(|column| column.as_str().to_owned())
+        .collect::<Vec<_>>();
+    let Ok(states) = GroupedAggregateStates::new_with_resource_envelope(
+        &aggregate_plan.aggregate,
+        request.source_order_limit,
+        &columns,
+        false,
+        false,
+        envelope,
+        None,
+    ) else {
+        return false;
+    };
+    let [group_index] = states.group_key_indices.as_slice() else {
+        return false;
+    };
+    let Some(column) = columns.get(states.group_columns[*group_index].column_index) else {
+        return false;
+    };
+    let Some(key_dtype) = fields.field(column.as_str()) else {
+        return false;
+    };
+    match key_dtype {
+        DType::Utf8(Nullability::NonNullable) => {
+            string_count_partial::admitted_group_index(&states) == Some(*group_index)
+        }
+        DType::Primitive(PType::I32 | PType::I64 | PType::U64, Nullability::NonNullable) => {
+            numeric_state_admitted(&states)
+        }
+        _ => false,
+    }
+}
+
 pub(super) fn restore_provider_drivers(
     request: &VortexQueryPrimitiveRequest,
     dtype: &DType,
     envelope: super::VortexLocalPrimitiveResourceEnvelope,
 ) -> bool {
+    if super::scalar_distinct_workers::request_may_be_admitted(request) {
+        return !super::scalar_distinct_workers::request_schema_may_be_admitted(
+            request, dtype, envelope,
+        );
+    }
+    let general_admitted = envelope.max_parallelism >= 2
+        && super::general_group_workers::request_schema_may_be_admitted(request, dtype, envelope);
     if super::pair_partition_workers::request_may_be_admitted(request, envelope) {
         return !super::pair_partition_workers::request_schema_may_be_admitted(
             request, dtype, envelope,
-        );
+        ) && !general_admitted;
     }
     if super::triple_count_workers::request_may_be_admitted(request) {
         return !super::triple_count_workers::request_schema_may_be_admitted(
             request, dtype, envelope,
-        );
+        ) && !general_admitted;
     }
     if super::exact_distinct_pairs::workers::request_may_be_admitted(request) {
         return !super::exact_distinct_pairs::workers::request_schema_may_be_admitted(
             request, dtype, envelope,
         ) && !super::compound_count_workers::request_schema_may_be_admitted(
             request, dtype, envelope,
-        );
+        ) && !general_admitted;
     }
-    super::required_simple_aggregate(request).is_ok_and(|aggregate| aggregate.group_by.len() == 2)
-        && !super::compound_count_workers::request_schema_may_be_admitted(request, dtype, envelope)
+    if super::dictionary_prepare_workers::request_may_be_admitted(request)
+        || super::mixed_distinct_workers::request_may_be_admitted(request)
+    {
+        return false;
+    }
+    if super::required_simple_aggregate(request)
+        .is_ok_and(|aggregate| aggregate.group_by.len() == 2)
+        && super::compound_count_workers::request_schema_may_be_admitted(request, dtype, envelope)
+    {
+        return false;
+    }
+    if single_count_workers_may_be_admitted(request, dtype, envelope) {
+        return false;
+    }
+    if super::general_group_workers::request_may_be_admitted(request, envelope) {
+        return !general_admitted;
+    }
+    false
 }
 
 pub(super) struct SingleCountWorkers {
@@ -417,7 +550,6 @@ pub(super) struct SingleCountWorkers {
     dictionary_chunks: u64,
     dictionary_values: u64,
     constant_chunks: u64,
-    numeric_dictionary_bypass: bool,
     numeric_partitions: Option<NumericPartitions>,
     numeric_partition_evidence: Option<numeric_count_partitions::Evidence>,
     peak_partial_bytes: u64,
@@ -621,7 +753,6 @@ impl SingleCountWorkers {
             dictionary_chunks: 0,
             dictionary_values: 0,
             constant_chunks: 0,
-            numeric_dictionary_bypass: false,
             numeric_partitions,
             numeric_partition_evidence: None,
             peak_partial_bytes: 0,
@@ -658,8 +789,8 @@ impl SingleCountWorkers {
         snapshot.limit_bytes.saturating_sub(snapshot.reserved_bytes) < bytes
     }
 
-    /// Numeric Dict keeps its existing native accessor path. Drain all prior
-    /// partials before that path mutates the same global state.
+    /// Count all integer chunk encodings (canonical, constant, and native `Dict`)
+    /// directly inside worker tasks under the shared `LiveMemoryPool` budget.
     pub(super) fn submit(
         &mut self,
         chunk: &ArrayRef,
@@ -667,16 +798,18 @@ impl SingleCountWorkers {
     ) -> Result<bool> {
         let started = Instant::now();
         let array = super::logical_field_from_native_array(chunk, &self.column)?;
-        if !matches!(self.kind, KeyKind::Utf8) && array.as_opt::<Dict>().is_some() {
-            self.drain(states)?;
-            self.handoff_numeric_partitions(states)?;
-            self.numeric_dictionary_bypass = true;
-            return Ok(false);
-        }
-        let numeric_rows = if array.as_opt::<Constant>().is_some() {
-            usize::from(!array.is_empty())
+        let (numeric_rows, dict_scratch_bytes) = if !matches!(self.kind, KeyKind::Utf8)
+            && let Some(dict) = array.as_opt::<Dict>()
+        {
+            let values_len = dict.values().len();
+            (
+                values_len,
+                numeric_dict_scratch_bytes(self.kind, values_len)?,
+            )
+        } else if array.as_opt::<Constant>().is_some() {
+            (usize::from(!array.is_empty()), 0)
         } else {
-            array.len()
+            (array.len(), 0)
         };
         let partial_bytes = match self.kind {
             KeyKind::Utf8 => string_count_partial::partial_bytes(&array)?,
@@ -684,7 +817,9 @@ impl SingleCountWorkers {
             KeyKind::I64 | KeyKind::U64 => {
                 numeric_count_partial::partial_bytes::<u64>(numeric_rows)?
             }
-        };
+        }
+        .checked_add(dict_scratch_bytes)
+        .ok_or_else(|| failed("task partial bytes overflowed"))?;
         let deferred_metadata = if self.partitions.is_some() {
             StringCountPartial::deferred_metadata_bytes()
         } else {
@@ -909,6 +1044,8 @@ impl SingleCountWorkers {
     fn observe_numeric(&mut self, work: &NumericWork) {
         self.canonicalization_nanos += work.canonicalization_nanos;
         self.count_nanos += work.count_nanos;
+        self.dictionary_chunks += u64::from(work.native_dictionary);
+        self.dictionary_values += work.dictionary_values;
         self.constant_chunks += u64::from(work.native_constant);
     }
 
@@ -1003,14 +1140,6 @@ impl SingleCountWorkers {
         if self.numeric_partitions.is_some() {
             return self.finish_numeric_partitions(states);
         }
-        if self.numeric_dictionary_bypass && states.group_columns.len() > 1 {
-            // Dictionary chunks deliberately retain their established native
-            // path. Validate every observed physical key before result pruning,
-            // including keys contributed by that non-worker path.
-            for key in states.groups.keys() {
-                validate_numeric_group_reconstruction(states, key)?;
-            }
-        }
         if self
             .partitions
             .as_ref()
@@ -1057,31 +1186,6 @@ impl SingleCountWorkers {
         partitions.release_storage()?;
         self.partitions = None;
         self.partition_evidence = Some(partitions.evidence()?);
-        Ok(())
-    }
-
-    fn handoff_numeric_partitions(
-        &mut self,
-        states: &mut GroupedAggregateStates<'_>,
-    ) -> Result<()> {
-        let Some(partitions) = self.numeric_partitions.take() else {
-            return Ok(());
-        };
-        let started = Instant::now();
-        let mut entries = 0_u64;
-        partitions.visit_batches(|pairs| {
-            self.jobs.check_cancelled()?;
-            entries += u64::try_from(pairs.len()).map_err(|_| failed("handoff length overflow"))?;
-            merge_numeric(states, pairs)?;
-            Ok(())
-        })?;
-        self.merge_nanos += started.elapsed().as_nanos();
-        let mut evidence = partitions.evidence();
-        if entries != evidence.entries {
-            return Err(failed("numeric handoff lost entries"));
-        }
-        evidence.dictionary_handoff = true;
-        self.numeric_partition_evidence = Some(evidence);
         Ok(())
     }
 
@@ -1609,6 +1713,127 @@ fn merge_numeric(
     Ok(())
 }
 
+fn numeric_dict_scratch_bytes(kind: KeyKind, values_len: usize) -> Result<u64> {
+    let key_pair_bytes = match kind {
+        KeyKind::I32 => size_of::<(i32, u64)>(),
+        KeyKind::I64 | KeyKind::U64 => size_of::<(u64, u64)>(),
+        KeyKind::Utf8 => return Ok(0),
+    };
+    values_len
+        .checked_mul(size_of::<u64>() + key_pair_bytes)
+        .and_then(|bytes| u64::try_from(bytes).ok())
+        .ok_or_else(|| failed("numeric dictionary scratch capacity overflowed"))
+}
+
+fn validate_non_null_primitive_validity(
+    values: &PrimitiveArray,
+    ptype: PType,
+    label: &str,
+) -> Result<()> {
+    if values.ptype() != ptype
+        || !matches!(
+            vortex::array::arrays::primitive::PrimitiveArrayExt::validity(values),
+            Validity::NonNullable | Validity::AllValid
+        )
+    {
+        return Err(failed(&format!(
+            "{label} canonicalization changed dtype or validity"
+        )));
+    }
+    Ok(())
+}
+
+fn count_dict_code_slice<T: Copy>(
+    codes: &[T],
+    counts: &mut [u64],
+    worker: &ChunkWorkerContext,
+    to_index: impl Fn(T) -> Option<usize>,
+) -> Result<()> {
+    for (row, &code) in codes.iter().enumerate() {
+        if row.is_multiple_of(4096) {
+            worker.check_cancelled()?;
+        }
+        let index = to_index(code)
+            .filter(|&idx| idx < counts.len())
+            .ok_or_else(|| failed("numeric dictionary code exceeded values length"))?;
+        counts[index] = counts[index]
+            .checked_add(1)
+            .ok_or_else(|| failed("numeric dictionary code frequency overflowed u64"))?;
+    }
+    Ok(())
+}
+
+fn count_numeric_dict_codes(
+    codes: &PrimitiveArray,
+    values_len: usize,
+    worker: &ChunkWorkerContext,
+) -> Result<Vec<u64>> {
+    if !matches!(
+        vortex::array::arrays::primitive::PrimitiveArrayExt::validity(codes),
+        Validity::NonNullable | Validity::AllValid
+    ) {
+        return Err(failed(
+            "numeric dictionary codes lost their admitted nonnullable validity",
+        ));
+    }
+    let mut counts = Vec::new();
+    counts.try_reserve_exact(values_len).map_err(|error| {
+        failed(&format!(
+            "dictionary code histogram allocation failed: {error}"
+        ))
+    })?;
+    counts.resize(values_len, 0_u64);
+    match codes.ptype() {
+        PType::U8 => count_dict_code_slice(codes.as_slice::<u8>(), &mut counts, worker, |c| {
+            Some(usize::from(c))
+        })?,
+        PType::U16 => count_dict_code_slice(codes.as_slice::<u16>(), &mut counts, worker, |c| {
+            Some(usize::from(c))
+        })?,
+        PType::U32 => count_dict_code_slice(codes.as_slice::<u32>(), &mut counts, worker, |c| {
+            usize::try_from(c).ok()
+        })?,
+        PType::U64 => count_dict_code_slice(codes.as_slice::<u64>(), &mut counts, worker, |c| {
+            usize::try_from(c).ok()
+        })?,
+        PType::I8 => count_dict_code_slice(codes.as_slice::<i8>(), &mut counts, worker, |c| {
+            usize::try_from(c).ok()
+        })?,
+        PType::I16 => count_dict_code_slice(codes.as_slice::<i16>(), &mut counts, worker, |c| {
+            usize::try_from(c).ok()
+        })?,
+        PType::I32 => count_dict_code_slice(codes.as_slice::<i32>(), &mut counts, worker, |c| {
+            usize::try_from(c).ok()
+        })?,
+        PType::I64 => count_dict_code_slice(codes.as_slice::<i64>(), &mut counts, worker, |c| {
+            usize::try_from(c).ok()
+        })?,
+        _ => return Err(failed("numeric dictionary codes must have integer ptype")),
+    }
+    Ok(counts)
+}
+
+fn count_numeric_dict_values<K: NumericCountKey>(
+    values: &[K],
+    counts: &[u64],
+    rows: u64,
+    worker: &ChunkWorkerContext,
+    lease: &mut MemoryLease,
+) -> Result<OwnedNumericCounts<K>> {
+    let mut weighted = Vec::new();
+    weighted.try_reserve_exact(values.len()).map_err(|error| {
+        failed(&format!(
+            "dictionary weighted pair allocation failed: {error}"
+        ))
+    })?;
+    for (&key, &weight) in values.iter().zip(counts.iter()) {
+        if weight > 0 {
+            weighted.push((key, weight));
+        }
+    }
+    numeric_count_partial::count_numeric_weighted_pairs(&weighted, rows, worker, lease)
+}
+
 #[allow(clippy::too_many_lines)]
 fn count_numeric_chunk(
     array: &ArrayRef,
@@ -1617,6 +1842,8 @@ fn count_numeric_chunk(
     worker: &ChunkWorkerContext,
     lease: &mut MemoryLease,
 ) -> Result<Partial> {
+    use vortex::array::arrays::dict::DictArraySlotsExt as _;
+
     worker.check_cancelled()?;
     let ptype = match kind {
         KeyKind::I32 => PType::I32,
@@ -1628,6 +1855,73 @@ fn count_numeric_chunk(
         return Err(failed("numeric chunk lost its admitted nonnullable dtype"));
     }
     let rows = u64::try_from(array.len()).map_err(|_| failed("numeric row count overflowed"))?;
+    if let Some(dict) = array.as_opt::<Dict>() {
+        let started = Instant::now();
+        let mut ctx = session.create_execution_ctx();
+        let values = dict
+            .values()
+            .clone()
+            .execute::<PrimitiveArray>(&mut ctx)
+            .map_err(super::vortex_error)?;
+        validate_non_null_primitive_validity(&values, ptype, "numeric dictionary values")?;
+        if values.len() != dict.values().len() {
+            return Err(failed("numeric dictionary values changed length"));
+        }
+        let codes = dict
+            .codes()
+            .clone()
+            .execute::<PrimitiveArray>(&mut ctx)
+            .map_err(super::vortex_error)?;
+        if codes.len() != array.len() {
+            return Err(failed("numeric dictionary codes changed length"));
+        }
+        let counts = count_numeric_dict_codes(&codes, values.len(), worker)?;
+        let canonicalization_nanos = started.elapsed().as_nanos();
+        let started = Instant::now();
+        let mut work = NumericWork {
+            canonicalization_nanos,
+            native_dictionary: true,
+            dictionary_values: u64::try_from(values.len())
+                .map_err(|_| failed("dictionary values length overflowed"))?,
+            ..NumericWork::default()
+        };
+        return match kind {
+            KeyKind::I32 => {
+                let counted = count_numeric_dict_values(
+                    values.as_slice::<i32>(),
+                    &counts,
+                    rows,
+                    worker,
+                    lease,
+                )?;
+                work.count_nanos = started.elapsed().as_nanos();
+                Ok(Partial::Signed32(counted, work))
+            }
+            KeyKind::I64 => {
+                let counted = count_numeric_dict_values(
+                    values.as_slice::<i64>(),
+                    &counts,
+                    rows,
+                    worker,
+                    lease,
+                )?;
+                work.count_nanos = started.elapsed().as_nanos();
+                Ok(Partial::Signed(counted, work))
+            }
+            KeyKind::U64 => {
+                let counted = count_numeric_dict_values(
+                    values.as_slice::<u64>(),
+                    &counts,
+                    rows,
+                    worker,
+                    lease,
+                )?;
+                work.count_nanos = started.elapsed().as_nanos();
+                Ok(Partial::Unsigned(counted, work))
+            }
+            KeyKind::Utf8 => unreachable!("validated numeric key kind"),
+        };
+    }
     let native_constant = array.as_opt::<Constant>().is_some();
     let started = Instant::now();
     let input = if native_constant {
@@ -1645,17 +1939,10 @@ fn count_numeric_chunk(
     } else {
         array.len()
     };
-    if values.len() != expected_values
-        || values.ptype() != ptype
-        || !matches!(
-            vortex::array::arrays::primitive::PrimitiveArrayExt::validity(&values),
-            Validity::NonNullable | Validity::AllValid
-        )
-    {
-        return Err(failed(
-            "numeric canonicalization changed length, dtype or validity",
-        ));
+    if values.len() != expected_values {
+        return Err(failed("numeric canonicalization changed length"));
     }
+    validate_non_null_primitive_validity(&values, ptype, "numeric")?;
     let canonicalization_nanos = started.elapsed().as_nanos();
     let started = Instant::now();
     let mut work = NumericWork {

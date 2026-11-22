@@ -351,6 +351,7 @@ pub(super) fn execute_with_output_and_pool(
             scan,
             result_summary: summary,
             state_budget,
+            physical_policy: None,
             restored_provider_background_workers: 0,
         },
         owner,

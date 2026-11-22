@@ -121,8 +121,15 @@ impl VTable for Shared {
     }
 
     fn execute(array: Array<Self>, ctx: &mut ExecutionCtx) -> VortexResult<ExecutionResult> {
+        let storage_allocator = array.storage_allocator().cloned();
         array
-            .get_or_compute(|source| source.clone().execute::<Canonical>(ctx))
+            .get_or_compute(|source| match storage_allocator {
+                Some(allocator) => {
+                    let mut storage_ctx = ctx.clone().with_host_allocator(allocator);
+                    source.clone().execute::<Canonical>(&mut storage_ctx)
+                }
+                None => source.clone().execute::<Canonical>(ctx),
+            })
             .map(ExecutionResult::done)
     }
 }

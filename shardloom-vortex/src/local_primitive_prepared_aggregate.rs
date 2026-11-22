@@ -512,7 +512,7 @@ fn prepare_candidate_with_source_loader(
     open_source: impl FnOnce(&std::path::Path) -> Result<PreparedVortexSource>,
 ) -> Result<PreparedVortexAggregate> {
     cancellation.check()?;
-    let (policy, physical_policy) = prepared_policy(request, policy, session)?;
+    let (policy, _) = prepared_policy(request, policy, session)?;
     cancellation.check()?;
     let uri = request
         .source_uri
@@ -531,7 +531,6 @@ fn prepare_candidate_with_source_loader(
     let prepared = prepare_bound_aggregate(
         request,
         policy,
-        physical_policy,
         session,
         PreparedAggregateSource::File(source),
         None,
@@ -564,11 +563,10 @@ pub(super) fn prepare_aggregate_from_source_with_context(
         Some(policy),
         context,
     )?;
-    let (policy, physical_policy) = prepared_policy(request, policy, &session)?;
+    let (policy, _) = prepared_policy(request, policy, &session)?;
     prepare_bound_aggregate(
         request,
         policy,
-        physical_policy,
         &session,
         PreparedAggregateSource::File(source),
         context,
@@ -616,11 +614,10 @@ pub(crate) fn prepare_memory_aggregate(
     if let Some(context) = context {
         session.validate_execution_context(context)?;
     }
-    let (policy, physical_policy) = prepared_policy(request, policy, &session)?;
+    let (policy, _) = prepared_policy(request, policy, &session)?;
     let mut prepared = prepare_bound_aggregate(
         request,
         policy,
-        physical_policy,
         &session,
         PreparedAggregateSource::File(source),
         context,
@@ -646,11 +643,10 @@ pub(crate) fn prepare_owned_aggregate(
         ));
     }
     let session = source.session();
-    let (policy, physical_policy) = prepared_policy(request, policy, &session)?;
+    let (policy, _) = prepared_policy(request, policy, &session)?;
     prepare_bound_aggregate(
         request,
         policy,
-        physical_policy,
         &session,
         PreparedAggregateSource::Owned(source.clone()),
         None,
@@ -660,7 +656,6 @@ pub(crate) fn prepare_owned_aggregate(
 fn prepare_bound_aggregate(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
-    physical_policy: VortexLocalPrimitivePhysicalPolicyReport,
     session: &ResidentVortexSession,
     source: PreparedAggregateSource,
     context: Option<&NativeExecutionContext<'_>>,
@@ -670,6 +665,8 @@ fn prepare_bound_aggregate(
     if parallelism > policy.resource_envelope.max_parallelism {
         return Err(failed("supplied session exceeds the requested CPU policy"));
     }
+    let (policy, physical_policy) =
+        policy.with_physical_policy_for_request_and_dtype(request, Some(source.dtype()));
     let (policy, physical_policy) = cap_session_cpu(policy, physical_policy, parallelism);
     #[cfg(feature = "vortex-write")]
     if required_simple_aggregate(request)?.spill.is_some() {

@@ -157,7 +157,7 @@ pub(super) fn execute_single(
                 prepared.execute_cancellable(cancellation)
             }
         }
-        .map(|executed| executed.report.with_physical_policy(physical));
+        .map(|executed| executed.report);
     }
     if request.kind == VortexQueryPrimitiveKind::SortRows {
         let source = super::prepared_dispatch::prepare_source_in_session(

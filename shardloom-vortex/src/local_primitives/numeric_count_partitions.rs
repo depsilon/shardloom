@@ -2,9 +2,8 @@
 //! first; only complete partitions may discard non-winning groups.
 
 use super::{
-    AggregateSingleNumericKey, SingleNumericAggregateOrderCandidate as Candidate,
-    aggregate_chunk_jobs::ChunkWorkerContext, compare_single_numeric_candidates,
-    numeric_count_partial::NumericCountKey,
+    SingleNumericAggregateOrderCandidate as Candidate, aggregate_chunk_jobs::ChunkWorkerContext,
+    compare_single_numeric_candidates, numeric_count_partial::NumericCountKey,
 };
 use shardloom_core::{Result, ShardLoomError};
 use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
@@ -175,24 +174,6 @@ impl<K: NumericCountKey> Partitions<K> {
         Ok(())
     }
 
-    fn visit_batches(
-        &self,
-        visit: &mut impl FnMut(
-            &mut dyn ExactSizeIterator<Item = (AggregateSingleNumericKey, u64)>,
-        ) -> Result<()>,
-    ) -> Result<()> {
-        for part in &self.parts {
-            for batch in part.pairs.chunks(1024) {
-                visit(
-                    &mut batch
-                        .iter()
-                        .map(|&(key, count)| (key.aggregate_key(), count)),
-                )?;
-            }
-        }
-        Ok(())
-    }
-
     fn evidence(&self) -> Evidence {
         Evidence {
             rows: self.rows,
@@ -235,19 +216,6 @@ impl NumericPartitions {
             Self::Signed32(p) => p.parts.pop().map(NumericPartition::Signed32),
             Self::Signed(p) => p.parts.pop().map(NumericPartition::Signed),
             Self::Unsigned(p) => p.parts.pop().map(NumericPartition::Unsigned),
-        }
-    }
-
-    pub(super) fn visit_batches(
-        &self,
-        mut visit: impl FnMut(
-            &mut dyn ExactSizeIterator<Item = (AggregateSingleNumericKey, u64)>,
-        ) -> Result<()>,
-    ) -> Result<()> {
-        match self {
-            Self::Signed32(p) => p.visit_batches(&mut visit),
-            Self::Signed(p) => p.visit_batches(&mut visit),
-            Self::Unsigned(p) => p.visit_batches(&mut visit),
         }
     }
 

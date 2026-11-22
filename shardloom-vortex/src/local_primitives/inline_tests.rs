@@ -538,7 +538,11 @@ fn materialized_null_predicates_read_row_values() -> Result<()> {
     Ok(())
 }
 
-pub(super) fn write_array(path: &std::path::Path, array: &vortex::array::ArrayRef) -> Result<()> {
+fn write_array_with_file_statistics(
+    path: &std::path::Path,
+    array: &vortex::array::ArrayRef,
+    include_file_statistics: bool,
+) -> Result<()> {
     use vortex::VortexSessionDefault as _;
     use vortex::file::WriteOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
@@ -548,13 +552,13 @@ pub(super) fn write_array(path: &std::path::Path, array: &vortex::array::ArrayRe
 
     let runtime = SingleThreadRuntime::default();
     let session = VortexSession::default().with_handle(runtime.handle());
+    let mut write_options = session.write_options();
+    if !include_file_statistics {
+        write_options = write_options.with_file_statistics(Vec::new());
+    }
     let mut bytes = Vec::new();
     let summary = runtime
-        .block_on(
-            session
-                .write_options()
-                .write(&mut bytes, array.to_array_stream()),
-        )
+        .block_on(write_options.write(&mut bytes, array.to_array_stream()))
         .map_err(vortex_error)?;
     assert_eq!(
         summary.row_count(),
@@ -571,7 +575,11 @@ pub(super) fn write_array(path: &std::path::Path, array: &vortex::array::ArrayRe
     .map(|_| ())
 }
 
-fn write_struct_fixture(path: &std::path::Path) -> Result<()> {
+pub(super) fn write_array(path: &std::path::Path, array: &vortex::array::ArrayRef) -> Result<()> {
+    write_array_with_file_statistics(path, array, true)
+}
+
+fn build_struct_fixture_array() -> Result<vortex::array::ArrayRef> {
     use vortex::array::IntoArray as _;
     use vortex::array::arrays::{PrimitiveArray, StructArray};
     use vortex::array::dtype::FieldNames;
@@ -593,7 +601,15 @@ fn write_struct_fixture(path: &std::path::Path) -> Result<()> {
         Validity::NonNullable,
     )
     .map_err(vortex_error)?;
-    write_array(path, &array.into_array())
+    Ok(array.into_array())
+}
+
+fn write_struct_fixture(path: &std::path::Path) -> Result<()> {
+    write_array(path, &build_struct_fixture_array()?)
+}
+
+fn write_struct_fixture_without_file_stats(path: &std::path::Path) -> Result<()> {
+    write_array_with_file_statistics(path, &build_struct_fixture_array()?, false)
 }
 
 fn write_wide_sort_fixture(path: &std::path::Path) -> Result<()> {
@@ -10762,7 +10778,9 @@ fn local_vortex_path_resolves_relative_targets_from_workspace_root() {
 #[test]
 fn simple_aggregate_accumulates_scalar_measures_without_fallback() {
     let path = unique_vortex_path("simple-aggregate");
-    write_struct_fixture(&path).expect("fixture");
+    // Write without FileStatistics to exercise the scan accumulator; exact
+    // footer-metadata completion is covered in `local_primitive_footer_aggregate_native_tests`.
+    write_struct_fixture_without_file_stats(&path).expect("fixture");
     let request = VortexQueryPrimitiveRequest::simple_aggregate(
         DatasetUri::new(path.display().to_string()).expect("uri"),
         VortexSimpleAggregateRequest::new(vec![
@@ -11524,8 +11542,10 @@ fn partitioned_local_primitive_counts_sources_without_fallback() {
 fn partitioned_local_primitive_aggregate_uses_one_state_without_fallback() {
     let left_path = unique_vortex_path("partitioned-aggregate-left");
     let right_path = unique_vortex_path("partitioned-aggregate-right");
-    write_struct_fixture(&left_path).expect("left fixture");
-    write_struct_fixture(&right_path).expect("right fixture");
+    // Write without FileStatistics to exercise the scan accumulator; exact
+    // footer-metadata completion is covered in `local_primitive_footer_aggregate_native_tests`.
+    write_struct_fixture_without_file_stats(&left_path).expect("left fixture");
+    write_struct_fixture_without_file_stats(&right_path).expect("right fixture");
     let source_uris = vec![
         DatasetUri::new(left_path.display().to_string()).expect("left uri"),
         DatasetUri::new(right_path.display().to_string()).expect("right uri"),
@@ -12774,6 +12794,148 @@ fn grouped_aggregate_numeric_pair_late_measure_uses_near_unique_directory() {
     assert_eq!(payload["values"][2]["watch_id"], serde_json::json!(1));
     assert_eq!(payload["values"][2]["client_ip"], serde_json::json!(1));
     assert_eq!(payload["values"][2]["rows"], serde_json::json!(1));
+}
+
+#[test]
+fn numeric_pair_near_unique_directory_into_retained_candidates_skips_singletons_when_filled() {
+    let build = || {
+        let mut dir = NumericPairNearUniqueCountDirectory::new();
+        for (k0, k1, count) in [(10_u64, 1_u64, 5_usize), (20, 2, 3), (30, 3, 2)] {
+            for _ in 0..count {
+                dir.update_key(AggregateNumericPairKey::from_bits(k0, false, k1, false))
+                    .expect("duplicate key");
+            }
+        }
+        for i in 100_u64..200_u64 {
+            dir.update_key(AggregateNumericPairKey::from_bits(i, false, i + 1, false))
+                .expect("singleton key");
+        }
+        dir
+    };
+
+    assert!(
+        build()
+            .into_retained_candidates(0)
+            .expect("zero cap")
+            .is_empty()
+    );
+
+    let mut exact_dups = build().into_retained_candidates(3).expect("dup cap");
+    exact_dups.sort_by(compare_numeric_pair_candidates);
+    assert_eq!(exact_dups.len(), 3);
+    assert_eq!(
+        exact_dups
+            .iter()
+            .map(|c| (c.key.first_bits, c.count))
+            .collect::<Vec<_>>(),
+        vec![(10, 5), (20, 3), (30, 2)]
+    );
+
+    let mut with_singletons = build().into_retained_candidates(5).expect("dup+single cap");
+    with_singletons.sort_by(compare_numeric_pair_candidates);
+    assert_eq!(with_singletons.len(), 5);
+    assert_eq!(
+        with_singletons
+            .iter()
+            .map(|c| (c.key.first_bits, c.count))
+            .collect::<Vec<_>>(),
+        vec![(10, 5), (20, 3), (30, 2), (100, 1), (101, 1)]
+    );
+}
+
+#[cfg(feature = "vortex-write")]
+#[test]
+fn grouped_numeric_pair_late_measure_second_pass_pushdown_and_empty_skip_parity() {
+    use shardloom_core::{ComparisonOp, PredicateExpr};
+    use vortex::array::IntoArray as _;
+    use vortex::array::arrays::{PrimitiveArray, StructArray};
+    use vortex::array::dtype::FieldNames;
+    use vortex::array::validity::Validity;
+
+    let path = unique_vortex_path("q33-late-measure-pushdown");
+    let rows = 10_500_usize;
+    let mut watch_ids = Vec::with_capacity(rows);
+    let mut client_ips = Vec::with_capacity(rows);
+    let mut regions = Vec::with_capacity(rows);
+    let mut refreshes = Vec::with_capacity(rows);
+    for i in 0..rows {
+        let in_region_7 = i % 2 == 0;
+        let region = if in_region_7 { 7_i64 } else { 3_i64 };
+        let (w, c) = if i < 6 && in_region_7 {
+            (42_i64, 420_i64)
+        } else if i < 12 && in_region_7 {
+            (84_i64, 840_i64)
+        } else {
+            let offset = i64::try_from(i).unwrap();
+            (offset + 1000, offset + 2000)
+        };
+        watch_ids.push(w);
+        client_ips.push(c);
+        regions.push(region);
+        refreshes.push(i64::from(i % 4 == 0));
+    }
+    let array = StructArray::try_new(
+        FieldNames::from(["watch_id", "client_ip", "region", "is_refresh"]),
+        vec![
+            PrimitiveArray::new(watch_ids, Validity::NonNullable).into_array(),
+            PrimitiveArray::new(client_ips, Validity::NonNullable).into_array(),
+            PrimitiveArray::new(regions, Validity::NonNullable).into_array(),
+            PrimitiveArray::new(refreshes, Validity::NonNullable).into_array(),
+        ],
+        rows,
+        Validity::NonNullable,
+    )
+    .unwrap()
+    .into_array();
+    write_array(&path, &array).unwrap();
+    let uri = DatasetUri::new(path.display().to_string()).unwrap();
+
+    let agg = VortexSimpleAggregateRequest::grouped(
+        vec![
+            ColumnRef::new("watch_id").unwrap(),
+            ColumnRef::new("client_ip").unwrap(),
+        ],
+        vec![
+            crate::VortexSimpleAggregateMeasure::new("count", None, "rows".to_string()),
+            crate::VortexSimpleAggregateMeasure::new(
+                "sum",
+                Some(ColumnRef::new("is_refresh").unwrap()),
+                "refreshes".to_string(),
+            ),
+        ],
+    )
+    .with_order_by(vec![crate::VortexAggregateOrderExpr::new("rows", true)]);
+
+    let mut req_filtered = VortexQueryPrimitiveRequest::simple_aggregate(uri.clone(), agg.clone())
+        .with_source_order_limit(2);
+    req_filtered.predicate = Some(PredicateExpr::Compare {
+        column: ColumnRef::new("region").unwrap(),
+        op: ComparisonOp::Eq,
+        value: StatValue::Int64(7),
+    });
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 1).unwrap();
+    let rep = execute_vortex_local_primitive_with_policy(&req_filtered, policy).unwrap();
+    let summary = rep.result_summary.as_deref().unwrap();
+    let json_start = summary.find('{').expect("grouped summary JSON");
+    let payload: serde_json::Value = serde_json::from_str(&summary[json_start..]).unwrap();
+    assert_eq!(payload["values"][0]["watch_id"], serde_json::json!(42));
+    assert_eq!(payload["values"][0]["client_ip"], serde_json::json!(420));
+    assert_eq!(payload["values"][0]["rows"], serde_json::json!(3));
+    assert_eq!(payload["values"][1]["watch_id"], serde_json::json!(84));
+    assert_eq!(payload["values"][1]["client_ip"], serde_json::json!(840));
+    assert_eq!(payload["values"][1]["rows"], serde_json::json!(3));
+
+    // Empty predicate match skips Pass 2 and emits zero rows cleanly.
+    let mut req_empty =
+        VortexQueryPrimitiveRequest::simple_aggregate(uri, agg).with_source_order_limit(2);
+    req_empty.predicate = Some(PredicateExpr::Compare {
+        column: ColumnRef::new("region").unwrap(),
+        op: ComparisonOp::Eq,
+        value: StatValue::Int64(999),
+    });
+    let empty_rep = execute_vortex_local_primitive_with_policy(&req_empty, policy).unwrap();
+    assert_eq!(empty_rep.rows_selected, Some(0));
+    let _ = std::fs::remove_file(&path);
 }
 
 #[test]
@@ -21017,7 +21179,9 @@ fn simple_aggregate_row_export_writes_scalar_result_without_fallback() {
     let path = unique_vortex_path("simple-aggregate-row-export");
     let output_path =
         unique_vortex_path("simple-aggregate-row-export-output").with_extension("jsonl");
-    write_struct_fixture(&path).expect("fixture");
+    // Write without FileStatistics to exercise the scan accumulator; exact
+    // footer-metadata completion is covered in `local_primitive_footer_aggregate_native_tests`.
+    write_struct_fixture_without_file_stats(&path).expect("fixture");
     let request = VortexQueryPrimitiveRequest::simple_aggregate(
         DatasetUri::new(path.display().to_string()).expect("uri"),
         VortexSimpleAggregateRequest::new(vec![

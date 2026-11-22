@@ -60,6 +60,11 @@ impl LayoutReaderContext {
             .unwrap_or_else(|| session.host_allocator())
     }
 
+    /// Returns the explicit reader-owned storage allocator when configured.
+    pub fn explicit_storage_allocator(&self) -> Option<&HostAllocatorRef> {
+        self.storage_allocator.as_ref()
+    }
+
     /// Returns a new context that publishes `value` under `id`.
     ///
     /// The original context is unchanged. If a value was already published under the

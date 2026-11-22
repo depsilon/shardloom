@@ -35,6 +35,50 @@ fn columns(prepared: bool) -> Vec<String> {
     ]
 }
 
+fn assert_nullable_prepared_key_dispatch(chunk_dtype: &vortex::array::dtype::DType) {
+    use super::aggregate_count_workers::restore_provider_drivers;
+    use crate::VortexQueryPrimitiveRequest;
+    use shardloom_core::DatasetUri;
+
+    // TripleWorkers still declines nullable prepared keys; GeneralGroupWorkers
+    // admits them on multi-core envelopes while 1-core and non-struct schemas
+    // restore provider lanes.
+    let prepared_query = VortexQueryPrimitiveRequest::simple_aggregate(
+        DatasetUri::new("renamed.vortex").unwrap(),
+        request(true),
+    )
+    .with_source_order_limit(2);
+    let single_core = crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
+        .expect("explicit fixture allocation");
+    let multi_core = crate::VortexLocalPrimitiveResourceEnvelope::new(4, 4)
+        .expect("explicit fixture allocation");
+    assert!(
+        !super::triple_count_workers::request_schema_may_be_admitted(
+            &prepared_query,
+            chunk_dtype,
+            multi_core,
+        )
+    );
+    assert!(restore_provider_drivers(
+        &prepared_query,
+        chunk_dtype,
+        single_core,
+    ));
+    assert!(!restore_provider_drivers(
+        &prepared_query,
+        chunk_dtype,
+        multi_core,
+    ));
+    assert!(restore_provider_drivers(
+        &prepared_query,
+        &vortex::array::dtype::DType::Primitive(
+            vortex::array::dtype::PType::U64,
+            vortex::array::dtype::Nullability::NonNullable,
+        ),
+        multi_core,
+    ));
+}
+
 #[test]
 fn triple_lowering_preserves_nonnullable_raw_minutes_when_prepared_dtype_is_nullable() {
     use super::{
@@ -96,18 +140,7 @@ fn triple_lowering_preserves_nonnullable_raw_minutes_when_prepared_dtype_is_null
         expected
     );
 
-    // An explicit nullable prepared-key request is still declined.
-    let prepared_query = VortexQueryPrimitiveRequest::simple_aggregate(
-        DatasetUri::new("renamed.vortex").unwrap(),
-        request(true),
-    )
-    .with_source_order_limit(2);
-    assert!(restore_provider_drivers(
-        &prepared_query,
-        chunk.dtype(),
-        crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
-            .expect("explicit fixture allocation")
-    ));
+    assert_nullable_prepared_key_dispatch(chunk.dtype());
 
     // The shortcut must not bypass existing predicate rewrites.
     let mut filtered = query;
@@ -747,19 +780,18 @@ fn triple_workers_decline_nullable_roles_and_explicit_spill() {
         let chunk = chunk(false, numeric, text, minute);
         let states =
             GroupedAggregateStates::new(&request, Some(1), &columns, false, false).unwrap();
-        assert!(
-            CountWorkers::admit(
-                &states,
-                chunk.dtype(),
-                &columns,
-                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(3, 4).unwrap(),
-                &session,
-                &memory,
-                None,
-            )
-            .unwrap()
-            .is_none()
-        );
+        let admitted = CountWorkers::admit(
+            &states,
+            chunk.dtype(),
+            &columns,
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(3, 4).unwrap(),
+            &session,
+            &memory,
+            None,
+        )
+        .unwrap();
+        assert!(!matches!(admitted, Some(CountWorkers::Triple(_))));
+        drop(admitted);
     }
     let request = request.with_spill(
         VortexAggregateSpillPolicy::new(

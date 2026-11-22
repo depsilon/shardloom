@@ -515,6 +515,16 @@ impl LazyReaderChildren {
 
     /// Return the child reader at `idx`, constructing it on first access.
     pub fn get(&self, idx: usize) -> VortexResult<&LayoutReaderRef> {
+        self.get_with_segment_source(idx, Arc::clone(&self.segment_source))
+    }
+
+    /// Return the child reader at `idx`, constructing it on first access using
+    /// the supplied segment source when the child has not yet been initialized.
+    pub fn get_with_segment_source(
+        &self,
+        idx: usize,
+        segment_source: Arc<dyn SegmentSource>,
+    ) -> VortexResult<&LayoutReaderRef> {
         if idx >= self.cache.len() {
             vortex_bail!("Child index out of bounds: {} of {}", idx, self.cache.len());
         }
@@ -527,7 +537,7 @@ impl LazyReaderChildren {
             let child = self.children.child(idx, dtype)?;
             child.new_reader(
                 Arc::clone(name),
-                Arc::clone(&self.segment_source),
+                segment_source,
                 &self.session,
                 &self.ctx,
             )

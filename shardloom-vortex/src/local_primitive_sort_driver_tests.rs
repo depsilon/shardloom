@@ -201,7 +201,10 @@ fn configurable_sort_consumer_errors_and_cancellation_release_ownership_and_allo
                 assert_eq!(after.completed_executions, before.completed_executions);
                 assert_eq!(after.prepared_source_opens, 1);
                 assert_eq!(after.provider_background_workers, 0);
-                assert_eq!(after.memory.reserved_bytes, before.memory.reserved_bytes);
+                assert_eq!(
+                    after.reserved_without_source_segment_cache(),
+                    before.reserved_without_source_segment_cache()
+                );
                 Ok(())
             })
             .unwrap();

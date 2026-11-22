@@ -622,6 +622,7 @@ pub(crate) fn execute_sort_in_context(
                 runtime,
                 generation.as_ref(),
                 Some(context),
+                None,
             )
         },
     )?;

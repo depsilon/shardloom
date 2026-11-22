@@ -121,14 +121,18 @@ fn ordinary_aggregate_source_cap_preserves_exact_distinct_worker_admission() {
 
 #[test]
 fn ordinary_aggregate_restored_driver_count_matches_typed_and_json_evidence() {
-    // Both keys are integers; the compound COUNT worker requires a UTF8 key.
-    let request = request(VortexSimpleAggregateRequest::grouped(
-        vec![
-            ColumnRef::new("value").unwrap(),
-            ColumnRef::new("metric").unwrap(),
-        ],
-        vec![measure("count", None, "count_alias")],
-    ));
+    // Non-struct primitive roots decline parallel workers and restore provider lanes.
+    let primitive_fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/metadata_footer_u64_20000.vortex");
+    let request = VortexQueryPrimitiveRequest::simple_aggregate(
+        DatasetUri::new(primitive_fixture.display().to_string()).unwrap(),
+        VortexSimpleAggregateRequest::grouped(
+            vec![ColumnRef::new("value").unwrap()],
+            vec![measure("count", None, "count_alias")],
+        )
+        .with_order_by(vec![VortexAggregateOrderExpr::new("value", false)]),
+    )
+    .with_source_order_limit(5);
     assert!(aggregate_count_workers::request_may_be_admitted(
         &request,
         crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
@@ -136,19 +140,32 @@ fn ordinary_aggregate_restored_driver_count_matches_typed_and_json_evidence() {
     ));
     let available = std::thread::available_parallelism().unwrap().get();
     for requested in [1, available + 2] {
-        let (scan, payload) = execute(&request, requested);
-        let drivers = requested.min(available) - 1;
+        let mut policy =
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(requested, 4).unwrap();
+        policy.resource_envelope.memory_budget_bytes = 16 << 20;
+        let scan = read_local_vortex_simple_aggregate_scan(
+            request.source_uri.as_ref().unwrap(),
+            &primitive_fixture,
+            &request,
+            policy,
+        )
+        .unwrap();
+        let grant = requested.min(available);
+        assert_eq!(scan.scan.max_parallelism_requested, grant);
+        let report = simple_aggregate_report(&request, &scan).unwrap();
+        assert!(!report.has_errors());
+        assert!(
+            local_primitive_native_io_certificate(&request, &report)
+                .unwrap()
+                .is_certified()
+        );
+        let payload: serde_json::Value = serde_json::from_str(&scan.result_summary).unwrap();
+        let drivers = grant - 1;
         assert_eq!(scan.restored_provider_background_workers, drivers);
         assert_eq!(payload["aggregate_provider_background_workers"], drivers);
         assert!(payload.get("aggregate_workers_submitted_chunks").is_none());
         let rows = payload["values"].as_array().unwrap();
         assert_eq!(rows.len(), 5);
-        for row in rows {
-            let key = row["value"].as_u64().unwrap();
-            assert!((1..=5).contains(&key));
-            assert_eq!(row["metric"], key * 10);
-            assert_eq!(row["count_alias"], 1);
-        }
     }
 }
 

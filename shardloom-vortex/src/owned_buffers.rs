@@ -51,7 +51,7 @@ impl ReservedHostAllocator {
     }
 }
 
-fn allocation_capacity(len: usize, alignment: Alignment) -> VortexResult<u64> {
+pub(crate) fn allocation_capacity(len: usize, alignment: Alignment) -> VortexResult<u64> {
     len.checked_add(alignment.max(Alignment::DEFAULT_ALIGNMENT).as_usize())
         .and_then(|size| u64::try_from(size).ok())
         .ok_or_else(|| vortex_err!("native host allocation size overflow"))

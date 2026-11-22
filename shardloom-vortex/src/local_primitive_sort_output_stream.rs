@@ -36,6 +36,7 @@ fn failed(reason: &str) -> ShardLoomError {
 #[allow(clippy::too_many_arguments)]
 pub(super) fn deliver_partitioned(
     sources: &[super::LocalVortexPartitionSource],
+    opened_files: &[VortexFile],
     request: &VortexQueryPrimitiveRequest,
     columns: &[String],
     selected: &[&SortRowCandidate],
@@ -61,8 +62,9 @@ pub(super) fn deliver_partitioned(
     for window in selected.chunks(super::result_batch::VISITOR_ROWS) {
         context.check_cancelled()?;
         let batch =
-            super::materialize_partitioned_local_vortex_sort_output_rows_by_source_ordinals(
+            super::materialize_opened_partitioned_local_vortex_sort_output_rows_by_source_ordinals(
                 sources,
+                opened_files,
                 request,
                 columns,
                 window,

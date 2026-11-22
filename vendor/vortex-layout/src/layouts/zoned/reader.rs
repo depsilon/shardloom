@@ -56,6 +56,14 @@ impl ZonedReader {
     where
         V: VTable<LayoutData = ZonedData>,
     {
+        let storage_allocator = ctx.explicit_storage_allocator().cloned();
+        let zones_segment_source = match &storage_allocator {
+            Some(allocator) => crate::segments::StorageAllocatedSegmentSource::new(
+                Arc::clone(&segment_source),
+                Arc::clone(allocator),
+            ),
+            None => Arc::clone(&segment_source),
+        };
         let lazy_children = Arc::new(LazyReaderChildren::try_new_with_metadata(
             Arc::clone(layout.children()),
             2,
@@ -94,7 +102,9 @@ impl ZonedReader {
                 zone_count,
                 aggregate_fns,
                 Arc::clone(&lazy_children),
+                zones_segment_source,
                 session,
+                storage_allocator,
             ),
             dtype,
             row_count,

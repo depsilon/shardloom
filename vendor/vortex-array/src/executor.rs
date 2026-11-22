@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
-// Modified by ShardLoom: expose the admitted fallible host allocator to providers.
+// Modified by ShardLoom: expose the admitted fallible host allocator to providers
+// and allow context-scoped host allocator overrides without mutating VortexSession.
 
 //! Iterative array execution.
 //!
@@ -389,6 +390,7 @@ pub struct ExecutionCtx {
     session: VortexSession,
     // OnceLock avoids cloning the session allocator when a context does not allocate.
     allocator: OnceLock<BufferAllocatorRef>,
+    host_allocator: Option<crate::memory::HostAllocatorRef>,
     execute_parent_kernels: Arc<ParentExecutionKernels>,
     // OnceLock avoids snapshotting the aggregate kernels when a context does not aggregate.
     aggregate_kernels: OnceLock<AggregateKernels>,
@@ -409,6 +411,7 @@ impl ExecutionCtx {
         Self {
             session,
             allocator: OnceLock::new(),
+            host_allocator: None,
             execute_parent_kernels,
             aggregate_kernels: OnceLock::new(),
             #[cfg(debug_assertions)]
@@ -434,8 +437,18 @@ impl ExecutionCtx {
     /// Fallible host allocation for the admitted native provider boundaries.
     /// Separate from upstream builders whose allocation failures abort.
     pub fn host_allocator(&self) -> crate::memory::HostAllocatorRef {
+        if let Some(allocator) = &self.host_allocator {
+            return Arc::clone(allocator);
+        }
         use crate::memory::HostMemorySessionExt as _;
         self.session.host_allocator()
+    }
+
+    /// Override the host allocator for this execution context without mutating
+    /// the shared [`VortexSession`].
+    pub fn with_host_allocator(mut self, allocator: crate::memory::HostAllocatorRef) -> Self {
+        self.host_allocator = Some(allocator);
+        self
     }
 
     /// Get the aggregate kernels for this execution context.

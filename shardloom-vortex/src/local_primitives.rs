@@ -102,6 +102,9 @@ mod filtered_string_count_tests;
 // Held-file proof construction is Unix-only; report validation remains shared.
 #[cfg_attr(not(unix), allow(dead_code))]
 mod footer_aggregate;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/general_group_workers.rs"]
+mod general_group_workers;
 #[cfg(all(test, feature = "vortex-local-primitives"))]
 #[path = "local_primitives/grouped_order_candidate_tests.rs"]
 mod grouped_order_candidate_tests;
@@ -298,6 +301,12 @@ mod pair_partition_tests;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/pair_partition_workers.rs"]
 mod pair_partition_workers;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/parallel_distinct_rows.rs"]
+mod parallel_distinct_rows;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/parallel_sort_topk.rs"]
+mod parallel_sort_topk;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitive_partitioned_native.rs"]
 pub mod partitioned_native;
@@ -2205,10 +2214,37 @@ impl VortexLocalPrimitiveExecutionPolicy {
         self.with_physical_policy_for_request_and_writer_sink(request, true)
     }
 
+    #[cfg(feature = "vortex-local-primitives")]
+    #[must_use]
+    pub(crate) fn with_physical_policy_for_request_and_dtype(
+        self,
+        request: &VortexQueryPrimitiveRequest,
+        dtype: Option<&vortex::array::dtype::DType>,
+    ) -> (Self, VortexLocalPrimitivePhysicalPolicyReport) {
+        self.with_physical_policy_for_request_and_writer_sink_with_textual(
+            request,
+            false,
+            &|column| column_is_textual_for_dtype(column, dtype),
+        )
+    }
+
     fn with_physical_policy_for_request_and_writer_sink(
         self,
         request: &VortexQueryPrimitiveRequest,
         writer_sink_declared: bool,
+    ) -> (Self, VortexLocalPrimitivePhysicalPolicyReport) {
+        self.with_physical_policy_for_request_and_writer_sink_with_textual(
+            request,
+            writer_sink_declared,
+            &column_name_looks_textual,
+        )
+    }
+
+    fn with_physical_policy_for_request_and_writer_sink_with_textual(
+        self,
+        request: &VortexQueryPrimitiveRequest,
+        writer_sink_declared: bool,
+        is_textual: &impl Fn(&str) -> bool,
     ) -> (Self, VortexLocalPrimitivePhysicalPolicyReport) {
         let mut envelope = self.resource_envelope;
         let requested_max_parallelism = self.max_parallelism;
@@ -2216,7 +2252,8 @@ impl VortexLocalPrimitiveExecutionPolicy {
         let mut writer_coalescing_enabled = false;
         let mut writer_sink_declared = writer_sink_declared;
         let mut rejected_alternatives = Vec::new();
-        let (route_family, state_pressure_reason) = local_vortex_physical_policy_family(request);
+        let (route_family, state_pressure_reason) =
+            local_vortex_physical_policy_family(request, is_textual);
 
         match route_family {
             "stateless_scan_count" => {
@@ -2303,6 +2340,7 @@ impl VortexLocalPrimitiveExecutionPolicy {
 
 fn local_vortex_physical_policy_family(
     request: &VortexQueryPrimitiveRequest,
+    is_textual: &impl Fn(&str) -> bool,
 ) -> (&'static str, &'static str) {
     match request.kind {
         VortexQueryPrimitiveKind::CountAll
@@ -2319,7 +2357,9 @@ fn local_vortex_physical_policy_family(
         ),
         VortexQueryPrimitiveKind::SimpleAggregate => request.simple_aggregate.as_ref().map_or(
             ("general_grouped_aggregate", "aggregate_payload_missing"),
-            |aggregate| local_vortex_simple_aggregate_physical_policy_family(request, aggregate),
+            |aggregate| {
+                local_vortex_simple_aggregate_physical_policy_family(request, aggregate, is_textual)
+            },
         ),
         VortexQueryPrimitiveKind::DistinctRows
         | VortexQueryPrimitiveKind::DropDuplicateRows
@@ -2341,6 +2381,7 @@ fn local_vortex_physical_policy_family(
 fn local_vortex_simple_aggregate_physical_policy_family(
     request: &VortexQueryPrimitiveRequest,
     aggregate: &VortexSimpleAggregateRequest,
+    is_textual: &impl Fn(&str) -> bool,
 ) -> (&'static str, &'static str) {
     if aggregate.group_by.is_empty() && aggregate.group_expressions.is_empty() {
         return (
@@ -2348,7 +2389,7 @@ fn local_vortex_simple_aggregate_physical_policy_family(
             "scalar_aggregate_without_group_state",
         );
     }
-    if simple_aggregate_near_input_numeric_pair_shape(aggregate, request) {
+    if simple_aggregate_near_input_numeric_pair_shape(aggregate, request, is_textual) {
         return (
             "near_input_cardinality_numeric_pair_aggregate",
             "two_key_numeric_pair_exact_state_avoids_candidate_window_regression",
@@ -2360,19 +2401,19 @@ fn local_vortex_simple_aggregate_physical_policy_family(
             "embedded_dictionary_or_derived_metadata_can_replace_per_row_transform",
         );
     }
-    if simple_aggregate_string_count_distinct_heavy_hitter_shape(aggregate, request) {
+    if simple_aggregate_string_count_distinct_heavy_hitter_shape(aggregate, request, is_textual) {
         return (
             "string_count_distinct_heavy_hitter_topk",
             "string_dictionary_count_distinct_topk_prefers_candidate_exact_recount",
         );
     }
-    if simple_aggregate_numeric_utf8_heavy_hitter_shape(aggregate, request) {
+    if simple_aggregate_numeric_utf8_heavy_hitter_shape(aggregate, request, is_textual) {
         return (
             "numeric_utf8_heavy_hitter_topk",
             "numeric_plus_utf8_group_state_prefers_compact_candidate_recount",
         );
     }
-    if simple_aggregate_string_heavy_hitter_shape(aggregate, request) {
+    if simple_aggregate_string_heavy_hitter_shape(aggregate, request, is_textual) {
         return (
             "string_heavy_hitter_topk",
             "string_dictionary_count_topk_prefers_candidate_recount",
@@ -2387,6 +2428,7 @@ fn local_vortex_simple_aggregate_physical_policy_family(
 fn simple_aggregate_near_input_numeric_pair_shape(
     aggregate: &VortexSimpleAggregateRequest,
     request: &VortexQueryPrimitiveRequest,
+    is_textual: &impl Fn(&str) -> bool,
 ) -> bool {
     aggregate.group_by.len() == 2
         && aggregate.group_expressions.is_empty()
@@ -2398,12 +2440,13 @@ fn simple_aggregate_near_input_numeric_pair_shape(
         && aggregate
             .group_by
             .iter()
-            .all(|column| !column_name_looks_textual(column.as_str()))
+            .all(|column| !is_textual(column.as_str()))
 }
 
 fn simple_aggregate_numeric_utf8_heavy_hitter_shape(
     aggregate: &VortexSimpleAggregateRequest,
     request: &VortexQueryPrimitiveRequest,
+    is_textual: &impl Fn(&str) -> bool,
 ) -> bool {
     aggregate.group_by.len() >= 2
         && request.source_order_limit.is_some()
@@ -2411,17 +2454,18 @@ fn simple_aggregate_numeric_utf8_heavy_hitter_shape(
         && aggregate
             .group_by
             .iter()
-            .any(|column| column_name_looks_textual(column.as_str()))
+            .any(|column| is_textual(column.as_str()))
         && aggregate
             .group_by
             .iter()
-            .any(|column| !column_name_looks_textual(column.as_str()))
+            .any(|column| !is_textual(column.as_str()))
         && aggregate.measures.iter().any(is_count_measure)
 }
 
 fn simple_aggregate_string_heavy_hitter_shape(
     aggregate: &VortexSimpleAggregateRequest,
     request: &VortexQueryPrimitiveRequest,
+    is_textual: &impl Fn(&str) -> bool,
 ) -> bool {
     request.source_order_limit.is_some()
         && !aggregate.order_by.is_empty()
@@ -2429,9 +2473,9 @@ fn simple_aggregate_string_heavy_hitter_shape(
         && (aggregate
             .group_by
             .iter()
-            .any(|column| column_name_looks_textual(column.as_str()))
+            .any(|column| is_textual(column.as_str()))
             || aggregate.group_expressions.iter().any(|expression| {
-                column_name_looks_textual(expression.column.as_str())
+                is_textual(expression.column.as_str())
                     || expression_function_looks_string_transform(&expression.function)
             }))
 }
@@ -2439,6 +2483,7 @@ fn simple_aggregate_string_heavy_hitter_shape(
 fn simple_aggregate_string_count_distinct_heavy_hitter_shape(
     aggregate: &VortexSimpleAggregateRequest,
     request: &VortexQueryPrimitiveRequest,
+    is_textual: &impl Fn(&str) -> bool,
 ) -> bool {
     if request.source_order_limit.is_none()
         || aggregate.order_by.len() != 1
@@ -2467,9 +2512,9 @@ fn simple_aggregate_string_count_distinct_heavy_hitter_shape(
         && (aggregate
             .group_by
             .iter()
-            .any(|column| column_name_looks_textual(column.as_str()))
+            .any(|column| is_textual(column.as_str()))
             || aggregate.group_expressions.iter().any(|expression| {
-                column_name_looks_textual(expression.column.as_str())
+                is_textual(expression.column.as_str())
                     || expression_function_looks_string_transform(&expression.function)
             }))
 }
@@ -2525,6 +2570,16 @@ fn is_numeric_measure(measure: &VortexSimpleAggregateMeasure) -> bool {
         measure.function.trim().to_ascii_lowercase().as_str(),
         "sum" | "avg" | "min" | "max"
     ) && measure.column.is_some()
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn column_is_textual_for_dtype(column: &str, dtype: Option<&vortex::array::dtype::DType>) -> bool {
+    if let Some(vortex::array::dtype::DType::Struct(fields, _)) = dtype
+        && let Some(field_dtype) = fields.field(column)
+    {
+        return matches!(field_dtype, vortex::array::dtype::DType::Utf8(_));
+    }
+    column_name_looks_textual(column)
 }
 
 fn column_name_looks_textual(column: &str) -> bool {
@@ -2707,6 +2762,19 @@ fn local_vortex_session(
     vortex::session::VortexSession,
     shardloom_exec::live_memory::MemoryLease,
 )> {
+    let (session, control, _memory) = local_vortex_session_with_memory(policy, runtime)?;
+    Ok((session, control))
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn local_vortex_session_with_memory(
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    runtime: &impl vortex::io::runtime::BlockingRuntime,
+) -> Result<(
+    vortex::session::VortexSession,
+    shardloom_exec::live_memory::MemoryLease,
+    shardloom_exec::live_memory::LiveMemoryPool,
+)> {
     use vortex::{
         VortexSessionDefault as _, array::memory::HostMemorySessionExt as _,
         io::session::RuntimeSessionExt as _,
@@ -2721,10 +2789,45 @@ fn local_vortex_session(
     let session = vortex::session::VortexSession::default()
         .with_handle(runtime.handle())
         .with_host_allocator(std::sync::Arc::new(
-            crate::owned_buffers::ReservedHostAllocator::new(memory),
+            crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
         ));
     crate::native_extensions::register(&session);
-    Ok((session, control))
+    Ok((session, control, memory))
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn local_vortex_scan_runtime_and_session(
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    context: Option<&crate::resident_session::NativeExecutionContext<'_>>,
+    allow_external_pool_standalone: bool,
+) -> Result<(
+    LocalVortexRuntime,
+    vortex::session::VortexSession,
+    shardloom_exec::live_memory::MemoryLease,
+    Option<shardloom_exec::live_memory::LiveMemoryPool>,
+)> {
+    if let Some(context) = context {
+        context.check_cancelled()?;
+        return Ok((
+            LocalVortexRuntime::Shared(context.runtime().clone()),
+            context.native_session().clone(),
+            context.memory().reserve(4096)?,
+            Some(context.memory().clone()),
+        ));
+    }
+    if allow_external_pool_standalone
+        && shardloom_exec::compute_pool::bounded_cpu_parallelism(
+            policy.resource_envelope.max_parallelism,
+        ) >= 2
+    {
+        let runtime =
+            LocalVortexRuntime::Single(vortex::io::runtime::single::SingleThreadRuntime::default());
+        let (session, control, memory) = local_vortex_session_with_memory(policy, &runtime)?;
+        return Ok((runtime, session, control, Some(memory)));
+    }
+    let runtime = local_vortex_runtime(policy);
+    let (session, control) = local_vortex_session(policy, &runtime)?;
+    Ok((runtime, session, control, None))
 }
 
 /// Native or compatibility output format for a scoped local Vortex primitive export.
@@ -14841,6 +14944,7 @@ fn execute_vortex_local_primitive_enabled(
     context: Option<&crate::resident_session::NativeExecutionContext<'_>>,
 ) -> Result<VortexLocalPrimitiveExecutionReport> {
     check_local_vortex_context(context)?;
+    let raw_policy = policy;
     let (policy, physical_policy) = policy.with_physical_policy_for_request(request);
     let Some(uri) = request.source_uri.as_ref() else {
         return Ok(VortexLocalPrimitiveExecutionReport::blocked(
@@ -14880,6 +14984,7 @@ fn execute_vortex_local_primitive_enabled(
             .execute()
             .map(|executed| executed.report.with_physical_policy(physical_policy));
     }
+    let mut preserve_aggregate_physical_policy = false;
     let report = match request.kind {
         VortexQueryPrimitiveKind::CountAll => {
             count_all_metadata_report(uri, &path, policy, context)
@@ -15010,8 +15115,9 @@ fn execute_vortex_local_primitive_enabled(
         }
         VortexQueryPrimitiveKind::SimpleAggregate => {
             let aggregate = read_local_vortex_simple_aggregate_scan_in_context(
-                uri, &path, request, policy, context,
+                uri, &path, request, raw_policy, context,
             )?;
+            preserve_aggregate_physical_policy = aggregate.physical_policy.is_some();
             simple_aggregate_report(request, &aggregate)
         }
         VortexQueryPrimitiveKind::SortRows => {
@@ -15035,7 +15141,11 @@ fn execute_vortex_local_primitive_enabled(
         )),
     }?;
     check_local_vortex_context(context)?;
-    Ok(report.with_physical_policy(physical_policy))
+    Ok(if preserve_aggregate_physical_policy {
+        report
+    } else {
+        report.with_physical_policy(physical_policy)
+    })
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -15047,6 +15157,7 @@ fn execute_vortex_local_partitioned_primitive_enabled(
     context: Option<&crate::resident_session::NativeExecutionContext<'_>>,
 ) -> Result<VortexLocalPrimitiveExecutionReport> {
     check_local_vortex_context(context)?;
+    let raw_policy = policy;
     let (policy, physical_policy) = policy.with_physical_policy_for_request(request);
     if source_uris.is_empty() {
         return Ok(VortexLocalPrimitiveExecutionReport::blocked(
@@ -15064,9 +15175,10 @@ fn execute_vortex_local_partitioned_primitive_enabled(
     if source_uris.len() == 1 {
         let mut single = request.clone();
         single.source_uri = source_uris.first().cloned();
-        return execute_vortex_local_primitive_enabled(&single, policy, context);
+        return execute_vortex_local_primitive_enabled(&single, raw_policy, context);
     }
     let sources = partitioned_local_vortex_source_paths(source_uris, request.kind)?;
+    let mut preserve_aggregate_physical_policy = false;
     let report = match request.kind {
         VortexQueryPrimitiveKind::CountAll => {
             Ok(partitioned_report(
@@ -15145,8 +15257,10 @@ fn execute_vortex_local_partitioned_primitive_enabled(
             )?)
         }
         VortexQueryPrimitiveKind::SimpleAggregate => {
-            let aggregate =
-                read_local_vortex_simple_aggregate_partitioned_scan(&sources, request, policy, context, None)?;
+            let aggregate = read_local_vortex_simple_aggregate_partitioned_scan(
+                &sources, request, raw_policy, context, None,
+            )?;
+            preserve_aggregate_physical_policy = aggregate.physical_policy.is_some();
             Ok(partitioned_report(
                 simple_aggregate_report(request, &aggregate)?,
                 source_uris.len(),
@@ -15175,7 +15289,11 @@ fn execute_vortex_local_partitioned_primitive_enabled(
         )),
     }?;
     check_local_vortex_context(context)?;
-    Ok(report.with_physical_policy(physical_policy))
+    Ok(if preserve_aggregate_physical_policy {
+        report
+    } else {
+        report.with_physical_policy(physical_policy)
+    })
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -15308,6 +15426,7 @@ struct LocalVortexAggregateScan {
     scan_columns: Option<VortexLocalPrimitiveScanColumns>,
     result_summary: String,
     state_budget: VortexLocalPrimitiveStateBudgetReport,
+    physical_policy: Option<VortexLocalPrimitivePhysicalPolicyReport>,
     // Temporary drivers used by the completed scan or its immediate wrapper.
     // Kept typed so outer execution evidence need not parse our JSON.
     restored_provider_background_workers: usize,
@@ -19365,7 +19484,10 @@ fn simple_aggregate_report(
         streaming_scan_used: !metadata_completed && scan.streaming_scan_used(),
         full_stream_collected: false,
         resource_envelope: scan.resource_envelope,
-        physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
+        physical_policy: aggregate
+            .physical_policy
+            .clone()
+            .unwrap_or_else(VortexLocalPrimitivePhysicalPolicyReport::not_selected),
         max_parallelism_requested: scan.max_parallelism_requested,
         scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
@@ -19513,8 +19635,8 @@ fn read_local_vortex_distinct_scan(
     use vortex::io::runtime::BlockingRuntime as _;
 
     check_local_vortex_context(context)?;
-    let runtime = local_vortex_runtime_in_context(policy, context);
-    let (session, _control_memory) = local_vortex_session_in_context(policy, &runtime, context)?;
+    let (runtime, session, _control_memory, parallel_memory) =
+        local_vortex_scan_runtime_and_session(policy, context, request.predicate.is_none())?;
     let mut ctx = native_numeric_execution_ctx(&session);
     let file = runtime
         .block_on(open_local_vortex_file(&session, path, context))
@@ -19606,59 +19728,111 @@ fn read_local_vortex_distinct_scan(
         })
         .transpose()?;
 
-    let mut seen = rustc_hash::FxHashSet::default();
-    let mut result_row_count = 0usize;
-    let mut arrays_read_count = 0usize;
-    let mut reader_splits = Vec::new();
-    let mut max_chunk_rows = 0usize;
-    let mut residual_predicate_materialized = false;
-    for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
-        check_local_vortex_context(context)?;
-        let chunk = chunk.map_err(vortex_error)?;
-        let rows = chunk.len();
-        let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
-            source_uri.clone(),
+    let workers = shardloom_exec::compute_pool::bounded_cpu_parallelism(
+        policy.resource_envelope.max_parallelism,
+    );
+    let (
+        result_row_count,
+        seen,
+        arrays_read_count,
+        reader_splits,
+        max_chunk_rows,
+        residual_predicate_materialized,
+    ) = if residual_predicate.is_none()
+        && workers >= 2
+        && context.is_none_or(|ctx| ctx.provider_background_workers() == 0)
+        && let Some(memory_pool) = parallel_memory.as_ref()
+    {
+        let shared_pool = context
+            .map(|ctx| ctx.shared_compute_pool(workers))
+            .transpose()?
+            .flatten();
+        let (result_row_count, seen, arrays_read_count, reader_splits, max_chunk_rows) =
+            parallel_distinct_rows::run_direct_distinct_scan(
+                scan,
+                source_uri,
+                &declared_columns,
+                &output_columns,
+                source_order_limit,
+                &session,
+                &runtime,
+                memory_pool,
+                workers,
+                shared_pool.as_ref(),
+                context,
+            )?;
+        (
+            result_row_count,
+            seen,
             arrays_read_count,
-            rows,
-            chunk.dtype().to_string(),
-            chunk.encoding_id().to_string(),
-            chunk.nchildren(),
-            chunk.nbuffers(),
-        )?;
-        reader_splits.push(split);
-        let materialized_columns =
-            row_export_columns_from_chunk(&chunk, &materialization_columns, &mut ctx)?;
-        let materialized_rows = row_export_materialized_row_count(&materialized_columns, rows)?;
-        let (candidate_indices, residual_materialized) = residual_candidate_row_indices_for_chunk(
-            residual_evaluator.as_ref(),
-            &chunk,
-            &materialization_columns,
-            &materialized_columns,
-            materialized_rows,
-            &mut ctx,
-        )?;
-        residual_predicate_materialized |= residual_materialized;
-        let row_key_columns =
-            row_key_columns_from_chunk(&chunk, &declared_columns, &output_columns, &mut ctx)?;
-        let selected = distinct_row_indices_from_candidates(
-            &row_key_columns,
-            &mut seen,
-            candidate_indices,
-            source_order_limit.map(|limit| limit.saturating_sub(result_row_count)),
-        )?;
-        result_row_count = result_row_count
-            .checked_add(selected.len())
-            .ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "local Vortex distinct result row count overflowed usize".to_string(),
-                )
-            })?;
-        max_chunk_rows = max_chunk_rows.max(rows);
-        arrays_read_count += 1;
-        if source_order_limit.is_some_and(|limit| result_row_count >= limit) {
-            break;
+            reader_splits,
+            max_chunk_rows,
+            false,
+        )
+    } else {
+        let mut seen = rustc_hash::FxHashSet::default();
+        let mut result_row_count = 0usize;
+        let mut arrays_read_count = 0usize;
+        let mut reader_splits = Vec::new();
+        let mut max_chunk_rows = 0usize;
+        let mut residual_predicate_materialized = false;
+        for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
+            check_local_vortex_context(context)?;
+            let chunk = chunk.map_err(vortex_error)?;
+            let rows = chunk.len();
+            let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
+                source_uri.clone(),
+                arrays_read_count,
+                rows,
+                chunk.dtype().to_string(),
+                chunk.encoding_id().to_string(),
+                chunk.nchildren(),
+                chunk.nbuffers(),
+            )?;
+            reader_splits.push(split);
+            let materialized_columns =
+                row_export_columns_from_chunk(&chunk, &materialization_columns, &mut ctx)?;
+            let materialized_rows = row_export_materialized_row_count(&materialized_columns, rows)?;
+            let (candidate_indices, residual_materialized) =
+                residual_candidate_row_indices_for_chunk(
+                    residual_evaluator.as_ref(),
+                    &chunk,
+                    &materialization_columns,
+                    &materialized_columns,
+                    materialized_rows,
+                    &mut ctx,
+                )?;
+            residual_predicate_materialized |= residual_materialized;
+            let row_key_columns =
+                row_key_columns_from_chunk(&chunk, &declared_columns, &output_columns, &mut ctx)?;
+            let selected = distinct_row_indices_from_candidates(
+                &row_key_columns,
+                &mut seen,
+                candidate_indices,
+                source_order_limit.map(|limit| limit.saturating_sub(result_row_count)),
+            )?;
+            result_row_count = result_row_count
+                .checked_add(selected.len())
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex distinct result row count overflowed usize".to_string(),
+                    )
+                })?;
+            max_chunk_rows = max_chunk_rows.max(rows);
+            arrays_read_count += 1;
+            if source_order_limit.is_some_and(|limit| result_row_count >= limit) {
+                break;
+            }
         }
-    }
+        (
+            result_row_count,
+            seen,
+            arrays_read_count,
+            reader_splits,
+            max_chunk_rows,
+            residual_predicate_materialized,
+        )
+    };
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
     // Certify the reader boundary without copying executable values for reporting.
     let reader_generated_prepared_batch_report =
@@ -19701,8 +19875,8 @@ fn read_local_vortex_drop_duplicate_scan(
     use vortex::io::runtime::BlockingRuntime as _;
 
     check_local_vortex_context(context)?;
-    let runtime = local_vortex_runtime_in_context(policy, context);
-    let (session, _control_memory) = local_vortex_session_in_context(policy, &runtime, context)?;
+    let (runtime, session, _control_memory, parallel_memory) =
+        local_vortex_scan_runtime_and_session(policy, context, request.predicate.is_none())?;
     let mut ctx = native_numeric_execution_ctx(&session);
     let file = runtime
         .block_on(open_local_vortex_file(&session, path, context))
@@ -19787,74 +19961,132 @@ fn read_local_vortex_drop_duplicate_scan(
         })
         .transpose()?;
 
-    let mut counts = rustc_hash::FxHashMap::<String, usize>::default();
-    let mut first_positions = rustc_hash::FxHashMap::<String, usize>::default();
-    let mut last_positions = rustc_hash::FxHashMap::<String, usize>::default();
-    let mut rows = Vec::<(usize, String, Vec<StatValue>)>::new();
-    let mut global_index = 0usize;
-    let mut arrays_read_count = 0usize;
-    let mut reader_splits = Vec::new();
-    let mut max_chunk_rows = 0usize;
-    let mut residual_predicate_materialized = false;
-    for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
-        check_local_vortex_context(context)?;
-        let chunk = chunk.map_err(vortex_error)?;
-        let chunk_rows = chunk.len();
-        let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
-            source_uri.clone(),
-            arrays_read_count,
-            chunk_rows,
-            chunk.dtype().to_string(),
-            chunk.encoding_id().to_string(),
-            chunk.nchildren(),
-            chunk.nbuffers(),
-        )?;
-        reader_splits.push(split);
-        let materialized_columns =
-            row_export_columns_from_chunk(&chunk, &materialization_columns, &mut ctx)?;
-        let row_key_columns =
-            row_key_columns_from_chunk(&chunk, &declared_columns, &key_columns, &mut ctx)?;
-        let materialized_rows = row_key_materialized_row_count(&row_key_columns)?;
-        let output_rows = row_export_materialized_row_count(&materialized_columns, chunk_rows)?;
-        if output_rows != materialized_rows {
-            return Err(ShardLoomError::InvalidOperation(
-                "local Vortex drop_duplicates row-key and output columns had mismatched row counts; no fallback execution was attempted"
-                    .to_string(),
-            ));
-        }
-        let (candidate_indices, residual_materialized) = residual_candidate_row_indices_for_chunk(
-            residual_evaluator.as_ref(),
-            &chunk,
+    let workers = shardloom_exec::compute_pool::bounded_cpu_parallelism(
+        policy.resource_envelope.max_parallelism,
+    );
+    let (
+        counts,
+        first_positions,
+        last_positions,
+        rows,
+        arrays_read_count,
+        reader_splits,
+        max_chunk_rows,
+        residual_predicate_materialized,
+    ) = if residual_predicate.is_none()
+        && workers >= 2
+        && context.is_none_or(|ctx| ctx.provider_background_workers() == 0)
+        && let Some(memory_pool) = parallel_memory.as_ref()
+    {
+        let shared_pool = context
+            .map(|ctx| ctx.shared_compute_pool(workers))
+            .transpose()?
+            .flatten();
+        let parallel = parallel_distinct_rows::run_direct_drop_duplicate_scan(
+            scan,
+            source_uri,
             &materialization_columns,
-            &materialized_columns,
-            materialized_rows,
-            &mut ctx,
+            &declared_columns,
+            &key_columns,
+            &output_columns,
+            &session,
+            &runtime,
+            memory_pool,
+            workers,
+            shared_pool.as_ref(),
+            context,
         )?;
-        residual_predicate_materialized |= residual_materialized;
-        for row_index in candidate_indices {
-            if row_index.is_multiple_of(4096) {
-                check_local_vortex_context(context)?;
-            }
-            let key = row_key_from_key_columns(&row_key_columns, row_index)?;
-            *counts.entry(key.clone()).or_insert(0) += 1;
-            first_positions.entry(key.clone()).or_insert(global_index);
-            last_positions.insert(key.clone(), global_index);
-            let row = row_export_materialized_projected_row(
-                &materialization_columns,
-                &materialized_columns,
-                &output_columns,
-                row_index,
+        (
+            parallel.counts,
+            parallel.first_positions,
+            parallel.last_positions,
+            parallel.rows,
+            parallel.arrays_read_count,
+            parallel.reader_splits,
+            parallel.max_chunk_rows,
+            false,
+        )
+    } else {
+        let mut counts = rustc_hash::FxHashMap::<String, usize>::default();
+        let mut first_positions = rustc_hash::FxHashMap::<String, usize>::default();
+        let mut last_positions = rustc_hash::FxHashMap::<String, usize>::default();
+        let mut rows = Vec::<(usize, String, Vec<StatValue>)>::new();
+        let mut global_index = 0usize;
+        let mut arrays_read_count = 0usize;
+        let mut reader_splits = Vec::new();
+        let mut max_chunk_rows = 0usize;
+        let mut residual_predicate_materialized = false;
+        for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
+            check_local_vortex_context(context)?;
+            let chunk = chunk.map_err(vortex_error)?;
+            let chunk_rows = chunk.len();
+            let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
+                source_uri.clone(),
+                arrays_read_count,
+                chunk_rows,
+                chunk.dtype().to_string(),
+                chunk.encoding_id().to_string(),
+                chunk.nchildren(),
+                chunk.nbuffers(),
             )?;
-            rows.push((global_index, key, row));
-            global_index = global_index.checked_add(1).ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "local Vortex drop_duplicates row ordinal overflowed usize".to_string(),
-                )
-            })?;
+            reader_splits.push(split);
+            let materialized_columns =
+                row_export_columns_from_chunk(&chunk, &materialization_columns, &mut ctx)?;
+            let row_key_columns =
+                row_key_columns_from_chunk(&chunk, &declared_columns, &key_columns, &mut ctx)?;
+            let materialized_rows = row_key_materialized_row_count(&row_key_columns)?;
+            let output_rows = row_export_materialized_row_count(&materialized_columns, chunk_rows)?;
+            if output_rows != materialized_rows {
+                return Err(ShardLoomError::InvalidOperation(
+                    "local Vortex drop_duplicates row-key and output columns had mismatched row counts; no fallback execution was attempted"
+                        .to_string(),
+                ));
+            }
+            let (candidate_indices, residual_materialized) =
+                residual_candidate_row_indices_for_chunk(
+                    residual_evaluator.as_ref(),
+                    &chunk,
+                    &materialization_columns,
+                    &materialized_columns,
+                    materialized_rows,
+                    &mut ctx,
+                )?;
+            residual_predicate_materialized |= residual_materialized;
+            for row_index in candidate_indices {
+                if row_index.is_multiple_of(4096) {
+                    check_local_vortex_context(context)?;
+                }
+                let key = row_key_from_key_columns(&row_key_columns, row_index)?;
+                *counts.entry(key.clone()).or_insert(0) += 1;
+                first_positions.entry(key.clone()).or_insert(global_index);
+                last_positions.insert(key.clone(), global_index);
+                let row = row_export_materialized_projected_row(
+                    &materialization_columns,
+                    &materialized_columns,
+                    &output_columns,
+                    row_index,
+                )?;
+                rows.push((global_index, key, row));
+                global_index = global_index.checked_add(1).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex drop_duplicates row ordinal overflowed usize".to_string(),
+                    )
+                })?;
+            }
+            max_chunk_rows = max_chunk_rows.max(chunk_rows);
+            arrays_read_count += 1;
         }
-        max_chunk_rows = max_chunk_rows.max(chunk_rows);
-        arrays_read_count += 1;
-    }
+        (
+            counts,
+            first_positions,
+            last_positions,
+            rows,
+            arrays_read_count,
+            reader_splits,
+            max_chunk_rows,
+            residual_predicate_materialized,
+        )
+    };
     let retained_rows = retain_drop_duplicate_rows_from_policy(
         &rows,
         &counts,
@@ -21498,6 +21730,8 @@ fn read_local_vortex_simple_aggregate_scan_in_context(
             .runtime()
             .block_on(context.open_local_file(path))
             .map_err(vortex_error)?;
+        let (policy, physical_policy) =
+            policy.with_physical_policy_for_request_and_dtype(request, Some(file.dtype()));
         let lowering = aggregate_lowering::AggregateLowering::new(
             request,
             file.dtype(),
@@ -21509,7 +21743,7 @@ fn read_local_vortex_simple_aggregate_scan_in_context(
         let input = aggregate_scan_source::AggregateScanSource::ObservedFile(&file, &evidence);
         #[cfg(not(unix))]
         let input = aggregate_scan_source::AggregateScanSource::File(&file);
-        let result = read_lowered_vortex_simple_aggregate_scan(
+        let mut result = read_lowered_vortex_simple_aggregate_scan(
             source_uri,
             request,
             policy,
@@ -21523,6 +21757,7 @@ fn read_local_vortex_simple_aggregate_scan_in_context(
             None,
             Some(context.cancellation()),
         )?;
+        result.physical_policy = Some(physical_policy);
         #[cfg(unix)]
         if evidence.scan_invocations() == 0 {
             let mut observation = native_file_scan_evidence::Observation::file_plan(
@@ -21585,10 +21820,22 @@ fn read_local_vortex_simple_aggregate_scan(
                     .scan_concurrency_per_worker
                     .min(parallelism);
             }
+            let (mut policy, physical_policy) =
+                policy.with_physical_policy_for_request_and_dtype(request, Some(prepared.dtype()));
+            if count_workers {
+                let (_, parallelism) = prepared.resource_limits();
+                policy.max_parallelism = policy.max_parallelism.min(parallelism);
+                policy.resource_envelope.max_parallelism =
+                    policy.resource_envelope.max_parallelism.min(parallelism);
+                policy.resource_envelope.scan_concurrency_per_worker = policy
+                    .resource_envelope
+                    .scan_concurrency_per_worker
+                    .min(parallelism);
+            }
             if weighted_count_spill_admission::request_admitted(request) {
                 let shared_pool =
                     resident.shared_compute_pool(policy.resource_envelope.max_parallelism)?;
-                let (result, owner) =
+                let (mut result, owner) =
                     prepared.with_native_execution(|file, session, runtime| {
                         weighted_count_spill_query::execute_with_output_and_pool(
                             source_uri,
@@ -21604,20 +21851,23 @@ fn read_local_vortex_simple_aggregate_scan(
                             shared_pool.as_ref(),
                         )
                     })?;
+                result.physical_policy = Some(physical_policy);
                 drop(owner);
                 return Ok(result);
             }
-            let (result, owner) = prepared.with_native_execution(|file, session, runtime| {
-                exact_distinct_pairs::spill_query::execute(
-                    source_uri,
-                    request,
-                    policy,
-                    file,
-                    session,
-                    runtime,
-                    resident.memory(),
-                )
-            })?;
+            let (mut result, owner) =
+                prepared.with_native_execution(|file, session, runtime| {
+                    exact_distinct_pairs::spill_query::execute(
+                        source_uri,
+                        request,
+                        policy,
+                        file,
+                        session,
+                        runtime,
+                        resident.memory(),
+                    )
+                })?;
+            result.physical_policy = Some(physical_policy);
             // Source validation has completed while the full operator reservation
             // and finalized native counts were still retained. JSON is a separate sink.
             drop(owner);
@@ -21643,6 +21893,17 @@ fn read_local_vortex_simple_aggregate_scan(
         let mut policy = policy;
         policy.max_parallelism = source_parallelism;
         policy.resource_envelope.max_parallelism = source_parallelism;
+        policy.resource_envelope.scan_concurrency_per_worker = policy
+            .resource_envelope
+            .scan_concurrency_per_worker
+            .min(source_parallelism);
+        let (mut policy, physical_policy) =
+            policy.with_physical_policy_for_request_and_dtype(request, Some(prepared.dtype()));
+        policy.max_parallelism = policy.max_parallelism.min(source_parallelism);
+        policy.resource_envelope.max_parallelism = policy
+            .resource_envelope
+            .max_parallelism
+            .min(source_parallelism);
         policy.resource_envelope.scan_concurrency_per_worker = policy
             .resource_envelope
             .scan_concurrency_per_worker
@@ -21707,6 +21968,7 @@ fn read_local_vortex_simple_aggregate_scan(
                 },
             )?;
             result.annotate_segment_reuse(evidence)?;
+            result.physical_policy = Some(physical_policy);
             return Ok(result);
         }
         if restore_provider_drivers {
@@ -21804,12 +22066,14 @@ fn read_prepared_vortex_simple_aggregate_scan_with_pool(
     shared_pool: Option<&std::sync::Arc<shardloom_exec::compute_pool::ComputePool>>,
 ) -> Result<LocalVortexAggregateScan> {
     let attempt_started = Instant::now();
+    let (policy, physical_policy) =
+        policy.with_physical_policy_for_request_and_dtype(request, Some(file.dtype()));
     let lowering = aggregate_lowering::AggregateLowering::new(
         request,
         file.dtype(),
         policy.resource_envelope(),
     )?;
-    read_lowered_vortex_simple_aggregate_scan_with_pool(
+    let mut scan = read_lowered_vortex_simple_aggregate_scan_with_pool(
         source_uri,
         request,
         policy,
@@ -21823,7 +22087,9 @@ fn read_prepared_vortex_simple_aggregate_scan_with_pool(
         None,
         None,
         shared_pool,
-    )
+    )?;
+    scan.physical_policy = Some(physical_policy);
+    Ok(scan)
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -22106,26 +22372,11 @@ fn execute_lowered_vortex_simple_aggregate_scan(
             memory,
             cancellation,
             shared_pool,
+            winner_distinct_report.is_none(),
         )?
     } else {
         None
     };
-    if count_workers.is_none()
-        && worker_admission_selected
-        && residual_evaluator.is_none()
-        && let (Some(states), Some(memory)) = (grouped_states.as_ref(), worker_memory)
-    {
-        count_workers = dictionary_prepare_workers::DictionaryPrepareWorkers::admit_with_pool(
-            states,
-            file.dtype(),
-            &declared_columns,
-            policy,
-            memory,
-            cancellation,
-            shared_pool,
-        )?
-        .map(aggregate_count_workers::CountWorkers::DictionaryPrepare);
-    }
     // The earlier shape/schema check chooses CPU ownership, but actual worker
     // admission can still decline under memory pressure. Restore progress on
     // this SAME runtime before scanning; no input has been processed or replayed.
@@ -22624,42 +22875,74 @@ fn execute_lowered_vortex_simple_aggregate_scan(
         && states.needs_numeric_pair_late_measure_second_pass()
     {
         states.prepare_numeric_pair_late_measure_second_pass(result_limit)?;
-        let projection = projection_request_from_declared_columns(&declared_columns)?;
-        let mut second_plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
-        if second_plan.projected_columns != declared_columns {
-            return Err(ShardLoomError::InvalidOperation(
-                "local Vortex numeric-pair late-measure route saw inconsistent second-pass projection; no fallback execution was attempted"
-                    .to_string(),
-            ));
-        }
-        let mut second_scan = file.scan(session).map_err(vortex_error)?;
-        if let Some(filter) = pushdown_predicate.as_ref() {
-            let filter_expr = predicate_to_vortex_expr(filter, file.dtype(), request.kind)?;
-            second_scan = second_scan.with_filter(file.bind(&filter_expr)?);
-        }
-        if let Some(projection) = second_plan.projection.take() {
-            second_scan = second_scan.with_projection(file.bind(&projection)?);
-        }
-        second_scan = second_scan
-            .with_residual_evidence(residual_predicate.as_ref())
-            .with_concurrency(policy.scan_concurrency_per_worker());
-        for chunk in second_scan.into_array_iter(runtime).map_err(vortex_error)? {
-            check_cancelled()?;
-            let chunk = chunk.map_err(vortex_error)?;
-            let rows = chunk.len();
-            let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
-                source_uri.clone(),
-                arrays_read_count,
-                rows,
-                chunk.dtype().to_string(),
-                chunk.encoding_id().to_string(),
-                chunk.nchildren(),
-                chunk.nbuffers(),
-            )?;
-            reader_splits.push(split);
-            states.update_numeric_pair_late_measure_direct_from_chunk(&chunk, &declared_columns)?;
-            max_chunk_rows = max_chunk_rows.max(rows);
-            arrays_read_count += 1;
+        if !states.numeric_pair_late_measure_retained_keys_is_empty() {
+            let projection = projection_request_from_declared_columns(&declared_columns)?;
+            let mut second_plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
+            if second_plan.projected_columns != declared_columns {
+                return Err(ShardLoomError::InvalidOperation(
+                    "local Vortex numeric-pair late-measure route saw inconsistent second-pass projection; no fallback execution was attempted"
+                        .to_string(),
+                ));
+            }
+            let mut second_scan = file.scan(session).map_err(vortex_error)?;
+            let retained_pushdown =
+                states.numeric_pair_late_measure_second_pass_pushdown_predicate();
+            let combined_filter = match (pushdown_predicate.as_ref(), retained_pushdown) {
+                (Some(existing), Some(retained)) => {
+                    Some(PredicateExpr::And(vec![existing.clone(), retained]))
+                }
+                (None, Some(retained)) => Some(retained),
+                (Some(existing), None) => Some(existing.clone()),
+                (None, None) => None,
+            };
+            let bound_filter = match combined_filter {
+                Some(expr) => {
+                    let converted = predicate_to_vortex_expr(&expr, file.dtype(), request.kind)
+                        .and_then(|vortex_expr| file.bind(&vortex_expr));
+                    match converted {
+                        Ok(bound) => Some(bound),
+                        Err(_) => pushdown_predicate
+                            .as_ref()
+                            .map(|fallback| {
+                                let vortex_expr =
+                                    predicate_to_vortex_expr(fallback, file.dtype(), request.kind)?;
+                                file.bind(&vortex_expr)
+                            })
+                            .transpose()?,
+                    }
+                }
+                None => None,
+            };
+            if let Some(filter_expr) = bound_filter {
+                second_scan = second_scan.with_filter(filter_expr);
+            }
+            if let Some(projection) = second_plan.projection.take() {
+                second_scan = second_scan.with_projection(file.bind(&projection)?);
+            }
+            second_scan = second_scan
+                .with_residual_evidence(residual_predicate.as_ref())
+                .with_concurrency(policy.scan_concurrency_per_worker());
+            for chunk in second_scan.into_array_iter(runtime).map_err(vortex_error)? {
+                check_cancelled()?;
+                let chunk = chunk.map_err(vortex_error)?;
+                let rows = chunk.len();
+                let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
+                    source_uri.clone(),
+                    arrays_read_count,
+                    rows,
+                    chunk.dtype().to_string(),
+                    chunk.encoding_id().to_string(),
+                    chunk.nchildren(),
+                    chunk.nbuffers(),
+                )?;
+                reader_splits.push(split);
+                states.update_numeric_pair_late_measure_direct_from_chunk(
+                    &chunk,
+                    &declared_columns,
+                )?;
+                max_chunk_rows = max_chunk_rows.max(rows);
+                arrays_read_count += 1;
+            }
         }
     }
     let numeric_utf8_topk_needs_exact_fallback = if let Some(states) = grouped_states.as_mut()
@@ -23143,6 +23426,7 @@ fn execute_lowered_vortex_simple_aggregate_scan(
         #[cfg(not(unix))]
         auxiliary_metadata_arrays: 0,
         scan_columns: None,
+        physical_policy: None,
         scan: LocalVortexScan {
             source_row_count,
             result_row_count,
@@ -23535,6 +23819,8 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
                 request.kind.as_str()
             ))
         })?;
+    let (policy, physical_policy) =
+        policy.with_physical_policy_for_request_and_dtype(request, Some(first_file.dtype()));
     let aggregate_plan = rewrite_simple_aggregate_for_embedded_derived_columns(
         first_file.dtype(),
         aggregate,
@@ -24035,6 +24321,7 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
         metadata_completed: metadata_completion.is_some(),
         auxiliary_metadata_arrays: 0,
         scan_columns: None,
+        physical_policy: Some(physical_policy),
         scan: LocalVortexScan {
             source_row_count,
             result_row_count,
@@ -24161,6 +24448,31 @@ fn read_local_vortex_sort_rows_scan_in_context(
             .runtime()
             .block_on(context.open_local_file(path))
             .map_err(vortex_error)?;
+        let workers = shardloom_exec::compute_pool::bounded_cpu_parallelism(
+            policy.resource_envelope.max_parallelism,
+        );
+        let shared_pool = if context.provider_background_workers() == 0
+            && request
+                .sort_rows
+                .as_ref()
+                .is_some_and(|sort_rows| sort_rows.spill.is_none())
+            && workers >= 2
+        {
+            context.shared_compute_pool(workers)?
+        } else {
+            None
+        };
+        let parallel_sort = if context.provider_background_workers() == 0
+            && request
+                .sort_rows
+                .as_ref()
+                .is_some_and(|sort_rows| sort_rows.spill.is_none())
+            && workers >= 2
+        {
+            Some((shared_pool.as_ref(), context.memory()))
+        } else {
+            None
+        };
         return read_opened_local_vortex_sort_rows_scan_with_output(
             source_uri,
             request,
@@ -24171,6 +24483,7 @@ fn read_local_vortex_sort_rows_scan_in_context(
             context.runtime(),
             None,
             Some(context),
+            parallel_sort,
         );
     }
     read_local_vortex_sort_rows_scan(source_uri, path, request, policy)
@@ -24219,8 +24532,15 @@ fn read_local_vortex_sort_rows_scan_with_output(
                 .to_string(),
         ));
     }
-    let runtime = local_vortex_runtime(policy);
-    let (session, _control_memory) = local_vortex_session(policy, &runtime)?;
+    let workers = shardloom_exec::compute_pool::bounded_cpu_parallelism(
+        policy.resource_envelope.max_parallelism,
+    );
+    let (runtime, session, _control_memory, parallel_memory) =
+        local_vortex_scan_runtime_and_session(
+            policy,
+            None,
+            sort_rows.spill.is_none() && workers >= 2,
+        )?;
     let file = runtime
         .block_on(async {
             let options = session.open_options().with_layout_reader_cache();
@@ -24243,6 +24563,10 @@ fn read_local_vortex_sort_rows_scan_with_output(
                 request.kind.as_str()
             ))
         })?;
+    let parallel_sort = parallel_memory
+        .as_ref()
+        .filter(|_| sort_rows.spill.is_none() && workers >= 2)
+        .map(|memory| (None, memory));
     read_opened_local_vortex_sort_rows_scan_with_output(
         source_uri,
         request,
@@ -24253,6 +24577,7 @@ fn read_local_vortex_sort_rows_scan_with_output(
         &runtime,
         spill_source_generation.as_ref(),
         None,
+        parallel_sort,
     )
 }
 
@@ -24268,6 +24593,10 @@ fn read_opened_local_vortex_sort_rows_scan_with_output(
     runtime: &impl vortex::io::runtime::BlockingRuntime,
     spill_source_generation: Option<&std::sync::Arc<sort_spill::SortSourceGeneration>>,
     context: Option<&crate::resident_session::NativeExecutionContext<'_>>,
+    parallel_sort: Option<(
+        Option<&std::sync::Arc<shardloom_exec::compute_pool::ComputePool>>,
+        &shardloom_exec::live_memory::LiveMemoryPool,
+    )>,
 ) -> Result<LocalVortexRowsScan> {
     let mut ctx = native_numeric_execution_ctx(session);
     let sort_rows = required_sort_rows(request)?;
@@ -24510,226 +24839,272 @@ fn read_opened_local_vortex_sort_rows_scan_with_output(
             }
         }
         scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
-        for chunk in scan.into_array_iter(runtime).map_err(vortex_error)? {
-            let chunk = chunk.map_err(vortex_error)?;
-            let rows = chunk.len();
-            if let Some(context) = context {
-                context.check_cancelled()?;
-            }
-            let prepared_sort =
-                if context.is_some() && residual_evaluator.is_none() && spill.is_none() {
-                    native_sort_block::prepare(
-                        &chunk,
-                        &declared_columns,
-                        sort_rows.tie_policy,
-                        retained_cap,
-                        &mut vortex::array::VortexSessionExecute::create_execution_ctx(session),
-                    )?
+        let parallel_workers = shardloom_exec::compute_pool::bounded_cpu_parallelism(
+            policy.resource_envelope.max_parallelism,
+        );
+        if residual_evaluator.is_none()
+            && spill.is_none()
+            && parallel_workers >= 2
+            && context.is_none_or(|ctx| ctx.provider_background_workers() == 0)
+            && let Some((shared_pool, memory_pool)) = parallel_sort
+        {
+            let mut source_local_rows_seen = 0usize;
+            let mut sort_state = parallel_sort_topk::SortScanState {
+                candidates: &mut candidates,
+                candidate_grant: &mut candidate_grant,
+                selected_rows: &mut selected_rows,
+                source_rows_seen: &mut source_rows_seen,
+                source_local_rows_seen: &mut source_local_rows_seen,
+                arrays_read_count: &mut arrays_read_count,
+                reader_splits: &mut reader_splits,
+                max_chunk_rows: &mut max_chunk_rows,
+                topk_threshold_pruned_chunks: &mut topk_threshold_pruned_chunks,
+                topk_threshold_pruned_rows: &mut topk_threshold_pruned_rows,
+                native_sort_work: &mut native_sort_work,
+            };
+            parallel_sort_topk::run_parallel_sort_chunks(
+                scan,
+                runtime,
+                session,
+                source_uri,
+                0,
+                &declared_columns,
+                &candidate_value_column_indices,
+                &candidate_order_column_indices,
+                &sort_rows.order_by,
+                sort_rows.tie_policy,
+                retained_cap,
+                retention_flush_threshold,
+                source_row_id_column_index,
+                true,
+                parallel_workers,
+                shared_pool,
+                memory_pool,
+                context,
+                &mut sort_state,
+            )?;
+        } else {
+            for chunk in scan.into_array_iter(runtime).map_err(vortex_error)? {
+                let chunk = chunk.map_err(vortex_error)?;
+                let rows = chunk.len();
+                if let Some(context) = context {
+                    context.check_cancelled()?;
+                }
+                let prepared_sort =
+                    if context.is_some() && residual_evaluator.is_none() && spill.is_none() {
+                        native_sort_block::prepare(
+                            &chunk,
+                            &declared_columns,
+                            sort_rows.tie_policy,
+                            retained_cap,
+                            &mut vortex::array::VortexSessionExecute::create_execution_ctx(session),
+                        )?
+                    } else {
+                        None
+                    };
+                let _scratch = if let Some(context) = context {
+                    context.check_cancelled()?;
+                    let bytes = if let Some(prepared) = &prepared_sort {
+                        prepared.scratch_bytes()?
+                    } else {
+                        sort_output_stream::scratch_bytes(
+                            &chunk,
+                            &declared_columns,
+                            &mut vortex::array::VortexSessionExecute::create_execution_ctx(session),
+                        )?
+                    };
+                    if let Some(grant) = candidate_grant.as_mut() {
+                        sort_output_stream::reserve_candidates(
+                            grant,
+                            &candidates,
+                            bytes,
+                            arrays_read_count,
+                        )?;
+                    }
+                    Some(context.memory().reserve(bytes)?)
                 } else {
                     None
                 };
-            let _scratch = if let Some(context) = context {
-                context.check_cancelled()?;
-                let bytes = if let Some(prepared) = &prepared_sort {
-                    prepared.scratch_bytes()?
-                } else {
-                    sort_output_stream::scratch_bytes(
-                        &chunk,
-                        &declared_columns,
-                        &mut vortex::array::VortexSessionExecute::create_execution_ctx(session),
-                    )?
-                };
-                if let Some(grant) = candidate_grant.as_mut() {
-                    sort_output_stream::reserve_candidates(
-                        grant,
-                        &candidates,
-                        bytes,
-                        arrays_read_count,
-                    )?;
-                }
-                Some(context.memory().reserve(bytes)?)
-            } else {
-                None
-            };
 
-            let native_work = if residual_evaluator.is_none() && spill.is_none() {
-                if let Some(prepared) = &prepared_sort {
-                    Some(prepared.append(
-                        &candidate_value_column_indices,
-                        &candidate_order_column_indices,
-                        &sort_rows.order_by,
-                        sort_rows.tie_policy,
-                        retained_cap,
-                        selected_rows,
-                        0,
-                        source_rows_seen,
-                        source_row_id_column_index,
-                        &mut candidates,
-                    )?)
+                let native_work = if residual_evaluator.is_none() && spill.is_none() {
+                    if let Some(prepared) = &prepared_sort {
+                        Some(prepared.append(
+                            &candidate_value_column_indices,
+                            &candidate_order_column_indices,
+                            &sort_rows.order_by,
+                            sort_rows.tie_policy,
+                            retained_cap,
+                            selected_rows,
+                            0,
+                            source_rows_seen,
+                            source_row_id_column_index,
+                            &mut candidates,
+                        )?)
+                    } else {
+                        native_sort_block::append(
+                            &chunk,
+                            &declared_columns,
+                            &candidate_value_column_indices,
+                            &candidate_order_column_indices,
+                            &sort_rows.order_by,
+                            sort_rows.tie_policy,
+                            retained_cap,
+                            selected_rows,
+                            0,
+                            source_rows_seen,
+                            source_row_id_column_index,
+                            &mut candidates,
+                            &mut vortex::array::VortexSessionExecute::create_execution_ctx(session),
+                        )?
+                    }
                 } else {
-                    native_sort_block::append(
+                    None
+                };
+                let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
+                    source_uri.clone(),
+                    arrays_read_count,
+                    rows,
+                    chunk.dtype().to_string(),
+                    chunk.encoding_id().to_string(),
+                    chunk.nchildren(),
+                    chunk.nbuffers(),
+                )?;
+                reader_splits.push(split);
+                if let Some(predicate) = residual_evaluator.as_ref() {
+                    if let Some(row_indices) = predicate.fast_candidate_row_indices_in_chunk(
                         &chunk,
                         &declared_columns,
-                        &candidate_value_column_indices,
-                        &candidate_order_column_indices,
-                        &sort_rows.order_by,
-                        sort_rows.tie_policy,
-                        retained_cap,
-                        selected_rows,
-                        0,
-                        source_rows_seen,
-                        source_row_id_column_index,
-                        &mut candidates,
-                        &mut vortex::array::VortexSessionExecute::create_execution_ctx(session),
-                    )?
-                }
-            } else {
-                None
-            };
-            let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
-                source_uri.clone(),
-                arrays_read_count,
-                rows,
-                chunk.dtype().to_string(),
-                chunk.encoding_id().to_string(),
-                chunk.nchildren(),
-                chunk.nbuffers(),
-            )?;
-            reader_splits.push(split);
-            if let Some(predicate) = residual_evaluator.as_ref() {
-                if let Some(row_indices) = predicate.fast_candidate_row_indices_in_chunk(
-                    &chunk,
-                    &declared_columns,
-                    &mut ctx,
-                )? && row_indices.len() < rows
-                {
-                    let columns = row_export_selected_columns_from_chunk(
-                        &chunk,
-                        &declared_columns,
-                        &row_indices,
                         &mut ctx,
-                    )?;
-                    for (compact_index, &source_row_index) in row_indices.iter().enumerate() {
-                        if !predicate.matches(&columns, compact_index)? {
-                            continue;
-                        }
-                        let ordinal = selected_rows;
-                        selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
+                    )? && row_indices.len() < rows
+                    {
+                        let columns = row_export_selected_columns_from_chunk(
+                            &chunk,
+                            &declared_columns,
+                            &row_indices,
+                            &mut ctx,
+                        )?;
+                        for (compact_index, &source_row_index) in row_indices.iter().enumerate() {
+                            if !predicate.matches(&columns, compact_index)? {
+                                continue;
+                            }
+                            let ordinal = selected_rows;
+                            selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
                             ShardLoomError::InvalidOperation(
                                 "local Vortex sort selected row count overflowed usize; no fallback execution was attempted"
                                     .to_string(),
                             )
                         })?;
-                        candidates.push(SortRowCandidate {
-                            ordinal,
-                            source_partition_index: 0,
-                            source_ordinal: sort_candidate_source_ordinal(
-                                &columns,
-                                compact_index,
-                                source_rows_seen,
-                                source_row_index,
-                                source_row_id_column_index,
-                            )?,
-                            values: materialized_sort_row_values_by_indices(
-                                &columns,
-                                compact_index,
-                                &candidate_value_column_indices,
-                            )?,
-                        });
-                        if let Some(spill) = spill.as_mut() {
-                            spill.flush_if_full(&mut candidates, runtime, session)?;
+                            candidates.push(SortRowCandidate {
+                                ordinal,
+                                source_partition_index: 0,
+                                source_ordinal: sort_candidate_source_ordinal(
+                                    &columns,
+                                    compact_index,
+                                    source_rows_seen,
+                                    source_row_index,
+                                    source_row_id_column_index,
+                                )?,
+                                values: materialized_sort_row_values_by_indices(
+                                    &columns,
+                                    compact_index,
+                                    &candidate_value_column_indices,
+                                )?,
+                            });
+                            if let Some(spill) = spill.as_mut() {
+                                spill.flush_if_full(&mut candidates, runtime, session)?;
+                            }
+                        }
+                    } else {
+                        let columns =
+                            row_export_columns_from_chunk(&chunk, &declared_columns, &mut ctx)?;
+                        let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
+                        for row_index in 0..materialized_rows {
+                            if !predicate.matches(&columns, row_index)? {
+                                continue;
+                            }
+                            let ordinal = selected_rows;
+                            selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
+                            ShardLoomError::InvalidOperation(
+                                "local Vortex sort selected row count overflowed usize; no fallback execution was attempted"
+                                    .to_string(),
+                            )
+                        })?;
+                            candidates.push(SortRowCandidate {
+                                ordinal,
+                                source_partition_index: 0,
+                                source_ordinal: sort_candidate_source_ordinal(
+                                    &columns,
+                                    row_index,
+                                    source_rows_seen,
+                                    row_index,
+                                    source_row_id_column_index,
+                                )?,
+                                values: materialized_sort_row_values_by_indices(
+                                    &columns,
+                                    row_index,
+                                    &candidate_value_column_indices,
+                                )?,
+                            });
+                            if let Some(spill) = spill.as_mut() {
+                                spill.flush_if_full(&mut candidates, runtime, session)?;
+                            }
                         }
                     }
+                } else if let Some(work) = native_work {
+                    selected_rows = selected_rows.checked_add(rows).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation("local Vortex sort selected row count overflowed usize; no fallback execution was attempted".into())
+                })?;
+                    if work.candidate_rows == 0 && rows != 0 {
+                        topk_threshold_pruned_chunks += 1;
+                        topk_threshold_pruned_rows += rows;
+                    }
+                    native_sort_work.add(&work)?;
                 } else {
                     let columns =
                         row_export_columns_from_chunk(&chunk, &declared_columns, &mut ctx)?;
                     let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
-                    for row_index in 0..materialized_rows {
-                        if !predicate.matches(&columns, row_index)? {
-                            continue;
+                    if spill.is_none()
+                        && sort_chunk_topk_threshold_pruning_admitted(
+                            materialized_rows,
+                            retained_cap,
+                            candidates.len(),
+                            sort_rows.tie_policy,
+                        )
+                    {
+                        if candidates.len() > retained_cap {
+                            retain_sort_top_window(
+                                &mut candidates,
+                                &sort_rows.order_by,
+                                &candidate_order_column_indices,
+                                retained_cap,
+                                sort_rows.tie_policy,
+                            );
                         }
-                        let ordinal = selected_rows;
-                        selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
-                            ShardLoomError::InvalidOperation(
-                                "local Vortex sort selected row count overflowed usize; no fallback execution was attempted"
-                                    .to_string(),
-                            )
-                        })?;
-                        candidates.push(SortRowCandidate {
-                            ordinal,
-                            source_partition_index: 0,
-                            source_ordinal: sort_candidate_source_ordinal(
-                                &columns,
-                                row_index,
-                                source_rows_seen,
-                                row_index,
-                                source_row_id_column_index,
-                            )?,
-                            values: materialized_sort_row_values_by_indices(
-                                &columns,
-                                row_index,
-                                &candidate_value_column_indices,
-                            )?,
-                        });
-                        if let Some(spill) = spill.as_mut() {
-                            spill.flush_if_full(&mut candidates, runtime, session)?;
-                        }
-                    }
-                }
-            } else if let Some(work) = native_work {
-                selected_rows = selected_rows.checked_add(rows).ok_or_else(|| {
-                    ShardLoomError::InvalidOperation("local Vortex sort selected row count overflowed usize; no fallback execution was attempted".into())
-                })?;
-                if work.candidate_rows == 0 && rows != 0 {
-                    topk_threshold_pruned_chunks += 1;
-                    topk_threshold_pruned_rows += rows;
-                }
-                native_sort_work.add(&work)?;
-            } else {
-                let columns = row_export_columns_from_chunk(&chunk, &declared_columns, &mut ctx)?;
-                let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
-                if spill.is_none()
-                    && sort_chunk_topk_threshold_pruning_admitted(
-                        materialized_rows,
-                        retained_cap,
-                        candidates.len(),
-                        sort_rows.tie_policy,
-                    )
-                {
-                    if candidates.len() > retained_cap {
-                        retain_sort_top_window(
-                            &mut candidates,
+                        if sort_chunk_pruned_by_topk_threshold(
+                            &columns,
+                            materialized_rows,
+                            &candidates,
                             &sort_rows.order_by,
+                            &candidate_value_column_indices,
                             &candidate_order_column_indices,
                             retained_cap,
                             sort_rows.tie_policy,
-                        );
-                    }
-                    if sort_chunk_pruned_by_topk_threshold(
-                        &columns,
-                        materialized_rows,
-                        &candidates,
-                        &sort_rows.order_by,
-                        &candidate_value_column_indices,
-                        &candidate_order_column_indices,
-                        retained_cap,
-                        sort_rows.tie_policy,
-                        selected_rows,
-                    )? {
-                        selected_rows = selected_rows.checked_add(materialized_rows).ok_or_else(|| {
+                            selected_rows,
+                        )? {
+                            selected_rows = selected_rows.checked_add(materialized_rows).ok_or_else(|| {
                             ShardLoomError::InvalidOperation(
                                 "local Vortex sort selected row count overflowed usize while pruning a top-K threshold chunk; no fallback execution was attempted"
                                     .to_string(),
                             )
                         })?;
-                        topk_threshold_pruned_chunks =
+                            topk_threshold_pruned_chunks =
                             topk_threshold_pruned_chunks.checked_add(1).ok_or_else(|| {
                                 ShardLoomError::InvalidOperation(
                                     "local Vortex sort top-K threshold pruned chunk count overflowed usize"
                                         .to_string(),
                                 )
                             })?;
-                        topk_threshold_pruned_rows =
+                            topk_threshold_pruned_rows =
                             topk_threshold_pruned_rows.checked_add(materialized_rows).ok_or_else(
                                 || {
                                     ShardLoomError::InvalidOperation(
@@ -24738,66 +25113,67 @@ fn read_opened_local_vortex_sort_rows_scan_with_output(
                                     )
                                 },
                             )?;
-                        max_chunk_rows = max_chunk_rows.max(rows);
-                        source_rows_seen = source_rows_seen.checked_add(rows).ok_or_else(|| {
+                            max_chunk_rows = max_chunk_rows.max(rows);
+                            source_rows_seen = source_rows_seen.checked_add(rows).ok_or_else(|| {
                             ShardLoomError::InvalidOperation(
                                 "local Vortex sort source row count overflowed usize; no fallback execution was attempted"
                                     .to_string(),
                             )
                         })?;
-                        arrays_read_count += 1;
-                        continue;
+                            arrays_read_count += 1;
+                            continue;
+                        }
                     }
-                }
-                for row_index in 0..materialized_rows {
-                    let ordinal = selected_rows;
-                    selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
+                    for row_index in 0..materialized_rows {
+                        let ordinal = selected_rows;
+                        selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
                         ShardLoomError::InvalidOperation(
                             "local Vortex sort selected row count overflowed usize; no fallback execution was attempted"
                                 .to_string(),
                         )
                     })?;
-                    candidates.push(SortRowCandidate {
-                        ordinal,
-                        source_partition_index: 0,
-                        source_ordinal: sort_candidate_source_ordinal(
-                            &columns,
-                            row_index,
-                            source_rows_seen,
-                            row_index,
-                            source_row_id_column_index,
-                        )?,
-                        values: materialized_sort_row_values_by_indices(
-                            &columns,
-                            row_index,
-                            &candidate_value_column_indices,
-                        )?,
-                    });
-                    if let Some(spill) = spill.as_mut() {
-                        spill.flush_if_full(&mut candidates, runtime, session)?;
+                        candidates.push(SortRowCandidate {
+                            ordinal,
+                            source_partition_index: 0,
+                            source_ordinal: sort_candidate_source_ordinal(
+                                &columns,
+                                row_index,
+                                source_rows_seen,
+                                row_index,
+                                source_row_id_column_index,
+                            )?,
+                            values: materialized_sort_row_values_by_indices(
+                                &columns,
+                                row_index,
+                                &candidate_value_column_indices,
+                            )?,
+                        });
+                        if let Some(spill) = spill.as_mut() {
+                            spill.flush_if_full(&mut candidates, runtime, session)?;
+                        }
                     }
                 }
-            }
-            if spill.is_none()
-                && sort_rows.tie_policy != VortexSortTiePolicy::All
-                && candidates.len() > retention_flush_threshold
-            {
-                retain_sort_top_window(
-                    &mut candidates,
-                    &sort_rows.order_by,
-                    &candidate_order_column_indices,
-                    retained_cap,
-                    sort_rows.tie_policy,
-                );
-            }
-            max_chunk_rows = max_chunk_rows.max(rows);
-            source_rows_seen = source_rows_seen.checked_add(rows).ok_or_else(|| {
+                if spill.is_none()
+                    && sort_rows.tie_policy != VortexSortTiePolicy::All
+                    && candidates.len() > retention_flush_threshold
+                {
+                    retain_sort_top_window(
+                        &mut candidates,
+                        &sort_rows.order_by,
+                        &candidate_order_column_indices,
+                        retained_cap,
+                        sort_rows.tie_policy,
+                    );
+                }
+                max_chunk_rows = max_chunk_rows.max(rows);
+                source_rows_seen = source_rows_seen.checked_add(rows).ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
                     "local Vortex sort source row count overflowed usize; no fallback execution was attempted"
                         .to_string(),
                 )
             })?;
-            arrays_read_count += 1;
+                arrays_read_count += 1;
+            }
         }
     }
     if let Some(context) = context {
@@ -25101,12 +25477,26 @@ fn read_local_vortex_sort_rows_partitioned_scan(
         )
     })?;
     check_local_vortex_context(context)?;
-    let runtime = local_vortex_runtime_in_context(policy, context);
-    let (session, _control_memory) = local_vortex_session_in_context(policy, &runtime, context)?;
+    let (runtime, session, _control_memory, parallel_memory) =
+        local_vortex_scan_runtime_and_session(policy, context, true)?;
+    let parallel_workers = shardloom_exec::compute_pool::bounded_cpu_parallelism(
+        policy.resource_envelope.max_parallelism,
+    );
+    let shared_sort_pool = if context.is_some_and(|ctx| ctx.provider_background_workers() == 0)
+        && parallel_workers >= 2
+    {
+        context
+            .map(|ctx| ctx.shared_compute_pool(parallel_workers))
+            .transpose()?
+            .flatten()
+    } else {
+        None
+    };
     let mut ctx = native_numeric_execution_ctx(&session);
     let mut source_row_count_estimate = 0_u64;
     let mut native_sort_dtype = None;
     let mut native_sort_partition_types_match = true;
+    let mut opened_files = Vec::with_capacity(sources.len());
     for source in sources {
         check_local_vortex_context(context)?;
         let file = runtime
@@ -25133,23 +25523,16 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                         .to_string(),
                 )
             })?;
+        opened_files.push(file);
     }
-    let output_columns = local_vortex_sort_rows_output_columns(
-        &sources[0].path,
-        request,
-        &session,
-        &runtime,
-        context,
-    )?;
-    let first_file = runtime
-        .block_on(
-            open_local_vortex_file(&session, &sources[0].path, context),
+    let first_file = opened_files.first().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "partitioned local Vortex sort requires at least one partition; no fallback execution was attempted"
+                .to_string(),
         )
-        .map_err(|error| {
-            ShardLoomError::InvalidOperation(format!(
-                "failed to inspect first partitioned local Vortex target for sort predicate rewrite: {error}; no fallback execution was attempted"
-            ))
-        })?;
+    })?;
+    let output_columns =
+        projected_column_names(first_file.dtype(), &request.projection, request.kind)?;
     let predicate_rewrite = request
         .predicate
         .as_ref()
@@ -25161,7 +25544,6 @@ fn read_local_vortex_sort_rows_partitioned_scan(
             )
         })
         .transpose()?;
-    drop(first_file);
     let late_materialization_policy = sort_rows_late_materialization_policy(
         source_row_count_estimate,
         &output_columns,
@@ -25227,16 +25609,8 @@ fn read_local_vortex_sort_rows_partitioned_scan(
     let mut candidate_order_column_indices = None::<Vec<usize>>;
     let mut candidate_value_columns = Vec::<String>::new();
     let mut embedded_layout = VortexLocalPrimitiveEmbeddedLayoutReport::partitioned();
-    for (source_index, source) in sources.iter().enumerate() {
+    for (source_index, (source, file)) in sources.iter().zip(&opened_files).enumerate() {
         check_local_vortex_context(context)?;
-        let file = runtime
-            .block_on(open_local_vortex_file(&session, &source.path, context))
-            .map_err(|error| {
-                ShardLoomError::InvalidOperation(format!(
-                    "failed to open partitioned local Vortex target for {}: {error}",
-                    request.kind.as_str()
-                ))
-            })?;
         native_sort_block::validate_partition_dtype(
             native_sort_partition_types_match,
             native_sort_dtype.as_ref(),
@@ -25342,7 +25716,7 @@ fn read_local_vortex_sort_rows_partitioned_scan(
         filter_pushdown_applied |= plan.filter.is_some();
         projection_pushdown_applied |= plan.projection.is_some();
         let mut partition_layout = VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
-            &file,
+            file,
             request.kind,
             plan.filter.is_some(),
             plan.projection.is_some(),
@@ -25351,7 +25725,7 @@ fn read_local_vortex_sort_rows_partitioned_scan(
         let scan_observation = context
             .map(|context| {
                 let mut observation = native_file_scan_evidence::Observation::file_plan(
-                    &file,
+                    file,
                     &plan,
                     shardloom_core::native_file_scan::NativeFileScanRoute::Sort,
                     context,
@@ -25362,7 +25736,7 @@ fn read_local_vortex_sort_rows_partitioned_scan(
             .transpose()?;
         if let Some(filter) = plan.filter.as_ref() {
             let metadata_pruned = file_pruning::can_prune_file_with_predicate(
-                &file,
+                file,
                 filter,
                 plan.pushdown_predicate.as_ref(),
             )?;
@@ -25380,10 +25754,10 @@ fn read_local_vortex_sort_rows_partitioned_scan(
         }
         let mut scan = file.scan().map_err(vortex_error)?;
         if let Some(filter) = plan.filter {
-            scan = scan.with_filter(bind_vortex_scan_expr(&file, &filter)?);
+            scan = scan.with_filter(bind_vortex_scan_expr(file, &filter)?);
         }
         if let Some(projection) = plan.projection {
-            scan = scan.with_projection(bind_vortex_scan_expr(&file, &projection)?);
+            scan = scan.with_projection(bind_vortex_scan_expr(file, &projection)?);
         }
         scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
         let residual_evaluator = residual_predicate
@@ -25394,234 +25768,287 @@ fn read_local_vortex_sort_rows_partitioned_scan(
             .then(|| sort_row_column_index(declared_columns, SHARDLOOM_SOURCE_ROW_ID_COLUMN))
             .transpose()?;
         let mut source_local_rows_seen = 0usize;
-        let mut chunks = scan.into_array_iter(&runtime).map_err(vortex_error)?;
-        loop {
-            check_local_vortex_context(context)?;
-            let Some(chunk) = chunks.next() else {
-                break;
+        if residual_evaluator.is_none()
+            && parallel_workers >= 2
+            && context.is_none_or(|ctx| ctx.provider_background_workers() == 0)
+            && let Some(memory_pool) = parallel_memory.as_ref()
+        {
+            let order_indices = candidate_order_column_indices.as_ref().ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "partitioned local Vortex sort order indices were not initialized; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+            let mut sort_state = parallel_sort_topk::SortScanState {
+                candidates: &mut candidates,
+                candidate_grant: &mut candidate_grant,
+                selected_rows: &mut selected_rows,
+                source_rows_seen: &mut source_rows_seen,
+                source_local_rows_seen: &mut source_local_rows_seen,
+                arrays_read_count: &mut arrays_read_count,
+                reader_splits: &mut reader_splits,
+                max_chunk_rows: &mut max_chunk_rows,
+                topk_threshold_pruned_chunks: &mut topk_threshold_pruned_chunks,
+                topk_threshold_pruned_rows: &mut topk_threshold_pruned_rows,
+                native_sort_work: &mut native_sort_work,
             };
-            check_local_vortex_context(context)?;
-            let chunk = chunk.map_err(vortex_error)?;
-            let rows = chunk.len();
-            let prepared_sort = if context.is_some()
-                && native_sort_partition_types_match
-                && residual_evaluator.is_none()
-            {
-                native_sort_block::prepare(
-                    &chunk,
-                    declared_columns,
-                    sort_rows.tie_policy,
-                    retained_cap,
-                    &mut vortex::array::VortexSessionExecute::create_execution_ctx(&session),
-                )?
-            } else {
-                None
-            };
-            let _scratch = if let Some(context) = context {
-                let bytes = if let Some(prepared) = &prepared_sort {
-                    prepared.scratch_bytes()?
-                } else {
-                    sort_output_stream::scratch_bytes(
+            parallel_sort_topk::run_parallel_sort_chunks(
+                scan,
+                &runtime,
+                &session,
+                &source.uri,
+                source_index,
+                declared_columns,
+                candidate_value_column_indices,
+                order_indices,
+                &sort_rows.order_by,
+                sort_rows.tie_policy,
+                retained_cap,
+                retention_flush_threshold,
+                source_row_id_column_index,
+                native_sort_partition_types_match,
+                parallel_workers,
+                shared_sort_pool.as_ref(),
+                memory_pool,
+                context,
+                &mut sort_state,
+            )?;
+        } else {
+            let mut chunks = scan.into_array_iter(&runtime).map_err(vortex_error)?;
+            loop {
+                check_local_vortex_context(context)?;
+                let Some(chunk) = chunks.next() else {
+                    break;
+                };
+                check_local_vortex_context(context)?;
+                let chunk = chunk.map_err(vortex_error)?;
+                let rows = chunk.len();
+                let prepared_sort = if context.is_some()
+                    && native_sort_partition_types_match
+                    && residual_evaluator.is_none()
+                {
+                    native_sort_block::prepare(
                         &chunk,
                         declared_columns,
+                        sort_rows.tie_policy,
+                        retained_cap,
                         &mut vortex::array::VortexSessionExecute::create_execution_ctx(&session),
                     )?
+                } else {
+                    None
                 };
-                if let Some(grant) = &mut candidate_grant {
-                    sort_output_stream::reserve_candidates(
-                        grant,
-                        &candidates,
-                        bytes,
-                        arrays_read_count,
-                    )?;
-                }
-                Some(context.memory().reserve(bytes)?)
-            } else {
-                None
-            };
-            let native_work = if native_sort_partition_types_match && residual_evaluator.is_none() {
-                let order_indices = candidate_order_column_indices.as_ref().ok_or_else(|| {
+                let _scratch = if let Some(context) = context {
+                    let bytes = if let Some(prepared) = &prepared_sort {
+                        prepared.scratch_bytes()?
+                    } else {
+                        sort_output_stream::scratch_bytes(
+                            &chunk,
+                            declared_columns,
+                            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                                &session,
+                            ),
+                        )?
+                    };
+                    if let Some(grant) = &mut candidate_grant {
+                        sort_output_stream::reserve_candidates(
+                            grant,
+                            &candidates,
+                            bytes,
+                            arrays_read_count,
+                        )?;
+                    }
+                    Some(context.memory().reserve(bytes)?)
+                } else {
+                    None
+                };
+                let native_work = if native_sort_partition_types_match
+                    && residual_evaluator.is_none()
+                {
+                    let order_indices = candidate_order_column_indices.as_ref().ok_or_else(|| {
                     ShardLoomError::InvalidOperation("partitioned local Vortex sort order indices were not initialized; no fallback execution was attempted".into())
                 })?;
-                if let Some(prepared) = &prepared_sort {
-                    Some(prepared.append(
-                        candidate_value_column_indices,
-                        order_indices,
-                        &sort_rows.order_by,
-                        sort_rows.tie_policy,
-                        retained_cap,
-                        selected_rows,
-                        source_index,
-                        source_local_rows_seen,
-                        source_row_id_column_index,
-                        &mut candidates,
-                    )?)
+                    if let Some(prepared) = &prepared_sort {
+                        Some(prepared.append(
+                            candidate_value_column_indices,
+                            order_indices,
+                            &sort_rows.order_by,
+                            sort_rows.tie_policy,
+                            retained_cap,
+                            selected_rows,
+                            source_index,
+                            source_local_rows_seen,
+                            source_row_id_column_index,
+                            &mut candidates,
+                        )?)
+                    } else {
+                        native_sort_block::append(
+                            &chunk,
+                            declared_columns,
+                            candidate_value_column_indices,
+                            order_indices,
+                            &sort_rows.order_by,
+                            sort_rows.tie_policy,
+                            retained_cap,
+                            selected_rows,
+                            source_index,
+                            source_local_rows_seen,
+                            source_row_id_column_index,
+                            &mut candidates,
+                            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                                &session,
+                            ),
+                        )?
+                    }
                 } else {
-                    native_sort_block::append(
+                    None
+                };
+                let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
+                    source.uri.clone(),
+                    arrays_read_count,
+                    rows,
+                    chunk.dtype().to_string(),
+                    chunk.encoding_id().to_string(),
+                    chunk.nchildren(),
+                    chunk.nbuffers(),
+                )?;
+                reader_splits.push(split);
+                if let Some(predicate) = residual_evaluator.as_ref() {
+                    if let Some(row_indices) = predicate.fast_candidate_row_indices_in_chunk(
                         &chunk,
                         declared_columns,
-                        candidate_value_column_indices,
-                        order_indices,
-                        &sort_rows.order_by,
-                        sort_rows.tie_policy,
-                        retained_cap,
-                        selected_rows,
-                        source_index,
-                        source_local_rows_seen,
-                        source_row_id_column_index,
-                        &mut candidates,
-                        &mut vortex::array::VortexSessionExecute::create_execution_ctx(&session),
-                    )?
-                }
-            } else {
-                None
-            };
-            let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
-                source.uri.clone(),
-                arrays_read_count,
-                rows,
-                chunk.dtype().to_string(),
-                chunk.encoding_id().to_string(),
-                chunk.nchildren(),
-                chunk.nbuffers(),
-            )?;
-            reader_splits.push(split);
-            if let Some(predicate) = residual_evaluator.as_ref() {
-                if let Some(row_indices) = predicate.fast_candidate_row_indices_in_chunk(
-                    &chunk,
-                    declared_columns,
-                    &mut ctx,
-                )? && row_indices.len() < rows
-                {
-                    let columns = row_export_selected_columns_from_chunk(
-                        &chunk,
-                        declared_columns,
-                        &row_indices,
                         &mut ctx,
-                    )?;
-                    for (compact_index, &source_row_index) in row_indices.iter().enumerate() {
-                        if !predicate.matches(&columns, compact_index)? {
-                            continue;
-                        }
-                        let ordinal = selected_rows;
-                        selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
+                    )? && row_indices.len() < rows
+                    {
+                        let columns = row_export_selected_columns_from_chunk(
+                            &chunk,
+                            declared_columns,
+                            &row_indices,
+                            &mut ctx,
+                        )?;
+                        for (compact_index, &source_row_index) in row_indices.iter().enumerate() {
+                            if !predicate.matches(&columns, compact_index)? {
+                                continue;
+                            }
+                            let ordinal = selected_rows;
+                            selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
                             ShardLoomError::InvalidOperation(
                                 "partitioned local Vortex sort selected row count overflowed usize; no fallback execution was attempted"
                                     .to_string(),
                             )
                         })?;
-                        candidates.push(SortRowCandidate {
-                            ordinal,
-                            source_partition_index: source_index,
-                            source_ordinal: sort_candidate_source_ordinal(
-                                &columns,
-                                compact_index,
-                                source_local_rows_seen,
-                                source_row_index,
-                                source_row_id_column_index,
-                            )?,
-                            values: materialized_sort_row_values_by_indices(
-                                &columns,
-                                compact_index,
-                                candidate_value_column_indices,
-                            )?,
-                        });
+                            candidates.push(SortRowCandidate {
+                                ordinal,
+                                source_partition_index: source_index,
+                                source_ordinal: sort_candidate_source_ordinal(
+                                    &columns,
+                                    compact_index,
+                                    source_local_rows_seen,
+                                    source_row_index,
+                                    source_row_id_column_index,
+                                )?,
+                                values: materialized_sort_row_values_by_indices(
+                                    &columns,
+                                    compact_index,
+                                    candidate_value_column_indices,
+                                )?,
+                            });
+                        }
+                    } else {
+                        let columns =
+                            row_export_columns_from_chunk(&chunk, declared_columns, &mut ctx)?;
+                        let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
+                        for row_index in 0..materialized_rows {
+                            if row_index.is_multiple_of(4096) {
+                                check_local_vortex_context(context)?;
+                            }
+                            if !predicate.matches(&columns, row_index)? {
+                                continue;
+                            }
+                            let ordinal = selected_rows;
+                            selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
+                            ShardLoomError::InvalidOperation(
+                                "partitioned local Vortex sort selected row count overflowed usize; no fallback execution was attempted"
+                                    .to_string(),
+                            )
+                        })?;
+                            candidates.push(SortRowCandidate {
+                                ordinal,
+                                source_partition_index: source_index,
+                                source_ordinal: sort_candidate_source_ordinal(
+                                    &columns,
+                                    row_index,
+                                    source_local_rows_seen,
+                                    row_index,
+                                    source_row_id_column_index,
+                                )?,
+                                values: materialized_sort_row_values_by_indices(
+                                    &columns,
+                                    row_index,
+                                    candidate_value_column_indices,
+                                )?,
+                            });
+                        }
                     }
+                } else if let Some(work) = native_work {
+                    selected_rows = selected_rows.checked_add(rows).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation("partitioned local Vortex sort selected row count overflowed usize; no fallback execution was attempted".into())
+                })?;
+                    if work.candidate_rows == 0 && rows != 0 {
+                        topk_threshold_pruned_chunks += 1;
+                        topk_threshold_pruned_rows += rows;
+                    }
+                    native_sort_work.add(&work)?;
                 } else {
                     let columns =
                         row_export_columns_from_chunk(&chunk, declared_columns, &mut ctx)?;
                     let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
-                    for row_index in 0..materialized_rows {
-                        if row_index.is_multiple_of(4096) {
-                            check_local_vortex_context(context)?;
-                        }
-                        if !predicate.matches(&columns, row_index)? {
-                            continue;
-                        }
-                        let ordinal = selected_rows;
-                        selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
-                            ShardLoomError::InvalidOperation(
-                                "partitioned local Vortex sort selected row count overflowed usize; no fallback execution was attempted"
-                                    .to_string(),
-                            )
-                        })?;
-                        candidates.push(SortRowCandidate {
-                            ordinal,
-                            source_partition_index: source_index,
-                            source_ordinal: sort_candidate_source_ordinal(
-                                &columns,
-                                row_index,
-                                source_local_rows_seen,
-                                row_index,
-                                source_row_id_column_index,
-                            )?,
-                            values: materialized_sort_row_values_by_indices(
-                                &columns,
-                                row_index,
-                                candidate_value_column_indices,
-                            )?,
-                        });
-                    }
-                }
-            } else if let Some(work) = native_work {
-                selected_rows = selected_rows.checked_add(rows).ok_or_else(|| {
-                    ShardLoomError::InvalidOperation("partitioned local Vortex sort selected row count overflowed usize; no fallback execution was attempted".into())
-                })?;
-                if work.candidate_rows == 0 && rows != 0 {
-                    topk_threshold_pruned_chunks += 1;
-                    topk_threshold_pruned_rows += rows;
-                }
-                native_sort_work.add(&work)?;
-            } else {
-                let columns = row_export_columns_from_chunk(&chunk, declared_columns, &mut ctx)?;
-                let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
-                if sort_chunk_topk_threshold_pruning_admitted(
-                    materialized_rows,
-                    retained_cap,
-                    candidates.len(),
-                    sort_rows.tie_policy,
-                ) {
-                    let candidate_order_column_indices =
+                    if sort_chunk_topk_threshold_pruning_admitted(
+                        materialized_rows,
+                        retained_cap,
+                        candidates.len(),
+                        sort_rows.tie_policy,
+                    ) {
+                        let candidate_order_column_indices =
                         candidate_order_column_indices.as_ref().ok_or_else(|| {
                             ShardLoomError::InvalidOperation(
                                 "partitioned local Vortex sort candidate order column indices were not initialized for top-K threshold pruning; no fallback execution was attempted"
                                     .to_string(),
                             )
                         })?;
-                    if candidates.len() > retained_cap {
-                        retain_sort_top_window(
-                            &mut candidates,
+                        if candidates.len() > retained_cap {
+                            retain_sort_top_window(
+                                &mut candidates,
+                                &sort_rows.order_by,
+                                candidate_order_column_indices,
+                                retained_cap,
+                                sort_rows.tie_policy,
+                            );
+                        }
+                        if sort_chunk_pruned_by_topk_threshold(
+                            &columns,
+                            materialized_rows,
+                            &candidates,
                             &sort_rows.order_by,
+                            candidate_value_column_indices,
                             candidate_order_column_indices,
                             retained_cap,
                             sort_rows.tie_policy,
-                        );
-                    }
-                    if sort_chunk_pruned_by_topk_threshold(
-                        &columns,
-                        materialized_rows,
-                        &candidates,
-                        &sort_rows.order_by,
-                        candidate_value_column_indices,
-                        candidate_order_column_indices,
-                        retained_cap,
-                        sort_rows.tie_policy,
-                        selected_rows,
-                    )? {
-                        selected_rows = selected_rows.checked_add(materialized_rows).ok_or_else(|| {
+                            selected_rows,
+                        )? {
+                            selected_rows = selected_rows.checked_add(materialized_rows).ok_or_else(|| {
                             ShardLoomError::InvalidOperation(
                                 "partitioned local Vortex sort selected row count overflowed usize while pruning a top-K threshold chunk; no fallback execution was attempted"
                                     .to_string(),
                             )
                         })?;
-                        topk_threshold_pruned_chunks =
+                            topk_threshold_pruned_chunks =
                             topk_threshold_pruned_chunks.checked_add(1).ok_or_else(|| {
                                 ShardLoomError::InvalidOperation(
                                     "partitioned local Vortex sort top-K threshold pruned chunk count overflowed usize"
                                         .to_string(),
                                 )
                             })?;
-                        topk_threshold_pruned_rows =
+                            topk_threshold_pruned_rows =
                             topk_threshold_pruned_rows.checked_add(materialized_rows).ok_or_else(
                                 || {
                                     ShardLoomError::InvalidOperation(
@@ -25630,85 +26057,86 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                                     )
                                 },
                             )?;
-                        max_chunk_rows = max_chunk_rows.max(rows);
-                        source_rows_seen = source_rows_seen.checked_add(rows).ok_or_else(|| {
+                            max_chunk_rows = max_chunk_rows.max(rows);
+                            source_rows_seen = source_rows_seen.checked_add(rows).ok_or_else(|| {
                             ShardLoomError::InvalidOperation(
                                 "partitioned local Vortex sort source row count overflowed usize; no fallback execution was attempted"
                                     .to_string(),
                             )
                         })?;
-                        source_local_rows_seen =
+                            source_local_rows_seen =
                             source_local_rows_seen.checked_add(rows).ok_or_else(|| {
                                 ShardLoomError::InvalidOperation(
                                     "partitioned local Vortex sort local source row count overflowed usize; no fallback execution was attempted"
                                         .to_string(),
                                 )
                             })?;
-                        arrays_read_count += 1;
-                        continue;
+                            arrays_read_count += 1;
+                            continue;
+                        }
                     }
-                }
-                for row_index in 0..materialized_rows {
-                    if row_index.is_multiple_of(4096) {
-                        check_local_vortex_context(context)?;
-                    }
-                    let ordinal = selected_rows;
-                    selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
+                    for row_index in 0..materialized_rows {
+                        if row_index.is_multiple_of(4096) {
+                            check_local_vortex_context(context)?;
+                        }
+                        let ordinal = selected_rows;
+                        selected_rows = selected_rows.checked_add(1).ok_or_else(|| {
                         ShardLoomError::InvalidOperation(
                             "partitioned local Vortex sort selected row count overflowed usize; no fallback execution was attempted"
                                 .to_string(),
                         )
                 })?;
-                    candidates.push(SortRowCandidate {
-                        ordinal,
-                        source_partition_index: source_index,
-                        source_ordinal: sort_candidate_source_ordinal(
-                            &columns,
-                            row_index,
-                            source_local_rows_seen,
-                            row_index,
-                            source_row_id_column_index,
-                        )?,
-                        values: materialized_sort_row_values_by_indices(
-                            &columns,
-                            row_index,
-                            candidate_value_column_indices,
-                        )?,
-                    });
+                        candidates.push(SortRowCandidate {
+                            ordinal,
+                            source_partition_index: source_index,
+                            source_ordinal: sort_candidate_source_ordinal(
+                                &columns,
+                                row_index,
+                                source_local_rows_seen,
+                                row_index,
+                                source_row_id_column_index,
+                            )?,
+                            values: materialized_sort_row_values_by_indices(
+                                &columns,
+                                row_index,
+                                candidate_value_column_indices,
+                            )?,
+                        });
+                    }
                 }
-            }
-            if sort_rows.tie_policy != VortexSortTiePolicy::All
-                && candidates.len() > retention_flush_threshold
-            {
-                let candidate_order_column_indices =
+                if sort_rows.tie_policy != VortexSortTiePolicy::All
+                    && candidates.len() > retention_flush_threshold
+                {
+                    let candidate_order_column_indices =
                     candidate_order_column_indices.as_ref().ok_or_else(|| {
                     ShardLoomError::InvalidOperation(
                         "partitioned local Vortex sort candidate order column indices were not initialized; no fallback execution was attempted"
                         .to_string(),
                     )
                 })?;
-                retain_sort_top_window(
-                    &mut candidates,
-                    &sort_rows.order_by,
-                    candidate_order_column_indices,
-                    retained_cap,
-                    sort_rows.tie_policy,
-                );
-            }
-            max_chunk_rows = max_chunk_rows.max(rows);
-            source_rows_seen = source_rows_seen.checked_add(rows).ok_or_else(|| {
+                    retain_sort_top_window(
+                        &mut candidates,
+                        &sort_rows.order_by,
+                        candidate_order_column_indices,
+                        retained_cap,
+                        sort_rows.tie_policy,
+                    );
+                }
+                max_chunk_rows = max_chunk_rows.max(rows);
+                source_rows_seen = source_rows_seen.checked_add(rows).ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
                     "partitioned local Vortex sort source row count overflowed usize; no fallback execution was attempted"
                         .to_string(),
                 )
             })?;
-            source_local_rows_seen = source_local_rows_seen.checked_add(rows).ok_or_else(|| {
+                source_local_rows_seen = source_local_rows_seen.checked_add(rows).ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
                     "partitioned local Vortex sort local source row count overflowed usize; no fallback execution was attempted"
                         .to_string(),
                 )
             })?;
-            arrays_read_count += 1;
+                arrays_read_count += 1;
+            }
         }
         #[cfg(unix)]
         if let (Some(observation), Some(context)) = (scan_observation, context) {
@@ -25788,6 +26216,7 @@ fn read_local_vortex_sort_rows_partitioned_scan(
         let materialization = if streaming {
             sort_output_stream::deliver_partitioned(
                 sources,
+                &opened_files,
                 request,
                 &output_columns,
                 &selected_candidates,
@@ -25801,8 +26230,9 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                 output.as_deref_mut().expect("streaming output is present"),
             )?
         } else {
-            materialize_partitioned_local_vortex_sort_output_rows_by_source_ordinals(
+            materialize_opened_partitioned_local_vortex_sort_output_rows_by_source_ordinals(
                 sources,
+                &opened_files,
                 request,
                 &output_columns,
                 &selected_candidates,
@@ -25976,8 +26406,9 @@ fn min_optional_usize(left: Option<usize>, right: Option<usize>) -> Option<usize
 
 #[cfg(feature = "vortex-local-primitives")]
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)] // Share the original source allocation through the second pass.
-fn materialize_partitioned_local_vortex_sort_output_rows_by_source_ordinals(
+fn materialize_opened_partitioned_local_vortex_sort_output_rows_by_source_ordinals(
     sources: &[LocalVortexPartitionSource],
+    opened_files: &[vortex::file::VortexFile],
     request: &VortexQueryPrimitiveRequest,
     output_columns: &[String],
     selected_candidates: &[&SortRowCandidate],
@@ -26024,19 +26455,26 @@ fn materialize_partitioned_local_vortex_sort_output_rows_by_source_ordinals(
                     .to_string(),
             )
         })?;
+        let file = opened_files.get(partition_index).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "partitioned local Vortex sort opened partition file was missing; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
         let ordinals = positions
             .iter()
             .map(|(_position, ordinal)| *ordinal)
             .collect::<Vec<_>>();
-        let materialization = materialize_local_vortex_sort_output_rows_by_source_ordinals(
+        let materialization = materialize_opened_vortex_sort_output_rows_by_source_ordinals(
             &source.path,
+            file,
+            session,
+            runtime,
             request,
             output_columns,
             &ordinals,
             materialization_filter_predicate,
             policy,
-            session,
-            runtime,
             context,
         )?;
         chunks_scanned = chunks_scanned
@@ -26100,28 +26538,7 @@ fn materialize_partitioned_local_vortex_sort_output_rows_by_source_ordinals(
     })
 }
 
-#[cfg(feature = "vortex-local-primitives")]
-fn local_vortex_sort_rows_output_columns(
-    path: &std::path::Path,
-    request: &VortexQueryPrimitiveRequest,
-    session: &vortex::session::VortexSession,
-    runtime: &impl vortex::io::runtime::BlockingRuntime,
-    context: Option<&crate::resident_session::NativeExecutionContext<'_>>,
-) -> Result<Vec<String>> {
-    check_local_vortex_context(context)?;
-    let file = runtime
-        .block_on(open_local_vortex_file(session, path, context))
-        .map_err(|error| {
-            ShardLoomError::InvalidOperation(format!(
-                "failed to open partitioned local Vortex target for {}: {error}",
-                request.kind.as_str()
-            ))
-        })?;
-    check_local_vortex_context(context)?;
-    projected_column_names(file.dtype(), &request.projection, request.kind)
-}
-
-#[cfg(feature = "vortex-local-primitives")]
+#[cfg(all(test, feature = "vortex-local-primitives"))]
 #[allow(clippy::too_many_lines)]
 #[allow(clippy::too_many_arguments)] // The caller retains the same source/writer grant.
 pub(crate) fn materialize_local_vortex_sort_output_rows_by_source_ordinals(
@@ -27008,6 +27425,7 @@ struct SimpleAggregateStates {
     fused_utf8_dictionary_transform_updates: bool,
     lazy_utf8_dictionary_minmax_updates: bool,
     partition_distinct_completed: bool,
+    partition_distinct_strategy: Option<&'static str>,
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -27096,6 +27514,7 @@ impl SimpleAggregateStates {
             fused_utf8_dictionary_transform_updates: false,
             lazy_utf8_dictionary_minmax_updates: false,
             partition_distinct_completed: false,
+            partition_distinct_strategy: None,
         })
     }
 
@@ -27820,7 +28239,8 @@ impl SimpleAggregateStates {
             "functions": self.functions_summary(),
             "distinct_state_strategy": if self.has_count_distinct() {
                 if self.partition_distinct_completed {
-                    "bounded_native_utf8_partition_exact"
+                    self.partition_distinct_strategy
+                        .unwrap_or("bounded_native_utf8_partition_exact")
                 } else if self.dense_integer_distinct_preunion_updates {
                     "typed_dense_integer_preunion_exact"
                 } else if self.dictionary_arc_distinct_updates {
@@ -27963,7 +28383,13 @@ impl SimpleAggregateStates {
         Ok(VortexLocalPrimitiveStateBudgetReport::bounded_in_memory(
             if has_count_distinct {
                 if self.partition_distinct_completed {
-                    "scalar_count_distinct_state+bounded_native_utf8_partitions"
+                    if self.partition_distinct_strategy
+                        == Some("bounded_native_numeric_partition_exact")
+                    {
+                        "scalar_count_distinct_state+bounded_native_numeric_partitions"
+                    } else {
+                        "scalar_count_distinct_state+bounded_native_utf8_partitions"
+                    }
                 } else if self.dense_integer_distinct_preunion_updates {
                     "scalar_count_distinct_state+direct_dictionary_or_typed+dense_integer_preunion"
                 } else if self.dictionary_arc_distinct_updates {
@@ -28108,6 +28534,7 @@ struct GroupedAggregateStates<'a> {
     numeric_pair_chunk_compacted_input_rows: u64,
     numeric_pair_chunk_compacted_unique_keys: u64,
     general_direct_updates: bool,
+    general_worker_merged: bool,
     general_direct_count_distinct_updates: bool,
     grouped_count_distinct_pair_preunion_updates: bool,
     grouped_count_distinct_pair_preunion_input_rows: u64,
@@ -30753,6 +31180,7 @@ impl AggregateValueTransform {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[derive(Clone)]
 struct AggregateGroupRuntimeColumn {
     name: String,
     source_column: String,
@@ -31000,6 +31428,7 @@ impl<'a> GroupedAggregateStates<'a> {
             numeric_pair_chunk_compacted_input_rows: 0,
             numeric_pair_chunk_compacted_unique_keys: 0,
             general_direct_updates: false,
+            general_worker_merged: false,
             general_direct_count_distinct_updates: false,
             grouped_count_distinct_pair_preunion_updates: false,
             grouped_count_distinct_pair_preunion_input_rows: 0,
@@ -34631,6 +35060,14 @@ impl<'a> GroupedAggregateStates<'a> {
         )
     }
 
+    fn begin_general_worker_merge(&mut self) {
+        self.general_worker_merged = true;
+        self.compact_measure_specs = None;
+        self.materialized_owned_group_keys = true;
+        self.general_direct_updates = true;
+        self.general_direct_count_distinct_updates = self.state_template.has_count_distinct();
+    }
+
     fn update_compact_direct_from_chunk_profiled(
         &mut self,
         chunk: &vortex::array::ArrayRef,
@@ -34638,6 +35075,9 @@ impl<'a> GroupedAggregateStates<'a> {
         row_indices: Option<&[usize]>,
         timing: &mut aggregate_timing::AggregateFirstPassTiming,
     ) -> Result<bool> {
+        if self.general_worker_merged {
+            return Ok(false);
+        }
         let started = Instant::now();
         let selected = self.source_order_candidate_chunk(chunk, declared_columns, row_indices)?;
         let chunk = selected.as_ref().unwrap_or(chunk);
@@ -36010,7 +36450,7 @@ impl<'a> GroupedAggregateStates<'a> {
                 usize_to_u64(directory.duplicate_key_count())?;
             (
                 candidate_group_count,
-                directory.retained_candidates(retained_cap)?,
+                directory.into_retained_candidates(retained_cap)?,
             )
         } else {
             return Ok(());
@@ -38599,6 +39039,55 @@ impl<'a> GroupedAggregateStates<'a> {
                 .numeric_pair_late_measure_near_unique_directory
                 .is_some())
             && self.numeric_pair_late_measure_retained_keys.is_none()
+    }
+
+    fn numeric_pair_late_measure_retained_keys_is_empty(&self) -> bool {
+        self.numeric_pair_late_measure_retained_keys
+            .as_ref()
+            .is_some_and(rustc_hash::FxHashSet::is_empty)
+    }
+
+    fn numeric_pair_late_measure_second_pass_pushdown_predicate(&self) -> Option<PredicateExpr> {
+        let retained = self.numeric_pair_late_measure_retained_keys.as_ref()?;
+        if retained.is_empty() || retained.len() > 128 || !self.request.group_expressions.is_empty()
+        {
+            return None;
+        }
+        let [first_col, second_col] = self.request.group_by.as_slice() else {
+            return None;
+        };
+        let mut first_parts = Vec::with_capacity(retained.len());
+        let mut second_parts = Vec::with_capacity(retained.len());
+        for key in retained {
+            let first_signed = key.key_kinds & AggregateNumericPairKey::FIRST_SIGNED != 0;
+            let second_signed = key.key_kinds & AggregateNumericPairKey::SECOND_SIGNED != 0;
+            first_parts.push((first_signed, key.first_bits));
+            second_parts.push((second_signed, key.second_bits));
+        }
+        first_parts.sort_unstable();
+        first_parts.dedup();
+        second_parts.sort_unstable();
+        second_parts.dedup();
+        let first_values = first_parts
+            .into_iter()
+            .map(|(signed, bits)| integer_key_stat_value(bits, signed))
+            .collect::<Vec<_>>();
+        let second_values = second_parts
+            .into_iter()
+            .map(|(signed, bits)| integer_key_stat_value(bits, signed))
+            .collect::<Vec<_>>();
+        Some(PredicateExpr::And(vec![
+            PredicateExpr::InList {
+                column: first_col.clone(),
+                values: first_values,
+                negated: false,
+            },
+            PredicateExpr::InList {
+                column: second_col.clone(),
+                values: second_values,
+                negated: false,
+            },
+        ]))
     }
 
     #[allow(clippy::too_many_lines)]
@@ -41960,15 +42449,24 @@ impl NumericPairNearUniqueCountDirectory {
         self.duplicate_counts.len()
     }
 
-    fn retained_candidates(
-        &self,
+    fn into_retained_candidates(
+        self,
         retained_cap: usize,
     ) -> Result<Vec<NumericPairAggregateOrderCandidate>> {
+        let Self {
+            seen_keys,
+            duplicate_counts,
+            ..
+        } = self;
         let mut retained = Vec::<NumericPairAggregateOrderCandidate>::with_capacity(
-            retained_cap.min(self.seen_keys.len()),
+            retained_cap.min(seen_keys.len()),
         );
+        if retained_cap == 0 {
+            drop(seen_keys);
+            return Ok(retained);
+        }
         let mut worst_retained_index = None;
-        for (key, count) in &self.duplicate_counts {
+        for (key, count) in &duplicate_counts {
             Self::consider_retained_candidate(
                 &mut retained,
                 &mut worst_retained_index,
@@ -41979,8 +42477,12 @@ impl NumericPairNearUniqueCountDirectory {
                 retained_cap,
             )?;
         }
-        for key in &self.seen_keys {
-            if self.duplicate_counts.contains_key(key) {
+        if retained.len() >= retained_cap {
+            drop(seen_keys);
+            return Ok(retained);
+        }
+        for key in &seen_keys {
+            if duplicate_counts.contains_key(key) {
                 continue;
             }
             Self::consider_retained_candidate(
@@ -41993,6 +42495,7 @@ impl NumericPairNearUniqueCountDirectory {
                 retained_cap,
             )?;
         }
+        drop(seen_keys);
         Ok(retained)
     }
 

@@ -328,7 +328,10 @@ fn large_text_writers_preserve_whole_values_without_a_synthetic_batch_byte_limit
     configured.resource_envelope.memory_budget_bytes = 512 << 20;
     let prepared = prepare_relational(&fixture.scan(), configured).unwrap();
     let memory = prepared.session.memory().clone();
-    let baseline = memory.snapshot().reserved_bytes;
+    let baseline = prepared
+        .session
+        .snapshot()
+        .reserved_without_source_segment_cache();
     for format in [Format::Json, Format::Jsonl, Format::Csv] {
         let path = fixture.0.join(format!("long-text.{}", format.as_str()));
         let report = prepared
@@ -367,8 +370,17 @@ fn large_text_writers_preserve_whole_values_without_a_synthetic_batch_byte_limit
             }
         }
         drop(report);
-        assert_eq!(memory.snapshot().reserved_bytes, baseline, "{format:?}");
+        assert_eq!(
+            prepared
+                .session
+                .snapshot()
+                .reserved_without_source_segment_cache(),
+            baseline,
+            "{format:?}"
+        );
     }
+    drop(prepared);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 
 #[test]

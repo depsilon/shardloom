@@ -358,6 +358,10 @@ impl<T: Send + 'static> AggregateChunkJobs<T> {
         &self.memory
     }
 
+    pub(super) const fn cancellation(&self) -> &CancellationToken {
+        &self.cancellation
+    }
+
     pub(super) fn is_full(&self) -> bool {
         self.window.outstanding.load(Ordering::Acquire) >= self.window_limit
     }

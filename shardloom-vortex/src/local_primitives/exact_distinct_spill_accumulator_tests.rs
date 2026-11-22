@@ -25,8 +25,10 @@ use vortex::{
 struct Workspace(PathBuf);
 impl Workspace {
     fn new() -> Self {
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let seq = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let path = std::env::temp_dir().join(format!(
-            "shardloom-distinct-public-accumulator-{}-{}",
+            "shardloom-distinct-public-accumulator-{}-{seq}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)

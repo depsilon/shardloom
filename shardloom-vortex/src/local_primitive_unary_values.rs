@@ -208,10 +208,27 @@ impl NativeBatch {
         columns: &[String],
         context: &crate::resident_session::NativeExecutionContext<'_>,
     ) -> Result<Self> {
-        let mut metadata = context
-            .memory()
+        Self::new_detached(
+            array,
+            columns,
+            context.native_session(),
+            context.memory(),
+            context.cancellation(),
+            context.float_policy(),
+        )
+    }
+
+    pub(in crate::local_primitives) fn new_detached(
+        array: &ArrayRef,
+        columns: &[String],
+        session: &vortex::session::VortexSession,
+        memory: &LiveMemoryPool,
+        cancellation: &CancellationToken,
+        float_policy: FloatPolicy,
+    ) -> Result<Self> {
+        let mut metadata = memory
             .reserve(u64::try_from(columns.len().saturating_mul(512)).map_err(vortex_error)?)?;
-        let mut execution = context.native_session().create_execution_ctx();
+        let mut execution = session.create_execution_ctx();
         let values = columns
             .iter()
             .map(|name| {
@@ -231,12 +248,28 @@ impl NativeBatch {
         Ok(Self {
             columns: values,
             context: execution,
-            memory: context.memory().clone(),
-            cancellation: context.cancellation().clone(),
-            float_policy: context.float_policy(),
+            memory: memory.clone(),
+            cancellation: cancellation.clone(),
+            float_policy,
             nested_keys: None,
             _metadata: metadata,
         })
+    }
+
+    pub(in crate::local_primitives) fn extract_keys(
+        &mut self,
+        columns: &[usize],
+        rows: usize,
+    ) -> Result<ReservedVec<Budgeted<String>>> {
+        let mut keys = ReservedVec::new(&self.memory)?;
+        keys.reserve(rows)?;
+        for row in 0..rows {
+            if row % 256 == 0 {
+                self.cancellation.check()?;
+            }
+            keys.push(self.key(columns, row)?)?;
+        }
+        Ok(keys)
     }
 
     pub(super) fn value(&mut self, column: usize, row: usize) -> Result<Value<'static>> {

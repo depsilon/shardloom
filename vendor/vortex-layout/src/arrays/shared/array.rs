@@ -15,6 +15,7 @@ use vortex_array::Canonical;
 use vortex_array::IntoArray;
 use vortex_array::TypedArrayRef;
 use vortex_array::array_slots;
+use vortex_array::memory::HostAllocatorRef;
 use vortex_error::SharedVortexResult;
 use vortex_error::VortexResult;
 
@@ -36,6 +37,7 @@ pub struct SharedSlots {
 pub struct SharedData {
     cached: Arc<OnceLock<SharedVortexResult<ArrayRef>>>,
     async_compute_lock: Arc<AsyncMutex<()>>,
+    storage_allocator: Option<HostAllocatorRef>,
 }
 
 impl Display for SharedData {
@@ -91,10 +93,19 @@ impl<T: TypedArrayRef<Shared>> SharedArrayExt for T {}
 
 impl SharedData {
     pub fn new() -> Self {
+        Self::with_storage_allocator(None)
+    }
+
+    pub fn with_storage_allocator(storage_allocator: Option<HostAllocatorRef>) -> Self {
         Self {
             cached: Arc::new(OnceLock::new()),
             async_compute_lock: Arc::new(AsyncMutex::new(())),
+            storage_allocator,
         }
+    }
+
+    pub(crate) fn storage_allocator(&self) -> Option<&HostAllocatorRef> {
+        self.storage_allocator.as_ref()
     }
 }
 
@@ -107,6 +118,15 @@ impl Default for SharedData {
 impl Shared {
     /// Creates a new [`SharedArray`] wrapping `source`.
     pub fn new(source: ArrayRef) -> SharedArray {
+        Self::with_storage_allocator(source, None)
+    }
+
+    /// Creates a new [`SharedArray`] wrapping `source` whose cached execution
+    /// allocates host buffers from `storage_allocator` when supplied.
+    pub fn with_storage_allocator(
+        source: ArrayRef,
+        storage_allocator: Option<HostAllocatorRef>,
+    ) -> SharedArray {
         let dtype = source.dtype().clone();
         let len = source.len();
         unsafe {
@@ -114,7 +134,7 @@ impl Shared {
                 Shared,
                 dtype,
                 len,
-                SharedData::new(),
+                SharedData::with_storage_allocator(storage_allocator),
                 SharedSlots { source }.into_slots(),
             ))
         }

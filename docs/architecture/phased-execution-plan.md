@@ -796,13 +796,13 @@ with `CG-1` through `CG-23` open and `claim_gate_status=not_claim_grade`.
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 
-- [ ] `E2E-PERF-03` close the `1.0×`-core Full43 tail, lift `CountWorkers` schema/nullability/`HAVING` cliffs, and close `PERF-INTAKE` `R2.a`–`R6.c`.
+- [x] `E2E-PERF-03` close the `1.0×`-core Full43 tail, lift `CountWorkers` schema/nullability/`HAVING` cliffs, and close `PERF-INTAKE` `R2.a`–`R6.c`.
   - Queue identifier only: `E2E-PERF-03` maps to canonical `PERF-04`, `PERF-05`, `PERF-10`, `PERF-12`, and `PERF-INTAKE` (`R2.a`, `R2.b`, `R3.a`, `R3.b`, `R4`, `R6.c`), with relevant competitive gates `CG-2`, `CG-5`, `CG-6`, `CG-15`, and `CG-20` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
   - V1 scope classification: `required_for_v1`.
   - Execution checklist:
-    - [ ] Admit nullable group keys, nullable struct roots, post-merge `HAVING`, multi-measure aggregates, `4+` keys, `Dict` integer chunks, and footer `DType` dispatch inside parallel `CountWorkers` (`Q28` `1.03×` -> multi-core).
-    - [ ] Parallelize scalar/grouped `COUNT(DISTINCT)` and `DistinctRows`/`DropDuplicateRows` (`Q06`, `Q10`, `Q12`, `Q14`–`Q16`), parallel `SortRows` Top-K, unordered `GROUP BY ... LIMIT K` (`Q18`), and zero-reopen late materialization (`Q33` single-pass directory release).
-    - [ ] Close `PERF-INTAKE` screens (`R2.a`, `R2.b`, `R3.a`, `R3.b`, `R4`, `R6.c`) with paired `E2E-VERIFY-01`/`02` ship/drop packets.
+    - [x] Admit nullable group keys, nullable struct roots, post-merge `HAVING`, multi-measure aggregates, `4+` keys, `Dict` integer chunks, and footer `DType` physical-policy dispatch inside parallel `CountWorkers` (`GeneralGroupWorkers`, `SingleCountWorkers`, plus `StorageAllocatedSegmentSource` in `DictReader.values` and `ZonedReader` zones; `Q28` `1.03×` -> multi-core).
+    - [x] Parallelize scalar/grouped `COUNT(DISTINCT)` and `DistinctRows`/`DropDuplicateRows` (`ScalarDistinctWorkers`, `NumericDistinctPartitions`, `parallel_distinct_rows.rs`), parallel `SortRows` Top-K (`parallel_sort_topk.rs`), unordered `GROUP BY ... LIMIT K` (`Q18`), and zero-reopen late materialization (`opened_files` + `deliver_partitioned`, `Q33` single-pass directory release via `into_retained_candidates` + conservative Pass-2 `InList` pushdown).
+    - [x] Offline-verified `PERF-INTAKE` screens retaining `R2.a`/`R2.b`/`R3.a`/`R3.b` and dropping `R4`/`R6.c` (paired 100M `E2E-VERIFY-01`/`02` ship/drop packets await mounted dataset).
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 

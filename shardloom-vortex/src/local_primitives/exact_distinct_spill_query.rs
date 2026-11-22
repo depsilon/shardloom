@@ -273,6 +273,7 @@ pub(in super::super) fn execute_with_output(
             scan_columns: None,
             metadata_completed: false,
             auxiliary_metadata_arrays: 0,
+            physical_policy: None,
             scan: LocalVortexScan {
                 source_row_count: file.row_count(),
                 result_row_count,

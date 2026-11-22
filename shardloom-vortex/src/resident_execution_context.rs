@@ -25,8 +25,8 @@ use vortex::encodings::fsst::matcher_reuse::{
     MatcherReuse, MatcherReuseScope, MatcherReuseSnapshot,
 };
 use vortex::{
-    array::memory::{HostAllocator, HostMemoryReservation, WritableHostBuffer},
-    buffer::Alignment,
+    array::memory::{HostAllocator, HostBufferMut, HostMemoryReservation, WritableHostBuffer},
+    buffer::{Alignment, ByteBuffer},
     error::{SharedVortexResult, VortexResult, vortex_err},
     file::{
         OpenOptionsSessionExt as _, SegmentMap, VortexFile,
@@ -623,6 +623,20 @@ impl NativeExecutionContext<'_> {
         &self.owner.memory
     }
 
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    #[must_use]
+    pub(crate) fn provider_background_workers(&self) -> usize {
+        self.owner.provider_background_workers
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn shared_compute_pool(
+        &self,
+        requested_parallelism: usize,
+    ) -> Result<Option<Arc<shardloom_exec::compute_pool::ComputePool>>> {
+        self.owner.shared_compute_pool(requested_parallelism)
+    }
+
     pub(super) fn belongs_to(&self, owner: &RuntimeOwner) -> bool {
         std::ptr::eq(self.owner, owner)
     }
@@ -930,9 +944,55 @@ impl Drop for TrackedExternalReservation {
     }
 }
 
+struct TrackedSlotAllocation {
+    bytes: u64,
+    external_live: Arc<AtomicU64>,
+}
+
+impl Drop for TrackedSlotAllocation {
+    fn drop(&mut self) {
+        self.external_live.fetch_sub(self.bytes, Ordering::Release);
+    }
+}
+
+struct TrackedSlotWritableBuffer {
+    buffer: WritableHostBuffer,
+    allocation: TrackedSlotAllocation,
+}
+
+impl HostBufferMut for TrackedSlotWritableBuffer {
+    fn len(&self) -> usize {
+        self.buffer.len()
+    }
+
+    fn alignment(&self) -> Alignment {
+        self.buffer.alignment()
+    }
+
+    fn as_mut_slice(&mut self) -> &mut [u8] {
+        self.buffer.as_mut_slice()
+    }
+
+    fn freeze(self: Box<Self>) -> ByteBuffer {
+        let Self { buffer, allocation } = *self;
+        buffer.freeze().with_retained_owner(Arc::new(allocation))
+    }
+}
+
 impl HostAllocator for SlotHostAllocator {
     fn allocate(&self, len: usize, alignment: Alignment) -> VortexResult<WritableHostBuffer> {
-        self.inner.allocate(len, alignment)
+        let capacity = crate::owned_buffers::allocation_capacity(len, alignment)?;
+        let buffer = self.inner.allocate(len, alignment)?;
+        self.external_live.fetch_add(capacity, Ordering::Relaxed);
+        Ok(WritableHostBuffer::new(Box::new(
+            TrackedSlotWritableBuffer {
+                buffer,
+                allocation: TrackedSlotAllocation {
+                    bytes: capacity,
+                    external_live: Arc::clone(&self.external_live),
+                },
+            },
+        )))
     }
 
     fn reserve_external(&self, len: usize) -> VortexResult<HostMemoryReservation> {

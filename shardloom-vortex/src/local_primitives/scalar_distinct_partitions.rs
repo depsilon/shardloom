@@ -124,6 +124,254 @@ impl Partitions {
     }
 }
 
+struct NumericPartition {
+    slots: Vec<u64>,
+    has_zero: bool,
+    non_zero_len: usize,
+    lease: MemoryLease,
+}
+
+pub(super) struct NumericDistinctPartitions {
+    parts: Vec<Mutex<NumericPartition>>,
+    memory: LiveMemoryPool,
+    _metadata: MemoryLease,
+}
+
+impl NumericDistinctPartitions {
+    pub(super) fn new(memory: &LiveMemoryPool) -> Result<Self> {
+        let (mut parts, mut metadata) = allocate(PARTITIONS, memory)?;
+        metadata.resize(
+            metadata
+                .bytes()
+                .checked_add((size_of::<Self>() + 2 * size_of::<usize>()) as u64)
+                .ok_or_else(|| failed("owner metadata overflow"))?,
+        )?;
+        for _ in 0..PARTITIONS {
+            parts.push(Mutex::new(NumericPartition {
+                slots: Vec::new(),
+                has_zero: false,
+                non_zero_len: 0,
+                lease: memory.reserve(0)?,
+            }));
+        }
+        Ok(Self {
+            parts,
+            memory: memory.clone(),
+            _metadata: metadata,
+        })
+    }
+
+    pub(super) fn insert_in_place(
+        &self,
+        keys: &mut [u64],
+        worker: &ChunkWorkerContext,
+        rotate_seed: usize,
+    ) -> Result<()> {
+        if keys.is_empty() {
+            return Ok(());
+        }
+        let mut sizes = [0_usize; PARTITIONS];
+        for (index, &key) in keys.iter().enumerate() {
+            if index.is_multiple_of(4096) {
+                worker.check_cancelled()?;
+            }
+            sizes[partition(hash_u64(key))] += 1;
+        }
+        let mut starts = [0_usize; PARTITIONS];
+        let mut ends = [0_usize; PARTITIONS];
+        let mut end = 0_usize;
+        for ((start, stop), size) in starts.iter_mut().zip(&mut ends).zip(sizes) {
+            *start = end;
+            end += size;
+            *stop = end;
+        }
+        let mut next = starts;
+        let mut swaps = 0_usize;
+        for (part, &part_end) in ends.iter().enumerate() {
+            while next[part] < part_end {
+                if swaps.is_multiple_of(4096) {
+                    worker.check_cancelled()?;
+                }
+                let target = partition(hash_u64(keys[next[part]]));
+                if target == part {
+                    next[part] += 1;
+                } else {
+                    keys.swap(next[part], next[target]);
+                    next[target] += 1;
+                    swaps += 1;
+                }
+            }
+        }
+        let mut done = [false; PARTITIONS];
+        for (part, (&start, &stop)) in starts.iter().zip(&ends).enumerate() {
+            done[part] = start == stop;
+        }
+        let start_part = rotate_seed % PARTITIONS;
+        // Pass 1: rotated try_lock avoids worker lockstep convoying.
+        for offset in 0..PARTITIONS {
+            let part = (start_part + offset) % PARTITIONS;
+            if done[part] {
+                continue;
+            }
+            worker.check_cancelled()?;
+            match self.parts[part].try_lock() {
+                Ok(mut owner) => {
+                    owner.insert_all(&keys[starts[part]..ends[part]], &self.memory, worker)?;
+                    done[part] = true;
+                }
+                Err(std::sync::TryLockError::WouldBlock) => {}
+                Err(std::sync::TryLockError::Poisoned(_)) => {
+                    return Err(failed("partition poisoned"));
+                }
+            }
+        }
+        // Pass 2: finish remaining non-empty partitions with blocking locks.
+        for offset in 0..PARTITIONS {
+            let part = (start_part + offset) % PARTITIONS;
+            if done[part] {
+                continue;
+            }
+            worker.check_cancelled()?;
+            let mut owner = self.parts[part]
+                .lock()
+                .map_err(|_| failed("partition poisoned"))?;
+            owner.insert_all(&keys[starts[part]..ends[part]], &self.memory, worker)?;
+        }
+        Ok(())
+    }
+
+    #[cfg(test)]
+    pub(super) fn insert_slice(
+        &self,
+        keys: &[u64],
+        cancellation: &shardloom_exec::compute_pool::CancellationToken,
+    ) -> Result<()> {
+        let mut scratch = keys.to_vec();
+        let worker = ChunkWorkerContext::Inline(cancellation.clone());
+        self.insert_in_place(&mut scratch, &worker, 0)
+    }
+
+    pub(super) fn cardinality(&self) -> Result<u64> {
+        self.parts.iter().try_fold(0_u64, |total, part| {
+            let part = part.lock().map_err(|_| failed("partition poisoned"))?;
+            let count = u64::from(part.has_zero)
+                .checked_add(part.non_zero_len as u64)
+                .ok_or_else(|| failed("cardinality overflow"))?;
+            total
+                .checked_add(count)
+                .ok_or_else(|| failed("cardinality overflow"))
+        })
+    }
+}
+
+impl NumericPartition {
+    fn insert_all(
+        &mut self,
+        keys: &[u64],
+        memory: &LiveMemoryPool,
+        worker: &ChunkWorkerContext,
+    ) -> Result<()> {
+        for (index, &key) in keys.iter().enumerate() {
+            if index.is_multiple_of(4096) {
+                worker.check_cancelled()?;
+            }
+            self.insert(key, memory, worker)?;
+        }
+        Ok(())
+    }
+
+    fn insert(
+        &mut self,
+        key: u64,
+        memory: &LiveMemoryPool,
+        worker: &ChunkWorkerContext,
+    ) -> Result<()> {
+        if key == 0 {
+            self.has_zero = true;
+            return Ok(());
+        }
+        let hash = hash_u64(key);
+        let mut vacant = 0_usize;
+        if !self.slots.is_empty() {
+            let mask = self.slots.len() - 1;
+            let mut slot = bucket(hash, self.slots.len());
+            let mut probes = 0_usize;
+            loop {
+                if probes.is_multiple_of(4096) {
+                    worker.check_cancelled()?;
+                }
+                let existing = self.slots[slot];
+                if existing == key {
+                    return Ok(());
+                }
+                if existing == 0 {
+                    vacant = slot;
+                    break;
+                }
+                slot = (slot + 1) & mask;
+                probes += 1;
+            }
+        }
+        let next = self
+            .non_zero_len
+            .checked_add(1)
+            .ok_or_else(|| failed("ordinal overflow"))?;
+        if self.slots.is_empty() || next > self.slots.len() / 2 {
+            let capacity = self
+                .slots
+                .len()
+                .max(8)
+                .checked_mul(2)
+                .ok_or_else(|| failed("directory overflow"))?;
+            let mask = capacity - 1;
+            let (mut replacement, lease) = allocate::<u64>(capacity, memory)?;
+            replacement.resize(capacity, 0);
+            let mut probes = 0_usize;
+            for (index, &existing) in self.slots.iter().enumerate() {
+                if index.is_multiple_of(4096) {
+                    worker.check_cancelled()?;
+                }
+                if existing == 0 {
+                    continue;
+                }
+                let mut slot = bucket(hash_u64(existing), capacity);
+                while replacement[slot] != 0 {
+                    if probes.is_multiple_of(4096) {
+                        worker.check_cancelled()?;
+                    }
+                    slot = (slot + 1) & mask;
+                    probes += 1;
+                }
+                replacement[slot] = existing;
+            }
+            let mut slot = bucket(hash, capacity);
+            while replacement[slot] != 0 {
+                if probes.is_multiple_of(4096) {
+                    worker.check_cancelled()?;
+                }
+                slot = (slot + 1) & mask;
+                probes += 1;
+            }
+            replacement[slot] = key;
+            self.slots = replacement;
+            self.lease = lease;
+            self.non_zero_len = next;
+            return Ok(());
+        }
+        self.slots[vacant] = key;
+        self.non_zero_len = next;
+        Ok(())
+    }
+}
+
+#[inline]
+fn hash_u64(key: u64) -> u64 {
+    let mut x = key.wrapping_add(0x9e37_79b9_7f4a_7c15);
+    x = (x ^ (x >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    x = (x ^ (x >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+    x ^ (x >> 31)
+}
+
 impl Partition {
     fn find(&self, bytes: &[u8], hash: u64, worker: &ChunkWorkerContext) -> Result<usize> {
         let mut bucket = bucket(hash, self.directory.len());
@@ -274,6 +522,33 @@ mod tests {
         );
         assert_eq!(part.records.len(), 4100);
         drop(part);
+        drop(parts);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+
+    #[test]
+    fn numeric_distinct_partitions_zero_collisions_rehash_and_cancel() {
+        let memory = LiveMemoryPool::new(2 << 20).unwrap();
+        let parts = NumericDistinctPartitions::new(&memory).unwrap();
+        let token = CancellationToken::default();
+        let mut keys = Vec::new();
+        for v in 0_u64..1500 {
+            keys.push(v);
+            keys.push(v);
+        }
+        parts.insert_slice(&keys, &token).unwrap();
+        assert_eq!(parts.cardinality().unwrap(), 1500);
+        // Zero and duplicates do not inflate cardinality.
+        parts.insert_slice(&[0, 0, 1, 1499], &token).unwrap();
+        assert_eq!(parts.cardinality().unwrap(), 1500);
+        token.cancel();
+        assert!(
+            parts
+                .insert_slice(&[9999], &token)
+                .unwrap_err()
+                .to_string()
+                .contains("cancel")
+        );
         drop(parts);
         assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
