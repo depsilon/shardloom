@@ -17,6 +17,52 @@ use super::*;
 #[path = "data_import_tests.rs"]
 pub(super) mod tests;
 
+fn data_type_kind_name(dt: &DataType) -> &'static str {
+    match dt {
+        DataType::Null => "Null",
+        DataType::Boolean => "Boolean",
+        DataType::Int8 => "Int8",
+        DataType::Int16 => "Int16",
+        DataType::Int32 => "Int32",
+        DataType::Int64 => "Int64",
+        DataType::UInt8 => "UInt8",
+        DataType::UInt16 => "UInt16",
+        DataType::UInt32 => "UInt32",
+        DataType::UInt64 => "UInt64",
+        DataType::Float16 => "Float16",
+        DataType::Float32 => "Float32",
+        DataType::Float64 => "Float64",
+        DataType::Timestamp(_, _) => "Timestamp",
+        DataType::Date32 => "Date32",
+        DataType::Date64 => "Date64",
+        DataType::Time32(_) => "Time32",
+        DataType::Time64(_) => "Time64",
+        DataType::Duration(_) => "Duration",
+        DataType::Interval(_) => "Interval",
+        DataType::Binary => "Binary",
+        DataType::FixedSizeBinary(_) => "FixedSizeBinary",
+        DataType::LargeBinary => "LargeBinary",
+        DataType::BinaryView => "BinaryView",
+        DataType::Utf8 => "Utf8",
+        DataType::LargeUtf8 => "LargeUtf8",
+        DataType::Utf8View => "Utf8View",
+        DataType::List(_) => "List",
+        DataType::ListView(_) => "ListView",
+        DataType::FixedSizeList(_, _) => "FixedSizeList",
+        DataType::LargeList(_) => "LargeList",
+        DataType::LargeListView(_) => "LargeListView",
+        DataType::Struct(_) => "Struct",
+        DataType::Union(_, _) => "Union",
+        DataType::Dictionary(_, _) => "Dictionary",
+        DataType::Decimal32(_, _) => "Decimal32",
+        DataType::Decimal64(_, _) => "Decimal64",
+        DataType::Decimal128(_, _) => "Decimal128",
+        DataType::Decimal256(_, _) => "Decimal256",
+        DataType::Map(_, _) => "Map",
+        DataType::RunEndEncoded(_, _) => "RunEndEncoded",
+    }
+}
+
 #[derive(Clone, Copy)]
 enum StructMode {
     WrapArc,
@@ -47,7 +93,10 @@ impl DictKeyKind {
             DataType::UInt16 => Self::UInt16,
             DataType::UInt32 => Self::UInt32,
             DataType::UInt64 => Self::UInt64,
-            dt => unimplemented!("Unexpected dictionary key type {dt}"),
+            dt => unimplemented!(
+                "Unexpected dictionary key type {}",
+                data_type_kind_name(dt)
+            ),
         }
     }
 
@@ -113,7 +162,10 @@ impl RunKeyKind {
             DataType::Int16 => Self::Int16,
             DataType::Int32 => Self::Int32,
             DataType::Int64 => Self::Int64,
-            dt => unimplemented!("Unexpected data type for run_ends array {dt}"),
+            dt => unimplemented!(
+                "Unexpected data type for run_ends array {}",
+                data_type_kind_name(dt)
+            ),
         }
     }
 }
@@ -514,7 +566,7 @@ fn enter_by_data_type(data: ArrayData) -> Step {
         DataType::Decimal64(_, _) => Arc::new(Decimal64Array::from(data)) as ArrayRef,
         DataType::Decimal128(_, _) => Arc::new(Decimal128Array::from(data)) as ArrayRef,
         DataType::Decimal256(_, _) => Arc::new(Decimal256Array::from(data)) as ArrayRef,
-        dt => unimplemented!("Unexpected data type {dt}"),
+        dt => unimplemented!("Unexpected data type {}", data_type_kind_name(dt)),
     };
     Step::Done(Built::Array(array))
 }
@@ -601,7 +653,8 @@ fn enter_fixed_size_list(data: ArrayData, wrap_arc: bool) -> Step {
         DataType::FixedSizeList(_, len) => len,
         data_type => {
             panic!(
-                "FixedSizeListArray data should contain a FixedSizeList data type, got {data_type}"
+                "FixedSizeListArray data should contain a FixedSizeList data type, got {}",
+                data_type_kind_name(&data_type),
             )
         }
     };
@@ -640,7 +693,10 @@ fn enter_union(data: ArrayData, wrap_arc: bool) -> Step {
     let (data_type, len, _nulls, offset, buffers, child_data) = data.into_parts();
     let (fields, mode) = match &data_type {
         DataType::Union(fields, mode) => (fields, *mode),
-        d => panic!("UnionArray expected ArrayData with type Union got {d}"),
+        d => panic!(
+            "UnionArray expected ArrayData with type Union got {}",
+            data_type_kind_name(d)
+        ),
     };
     let (type_ids, offsets) = match mode {
         UnionMode::Sparse => {
@@ -711,13 +767,13 @@ fn enter_dictionary(data: ArrayData, key_kind: DictKeyKind, wrap_arc: bool) -> S
     let cd = child_data.pop().expect("checked above");
     let expected_key = key_kind.expected_data_type();
     if let DataType::Dictionary(key_data_type, _) = &data_type {
-        assert_eq!(
-            &expected_key,
-            key_data_type.as_ref(),
-            "DictionaryArray's data type must match, expected {} got {}",
-            expected_key,
-            key_data_type
-        );
+        if key_data_type.as_ref() != &expected_key {
+            panic!(
+                "DictionaryArray's data type must match, expected {} got {}",
+                data_type_kind_name(&expected_key),
+                data_type_kind_name(key_data_type.as_ref()),
+            );
+        }
         Step::Child(
             Frame::Dictionary {
                 data_type,
