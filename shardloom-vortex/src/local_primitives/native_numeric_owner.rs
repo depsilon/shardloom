@@ -194,11 +194,9 @@ impl NativeNumericOwner {
     pub(super) fn nbytes_estimate(&self) -> u64 {
         self.primitive.nbytes()
     }
-    #[cfg(any(test, unix))]
     pub(super) fn primitive(&self) -> &PrimitiveArray {
         &self.primitive
     }
-    #[cfg(unix)]
     pub(super) fn validity(&self) -> &Mask {
         &self.valid
     }

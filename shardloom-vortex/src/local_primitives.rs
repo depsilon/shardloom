@@ -1,5 +1,7 @@
 #![allow(clippy::must_use_candidate)]
 
+#[cfg(all(feature = "vortex-local-primitives", not(target_arch = "wasm32")))]
+use crate::resident_session::NativeExecutionContext;
 use shardloom_core::native_io_decisions::NativeIoCapabilityDecisions;
 use std::fmt::Write as _;
 #[cfg(all(test, feature = "vortex-local-primitives"))]
@@ -5559,6 +5561,16 @@ fn execute_vortex_local_primitive_row_export_enabled(
                     &drop_duplicate_materialization_columns,
                     &mut ctx,
                 )?
+            } else if rolling_window.is_some()
+                && residual_evaluator.is_none()
+                && !distinct_requested
+                && !tail_requested
+                && !sample_requested
+                && melt_projection.is_none()
+                && expression_projection.is_none()
+                && explode_projection.is_none()
+            {
+                Vec::new()
             } else {
                 row_export_columns_from_chunk(&chunk, &declared_columns, &mut ctx)?
             };
@@ -5795,22 +5807,34 @@ fn execute_vortex_local_primitive_row_export_enabled(
             } else if let Some(rolling_window) = rolling_window {
                 let source_column_index =
                     column_index(&chunk_columns, rolling_window.source_column.as_str())?;
-                let rolling_columns = vec![columns[source_column_index].clone()];
-                let materialized_rows =
-                    row_export_materialized_row_count(&rolling_columns, chunk_rows)?;
                 let Some(state) = rolling_state.as_mut() else {
                     return Err(ShardLoomError::InvalidOperation(
                         "local Vortex rolling row export state was not initialized; no fallback execution was attempted"
                             .to_string(),
                     ));
                 };
-                let output_values = rolling_window_values(
-                    &rolling_columns,
-                    rolling_window,
-                    state,
-                    materialized_rows,
-                    false,
-                )?;
+                let output_values = if columns.is_empty() {
+                    rolling_window_values_from_chunk(
+                        &chunk,
+                        chunk_columns[source_column_index].as_str(),
+                        rolling_window,
+                        state,
+                        chunk_rows,
+                        false,
+                        &mut ctx,
+                    )?
+                } else {
+                    let rolling_columns = vec![columns[source_column_index].clone()];
+                    let materialized_rows =
+                        row_export_materialized_row_count(&rolling_columns, chunk_rows)?;
+                    rolling_window_values(
+                        &rolling_columns,
+                        rolling_window,
+                        state,
+                        materialized_rows,
+                        false,
+                    )?
+                };
                 pre_limit_result_row_count = pre_limit_result_row_count
                     .checked_add(output_values.len())
                     .ok_or_else(|| {
@@ -9021,6 +9045,186 @@ fn rolling_window_values(
         return state.emit_ready_centered(rolling_window, end_of_input);
     }
     Ok(output)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn push_rolling_observation_row(
+    state: &mut RollingWindowState,
+    rolling_value: Option<f64>,
+    rolling_window: &VortexRollingWindowRequest,
+    track_sum: bool,
+    output: &mut Vec<StatValue>,
+) -> Result<()> {
+    if rolling_window.center {
+        return state.push_centered(rolling_value);
+    }
+    state.push(rolling_value, rolling_window.window_size, track_sum)?;
+    if state.ready(rolling_window.min_periods) {
+        output.push(state.current_value(rolling_window)?);
+    }
+    Ok(())
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::cast_precision_loss)]
+fn rolling_window_values_from_primitive(
+    owner: &NativeNumericOwner,
+    rolling_window: &VortexRollingWindowRequest,
+    state: &mut RollingWindowState,
+    source_rows: usize,
+    end_of_input: bool,
+) -> Result<Vec<StatValue>> {
+    use vortex::array::dtype::PType;
+
+    let primitive = owner.primitive();
+    if primitive.len() < source_rows {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex rolling window scanned fewer values than rows; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    let aggregate = rolling_window.aggregate.as_str();
+    let is_count = aggregate == "count";
+    let track_sum = matches!(aggregate, "sum" | "mean");
+    let validity = owner.validity();
+    let all_valid = owner.all_valid();
+    let mut output = Vec::new();
+
+    macro_rules! push_primitive_slice {
+        ($slice:expr, $conv:expr) => {{
+            for (row_index, &raw) in $slice.iter().take(source_rows).enumerate() {
+                let rolling_value = if !all_valid && !validity.value(row_index) {
+                    None
+                } else if is_count {
+                    Some(0.0)
+                } else {
+                    Some($conv(raw)?)
+                };
+                push_rolling_observation_row(
+                    state,
+                    rolling_value,
+                    rolling_window,
+                    track_sum,
+                    &mut output,
+                )?;
+            }
+        }};
+    }
+
+    match primitive.ptype() {
+        PType::U8 => {
+            push_primitive_slice!(primitive.as_slice::<u8>(), |v: u8| {
+                Ok::<f64, ShardLoomError>(f64::from(v))
+            });
+        }
+        PType::U16 => {
+            push_primitive_slice!(primitive.as_slice::<u16>(), |v: u16| {
+                Ok::<f64, ShardLoomError>(f64::from(v))
+            });
+        }
+        PType::U32 => {
+            push_primitive_slice!(primitive.as_slice::<u32>(), |v: u32| {
+                Ok::<f64, ShardLoomError>(f64::from(v))
+            });
+        }
+        PType::U64 => {
+            push_primitive_slice!(primitive.as_slice::<u64>(), |v: u64| {
+                Ok::<f64, ShardLoomError>(v as f64)
+            });
+        }
+        PType::I8 => {
+            push_primitive_slice!(primitive.as_slice::<i8>(), |v: i8| {
+                Ok::<f64, ShardLoomError>(f64::from(v))
+            });
+        }
+        PType::I16 => {
+            push_primitive_slice!(primitive.as_slice::<i16>(), |v: i16| {
+                Ok::<f64, ShardLoomError>(f64::from(v))
+            });
+        }
+        PType::I32 => {
+            push_primitive_slice!(primitive.as_slice::<i32>(), |v: i32| {
+                Ok::<f64, ShardLoomError>(f64::from(v))
+            });
+        }
+        PType::I64 => {
+            push_primitive_slice!(primitive.as_slice::<i64>(), |v: i64| {
+                Ok::<f64, ShardLoomError>(v as f64)
+            });
+        }
+        PType::F32 => {
+            push_primitive_slice!(primitive.as_slice::<f32>(), |v: f32| {
+                stat_value_to_f64(&StatValue::Float64(f64::from(v)))
+            });
+        }
+        PType::F64 => {
+            push_primitive_slice!(primitive.as_slice::<f64>(), |v: f64| {
+                stat_value_to_f64(&StatValue::Float64(v))
+            });
+        }
+        PType::F16 => {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex rolling primitive consumer does not admit f16 directly; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+    }
+
+    if rolling_window.center {
+        return state.emit_ready_centered(rolling_window, end_of_input);
+    }
+    Ok(output)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn rolling_window_values_from_chunk(
+    chunk: &vortex::array::ArrayRef,
+    column_name: &str,
+    rolling_window: &VortexRollingWindowRequest,
+    state: &mut RollingWindowState,
+    source_rows: usize,
+    end_of_input: bool,
+    ctx: &mut vortex::array::ExecutionCtx,
+) -> Result<Vec<StatValue>> {
+    use vortex::array::{
+        arrays::PrimitiveArray,
+        dtype::{DType, PType},
+    };
+
+    let source_array = if chunk.dtype().is_struct() {
+        logical_field_from_native_array(chunk, column_name)?
+    } else {
+        chunk.clone()
+    };
+    if matches!(source_array.dtype(), DType::Primitive(ptype, _) if *ptype != PType::F16) {
+        let primitive = source_array
+            .clone()
+            .execute::<PrimitiveArray>(ctx)
+            .map_err(vortex_error)?;
+        if primitive.len() != chunk.len() || primitive.dtype() != source_array.dtype() {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex rolling primitive execution changed dtype or row count; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        let owner = NativeNumericOwner::new(primitive, ctx)?;
+        return rolling_window_values_from_primitive(
+            &owner,
+            rolling_window,
+            state,
+            source_rows,
+            end_of_input,
+        );
+    }
+    let single_column = [column_name.to_owned()];
+    let rolling_columns = row_export_columns_from_chunk(chunk, &single_column, ctx)?;
+    rolling_window_values(
+        &rolling_columns,
+        rolling_window,
+        state,
+        source_rows,
+        end_of_input,
+    )
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -21124,22 +21328,23 @@ fn read_local_vortex_rolling_window_scan(
             chunk.nbuffers(),
         )?;
         reader_splits.push(split);
-        let columns = row_export_columns_from_chunk(&chunk, &declared_columns, &mut ctx)?;
-        let source_materialized_rows = row_export_materialized_row_count(&columns, rows)?;
-        let (candidate_indices, residual_materialized) = residual_candidate_row_indices_for_chunk(
-            residual_evaluator.as_ref(),
-            &chunk,
-            &declared_columns,
-            &columns,
-            source_materialized_rows,
-            &mut ctx,
-        )?;
-        residual_predicate_materialized |= residual_materialized;
-        let selected_columns = select_materialized_columns(&columns, &candidate_indices)?;
-        let rolling_columns = vec![selected_columns[source_column_index].clone()];
-        let materialized_rows = row_export_materialized_row_count(&rolling_columns, rows)?;
-        let rows_to_process =
-            if rolling_window.center {
+        let output_values = if let Some(predicate) = residual_evaluator.as_ref() {
+            let columns = row_export_columns_from_chunk(&chunk, &declared_columns, &mut ctx)?;
+            let source_materialized_rows = row_export_materialized_row_count(&columns, rows)?;
+            let (candidate_indices, residual_materialized) =
+                residual_candidate_row_indices_for_chunk(
+                    Some(predicate),
+                    &chunk,
+                    &declared_columns,
+                    &columns,
+                    source_materialized_rows,
+                    &mut ctx,
+                )?;
+            residual_predicate_materialized |= residual_materialized;
+            let selected_columns = select_materialized_columns(&columns, &candidate_indices)?;
+            let rolling_columns = vec![selected_columns[source_column_index].clone()];
+            let materialized_rows = row_export_materialized_row_count(&rolling_columns, rows)?;
+            let rows_to_process = if rolling_window.center {
                 materialized_rows
             } else {
                 source_order_limit.map_or(materialized_rows, |limit| {
@@ -21150,13 +21355,35 @@ fn read_local_vortex_rolling_window_scan(
                     ))
                 })
             };
-        let output_values = rolling_window_values(
-            &rolling_columns,
-            rolling_window,
-            &mut rolling_state,
-            rows_to_process,
-            false,
-        )?;
+            rolling_window_values(
+                &rolling_columns,
+                rolling_window,
+                &mut rolling_state,
+                rows_to_process,
+                false,
+            )?
+        } else {
+            let rows_to_process = if rolling_window.center {
+                rows
+            } else {
+                source_order_limit.map_or(rows, |limit| {
+                    let output_rows_needed = limit.saturating_sub(result_row_count);
+                    rows.min(rolling_state.input_rows_needed_for_outputs(
+                        rolling_window.min_periods,
+                        output_rows_needed,
+                    ))
+                })
+            };
+            rolling_window_values_from_chunk(
+                &chunk,
+                declared_columns[source_column_index].as_str(),
+                rolling_window,
+                &mut rolling_state,
+                rows_to_process,
+                false,
+                &mut ctx,
+            )?
+        };
         pre_limit_result_row_count = pre_limit_result_row_count
             .checked_add(output_values.len())
             .ok_or_else(|| {
@@ -21359,9 +21586,11 @@ fn read_local_vortex_simple_aggregate_scan(
                     .min(parallelism);
             }
             if weighted_count_spill_admission::request_admitted(request) {
+                let shared_pool =
+                    resident.shared_compute_pool(policy.resource_envelope.max_parallelism)?;
                 let (result, owner) =
                     prepared.with_native_execution(|file, session, runtime| {
-                        weighted_count_spill_query::execute(
+                        weighted_count_spill_query::execute_with_output_and_pool(
                             source_uri,
                             request,
                             policy,
@@ -21370,6 +21599,9 @@ fn read_local_vortex_simple_aggregate_scan(
                             runtime,
                             resident.memory(),
                             true,
+                            None,
+                            None,
+                            shared_pool.as_ref(),
                         )
                     })?;
                 drop(owner);
@@ -21423,6 +21655,11 @@ fn read_local_vortex_simple_aggregate_scan(
             );
         let worker_memory =
             (external_cpu_pool && !restore_provider_drivers).then(|| resident.memory());
+        let shared_pool = if external_cpu_pool && !restore_provider_drivers {
+            resident.shared_compute_pool(policy.resource_envelope.max_parallelism)?
+        } else {
+            None
+        };
         let reuse = if prepared.has_segment_reuse_field_root()
             && matches!(request.predicate, Some(PredicateExpr::And(_)))
         {
@@ -21456,7 +21693,7 @@ fn read_local_vortex_simple_aggregate_scan(
                 |file, session, runtime, attempt| {
                     let mut retry =
                         |error: &vortex::error::VortexError| attempt.request_uncached_retry(error);
-                    read_prepared_vortex_simple_aggregate_scan(
+                    read_prepared_vortex_simple_aggregate_scan_with_pool(
                         source_uri,
                         request,
                         policy,
@@ -21465,6 +21702,7 @@ fn read_local_vortex_simple_aggregate_scan(
                         runtime,
                         worker_memory,
                         Some(&mut retry),
+                        shared_pool.as_ref(),
                     )
                 },
             )?;
@@ -21488,7 +21726,7 @@ fn read_local_vortex_simple_aggregate_scan(
             return Ok(result);
         }
         prepared.with_native_execution(|file, session, runtime| {
-            read_prepared_vortex_simple_aggregate_scan(
+            read_prepared_vortex_simple_aggregate_scan_with_pool(
                 source_uri,
                 request,
                 policy,
@@ -21497,6 +21735,7 @@ fn read_local_vortex_simple_aggregate_scan(
                 runtime,
                 worker_memory,
                 None,
+                shared_pool.as_ref(),
             )
         })
     }
@@ -21538,13 +21777,39 @@ fn read_prepared_vortex_simple_aggregate_scan(
     worker_memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
     uncached_retry: Option<&mut dyn FnMut(&vortex::error::VortexError) -> bool>,
 ) -> Result<LocalVortexAggregateScan> {
+    read_prepared_vortex_simple_aggregate_scan_with_pool(
+        source_uri,
+        request,
+        policy,
+        file,
+        session,
+        runtime,
+        worker_memory,
+        uncached_retry,
+        None,
+    )
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+fn read_prepared_vortex_simple_aggregate_scan_with_pool(
+    source_uri: &DatasetUri,
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    file: &vortex::file::VortexFile,
+    session: &vortex::session::VortexSession,
+    runtime: &impl aggregate_scan_runtime::AggregateScanRuntime,
+    worker_memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
+    uncached_retry: Option<&mut dyn FnMut(&vortex::error::VortexError) -> bool>,
+    shared_pool: Option<&std::sync::Arc<shardloom_exec::compute_pool::ComputePool>>,
+) -> Result<LocalVortexAggregateScan> {
     let attempt_started = Instant::now();
     let lowering = aggregate_lowering::AggregateLowering::new(
         request,
         file.dtype(),
         policy.resource_envelope(),
     )?;
-    read_lowered_vortex_simple_aggregate_scan(
+    read_lowered_vortex_simple_aggregate_scan_with_pool(
         source_uri,
         request,
         policy,
@@ -21557,6 +21822,7 @@ fn read_prepared_vortex_simple_aggregate_scan(
         attempt_started,
         None,
         None,
+        shared_pool,
     )
 }
 
@@ -21576,6 +21842,40 @@ fn read_lowered_vortex_simple_aggregate_scan(
     owned_output: Option<&mut aggregate_owned::AggregateOutput>,
     cancellation: Option<&shardloom_exec::compute_pool::CancellationToken>,
 ) -> Result<LocalVortexAggregateScan> {
+    read_lowered_vortex_simple_aggregate_scan_with_pool(
+        source_uri,
+        request,
+        policy,
+        file,
+        session,
+        runtime,
+        worker_memory,
+        uncached_retry,
+        lowering,
+        attempt_started,
+        owned_output,
+        cancellation,
+        None,
+    )
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+fn read_lowered_vortex_simple_aggregate_scan_with_pool(
+    source_uri: &DatasetUri,
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    file: aggregate_scan_source::AggregateScanSource<'_>,
+    session: &vortex::session::VortexSession,
+    runtime: &impl aggregate_scan_runtime::AggregateScanRuntime,
+    worker_memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
+    uncached_retry: Option<&mut dyn FnMut(&vortex::error::VortexError) -> bool>,
+    lowering: &aggregate_lowering::AggregateLowering,
+    attempt_started: Instant,
+    owned_output: Option<&mut aggregate_owned::AggregateOutput>,
+    cancellation: Option<&shardloom_exec::compute_pool::CancellationToken>,
+    shared_pool: Option<&std::sync::Arc<shardloom_exec::compute_pool::ComputePool>>,
+) -> Result<LocalVortexAggregateScan> {
     let mut scan = execute_lowered_vortex_simple_aggregate_scan(
         source_uri,
         request,
@@ -21589,6 +21889,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
         attempt_started,
         owned_output,
         cancellation,
+        shared_pool,
     )?;
     lowering.annotate_scan(&mut scan);
     Ok(scan)
@@ -21609,6 +21910,7 @@ fn execute_lowered_vortex_simple_aggregate_scan(
     attempt_started: Instant,
     mut owned_output: Option<&mut aggregate_owned::AggregateOutput>,
     cancellation: Option<&shardloom_exec::compute_pool::CancellationToken>,
+    shared_pool: Option<&std::sync::Arc<shardloom_exec::compute_pool::ComputePool>>,
 ) -> Result<LocalVortexAggregateScan> {
     let check_cancelled = || {
         cancellation.map_or(
@@ -21778,7 +22080,7 @@ fn execute_lowered_vortex_simple_aggregate_scan(
         && residual_evaluator.is_none()
         && let (Some(states), Some(memory)) = (scalar_states.as_ref(), worker_memory)
     {
-        scalar_distinct_workers::ScalarDistinctWorkers::admit(
+        scalar_distinct_workers::ScalarDistinctWorkers::admit_with_pool(
             states,
             file.dtype(),
             &declared_columns,
@@ -21786,6 +22088,7 @@ fn execute_lowered_vortex_simple_aggregate_scan(
             session,
             memory,
             cancellation,
+            shared_pool,
         )?
     } else {
         None
@@ -21794,7 +22097,7 @@ fn execute_lowered_vortex_simple_aggregate_scan(
         && residual_evaluator.is_none()
         && let (Some(states), Some(memory)) = (grouped_states.as_ref(), worker_memory)
     {
-        aggregate_count_workers::CountWorkers::admit(
+        aggregate_count_workers::CountWorkers::admit_with_pool(
             states,
             file.dtype(),
             &declared_columns,
@@ -21802,6 +22105,7 @@ fn execute_lowered_vortex_simple_aggregate_scan(
             session,
             memory,
             cancellation,
+            shared_pool,
         )?
     } else {
         None
@@ -21811,13 +22115,14 @@ fn execute_lowered_vortex_simple_aggregate_scan(
         && residual_evaluator.is_none()
         && let (Some(states), Some(memory)) = (grouped_states.as_ref(), worker_memory)
     {
-        count_workers = dictionary_prepare_workers::DictionaryPrepareWorkers::admit(
+        count_workers = dictionary_prepare_workers::DictionaryPrepareWorkers::admit_with_pool(
             states,
             file.dtype(),
             &declared_columns,
             policy,
             memory,
             cancellation,
+            shared_pool,
         )?
         .map(aggregate_count_workers::CountWorkers::DictionaryPrepare);
     }
@@ -21911,13 +22216,14 @@ fn execute_lowered_vortex_simple_aggregate_scan(
         // The complete COUNT pass used provider progress. Transfer this same
         // runtime's CPU ownership before starting the selected-measure jobs.
         drop(provider_drivers.take());
-        count_workers = mixed_distinct_workers::MixedDistinctWorkers::admit(
+        count_workers = mixed_distinct_workers::MixedDistinctWorkers::admit_with_pool(
             states,
             proof,
             &declared_columns,
             policy,
             memory,
             cancellation,
+            shared_pool,
         )?
         .map(aggregate_count_workers::CountWorkers::MixedDistinct);
         if count_workers.is_some() {
@@ -22116,40 +22422,21 @@ fn execute_lowered_vortex_simple_aggregate_scan(
                         row_indices.len()
                     } else {
                         residual_predicate_materialized = true;
-                        let columns = if row_indices.len() < rows {
-                            row_export_selected_columns_from_chunk(
-                                &chunk,
-                                &declared_columns,
-                                &row_indices,
-                                &mut scalar_execution_ctx,
-                            )?
-                        } else {
-                            row_export_columns_from_chunk(
-                                &chunk,
-                                &declared_columns,
-                                &mut scalar_execution_ctx,
-                            )?
-                        };
-                        let materialized_rows = if row_indices.len() < rows {
-                            row_indices.len()
-                        } else if columns.is_empty() {
-                            rows
-                        } else {
-                            row_export_materialized_row_count(&columns, rows)?
-                        };
-                        for row_index in 0..materialized_rows {
-                            if let Some(states) = scalar_states.as_mut() {
-                                states.update_row(&columns, row_index)?;
-                            }
-                            if let Some(states) = grouped_states.as_mut()
-                                && !states.update_compact_direct_from_materialized_columns(
-                                    &columns, row_index,
-                                )?
-                            {
-                                states.update_row(&columns, row_index)?;
-                            }
-                        }
-                        materialized_rows
+                        let accessors = aggregate_direct_column_accessors_from_chunk(
+                            &chunk,
+                            &declared_columns,
+                            &mut scalar_execution_ctx,
+                        )?;
+                        update_aggregate_states_general_fallback_from_accessors(
+                            &accessors.values,
+                            Some(&row_indices),
+                            rows,
+                            true,
+                            None,
+                            scalar_states.as_mut(),
+                            grouped_states.as_mut(),
+                        )?;
+                        row_indices.len()
                     }
                 } else if let Some(row_indices) = predicate.fast_candidate_row_indices_in_chunk(
                     &chunk,
@@ -22284,23 +22571,21 @@ fn execute_lowered_vortex_simple_aggregate_scan(
                 let materialized_rows = if direct_scalar_updated || direct_compact_updated {
                     rows
                 } else {
-                    let columns = row_export_columns_from_chunk(
+                    let accessors = aggregate_direct_column_accessors_from_chunk(
                         &chunk,
                         &declared_columns,
                         &mut scalar_execution_ctx,
                     )?;
-                    let materialized_rows = if columns.is_empty() {
-                        rows
-                    } else {
-                        row_export_materialized_row_count(&columns, rows)?
-                    };
-                    if let Some(states) = scalar_states.as_mut() {
-                        states.update(&columns, materialized_rows)?;
-                    }
-                    if let Some(states) = grouped_states.as_mut() {
-                        states.update(&columns, materialized_rows)?;
-                    }
-                    materialized_rows
+                    update_aggregate_states_general_fallback_from_accessors(
+                        &accessors.values,
+                        None,
+                        rows,
+                        false,
+                        None,
+                        scalar_states.as_mut(),
+                        grouped_states.as_mut(),
+                    )?;
+                    rows
                 };
                 pre_limit_result_row_count = pre_limit_result_row_count
                     .checked_add(materialized_rows)
@@ -22910,24 +23195,16 @@ fn update_grouped_exact_states_from_chunk(
                 declared_columns,
                 row_index_filter,
             )? {
-                let columns = if row_indices.len() < rows {
-                    row_export_selected_columns_from_chunk(
-                        chunk,
-                        declared_columns,
-                        &row_indices,
-                        ctx,
-                    )?
-                } else {
-                    row_export_columns_from_chunk(chunk, declared_columns, ctx)?
-                };
-                let materialized_rows = if row_indices.len() < rows {
-                    row_indices.len()
-                } else if columns.is_empty() {
-                    rows
-                } else {
-                    row_export_materialized_row_count(&columns, rows)?
-                };
-                exact_states.update(&columns, materialized_rows)?;
+                let row_filter = (row_indices.len() < rows).then_some(row_indices.as_slice());
+                let accessors =
+                    aggregate_direct_column_accessors_from_chunk(chunk, declared_columns, ctx)?;
+                exact_states.update_general_fallback_from_accessors(
+                    &accessors.values,
+                    row_filter,
+                    rows,
+                    false,
+                    None,
+                )?;
             }
             return Ok(());
         }
@@ -22966,13 +23243,14 @@ fn update_grouped_exact_states_from_chunk(
         return Ok(());
     }
     if !exact_states.update_compact_direct_from_chunk(chunk, declared_columns, None)? {
-        let columns = row_export_columns_from_chunk(chunk, declared_columns, ctx)?;
-        let materialized_rows = if columns.is_empty() {
-            rows
-        } else {
-            row_export_materialized_row_count(&columns, rows)?
-        };
-        exact_states.update(&columns, materialized_rows)?;
+        let accessors = aggregate_direct_column_accessors_from_chunk(chunk, declared_columns, ctx)?;
+        exact_states.update_general_fallback_from_accessors(
+            &accessors.values,
+            None,
+            rows,
+            false,
+            None,
+        )?;
     }
     Ok(())
 }
@@ -23535,43 +23813,21 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
                             row_indices.len()
                         } else {
                             residual_predicate_materialized = true;
-                            let columns = if row_indices.len() < rows {
-                                row_export_selected_columns_from_chunk(
-                                    &chunk,
-                                    &declared_columns,
-                                    &row_indices,
-                                    &mut scalar_execution_ctx,
-                                )?
-                            } else {
-                                row_export_columns_from_chunk(
-                                    &chunk,
-                                    &declared_columns,
-                                    &mut scalar_execution_ctx,
-                                )?
-                            };
-                            let materialized_rows = if row_indices.len() < rows {
-                                row_indices.len()
-                            } else if columns.is_empty() {
-                                rows
-                            } else {
-                                row_export_materialized_row_count(&columns, rows)?
-                            };
-                            for row_index in 0..materialized_rows {
-                                if row_index.is_multiple_of(4096) {
-                                    check_local_vortex_context(context)?;
-                                }
-                                if let Some(states) = scalar_states.as_mut() {
-                                    states.update_row(&columns, row_index)?;
-                                }
-                                if let Some(states) = grouped_states.as_mut()
-                                    && !states.update_compact_direct_from_materialized_columns(
-                                        &columns, row_index,
-                                    )?
-                                {
-                                    states.update_row(&columns, row_index)?;
-                                }
-                            }
-                            materialized_rows
+                            let accessors = aggregate_direct_column_accessors_from_chunk(
+                                &chunk,
+                                &declared_columns,
+                                &mut scalar_execution_ctx,
+                            )?;
+                            update_aggregate_states_general_fallback_from_accessors(
+                                &accessors.values,
+                                Some(&row_indices),
+                                rows,
+                                true,
+                                context,
+                                scalar_states.as_mut(),
+                                grouped_states.as_mut(),
+                            )?;
+                            row_indices.len()
                         }
                     } else if let Some(row_indices) = predicate
                         .fast_candidate_row_indices_in_chunk(
@@ -23681,23 +23937,21 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
                     let materialized_rows = if direct_scalar_updated || direct_compact_updated {
                         rows
                     } else {
-                        let columns = row_export_columns_from_chunk(
+                        let accessors = aggregate_direct_column_accessors_from_chunk(
                             &chunk,
                             &declared_columns,
                             &mut scalar_execution_ctx,
                         )?;
-                        let materialized_rows = if columns.is_empty() {
-                            rows
-                        } else {
-                            row_export_materialized_row_count(&columns, rows)?
-                        };
-                        if let Some(states) = scalar_states.as_mut() {
-                            states.update(&columns, materialized_rows)?;
-                        }
-                        if let Some(states) = grouped_states.as_mut() {
-                            states.update(&columns, materialized_rows)?;
-                        }
-                        materialized_rows
+                        update_aggregate_states_general_fallback_from_accessors(
+                            &accessors.values,
+                            None,
+                            rows,
+                            false,
+                            context,
+                            scalar_states.as_mut(),
+                            grouped_states.as_mut(),
+                        )?;
+                        rows
                     };
                     pre_limit_result_row_count = pre_limit_result_row_count
                             .checked_add(materialized_rows)
@@ -26845,6 +27099,7 @@ impl SimpleAggregateStates {
         })
     }
 
+    #[cfg(test)]
     fn update(&mut self, columns: &[Vec<StatValue>], rows: usize) -> Result<()> {
         let fused = self.update_fused_numeric_additive(columns, rows)?;
         if fused.iter().any(|fused_state| *fused_state) {
@@ -26858,6 +27113,7 @@ impl SimpleAggregateStates {
         Ok(())
     }
 
+    #[cfg(test)]
     #[allow(clippy::cast_precision_loss)]
     fn update_fused_numeric_additive(
         &mut self,
@@ -27273,6 +27529,64 @@ impl SimpleAggregateStates {
             if index != skipped_state_index {
                 state.update_direct_row_from_accessors(accessors, row_index, chunk_rows)?;
             }
+        }
+        Ok(())
+    }
+
+    fn update_general_from_accessors(
+        &mut self,
+        accessors: &[AggregateDirectColumnAccessor],
+        row_indices: Option<&[usize]>,
+        chunk_rows: usize,
+        context: Option<&NativeExecutionContext<'_>>,
+    ) -> Result<()> {
+        if self.states.is_empty() {
+            return Ok(());
+        }
+        let fused = self.update_direct_fused_numeric_additive(accessors, row_indices)?;
+        if fused.iter().any(|&v| v) {
+            self.fused_numeric_additive_updates = true;
+        }
+        let admitted = self
+            .states
+            .iter()
+            .map(|state| state.direct_update_admitted(accessors, row_indices))
+            .collect::<Vec<_>>();
+        let mut update_one = |visit_idx: usize, row_index: usize| -> Result<()> {
+            if visit_idx.is_multiple_of(4096) {
+                check_local_vortex_context(context)?;
+            }
+            for (index, state) in self.states.iter_mut().enumerate() {
+                if fused[index] {
+                    continue;
+                }
+                if admitted[index] {
+                    state.update_direct_row_from_accessors(accessors, row_index, chunk_rows)?;
+                } else {
+                    state.update_general_from_accessors_row(accessors, row_index)?;
+                }
+            }
+            Ok(())
+        };
+        if let Some(indices) = row_indices {
+            for (visit_idx, &row_index) in indices.iter().enumerate() {
+                update_one(visit_idx, row_index)?;
+            }
+        } else {
+            for row_index in 0..chunk_rows {
+                update_one(row_index, row_index)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn update_general_from_accessors_row(
+        &mut self,
+        accessors: &[AggregateDirectColumnAccessor],
+        row_index: usize,
+    ) -> Result<()> {
+        for state in &mut self.states {
+            state.update_general_from_accessors_row(accessors, row_index)?;
         }
         Ok(())
     }
@@ -30735,6 +31049,7 @@ impl<'a> GroupedAggregateStates<'a> {
         })
     }
 
+    #[cfg(test)]
     fn update(&mut self, columns: &[Vec<StatValue>], rows: usize) -> Result<()> {
         for row_index in 0..rows {
             self.update_row(columns, row_index)?;
@@ -30830,6 +31145,196 @@ impl<'a> GroupedAggregateStates<'a> {
         };
         entry.general_states_mut()?.update_row(columns, row_index)?;
         self.materialized_owned_group_keys = true;
+        Ok(())
+    }
+
+    fn grouped_owned_key_for_direct_row(
+        &self,
+        accessors: &[AggregateDirectColumnAccessor],
+        row_index: usize,
+    ) -> Result<Option<AggregateGroupKey>> {
+        let mut values = Vec::with_capacity(self.group_key_indices.len());
+        for &index in &self.group_key_indices {
+            let group_column = self.group_columns.get(index).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex grouped aggregate owned direct key index was missing; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+            let value = match aggregate_group_column_stat_value_for_direct_row(
+                group_column,
+                accessors,
+                row_index,
+            ) {
+                Ok(value) => value,
+                Err(error) => {
+                    if !values.is_empty()
+                        && !self.groups.keys().any(|key| {
+                            values
+                                .iter()
+                                .enumerate()
+                                .all(|(position, value)| key.get(position) == Some(value))
+                        })
+                    {
+                        return Ok(None);
+                    }
+                    return Err(error);
+                }
+            };
+            values.push(AggregateDistinctValue::from(&value));
+        }
+        let key = AggregateGroupKey::from_values(values);
+        Ok(self.groups.contains_key(&key).then_some(key))
+    }
+
+    fn update_general_fallback_row_from_accessors(
+        &mut self,
+        accessors: &[AggregateDirectColumnAccessor],
+        row_index: usize,
+        allow_compact: bool,
+        bound_compact: Option<&bound_numeric_updates::BoundCompactNumericUpdates<'_>>,
+    ) -> Result<()> {
+        if allow_compact {
+            if self.admits_count_star_direct_updates() {
+                self.update_count_star_direct_row(accessors, row_index)?;
+                self.count_star_direct_updates = true;
+                return Ok(());
+            }
+            if self.compact_measure_specs.is_some() {
+                self.update_compact_measure_direct_row(accessors, row_index, bound_compact)?;
+                self.compact_measure_direct_updates = true;
+                return Ok(());
+            }
+        }
+        if self.source_order_group_admission_closed() {
+            if self.materialized_owned_group_keys {
+                if let Some(owned_key) =
+                    self.grouped_owned_key_for_direct_row(accessors, row_index)?
+                    && let Some(group) = self.groups.get_mut(&owned_key)
+                {
+                    group
+                        .general_states_mut()?
+                        .update_general_from_accessors_row(accessors, row_index)?;
+                    self.source_order_limited_group_admission = true;
+                    return Ok(());
+                }
+                if self.string_interner.values.is_empty() {
+                    self.source_order_limited_group_admission = true;
+                    return Ok(());
+                }
+            }
+            let Some(key) = self.grouped_existing_key_for_direct_row(accessors, row_index)? else {
+                self.source_order_limited_group_admission = true;
+                return Ok(());
+            };
+            if let Some(group) = self.groups.get_mut(&key) {
+                group
+                    .general_states_mut()?
+                    .update_general_from_accessors_row(accessors, row_index)?;
+            }
+            self.source_order_limited_group_admission = true;
+            return Ok(());
+        }
+        let (key, group_values) = if self.materialized_owned_group_keys {
+            let group_values = self.group_values_for_direct_row(accessors, row_index)?;
+            let key = self.grouped_key_for_values(&group_values);
+            (key, group_values)
+        } else {
+            let key = self.grouped_key_for_direct_row(accessors, row_index)?;
+            let group_values = self.group_values_for_direct_row(accessors, row_index)?;
+            (key, group_values)
+        };
+        let record_source_order = self.request.order_by.is_empty();
+        let entry = match self.groups.entry(key) {
+            std::collections::hash_map::Entry::Occupied(entry) => entry.into_mut(),
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                if record_source_order {
+                    self.group_order.push(entry.key().clone());
+                }
+                entry.insert(GroupedAggregateState::new_general(
+                    group_values,
+                    self.state_template.clone(),
+                ))
+            }
+        };
+        entry
+            .general_states_mut()?
+            .update_general_from_accessors_row(accessors, row_index)
+    }
+
+    fn prepare_general_fallback_from_accessors(&mut self) -> Result<()> {
+        if self.numeric_pair_late_measure_count_groups.is_some() {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex numeric-pair late-measure route lost direct native access before general direct fallback; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        if self.single_numeric_count_groups.is_some() {
+            self.demote_single_numeric_count_groups_to_generic()?;
+        }
+        if self.numeric_pair_compact_groups.is_some() {
+            self.demote_numeric_pair_compact_groups_to_generic()?;
+        }
+        if self.numeric_minute_string_count_groups.is_some() {
+            self.demote_numeric_minute_string_count_groups_to_generic()?;
+        }
+        if self.string_count_topk_heavy_hitter_sketch.is_some()
+            || self.string_count_topk_candidate_ids.is_some()
+            || self.string_count_topk_exact_counts.is_some()
+        {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex string top-K heavy-hitter route lost exact row-index/direct accessor state before general direct fallback; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn update_general_fallback_from_accessors(
+        &mut self,
+        accessors: &[AggregateDirectColumnAccessor],
+        row_indices: Option<&[usize]>,
+        chunk_rows: usize,
+        allow_compact: bool,
+        context: Option<&NativeExecutionContext<'_>>,
+    ) -> Result<()> {
+        if allow_compact {
+            self.prepare_general_fallback_from_accessors()?;
+        }
+        let bound_compact = if allow_compact {
+            self.compact_measure_specs.as_deref().and_then(|specs| {
+                bound_numeric_updates::BoundCompactNumericUpdates::bind(
+                    specs, accessors, chunk_rows,
+                )
+            })
+        } else {
+            None
+        };
+        if let Some(indices) = row_indices {
+            for (visit_idx, &row_index) in indices.iter().enumerate() {
+                if visit_idx.is_multiple_of(4096) {
+                    check_local_vortex_context(context)?;
+                }
+                self.update_general_fallback_row_from_accessors(
+                    accessors,
+                    row_index,
+                    allow_compact,
+                    bound_compact.as_ref(),
+                )?;
+            }
+        } else {
+            for row_index in 0..chunk_rows {
+                if row_index.is_multiple_of(4096) {
+                    check_local_vortex_context(context)?;
+                }
+                self.update_general_fallback_row_from_accessors(
+                    accessors,
+                    row_index,
+                    allow_compact,
+                    bound_compact.as_ref(),
+                )?;
+            }
+        }
         Ok(())
     }
 
@@ -47374,6 +47879,48 @@ impl AggregateDistinctValue {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::too_many_arguments)]
+fn update_aggregate_states_general_fallback_from_accessors(
+    accessors: &[AggregateDirectColumnAccessor],
+    row_indices: Option<&[usize]>,
+    chunk_rows: usize,
+    allow_compact_grouped: bool,
+    context: Option<&NativeExecutionContext<'_>>,
+    scalar_states: Option<&mut SimpleAggregateStates>,
+    mut grouped_states: Option<&mut GroupedAggregateStates<'_>>,
+) -> Result<()> {
+    if let Some(states) = grouped_states.as_deref_mut()
+        && allow_compact_grouped
+    {
+        states.prepare_general_fallback_from_accessors()?;
+    }
+    let Some(states) = scalar_states else {
+        if let Some(grouped) = grouped_states {
+            grouped.update_general_fallback_from_accessors(
+                accessors,
+                row_indices,
+                chunk_rows,
+                allow_compact_grouped,
+                context,
+            )?;
+        }
+        return Ok(());
+    };
+    let Some(grouped) = grouped_states else {
+        return states.update_general_from_accessors(accessors, row_indices, chunk_rows, context);
+    };
+    // Grouped and scalar states rarely coexist; run scalar first then grouped so each keeps its hot loop.
+    states.update_general_from_accessors(accessors, row_indices, chunk_rows, context)?;
+    grouped.update_general_fallback_from_accessors(
+        accessors,
+        row_indices,
+        chunk_rows,
+        allow_compact_grouped,
+        context,
+    )
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 impl SimpleAggregateState {
     fn new(
         function: SimpleAggregateFunction,
@@ -47396,6 +47943,7 @@ impl SimpleAggregateState {
         }
     }
 
+    #[cfg(test)]
     fn update(&mut self, columns: &[Vec<StatValue>], rows: usize) -> Result<()> {
         let Some(column_index) = self.column_index else {
             self.count = self.count.checked_add(usize_to_u64(rows)?).ok_or_else(|| {
@@ -47446,6 +47994,30 @@ impl SimpleAggregateState {
             )
         })?;
         let transformed_value = self.value_transform.apply(value)?;
+        self.update_transformed_value(&transformed_value)
+    }
+
+    fn update_general_from_accessors_row(
+        &mut self,
+        accessors: &[AggregateDirectColumnAccessor],
+        row_index: usize,
+    ) -> Result<()> {
+        let Some(column_index) = self.column_index else {
+            self.count = self.count.checked_add(1).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex simple aggregate count overflowed u64".to_string(),
+                )
+            })?;
+            return Ok(());
+        };
+        let accessor = accessors.get(column_index).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex simple aggregate column index was missing; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+        let value = aggregate_direct_stat_value(accessor, row_index)?;
+        let transformed_value = self.value_transform.apply(&value)?;
         self.update_transformed_value(&transformed_value)
     }
 

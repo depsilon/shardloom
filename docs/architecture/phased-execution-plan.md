@@ -785,14 +785,14 @@ with `CG-1` through `CG-23` open and `claim_gate_status=not_claim_grade`.
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 
-- [ ] `E2E-PERF-02` unify `ComputePool` vs. `MorselScheduler`, recycle `Q34`/`Q35` scratch tables, close `R10`, and eliminate remaining `Vec<StatValue>` / scalar kernel bottlenecks.
+- [x] `E2E-PERF-02` unify `ComputePool` vs. `MorselScheduler`, recycle `Q34`/`Q35` scratch tables, close `R10`, and eliminate remaining `Vec<StatValue>` / scalar kernel bottlenecks.
   - Queue identifier only: `E2E-PERF-02` maps to canonical `PERF-03`, `PERF-04`, `PERF-05`, `PERF-10`, and `PERF-INTAKE` `R10`, with relevant competitive gates `CG-2`, `CG-5`, `CG-6`, `CG-8`, `CG-14`, and `CG-15` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
   - V1 scope classification: `required_for_v1`.
   - Execution checklist:
     - [x] Land `ComputePool` targeted wakeups & `OneshotSlot`, `Copy` static row kernels (`SimpleRowKernel`/`CompactRowKernel`), and `O(1)` compensated `add_integer_repeated` (`#1711`).
-    - [ ] Eliminate remaining per-query `ComputePool::new` calls (`aggregate_chunk_jobs.rs:257`, `vortex_ingest.rs:11500`) and unify `ComputePool` vs. `MorselScheduler` onto one session-persistent `PulseWeave`-throttled pool.
-    - [ ] Recycle `LiveMemoryPool`-bounded `Q34`/`Q35` worker-local scratch tables/buffers and resolve lock-free partition routing (`string_count_owner_scheduling.rs`, `compact_string_state.rs`, `PERF-INTAKE` `R10`) against prior rejections.
-    - [ ] Eliminate `Vec<StatValue>` chunk materialization in general aggregate/rolling loops and vectorize `encoded_numeric_reduction.rs` + numeric `Dict` multiplicity reductions under `unsafe_code = "forbid"`.
+    - [x] Unify `ComputePool` / `MorselScheduler` / `AggregateChunkJobs` / `IngestRuntime` onto one lazy session-persistent `PulseWeave`-throttled pool (`RuntimeOwner::shared_compute_pool`, `ComputePool::scope_active_worker_limit`, `AggregateChunkJobs::for_operation_with_pool`, `execute_vortex_morsel_scheduler_with_pool`, `IngestRuntime`), keeping per-query `Dedicated` ingest paths `#[cfg(test)]`-only.
+    - [x] Recycle `LiveMemoryPool`-bounded `Q34`/`Q35` worker-local scratch buffers (`CountSlotScratchPool`, `count_string_chunk_with_scratch`, `SingleCountWorkers`) and close `PERF-INTAKE` `R10` via rotated `try_lock` Pass 1 / blocking Pass 2 partition routing (`StringCountPartitions::reduce_with_scratch`) while keeping test-only `string_count_owner_scheduling.rs` / `compact_string_state.rs` non-default.
+    - [x] Eliminate `Vec<StatValue>` chunk materialization in `RollingWindowRows` (`rolling_window_values_from_primitive`, `rolling_window_values_from_chunk`) and general aggregate fallback loops (`SimpleAggregateStates::update_general_from_accessors`, `GroupedAggregateStates::update_general_fallback_from_accessors`) and vectorize `encoded_numeric_reduction.rs` (typed `ends` slices, 4-lane integer `RunEnd`, and numeric `Dict` multiplicity/ordered reduction under `unsafe_code = "forbid"`).
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 

@@ -8,7 +8,7 @@ use super::{
     aggregate_chunk_jobs::{AggregateChunkJobs, ChunkWorkerContext},
     numeric_count_partial::{self, NumericCountKey, OwnedNumericCounts},
     numeric_count_partitions::{self, NumericPartition, NumericPartitions},
-    string_count_partial::{self, StringCountMerge, StringCountPartial},
+    string_count_partial::{self, CountSlotScratchPool, StringCountMerge, StringCountPartial},
     string_count_partitions::{self, PartitionReceipt, PartitionSelection, StringCountPartitions},
 };
 use shardloom_core::{Result, ShardLoomError};
@@ -70,6 +70,7 @@ pub(super) enum CountWorkers {
 }
 
 impl CountWorkers {
+    #[cfg(test)]
     pub(super) fn admit(
         states: &GroupedAggregateStates<'_>,
         dtype: &DType,
@@ -78,6 +79,29 @@ impl CountWorkers {
         session: &VortexSession,
         memory: &LiveMemoryPool,
         cancellation: Option<&CancellationToken>,
+    ) -> Result<Option<Self>> {
+        Self::admit_with_pool(
+            states,
+            dtype,
+            columns,
+            policy,
+            session,
+            memory,
+            cancellation,
+            None,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn admit_with_pool(
+        states: &GroupedAggregateStates<'_>,
+        dtype: &DType,
+        columns: &[String],
+        policy: VortexLocalPrimitiveExecutionPolicy,
+        session: &VortexSession,
+        memory: &LiveMemoryPool,
+        cancellation: Option<&CancellationToken>,
+        shared_pool: Option<&Arc<shardloom_exec::compute_pool::ComputePool>>,
     ) -> Result<Option<Self>> {
         #[cfg(test)]
         let _admission_pressure = ADMISSION_TEST_PRESSURE
@@ -91,38 +115,43 @@ impl CountWorkers {
                     .reserve(snapshot.limit_bytes - snapshot.reserved_bytes)
                     .expect("one-shot pressure reserves only currently available query credit")
             });
-        if let Some(workers) = super::pair_partition_workers::PairWorkers::admit(
+        if let Some(workers) = super::pair_partition_workers::PairWorkers::admit_with_pool(
             states,
             dtype,
             columns,
             policy,
             memory,
             cancellation,
+            shared_pool,
         )? {
             return Ok(Some(Self::PairPartitions(workers)));
         }
-        if let Some(workers) = super::triple_count_workers::TripleWorkers::admit(
+        if let Some(workers) = super::triple_count_workers::TripleWorkers::admit_with_pool(
             states,
             dtype,
             columns,
             policy,
             memory,
             cancellation,
+            shared_pool,
         )? {
             return Ok(Some(Self::Triple(workers)));
         }
-        if let Some(workers) = super::exact_distinct_pairs::workers::ExactDistinctWorkers::admit(
-            states,
-            dtype,
-            columns,
-            policy,
-            session,
-            memory,
-            cancellation,
-        )? {
+        if let Some(workers) =
+            super::exact_distinct_pairs::workers::ExactDistinctWorkers::admit_with_pool(
+                states,
+                dtype,
+                columns,
+                policy,
+                session,
+                memory,
+                cancellation,
+                shared_pool,
+            )?
+        {
             return Ok(Some(Self::ExactDistinct(workers)));
         }
-        if let Some(workers) = super::compound_count_workers::CompoundWorkers::admit(
+        if let Some(workers) = super::compound_count_workers::CompoundWorkers::admit_with_pool(
             states,
             dtype,
             columns,
@@ -130,10 +159,11 @@ impl CountWorkers {
             session,
             memory,
             cancellation,
+            shared_pool,
         )? {
             return Ok(Some(Self::Compound(workers)));
         }
-        SingleCountWorkers::admit(
+        SingleCountWorkers::admit_with_pool(
             states,
             dtype,
             columns,
@@ -141,6 +171,7 @@ impl CountWorkers {
             session,
             memory,
             cancellation,
+            shared_pool,
         )
         .map(|workers| workers.map(Self::Single))
     }
@@ -365,6 +396,7 @@ pub(super) struct SingleCountWorkers {
     preserve_order: bool,
     session: VortexSession,
     string_merge: StringCountMerge,
+    scratch_pool: Arc<CountSlotScratchPool>,
     partitions: Option<Arc<StringCountPartitions>>,
     partition_evidence: Option<string_count_partitions::PartitionEvidence>,
     deferred: Vec<Arc<StringCountPartial>>,
@@ -429,8 +461,8 @@ impl SingleCountWorkers {
         }))
     }
 
-    #[allow(clippy::too_many_lines)]
-    pub(super) fn admit(
+    #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+    pub(super) fn admit_with_pool(
         states: &GroupedAggregateStates<'_>,
         dtype: &DType,
         columns: &[String],
@@ -438,6 +470,7 @@ impl SingleCountWorkers {
         session: &VortexSession,
         memory: &LiveMemoryPool,
         cancellation: Option<&CancellationToken>,
+        shared_pool: Option<&Arc<shardloom_exec::compute_pool::ComputePool>>,
     ) -> Result<Option<Self>> {
         if !super::aggregate_group_key_dtypes_nonnullable(dtype, states.request) {
             return Ok(None);
@@ -553,12 +586,13 @@ impl SingleCountWorkers {
             None
         };
         Ok(Some(Self {
-            jobs: AggregateChunkJobs::for_operation(
+            jobs: AggregateChunkJobs::for_operation_with_pool(
                 max_parallelism,
                 window,
                 memory.snapshot().limit_bytes,
                 memory.clone(),
                 cancellation,
+                shared_pool,
             )?,
             kind,
             group_index: *group_index,
@@ -566,6 +600,7 @@ impl SingleCountWorkers {
             preserve_order: states.request.order_by.is_empty(),
             session: session.clone(),
             string_merge: StringCountMerge::default(),
+            scratch_pool: Arc::new(CountSlotScratchPool::new(max_parallelism)),
             partitions,
             partition_evidence: None,
             deferred,
@@ -618,6 +653,11 @@ impl SingleCountWorkers {
         self.jobs.cancel();
     }
 
+    fn memory_short_for(&self, bytes: u64) -> bool {
+        let snapshot = self.jobs.memory().snapshot();
+        snapshot.limit_bytes.saturating_sub(snapshot.reserved_bytes) < bytes
+    }
+
     /// Numeric Dict keeps its existing native accessor path. Drain all prior
     /// partials before that path mutates the same global state.
     pub(super) fn submit(
@@ -655,22 +695,17 @@ impl SingleCountWorkers {
             .and_then(|bytes| bytes.checked_add(std::mem::size_of::<ArrayRef>() as u64))
             .and_then(|bytes| bytes.checked_add(deferred_metadata))
             .ok_or_else(|| failed("task capacity overflowed"))?;
-        // Release earlier completed capacity before denying the next known
-        // allocation. In-flight provider allocation can still deny explicitly.
-        while self.jobs.outstanding() > 0 && {
-            let snapshot = self.jobs.memory().snapshot();
-            snapshot.limit_bytes.saturating_sub(snapshot.reserved_bytes) < initial_bytes
-        } {
+        while self.jobs.outstanding() > 0 && self.memory_short_for(initial_bytes) {
             self.merge_next(states)?;
+        }
+        if self.memory_short_for(initial_bytes) {
+            self.scratch_pool.clear();
         }
         if self
             .partitions
             .as_ref()
             .is_some_and(|partitions| partitions.pressure_requested())
-            || self.partitions.is_some() && {
-                let snapshot = self.jobs.memory().snapshot();
-                snapshot.limit_bytes.saturating_sub(snapshot.reserved_bytes) < initial_bytes
-            }
+            || (self.partitions.is_some() && self.memory_short_for(initial_bytes))
         {
             self.handoff_partitions(states)?;
         }
@@ -681,20 +716,23 @@ impl SingleCountWorkers {
         let kind = self.kind;
         let preserve_order = self.preserve_order;
         let partitions = self.partitions.clone();
+        let scratch_pool = Arc::clone(&self.scratch_pool);
         self.jobs.submit(initial_bytes, move |worker, lease| {
             if matches!(kind, KeyKind::Utf8) {
                 let denied_before = partitions
                     .as_ref()
                     .map(|partitions| partitions.denied_reservations());
-                let counted = string_count_partial::count_string_chunk(
+                let counted = string_count_partial::count_string_chunk_with_scratch(
                     &array,
                     session.create_execution_ctx(),
                     worker,
                     lease,
+                    Some(&scratch_pool),
                 );
                 let mut partial = match counted {
                     Ok(partial) => partial,
                     Err(error) => {
+                        scratch_pool.clear();
                         // Retry this same immutable native leaf once after releasing
                         // partition state. A repeated failure is the ordinary C4 error.
                         if let Some(partitions) = partitions.as_ref()
@@ -714,7 +752,7 @@ impl SingleCountWorkers {
                 }
                 if let Some(partitions) = partitions {
                     partitions
-                        .reduce(partial, worker, lease)
+                        .reduce_with_scratch(partial, worker, lease, Some(&scratch_pool))
                         .map(Partial::Partitioned)
                 } else {
                     Ok(Partial::String(partial))
@@ -892,6 +930,7 @@ impl SingleCountWorkers {
     }
 
     fn handoff_partitions(&mut self, states: &mut GroupedAggregateStates<'_>) -> Result<()> {
+        self.scratch_pool.clear();
         let Some(partitions) = self.partitions.clone() else {
             return Ok(());
         };
@@ -960,6 +999,7 @@ impl SingleCountWorkers {
     /// drains: only EOF makes partition-local top-K safe.
     pub(super) fn finish(&mut self, states: &mut GroupedAggregateStates<'_>) -> Result<()> {
         self.drain(states)?;
+        self.scratch_pool.clear();
         if self.numeric_partitions.is_some() {
             return self.finish_numeric_partitions(states);
         }
@@ -1316,6 +1356,12 @@ impl SingleCountWorkers {
         }
         *summary = payload.to_string();
         Ok(())
+    }
+}
+
+impl Drop for SingleCountWorkers {
+    fn drop(&mut self) {
+        self.scratch_pool.clear();
     }
 }
 

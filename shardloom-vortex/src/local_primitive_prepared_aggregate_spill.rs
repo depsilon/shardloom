@@ -58,8 +58,14 @@ impl PreparedVortexAggregate {
             .as_ref()
             .ok_or_else(|| failed("prepared source URI is absent"))?;
         if weighted_count_spill_admission::request_admitted(&self.request) {
+            let shared_pool = if self.worker_pool {
+                self.session
+                    .shared_compute_pool(self.policy.resource_envelope.max_parallelism)?
+            } else {
+                None
+            };
             self.run_spill(context, |file, session, runtime| {
-                weighted_count_spill_query::execute_with_output(
+                weighted_count_spill_query::execute_with_output_and_pool(
                     uri,
                     &self.request,
                     self.policy,
@@ -70,6 +76,7 @@ impl PreparedVortexAggregate {
                     self.worker_pool,
                     output,
                     context.map(NativeExecutionContext::cancellation),
+                    shared_pool.as_ref(),
                 )
             })
         } else {

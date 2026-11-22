@@ -34,11 +34,13 @@ use std::sync::{OnceLock, atomic::AtomicUsize};
 #[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
 use std::sync::Mutex;
 
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
+use shardloom_exec::compute_pool::{ComputePool, ComputeTask, WorkerContext};
 #[cfg(feature = "vortex-write")]
 use shardloom_exec::live_memory::LiveMemoryPool;
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use shardloom_exec::{
-    compute_pool::{CancellationToken, ComputePool, ComputeTask, WorkerContext},
+    compute_pool::CancellationToken,
     live_memory::{Budgeted, MemoryLease},
 };
 
@@ -10917,6 +10919,17 @@ fn write_flat_columnar_vortex_prepared_state_streaming_outcome<
     } else {
         "vortex_from_arrow_record_batch_stream"
     };
+    let created_prefetch_runtime = if array_build_prefetch_window > 0 && ingest_runtime.is_none() {
+        let runtime = crate::ingest_runtime::IngestRuntime::new(
+            array_build_prefetch_window
+                .max(array_build_worker_count)
+                .max(1),
+        )?;
+        let drivers = runtime.start_drivers()?;
+        Some((runtime, drivers))
+    } else {
+        None
+    };
     let mut stream_iter = StreamingColumnarVortexArrayIterator::with_runtime(
         dtype,
         first_array,
@@ -10930,7 +10943,11 @@ fn write_flat_columnar_vortex_prepared_state_streaming_outcome<
         array_build_worker_count,
         prefetch_memory_bytes,
         native_memory.clone(),
-        ingest_runtime.clone(),
+        ingest_runtime.clone().or_else(|| {
+            created_prefetch_runtime
+                .as_ref()
+                .map(|(runtime, _)| runtime.clone())
+        }),
         cancellation.clone(),
         float_policy,
     )?;
@@ -11431,6 +11448,27 @@ impl StreamingColumnarVortexArrayIterator {
         )
     }
 
+    fn validate_prefetch_window(
+        vortex_array_prefetch_window: usize,
+        vortex_array_worker_count: usize,
+        runtime: Option<&crate::ingest_runtime::IngestRuntime>,
+    ) -> Result<()> {
+        let max_window = runtime.map_or(
+            VORTEX_STREAM_ARRAY_PREFETCH_MAX_WINDOW,
+            crate::ingest_runtime::IngestRuntime::parallelism,
+        );
+        if (vortex_array_prefetch_window == 0 && vortex_array_worker_count != 0)
+            || (vortex_array_prefetch_window > 0
+                && (!(1..=vortex_array_prefetch_window).contains(&vortex_array_worker_count)
+                    || vortex_array_prefetch_window > max_window))
+        {
+            return Err(ShardLoomError::InvalidOperation(
+                "native ingest conversion workers must match the admitted bounded queue; no fallback execution was attempted".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn with_runtime(
         dtype: vortex::array::dtype::DType,
@@ -11450,20 +11488,11 @@ impl StreamingColumnarVortexArrayIterator {
         float_policy: FloatPolicy,
     ) -> Result<Self> {
         cancellation.check()?;
-        let max_window = runtime
-            .as_ref()
-            .map_or(VORTEX_STREAM_ARRAY_PREFETCH_MAX_WINDOW, |runtime| {
-                runtime.parallelism()
-            });
-        if (vortex_array_prefetch_window == 0 && vortex_array_worker_count != 0)
-            || (vortex_array_prefetch_window > 0
-                && (!(1..=vortex_array_prefetch_window).contains(&vortex_array_worker_count)
-                    || vortex_array_prefetch_window > max_window))
-        {
-            return Err(ShardLoomError::InvalidOperation(
-                "native ingest conversion workers must match the admitted bounded queue; no fallback execution was attempted".to_string(),
-            ));
-        }
+        Self::validate_prefetch_window(
+            vortex_array_prefetch_window,
+            vortex_array_worker_count,
+            runtime.as_ref(),
+        )?;
         let (reader, prefetch) = if vortex_array_prefetch_window > 0 {
             let window = vortex_array_prefetch_window;
             let task_bytes = prefetch_memory_bytes / u64::try_from(window).unwrap_or(u64::MAX);
@@ -11497,12 +11526,22 @@ impl StreamingColumnarVortexArrayIterator {
                 pool: if let Some(runtime) = runtime {
                     shared_conversion::ConversionExecutor::Shared { runtime, memory }
                 } else {
-                    shared_conversion::ConversionExecutor::Dedicated(ComputePool::new(
-                        vortex_array_worker_count,
-                        window,
-                        prefetch_memory_bytes,
-                        memory,
-                    )?)
+                    #[cfg(test)]
+                    {
+                        shared_conversion::ConversionExecutor::Dedicated(ComputePool::new(
+                            vortex_array_worker_count,
+                            window,
+                            prefetch_memory_bytes,
+                            memory,
+                        )?)
+                    }
+                    #[cfg(not(test))]
+                    {
+                        return Err(ShardLoomError::InvalidOperation(
+                            "streaming Vortex array prefetch requires a shared IngestRuntime"
+                                .to_string(),
+                        ));
+                    }
                 },
                 context,
                 tasks: std::collections::VecDeque::new(),
@@ -11818,6 +11857,7 @@ impl StreamingColumnarVortexPrefetch {
 
         let runtime = match &self.pool {
             shared_conversion::ConversionExecutor::Shared { runtime, .. } => Some(runtime.clone()),
+            #[cfg(test)]
             shared_conversion::ConversionExecutor::Dedicated(_) => None,
         };
         let next = futures::future::poll_fn(|cx| self.poll_next_array(expected, cx));
@@ -11883,6 +11923,7 @@ impl StreamingColumnarVortexPrefetch {
                     let task = self.tasks.pop_front().expect("front task checked above");
                     (result.and_then(std::convert::identity), task.completion)
                 }
+                #[cfg(test)]
                 shared_conversion::ConversionTask::Dedicated(_) => {
                     let task = self.tasks.pop_front().expect("front task checked above");
                     let completion = task.completion;
@@ -11970,6 +12011,7 @@ impl StreamingColumnarVortexArrayWorker {
         self.failure.get().cloned().unwrap_or(secondary)
     }
 
+    #[cfg(test)]
     fn read_convert(
         &self,
         worker: &WorkerContext,
@@ -11978,6 +12020,7 @@ impl StreamingColumnarVortexArrayWorker {
         futures::executor::block_on(self.read_convert_checked(|| worker.check_cancelled(), lease))
     }
 
+    #[cfg(test)]
     async fn read_convert_checked(
         &self,
         check_cancelled: impl Fn() -> Result<()> + Send,

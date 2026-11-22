@@ -46,6 +46,7 @@ pub(super) struct Workers {
 }
 
 impl Workers {
+    #[cfg(test)]
     pub(super) fn try_new(
         contract: &Contract,
         parallelism: usize,
@@ -53,6 +54,26 @@ impl Workers {
         memory: &LiveMemoryPool,
         session: &VortexSession,
         cancellation: CancellationToken,
+    ) -> Result<Option<Self>> {
+        Self::try_new_with_pool(
+            contract,
+            parallelism,
+            entry_limit,
+            memory,
+            session,
+            cancellation,
+            None,
+        )
+    }
+
+    pub(super) fn try_new_with_pool(
+        contract: &Contract,
+        parallelism: usize,
+        entry_limit: usize,
+        memory: &LiveMemoryPool,
+        session: &VortexSession,
+        cancellation: CancellationToken,
+        shared_pool: Option<&Arc<shardloom_exec::compute_pool::ComputePool>>,
     ) -> Result<Option<Self>> {
         if contract.numeric_index.is_some() || contract.groups.len() != 1 {
             return Ok(None);
@@ -88,12 +109,13 @@ impl Workers {
         if deferred.capacity() > window || retries.capacity() > window {
             return Err(failed("worker handoff allocation exceeds reserved window"));
         }
-        let jobs = AggregateChunkJobs::with_cancellation(
+        let jobs = AggregateChunkJobs::with_cancellation_and_pool(
             parallelism,
             window,
             memory.snapshot().limit_bytes,
             memory.clone(),
             cancellation.clone(),
+            shared_pool,
         )?;
         let created = jobs
             .pool_snapshot()

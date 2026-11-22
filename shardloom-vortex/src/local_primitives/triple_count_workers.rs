@@ -317,13 +317,14 @@ pub(super) struct TripleWorkers {
 }
 
 impl TripleWorkers {
-    pub(super) fn admit(
+    pub(super) fn admit_with_pool(
         states: &GroupedAggregateStates<'_>,
         dtype: &DType,
         columns: &[String],
         policy: VortexLocalPrimitiveExecutionPolicy,
         memory: &LiveMemoryPool,
         cancellation: Option<&CancellationToken>,
+        shared_pool: Option<&std::sync::Arc<shardloom_exec::compute_pool::ComputePool>>,
     ) -> Result<Option<Self>> {
         let Some(roles) = roles(states, dtype, columns) else {
             return Ok(None);
@@ -361,12 +362,13 @@ impl TripleWorkers {
             })));
         }
         Ok(Some(Self {
-            jobs: AggregateChunkJobs::for_operation(
+            jobs: AggregateChunkJobs::for_operation_with_pool(
                 parallelism,
                 window,
                 memory.snapshot().limit_bytes,
                 memory.clone(),
                 cancellation,
+                shared_pool,
             )?,
             partitions,
             roles,

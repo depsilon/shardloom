@@ -751,7 +751,8 @@ pub use scheduler_bridge::{
     VortexSchedulerBridgeMode, VortexSchedulerBridgeReport, VortexSchedulerBridgeStatus,
     VortexSchedulingDecisionKind, VortexTaskBatchPlan, VortexTaskQueueClass,
     VortexTaskSchedulingDecision, execute_vortex_morsel_scheduler_with_observer,
-    execute_vortex_morsel_scheduler_with_state, plan_vortex_scheduler_queue,
+    execute_vortex_morsel_scheduler_with_pool, execute_vortex_morsel_scheduler_with_state,
+    execute_vortex_morsel_scheduler_with_state_in_pool, plan_vortex_scheduler_queue,
     vortex_scheduler_bridge_is_side_effect_free,
 };
 

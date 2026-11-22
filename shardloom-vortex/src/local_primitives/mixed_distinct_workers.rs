@@ -118,6 +118,7 @@ pub(super) fn request_may_be_admitted(request: &VortexQueryPrimitiveRequest) -> 
 }
 
 impl MixedDistinctWorkers {
+    #[cfg(test)]
     pub(super) fn admit(
         states: &GroupedAggregateStates<'_>,
         proof: &winner_distinct::Report,
@@ -125,6 +126,18 @@ impl MixedDistinctWorkers {
         policy: VortexLocalPrimitiveExecutionPolicy,
         memory: &LiveMemoryPool,
         cancellation: Option<&CancellationToken>,
+    ) -> Result<Option<Self>> {
+        Self::admit_with_pool(states, proof, columns, policy, memory, cancellation, None)
+    }
+
+    pub(super) fn admit_with_pool(
+        states: &GroupedAggregateStates<'_>,
+        proof: &winner_distinct::Report,
+        columns: &[String],
+        policy: VortexLocalPrimitiveExecutionPolicy,
+        memory: &LiveMemoryPool,
+        cancellation: Option<&CancellationToken>,
+        shared_pool: Option<&std::sync::Arc<shardloom_exec::compute_pool::ComputePool>>,
     ) -> Result<Option<Self>> {
         let Some(groups) = proof.selected_group_bound() else {
             return Ok(None);
@@ -194,12 +207,13 @@ impl MixedDistinctWorkers {
             return Ok(None);
         };
         Ok(Some(Self {
-            jobs: AggregateChunkJobs::for_operation(
+            jobs: AggregateChunkJobs::for_operation_with_pool(
                 parallelism,
                 parallelism.min(8),
                 memory.snapshot().limit_bytes,
                 memory.clone(),
                 cancellation,
+                shared_pool,
             )?,
             recipe: Arc::new(Recipe {
                 request: states.request.clone(),

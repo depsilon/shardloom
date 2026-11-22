@@ -297,6 +297,7 @@ pub(super) struct PairWorkers {
 }
 
 impl PairWorkers {
+    #[cfg(test)]
     pub(super) fn admit(
         states: &GroupedAggregateStates<'_>,
         dtype: &DType,
@@ -304,6 +305,18 @@ impl PairWorkers {
         policy: VortexLocalPrimitiveExecutionPolicy,
         memory: &LiveMemoryPool,
         cancellation: Option<&CancellationToken>,
+    ) -> Result<Option<Self>> {
+        Self::admit_with_pool(states, dtype, columns, policy, memory, cancellation, None)
+    }
+
+    pub(super) fn admit_with_pool(
+        states: &GroupedAggregateStates<'_>,
+        dtype: &DType,
+        columns: &[String],
+        policy: VortexLocalPrimitiveExecutionPolicy,
+        memory: &LiveMemoryPool,
+        cancellation: Option<&CancellationToken>,
+        shared_pool: Option<&std::sync::Arc<shardloom_exec::compute_pool::ComputePool>>,
     ) -> Result<Option<Self>> {
         let Some(roles) = roles(states, dtype, columns) else {
             return Ok(None);
@@ -334,12 +347,13 @@ impl PairWorkers {
             });
         }
         Ok(Some(Self {
-            jobs: AggregateChunkJobs::for_operation(
+            jobs: AggregateChunkJobs::for_operation_with_pool(
                 parallelism,
                 parallelism.saturating_mul(2).clamp(1, 24),
                 memory.snapshot().limit_bytes,
                 memory.clone(),
                 cancellation,
+                shared_pool,
             )?,
             partitions,
             columns: columns.to_vec(),

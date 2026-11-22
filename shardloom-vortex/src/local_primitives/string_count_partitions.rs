@@ -272,43 +272,210 @@ impl StringCountPartitions {
 
     pub(super) fn reduce(
         &self,
+        partial: StringCountPartial,
+        worker: &ChunkWorkerContext,
+        task_lease: &mut MemoryLease,
+    ) -> Result<PartitionReceipt> {
+        self.reduce_with_scratch(partial, worker, task_lease, None)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn pass1_rotated_try_lock(
+        &self,
+        rotation: usize,
+        ends: &[usize; PARTITIONS],
+        cursors: &mut [usize; PARTITIONS],
+        done: &mut [bool; PARTITIONS],
+        partial: &StringCountPartial,
+        worker: &ChunkWorkerContext,
+        total_consumed: &mut u64,
+    ) -> Result<()> {
+        let mut admission = EntryAdmission::default();
+        for step in 0..PARTITIONS {
+            let index = (rotation + step) % PARTITIONS;
+            if done[index] {
+                continue;
+            }
+            worker.check_cancelled()?;
+            if self.pressure_requested() {
+                break;
+            }
+            let partition = match self.partitions[index].try_lock() {
+                Ok(guard) => guard,
+                Err(std::sync::TryLockError::WouldBlock) => continue,
+                Err(std::sync::TryLockError::Poisoned(_)) => {
+                    return Err(failed("partition lock poisoned"));
+                }
+            };
+            let mut progress = ReconcileProgress {
+                cursor: cursors[index],
+                consumed: 0,
+                comparisons: 0,
+            };
+            let finished = self.reconcile_locked_partition(
+                partition,
+                ends[index],
+                partial,
+                worker,
+                &mut progress,
+                &mut admission,
+                false,
+            )?;
+            cursors[index] = progress.cursor;
+            *total_consumed = total_consumed
+                .checked_add(progress.consumed)
+                .ok_or_else(|| failed("consumed weight overflowed"))?;
+            if let Some(applied) = finished {
+                if applied {
+                    done[index] = true;
+                } else {
+                    break;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub(super) fn reduce_with_scratch(
+        &self,
         mut partial: StringCountPartial,
         worker: &ChunkWorkerContext,
         task_lease: &mut MemoryLease,
+        scratch: Option<&super::string_count_partial::CountSlotScratchPool>,
     ) -> Result<PartitionReceipt> {
         let started = Instant::now();
         let ends = partial.arrange_partitions::<PARTITIONS>(worker)?;
         elapsed(&self.arrange_nanos, started)?;
         let work = partial.work.clone();
-        let mut progress = ReconcileProgress::default();
-        for (index, end) in ends.into_iter().enumerate() {
-            if progress.cursor == end {
-                continue;
-            }
-            if !self.reduce_partition(index, end, &partial, worker, &mut progress)? {
-                break;
+        let mut cursors = [0_usize; PARTITIONS];
+        let mut prev = 0_usize;
+        for (index, &end) in ends.iter().enumerate() {
+            cursors[index] = prev;
+            prev = end;
+        }
+        let mut done = [false; PARTITIONS];
+        for index in 0..PARTITIONS {
+            if cursors[index] == ends[index] {
+                done[index] = true;
             }
         }
+        let rotation = (worker.worker_index().wrapping_mul(13)) % PARTITIONS;
+        let mut total_consumed = 0_u64;
+
+        // Pass 1: non-blocking rotated sweep across all 64 partitions. Contended
+        // partitions are skipped immediately so each worker clears uncontended
+        // work without parking behind another worker's lock.
+        self.pass1_rotated_try_lock(
+            rotation,
+            &ends,
+            &mut cursors,
+            &mut done,
+            &partial,
+            worker,
+            &mut total_consumed,
+        )?;
+
+        // Pass 2: rotated blocking sweep over remaining contended/uncredited partitions.
+        if !self.pressure_requested() {
+            for step in 0..PARTITIONS {
+                let index = (rotation + step) % PARTITIONS;
+                if done[index] {
+                    continue;
+                }
+                let mut progress = ReconcileProgress {
+                    cursor: cursors[index],
+                    consumed: 0,
+                    comparisons: 0,
+                };
+                let finished =
+                    self.reduce_partition(index, ends[index], &partial, worker, &mut progress)?;
+                cursors[index] = progress.cursor;
+                total_consumed = total_consumed
+                    .checked_add(progress.consumed)
+                    .ok_or_else(|| failed("consumed weight overflowed"))?;
+                if !finished {
+                    break;
+                }
+                done[index] = true;
+            }
+        }
+
         add(
             &self.committed_rows,
-            progress.consumed,
+            total_consumed,
             "committed weight overflowed",
         )?;
         let remaining = work
             .rows
-            .checked_sub(progress.consumed)
+            .checked_sub(total_consumed)
             .ok_or_else(|| failed("partial consumed excess weight"))?;
         let deferred = if remaining == 0 {
-            if u64::try_from(progress.cursor).ok() != Some(work.partial_entries) {
+            if cursors
+                .iter()
+                .zip(ends.iter())
+                .any(|(cursor, end)| cursor != end)
+            {
                 return Err(failed("partial cursor differs from exact weight"));
+            }
+            if let Some(pool) = scratch {
+                pool.recycle(partial.into_reusable_slots());
             }
             None
         } else {
-            partial.retain_unconsumed(progress.cursor, remaining);
+            partial.retain_unconsumed_partitions(&cursors, &ends, remaining);
             partial.retain_deferred_metadata(task_lease)?;
             Some(Arc::new(partial))
         };
         Ok(PartitionReceipt { work, deferred })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn reconcile_locked_partition<'a>(
+        &'a self,
+        mut partition: std::sync::MutexGuard<'_, Partition>,
+        end: usize,
+        partial: &StringCountPartial,
+        worker: &ChunkWorkerContext,
+        progress: &mut ReconcileProgress,
+        admission: &mut EntryAdmission<'a>,
+        claim_on_need_credits: bool,
+    ) -> Result<Option<bool>> {
+        let started = Instant::now();
+        let outcome = partition.reconcile(partial, end, progress, self, worker, admission);
+        drop(partition);
+        // Publish even on a failed count/insertion. Preserve the primary
+        // operation error if evidence accounting also fails.
+        let accounting = self
+            .publish_comparisons(progress)
+            .and_then(|()| elapsed(&self.reconcile_nanos, started));
+        let outcome = outcome?;
+        accounting?;
+        match outcome {
+            Update::Applied => Ok(Some(true)),
+            Update::Pressure => {
+                self.request_pressure();
+                Ok(Some(false))
+            }
+            Update::NeedCredits => {
+                if !claim_on_need_credits {
+                    return Ok(None);
+                }
+                // Return an exhausted block before waiting, and never hold
+                // the partition mutex while another worker owns credits.
+                drop(admission.block.take());
+                match self.entry_credits.claim(end - progress.cursor, || {
+                    worker.check_cancelled()?;
+                    Ok(!self.pressure_requested())
+                })? {
+                    Claim::Block(block) => admission.block = Some(block),
+                    Claim::Stopped => return Ok(Some(false)),
+                    // Relock and recheck the key: another worker may have
+                    // inserted it while this worker waited for admission.
+                    Claim::Exhausted => admission.exhausted = true,
+                }
+                Ok(None)
+            }
+        }
     }
 
     fn reduce_partition(
@@ -326,41 +493,20 @@ impl StringCountPartitions {
                 return Ok(false);
             }
             let started = Instant::now();
-            let mut partition = self.partitions[index]
+            let partition = self.partitions[index]
                 .lock()
                 .map_err(|_| failed("partition lock poisoned"))?;
             elapsed(&self.lock_wait_nanos, started)?;
-            let started = Instant::now();
-            let outcome = partition.reconcile(partial, end, progress, self, worker, &mut admission);
-            drop(partition);
-            // Publish even on a failed count/insertion. Preserve the primary
-            // operation error if evidence accounting also fails.
-            let accounting = self
-                .publish_comparisons(progress)
-                .and_then(|()| elapsed(&self.reconcile_nanos, started));
-            let outcome = outcome?;
-            accounting?;
-            match outcome {
-                Update::Applied => return Ok(true),
-                Update::Pressure => {
-                    self.request_pressure();
-                    return Ok(false);
-                }
-                Update::NeedCredits => {
-                    // Return an exhausted block before waiting, and never hold
-                    // the partition mutex while another worker owns credits.
-                    drop(admission.block.take());
-                    match self.entry_credits.claim(end - progress.cursor, || {
-                        worker.check_cancelled()?;
-                        Ok(!self.pressure_requested())
-                    })? {
-                        Claim::Block(block) => admission.block = Some(block),
-                        Claim::Stopped => return Ok(false),
-                        // Relock and recheck the key: another worker may have
-                        // inserted it while this worker waited for admission.
-                        Claim::Exhausted => admission.exhausted = true,
-                    }
-                }
+            if let Some(finished) = self.reconcile_locked_partition(
+                partition,
+                end,
+                partial,
+                worker,
+                progress,
+                &mut admission,
+                true,
+            )? {
+                return Ok(finished);
             }
         }
     }

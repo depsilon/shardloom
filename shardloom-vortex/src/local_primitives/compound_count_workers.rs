@@ -68,6 +68,7 @@ pub(super) struct CompoundWorkers {
 }
 
 impl CompoundWorkers {
+    #[cfg(test)]
     pub(super) fn admit(
         states: &GroupedAggregateStates<'_>,
         dtype: &DType,
@@ -76,6 +77,29 @@ impl CompoundWorkers {
         session: &VortexSession,
         memory: &LiveMemoryPool,
         cancellation: Option<&CancellationToken>,
+    ) -> Result<Option<Self>> {
+        Self::admit_with_pool(
+            states,
+            dtype,
+            columns,
+            policy,
+            session,
+            memory,
+            cancellation,
+            None,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn admit_with_pool(
+        states: &GroupedAggregateStates<'_>,
+        dtype: &DType,
+        columns: &[String],
+        policy: VortexLocalPrimitiveExecutionPolicy,
+        session: &VortexSession,
+        memory: &LiveMemoryPool,
+        cancellation: Option<&CancellationToken>,
+        shared_pool: Option<&std::sync::Arc<shardloom_exec::compute_pool::ComputePool>>,
     ) -> Result<Option<Self>> {
         let Some(roles) = compound_count_roles::admit(states, dtype, columns) else {
             return Ok(None);
@@ -140,12 +164,13 @@ impl CompoundWorkers {
         }
         worker_chunks.resize(parallelism, 0);
         Ok(Some(Self {
-            jobs: AggregateChunkJobs::for_operation(
+            jobs: AggregateChunkJobs::for_operation_with_pool(
                 parallelism,
                 window,
                 memory.snapshot().limit_bytes,
                 memory.clone(),
                 cancellation,
+                shared_pool,
             )?,
             partitions: Some(partitions),
             deferred,

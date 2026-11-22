@@ -6,6 +6,7 @@ use shardloom_exec::adaptive_work::WorkShape;
 use vortex::io::runtime::BlockingRuntime as _;
 
 pub(super) enum ConversionExecutor {
+    #[cfg(test)]
     Dedicated(ComputePool),
     Shared {
         runtime: IngestRuntime,
@@ -14,6 +15,7 @@ pub(super) enum ConversionExecutor {
 }
 
 pub(super) enum ConversionTask {
+    #[cfg(test)]
     Dedicated(ComputeTask<PrefetchedVortexArray>),
     Shared(IngestTask<Result<Budgeted<PrefetchedVortexArray>>>),
 }
@@ -43,6 +45,7 @@ impl QueuedConversion {
 impl ConversionTask {
     pub(super) fn join(self) -> Result<Budgeted<PrefetchedVortexArray>> {
         match self {
+            #[cfg(test)]
             Self::Dedicated(task) => task.join(),
             Self::Shared(task) => task.join()?,
         }
@@ -52,6 +55,7 @@ impl ConversionTask {
 impl ConversionExecutor {
     pub(super) fn memory(&self) -> &LiveMemoryPool {
         match self {
+            #[cfg(test)]
             Self::Dedicated(pool) => pool.memory(),
             Self::Shared { memory, .. } => memory,
         }
@@ -73,6 +77,7 @@ impl ConversionExecutor {
     ) -> Result<ConversionTask> {
         cancellation.check()?;
         match self {
+            #[cfg(test)]
             Self::Dedicated(pool) => pool
                 .submit(
                     Budgeted::new(

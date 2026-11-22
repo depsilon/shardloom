@@ -840,3 +840,42 @@ fn weighted_partial_keeps_full_u64_counts_and_checks_overflow() {
     );
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
+
+#[test]
+fn count_slot_scratch_pool_recycles_buffers_and_refunds_on_clear() {
+    let memory = LiveMemoryPool::new(4 << 20).unwrap();
+    let scratch = CountSlotScratchPool::new(2);
+    let worker = ChunkWorkerContext::Inline(CancellationToken::default());
+    let partitions =
+        super::super::string_count_partitions::StringCountPartitions::try_new(&memory, 256, 64)
+            .unwrap()
+            .unwrap();
+    let mut keys = Vec::new();
+    for idx in 0..32 {
+        keys.push(format!("k{}", idx % 7));
+    }
+    let array = strings(&keys.iter().map(String::as_str).collect::<Vec<_>>());
+    for _ in 0..4 {
+        let mut lease = memory
+            .reserve(partial_bytes(&array).unwrap() + StringCountPartial::deferred_metadata_bytes())
+            .unwrap();
+        let partial = count_string_chunk_with_scratch(
+            &array,
+            vortex::session::VortexSession::empty().create_execution_ctx(),
+            &worker,
+            &mut lease,
+            Some(&scratch),
+        )
+        .unwrap();
+        let receipt = partitions
+            .reduce_with_scratch(partial, &worker, &mut lease, Some(&scratch))
+            .unwrap();
+        assert!(receipt.deferred.is_none());
+    }
+    assert!(scratch.reused_count() >= 3);
+    assert!(memory.snapshot().reserved_bytes > 0);
+    scratch.clear();
+    partitions.release_storage().unwrap();
+    drop(partitions);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}

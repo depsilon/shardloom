@@ -21589,3 +21589,271 @@ fn encoded_chunk_descriptor_inspects_encoded_struct_and_primitive_chunks_without
     assert_eq!(descriptor.fields[4].column_name, "constant");
     assert!(descriptor.fields[4].is_constant);
 }
+
+#[test]
+fn rolling_window_values_from_chunk_matches_materialized_across_dtypes_and_center() {
+    use vortex::{
+        VortexSessionDefault as _,
+        array::{
+            IntoArray as _, VortexSessionExecute as _,
+            arrays::{PrimitiveArray, StructArray},
+            dtype::FieldNames,
+            validity::Validity,
+        },
+    };
+
+    let mut ctx = vortex::session::VortexSession::default().create_execution_ctx();
+    let chunk1 = StructArray::try_new(
+        FieldNames::from(["metric"]),
+        vec![
+            PrimitiveArray::from_option_iter([Some(10_i64), None, Some(30), Some(40)]).into_array(),
+        ],
+        4,
+        Validity::NonNullable,
+    )
+    .expect("struct1")
+    .into_array();
+    let chunk2 = StructArray::try_new(
+        FieldNames::from(["metric"]),
+        vec![PrimitiveArray::from_option_iter([Some(50_i64), Some(60)]).into_array()],
+        2,
+        Validity::NonNullable,
+    )
+    .expect("struct2")
+    .into_array();
+    let cols = vec!["metric".to_owned()];
+
+    for center in [false, true] {
+        for aggregate in ["sum", "mean", "min", "max", "count"] {
+            let mut req = VortexRollingWindowRequest::new(
+                ColumnRef::new("metric").expect("column"),
+                format!("r_{aggregate}"),
+                3,
+                2,
+                aggregate.to_owned(),
+            );
+            if center {
+                req = req.with_center(true);
+            }
+            let mut expected_state = RollingWindowState::new(req.window_size);
+            let mut actual_state = RollingWindowState::new(req.window_size);
+
+            let mat1 = row_export_columns_from_chunk(&chunk1, &cols, &mut ctx).expect("mat1");
+            let exp1 =
+                rolling_window_values(&mat1, &req, &mut expected_state, 4, false).expect("exp1");
+            let act1 = rolling_window_values_from_chunk(
+                &chunk1,
+                cols[0].as_str(),
+                &req,
+                &mut actual_state,
+                4,
+                false,
+                &mut ctx,
+            )
+            .expect("act1");
+            assert_eq!(
+                act1, exp1,
+                "chunk1 mismatch for {aggregate} center={center}"
+            );
+
+            let mat2 = row_export_columns_from_chunk(&chunk2, &cols, &mut ctx).expect("mat2");
+            let exp2 =
+                rolling_window_values(&mat2, &req, &mut expected_state, 2, true).expect("exp2");
+            let act2 = rolling_window_values_from_chunk(
+                &chunk2,
+                cols[0].as_str(),
+                &req,
+                &mut actual_state,
+                2,
+                true,
+                &mut ctx,
+            )
+            .expect("act2");
+            assert_eq!(
+                act2, exp2,
+                "chunk2 mismatch for {aggregate} center={center}"
+            );
+        }
+    }
+
+    // Float chunk where `count` must still count valid non-null NaN rows without failing.
+    let float_chunk = StructArray::try_new(
+        FieldNames::from(["metric"]),
+        vec![
+            PrimitiveArray::from_option_iter([Some(1.5_f64), None, Some(f64::NAN), Some(4.5)])
+                .into_array(),
+        ],
+        4,
+        Validity::NonNullable,
+    )
+    .expect("float struct")
+    .into_array();
+    let count_req = VortexRollingWindowRequest::new(
+        ColumnRef::new("metric").expect("column"),
+        "r_count".to_owned(),
+        2,
+        1,
+        "count".to_owned(),
+    );
+    let mat_float =
+        row_export_columns_from_chunk(&float_chunk, &cols, &mut ctx).expect("mat float");
+    let exp_float = rolling_window_values(
+        &mat_float,
+        &count_req,
+        &mut RollingWindowState::new(count_req.window_size),
+        4,
+        false,
+    )
+    .expect("exp float count");
+    let act_float = rolling_window_values_from_chunk(
+        &float_chunk,
+        cols[0].as_str(),
+        &count_req,
+        &mut RollingWindowState::new(count_req.window_size),
+        4,
+        false,
+        &mut ctx,
+    )
+    .expect("act float count");
+    assert_eq!(act_float, exp_float);
+}
+
+#[test]
+fn general_direct_accessor_fallback_matches_materialized_simple_and_grouped_states() {
+    use vortex::{
+        VortexSessionDefault as _,
+        array::{
+            IntoArray as _, VortexSessionExecute as _,
+            arrays::{PrimitiveArray, StructArray, VarBinViewArray},
+            dtype::FieldNames,
+            validity::Validity,
+        },
+    };
+
+    let mut ctx = vortex::session::VortexSession::default().create_execution_ctx();
+    let urls = VarBinViewArray::from_iter_nullable_str([
+        Some("https://a.example/x"),
+        Some("https://b.example/path"),
+        Some("https://a.example/y"),
+        None,
+        Some("https://c.example/z"),
+        Some("https://b.example/2"),
+    ])
+    .into_array();
+    let vals = PrimitiveArray::from_option_iter([
+        Some(10_i64),
+        Some(20),
+        Some(30),
+        Some(40),
+        None,
+        Some(60),
+    ])
+    .into_array();
+    let chunk = StructArray::try_new(
+        FieldNames::from(["url", "val"]),
+        vec![urls, vals],
+        6,
+        Validity::NonNullable,
+    )
+    .expect("struct")
+    .into_array();
+    let cols = vec!["url".to_owned(), "val".to_owned()];
+
+    // 1. Scalar general fallback with non-identity transforms + fused offsets + selection.
+    let mut scalar_request = VortexSimpleAggregateRequest::new(vec![
+        VortexSimpleAggregateMeasure::new("count", None, "rows".to_owned()),
+        VortexSimpleAggregateMeasure::new(
+            "sum",
+            Some(ColumnRef::new("val").unwrap()),
+            "sum_v".to_owned(),
+        )
+        .with_argument_offset(2),
+        VortexSimpleAggregateMeasure::new(
+            "avg",
+            Some(ColumnRef::new("val").unwrap()),
+            "avg_v".to_owned(),
+        ),
+        VortexSimpleAggregateMeasure::new(
+            "sum",
+            Some(ColumnRef::new("url").unwrap()),
+            "len_sum".to_owned(),
+        )
+        .with_value_transform("length"),
+    ]);
+    for selection in [None, Some(vec![0_usize, 2, 3, 5])] {
+        let mut expected = SimpleAggregateStates::new(&scalar_request, &cols).unwrap();
+        let mut actual = SimpleAggregateStates::new(&scalar_request, &cols).unwrap();
+        let mat = row_export_columns_from_chunk(&chunk, &cols, &mut ctx).unwrap();
+        if let Some(indices) = selection.as_deref() {
+            for &row in indices {
+                expected.update_row(&mat, row).unwrap();
+            }
+        } else {
+            expected.update(&mat, 6).unwrap();
+        }
+        let accessors =
+            aggregate_direct_column_accessors_from_chunk(&chunk, &cols, &mut ctx).unwrap();
+        actual
+            .update_general_from_accessors(&accessors.values, selection.as_deref(), 6, None)
+            .unwrap();
+        for (a, e) in actual.states.iter().zip(&expected.states) {
+            assert_eq!(a.result_json().unwrap(), e.result_json().unwrap());
+        }
+    }
+
+    // 2. Grouped general fallback under LIMIT admission closure + transform + selection.
+    scalar_request = VortexSimpleAggregateRequest::new(vec![
+        VortexSimpleAggregateMeasure::new("count", None, "cnt".to_owned()),
+        VortexSimpleAggregateMeasure::new(
+            "sum",
+            Some(ColumnRef::new("val").unwrap()),
+            "val_sum".to_owned(),
+        ),
+    ])
+    .with_group_expressions(vec![crate::VortexAggregateExpression::new(
+        "domain".to_owned(),
+        ColumnRef::new("url").unwrap(),
+        "url_domain",
+    )]);
+    for seed_materialized in [false, true] {
+        let mut expected =
+            GroupedAggregateStates::new(&scalar_request, Some(2), &cols, false, false).unwrap();
+        let mut actual =
+            GroupedAggregateStates::new(&scalar_request, Some(2), &cols, false, false).unwrap();
+        let mat = row_export_columns_from_chunk(&chunk, &cols, &mut ctx).unwrap();
+        let accessors =
+            aggregate_direct_column_accessors_from_chunk(&chunk, &cols, &mut ctx).unwrap();
+        if seed_materialized {
+            expected.update_row(&mat, 0).unwrap();
+            actual.update_row(&mat, 0).unwrap();
+            assert!(actual.materialized_owned_group_keys);
+        }
+        expected.update(&mat, 6).unwrap();
+        actual
+            .update_general_fallback_from_accessors(&accessors.values, None, 6, false, None)
+            .unwrap();
+        assert_eq!(actual.groups.len(), expected.groups.len());
+        assert_eq!(
+            actual.source_order_limited_group_admission,
+            expected.source_order_limited_group_admission
+        );
+        for (a_key, e_key) in actual.group_order.iter().zip(&expected.group_order) {
+            let a_group = actual.groups.get_mut(a_key).unwrap();
+            let e_group = expected.groups.get_mut(e_key).unwrap();
+            let a_states = a_group.general_states_mut().unwrap();
+            let e_states = e_group.general_states_mut().unwrap();
+            assert_eq!(
+                a_states
+                    .states
+                    .iter()
+                    .map(|s| s.result_json().unwrap())
+                    .collect::<Vec<_>>(),
+                e_states
+                    .states
+                    .iter()
+                    .map(|s| s.result_json().unwrap())
+                    .collect::<Vec<_>>(),
+            );
+        }
+    }
+}

@@ -20,7 +20,7 @@ const COALESCING_AMPLIFICATION_LIMIT: std::num::NonZeroU64 = std::num::NonZeroU6
 use shardloom_core::{
     FloatPolicy, RecursionLimit, Result, ShardLoomError, native_file_scan::NativeFileScanEvidence,
 };
-use shardloom_exec::compute_pool::CancellationToken;
+use shardloom_exec::compute_pool::{CancellationToken, ComputePool};
 use shardloom_exec::live_memory::{Budgeted, LiveMemoryPool, LiveMemorySnapshot, MemoryLease};
 use vortex::{
     VortexSessionDefault as _,
@@ -135,6 +135,7 @@ struct RuntimeOwner {
     memory: LiveMemoryPool,
     parallelism: usize,
     configured_parallelism: Option<AtomicUsize>,
+    compute_pool: Mutex<Option<Arc<ComputePool>>>,
     provider_background_workers: usize,
     opens: AtomicU64,
     executions: AtomicU64,
@@ -148,6 +149,43 @@ impl RuntimeOwner {
         self.configured_parallelism
             .as_ref()
             .map_or(self.parallelism, |limit| limit.load(Ordering::Acquire))
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(super) fn shared_compute_pool(
+        &self,
+        requested_parallelism: usize,
+    ) -> Result<Option<Arc<ComputePool>>> {
+        let target = requested_parallelism.min(self.cpu_limit());
+        if target <= 1 {
+            return Ok(None);
+        }
+        let needed_workers = target - 1;
+        let required_bytes = self.memory.snapshot().limit_bytes;
+        if required_bytes == 0 {
+            return Ok(None);
+        }
+        let mut guard = self
+            .compute_pool
+            .lock()
+            .map_err(|_| resident_error("session compute pool lock poisoned"))?;
+        if let Some(existing) = guard.as_ref()
+            && existing.worker_count() >= needed_workers
+            && required_bytes <= existing.queue_byte_limit()
+            && !existing.snapshot().queue_closed
+        {
+            return Ok(Some(Arc::clone(existing)));
+        }
+        let workers = self.cpu_limit().saturating_sub(1).max(needed_workers);
+        let queue_limit = workers.saturating_mul(16).clamp(32, 256);
+        let pool = Arc::new(ComputePool::new(
+            workers,
+            queue_limit,
+            required_bytes,
+            self.memory.clone(),
+        )?);
+        *guard = Some(Arc::clone(&pool));
+        Ok(Some(pool))
     }
 }
 
@@ -725,11 +763,20 @@ impl ResidentVortexSession {
             memory,
             parallelism,
             configured_parallelism: None,
+            compute_pool: Mutex::new(None),
             provider_background_workers,
             opens: AtomicU64::new(0),
             executions: AtomicU64::new(0),
             next_operation: AtomicU64::new(0),
         })))
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn shared_compute_pool(
+        &self,
+        max_parallelism: usize,
+    ) -> Result<Option<Arc<ComputePool>>> {
+        self.0.shared_compute_pool(max_parallelism)
     }
 
     #[must_use]

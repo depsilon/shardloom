@@ -632,7 +632,7 @@ fn footer_aggregate_native_generation_is_checked_before_and_after_metadata_compl
                     .file()
                     .unwrap()
                     .with_native_execution(|file, session, runtime| {
-                        let scan = read_lowered_vortex_simple_aggregate_scan(
+                        let scan = read_lowered_vortex_simple_aggregate_scan_with_pool(
                             request.source_uri.as_ref().unwrap(),
                             &request,
                             prepared.policy,
@@ -643,6 +643,7 @@ fn footer_aggregate_native_generation_is_checked_before_and_after_metadata_compl
                             None,
                             &prepared.lowering,
                             Instant::now(),
+                            None,
                             None,
                             None,
                         )?;

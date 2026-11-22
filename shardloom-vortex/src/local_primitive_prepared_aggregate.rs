@@ -7,7 +7,8 @@ use super::{
     VortexLocalPrimitivePhysicalPolicyReport, VortexQueryPrimitiveKind,
     VortexQueryPrimitiveRequest, aggregate_count_workers, aggregate_lowering::AggregateLowering,
     local_primitive_native_io_certificate, local_vortex_path,
-    read_lowered_vortex_simple_aggregate_scan, required_simple_aggregate, simple_aggregate_report,
+    read_lowered_vortex_simple_aggregate_scan_with_pool, required_simple_aggregate,
+    simple_aggregate_report,
 };
 use crate::resident_session::{
     NativeExecutionContext, PreparedVortexSource, ResidentSessionSnapshot, ResidentVortexSession,
@@ -1025,6 +1026,12 @@ impl PreparedVortexAggregate {
             .as_ref()
             .ok_or_else(|| failed("prepared source URI is absent"))?;
         let memory = self.worker_pool.then(|| self.session.memory());
+        let shared_pool = if self.worker_pool {
+            self.session
+                .shared_compute_pool(self.policy.resource_envelope.max_parallelism)?
+        } else {
+            None
+        };
         let mut scan =
             |file: &vortex::file::VortexFile,
              session: &vortex::session::VortexSession,
@@ -1041,7 +1048,7 @@ impl PreparedVortexAggregate {
                         )
                     }
                 };
-                let result = read_lowered_vortex_simple_aggregate_scan(
+                let result = read_lowered_vortex_simple_aggregate_scan_with_pool(
                     uri,
                     &self.request,
                     self.policy,
@@ -1054,6 +1061,7 @@ impl PreparedVortexAggregate {
                     std::time::Instant::now(),
                     output.as_deref_mut(),
                     context.map(NativeExecutionContext::cancellation),
+                    shared_pool.as_ref(),
                 )?;
                 if let (Some(evidence), Some(context)) = (evidence, context)
                     && evidence.scan_invocations() == 0
@@ -1146,12 +1154,18 @@ impl PreparedVortexAggregate {
         mut output: Option<&mut super::aggregate_owned::AggregateOutput>,
         context: Option<&NativeExecutionContext<'_>>,
     ) -> Result<LocalVortexAggregateScan> {
+        let shared_pool = if self.worker_pool {
+            self.session
+                .shared_compute_pool(self.policy.resource_envelope.max_parallelism)?
+        } else {
+            None
+        };
         let mut execute = |context: &NativeExecutionContext<'_>| {
             let (mut scan, drivers) = self.session.with_owned_execution_drivers(
                 context,
                 self.temporary_provider_drivers,
                 || {
-                    read_lowered_vortex_simple_aggregate_scan(
+                    read_lowered_vortex_simple_aggregate_scan_with_pool(
                         source.source_uri(),
                         &self.request,
                         self.policy,
@@ -1164,6 +1178,7 @@ impl PreparedVortexAggregate {
                         std::time::Instant::now(),
                         output.as_deref_mut(),
                         Some(context.cancellation()),
+                        shared_pool.as_ref(),
                     )
                 },
             )?;

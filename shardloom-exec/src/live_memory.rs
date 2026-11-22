@@ -64,6 +64,11 @@ impl LiveMemoryPool {
         Self::with_limit(PoolLimit::Fixed(limit_bytes))
     }
 
+    #[must_use]
+    pub fn owns_same_pool(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+
     /// Create a pool whose allocation may change between complete operations.
     /// Every clone and retained lease continues to use this same owner. Callers
     /// must serialize whole operations around allocation changes; the pool lock

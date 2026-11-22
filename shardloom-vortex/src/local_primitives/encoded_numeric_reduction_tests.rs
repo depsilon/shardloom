@@ -707,3 +707,234 @@ fn encoded_numeric_reduction_large_integer_runs_compute_sum_and_avg_in_constant_
     );
     assert!(fused.fused_numeric_additive_updates);
 }
+
+fn encoded_numeric_reduction_test_dict_int() -> ArrayRef {
+    use vortex::array::arrays::DictArray;
+
+    let int_values =
+        PrimitiveArray::from_option_iter([Some(-11_i64), Some(42), None, Some(7)]).into_array();
+    let int_codes = PrimitiveArray::from_option_iter(
+        (0..256_usize)
+            .map(|idx| (idx % 13 != 0).then(|| u16::try_from(idx % 4).expect("mod 4 fits u16"))),
+    )
+    .into_array();
+    DictArray::try_new(int_codes, int_values)
+        .unwrap()
+        .into_array()
+}
+
+#[test]
+fn encoded_numeric_reduction_dict_multiplicity_and_selection_match_canonical() {
+    let columns = vec!["value".to_owned()];
+    let mut ctx = vortex::session::VortexSession::empty().create_execution_ctx();
+    let functions = ["count", "sum", "avg", "min", "max", "count_distinct"];
+    let int_dict = encoded_numeric_reduction_test_dict_int();
+    let int_canonical = int_dict
+        .clone()
+        .execute::<PrimitiveArray>(&mut ctx)
+        .unwrap()
+        .into_array();
+
+    for selection in [None, Some(vec![0, 5, 5, 13, 19, 128, 255])] {
+        let mut actual = states(&functions, &columns);
+        let mut expected = states(&functions, &columns);
+        let mut work = NativeNumericAccessorWork::default();
+        let mut expected_work = NativeNumericAccessorWork::default();
+        assert!(
+            update(
+                &mut actual,
+                &int_dict,
+                &columns,
+                selection.as_deref(),
+                &mut work,
+                &mut ctx,
+            )
+            .unwrap()
+        );
+        assert!(
+            !update(
+                &mut expected,
+                &int_canonical,
+                &columns,
+                selection.as_deref(),
+                &mut expected_work,
+                &mut ctx,
+            )
+            .unwrap()
+        );
+        assert!(
+            expected
+                .update_direct_from_chunk(
+                    &int_canonical,
+                    &columns,
+                    selection.as_deref(),
+                    &mut expected_work,
+                    &mut ctx,
+                )
+                .unwrap()
+        );
+        assert_equal(&actual, &expected);
+        assert_eq!(work.encoded_reduction.dict_arrays, 1);
+        assert_eq!(
+            work.encoded_reduction.logical_rows,
+            u64::try_from(selection.as_ref().map_or(256, Vec::len)).unwrap()
+        );
+        if selection.is_none() {
+            assert!(work.encoded_reduction.weighted_value_visits <= 4);
+        }
+    }
+}
+
+#[test]
+fn encoded_numeric_reduction_dict_sliced_fused_and_float_order_match_canonical() {
+    use vortex::array::arrays::{DictArray, SliceArray};
+
+    let columns = vec!["value".to_owned()];
+    let mut ctx = vortex::session::VortexSession::empty().create_execution_ctx();
+    let int_dict = encoded_numeric_reduction_test_dict_int();
+    let sliced = SliceArray::new(int_dict, 11..219).into_array();
+    let sliced_canonical = sliced
+        .clone()
+        .execute::<PrimitiveArray>(&mut ctx)
+        .unwrap()
+        .into_array();
+    let mut actual_sliced = states(&["sum", "sum", "avg", "min", "max", "count"], &columns);
+    let mut expected_sliced = states(&["sum", "sum", "avg", "min", "max", "count"], &columns);
+    for st in actual_sliced
+        .states
+        .iter_mut()
+        .chain(expected_sliced.states.iter_mut())
+    {
+        if matches!(
+            st.function,
+            SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg
+        ) {
+            st.argument_offset = Some(3);
+        }
+    }
+    let mut work = NativeNumericAccessorWork::default();
+    let mut expected_work = NativeNumericAccessorWork::default();
+    assert!(
+        update(
+            &mut actual_sliced,
+            &sliced,
+            &columns,
+            None,
+            &mut work,
+            &mut ctx
+        )
+        .unwrap()
+    );
+    assert!(
+        expected_sliced
+            .update_direct_from_chunk(
+                &sliced_canonical,
+                &columns,
+                None,
+                &mut expected_work,
+                &mut ctx
+            )
+            .unwrap()
+    );
+    assert_equal(&actual_sliced, &expected_sliced);
+    assert!(actual_sliced.fused_numeric_additive_updates);
+    assert_eq!(work.encoded_reduction.dict_arrays, 1);
+
+    // Floating point SUM/AVG MUST preserve row order for bit-exactness (`to_bits()`).
+    let float_values =
+        PrimitiveArray::new(vec![1e18_f64, 1.0, -1e18], Validity::NonNullable).into_array();
+    let float_codes =
+        PrimitiveArray::new(vec![0_u8, 1, 2, 1, 0, 2, 1, 1], Validity::NonNullable).into_array();
+    let float_dict = DictArray::try_new(float_codes, float_values)
+        .unwrap()
+        .into_array();
+    let float_canonical = float_dict
+        .clone()
+        .execute::<PrimitiveArray>(&mut ctx)
+        .unwrap()
+        .into_array();
+    let mut float_actual = states(
+        &["sum", "avg", "min", "max", "count", "count_distinct"],
+        &columns,
+    );
+    let mut float_expected = states(
+        &["sum", "avg", "min", "max", "count", "count_distinct"],
+        &columns,
+    );
+    let mut float_work = NativeNumericAccessorWork::default();
+    let mut float_expected_work = NativeNumericAccessorWork::default();
+    assert!(
+        update(
+            &mut float_actual,
+            &float_dict,
+            &columns,
+            None,
+            &mut float_work,
+            &mut ctx
+        )
+        .unwrap()
+    );
+    assert!(
+        float_expected
+            .update_direct_from_chunk(
+                &float_canonical,
+                &columns,
+                None,
+                &mut float_expected_work,
+                &mut ctx
+            )
+            .unwrap()
+    );
+    assert_equal(&float_actual, &float_expected);
+    assert_eq!(float_work.encoded_reduction.dict_arrays, 1);
+}
+
+#[test]
+fn encoded_numeric_reduction_4lane_integer_runs_and_slices_match_canonical() {
+    use vortex::array::arrays::SliceArray;
+
+    let columns = vec!["value".to_owned()];
+    let mut ctx = vortex::session::VortexSession::empty().create_execution_ctx();
+    let functions = ["count", "sum", "sum", "avg", "min", "max"];
+    let ends: Vec<u32> = (1..=23).map(|idx| idx * 7).collect();
+    let vals: Vec<i32> = (0..23)
+        .map(|idx| {
+            if idx % 3 == 0 {
+                -50 - idx
+            } else {
+                100 + idx * 3
+            }
+        })
+        .collect();
+    let runs = RunEnd::try_new(
+        PrimitiveArray::new(ends, Validity::NonNullable).into_array(),
+        PrimitiveArray::new(vals, Validity::NonNullable).into_array(),
+        &mut ctx,
+    )
+    .unwrap()
+    .into_array();
+    let sliced = SliceArray::new(runs.clone(), 5..151).into_array();
+
+    for array in [runs, sliced] {
+        let canonical = array
+            .clone()
+            .execute::<PrimitiveArray>(&mut ctx)
+            .unwrap()
+            .into_array();
+        let mut actual = states(&functions, &columns);
+        let mut expected = states(&functions, &columns);
+        actual.states[1].argument_offset = Some(4);
+        expected.states[1].argument_offset = Some(4);
+        let mut work = NativeNumericAccessorWork::default();
+        let mut expected_work = NativeNumericAccessorWork::default();
+        assert!(update(&mut actual, &array, &columns, None, &mut work, &mut ctx).unwrap());
+        assert!(
+            expected
+                .update_direct_from_chunk(&canonical, &columns, None, &mut expected_work, &mut ctx)
+                .unwrap()
+        );
+        assert_equal(&actual, &expected);
+        assert!(actual.fused_numeric_additive_updates);
+        assert_eq!(work.encoded_reduction.run_end_arrays, 1);
+    }
+}

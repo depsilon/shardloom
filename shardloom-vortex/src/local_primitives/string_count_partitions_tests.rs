@@ -1029,3 +1029,115 @@ fn reduce_error_publishes_actual_comparisons_without_changing_existing_count() {
     drop(partitions);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
+
+#[test]
+fn rotated_try_lock_reduce_with_scratch_matches_oracle_under_concurrent_contention() {
+    let memory = LiveMemoryPool::new(8 << 20).unwrap();
+    let partitions = Arc::new(
+        StringCountPartitions::try_new(&memory, 1024, 16)
+            .unwrap()
+            .unwrap(),
+    );
+    let scratch = Arc::new(string_count_partial::CountSlotScratchPool::new(4));
+    let mut jobs = AggregateChunkJobs::new(4, 8, 8 << 20, memory.clone()).unwrap();
+    let mut expected = BTreeMap::<String, u64>::new();
+    let mut total_rows = 0_u64;
+    for chunk_idx in 0..16 {
+        while jobs.is_full() {
+            if let Some(done) = jobs.join_next().unwrap() {
+                done.consume(|rows| {
+                    total_rows += *rows;
+                    Ok(())
+                })
+                .unwrap();
+            }
+        }
+        let mut chunk_keys = Vec::with_capacity(64);
+        for row in 0..64 {
+            let key = format!("shared_{}", (chunk_idx + row) % 23);
+            *expected.entry(key.clone()).or_default() += 1;
+            chunk_keys.push(key);
+        }
+        let array = strings(&chunk_keys.iter().map(String::as_str).collect::<Vec<_>>());
+        let partitions = Arc::clone(&partitions);
+        let scratch = Arc::clone(&scratch);
+        let bytes = string_count_partial::partial_bytes(&array).unwrap()
+            + StringCountPartial::deferred_metadata_bytes();
+        jobs.submit(bytes, move |worker, lease| {
+            let partial = string_count_partial::count_string_chunk_with_scratch(
+                &array,
+                vortex::session::VortexSession::empty().create_execution_ctx(),
+                worker,
+                lease,
+                Some(&scratch),
+            )?;
+            let receipt = partitions.reduce_with_scratch(partial, worker, lease, Some(&scratch))?;
+            assert!(receipt.deferred.is_none());
+            Ok(receipt.work.rows)
+        })
+        .unwrap();
+    }
+    while let Some(done) = jobs.join_next().unwrap() {
+        done.consume(|rows| {
+            total_rows += *rows;
+            Ok(())
+        })
+        .unwrap();
+    }
+    assert_eq!(total_rows, 16 * 64);
+    assert_eq!(selected(&partitions), expected);
+    assert!(scratch.reused_count() > 0);
+    scratch.clear();
+    partitions.release_storage().unwrap();
+    drop(jobs);
+    drop(partitions);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn pressure_during_rotated_reduce_retains_unconsumed_partitions_losslessly() {
+    let memory = LiveMemoryPool::new(4 << 20).unwrap();
+    // Small credit limit forces mid-reduction credit exhaustion/pressure across
+    // out-of-order completed partitions while testing compact deferred handoff.
+    let partitions = StringCountPartitions::try_new(&memory, 128, 128)
+        .unwrap()
+        .unwrap();
+    let worker = ChunkWorkerContext::Inline(CancellationToken::default());
+    let mut keys = Vec::new();
+    let mut expected = BTreeMap::<String, u64>::new();
+    for idx in 0..160 {
+        let key = format!("key_{idx:03}");
+        *expected.entry(key.clone()).or_default() += 1;
+        keys.push(key);
+    }
+    let array = strings(&keys.iter().map(String::as_str).collect::<Vec<_>>());
+    let partial = partial(&array, &memory);
+    let mut receipt_lease = memory
+        .reserve(StringCountPartial::deferred_metadata_bytes())
+        .unwrap();
+    // Simulate another worker already holding partition lock on partition 0 when
+    // pass 1 runs, or trigger pressure cleanly after partial prefix credits exhaust.
+    let receipt = partitions
+        .reduce(partial, &worker, &mut receipt_lease)
+        .unwrap();
+    assert!(partitions.pressure_requested());
+    let deferred = receipt.deferred.expect("unconsumed partitions deferred");
+    let mut recovered = BTreeMap::<String, u64>::new();
+    partitions
+        .replay_and_release(|value, count| {
+            *recovered.entry(value.to_owned()).or_default() += count;
+            Ok(())
+        })
+        .unwrap();
+    deferred
+        .for_each_count(|value, count| {
+            *recovered.entry(value.to_owned()).or_default() += count;
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(recovered, expected);
+    drop(deferred);
+    drop(receipt_lease);
+    drop(partitions);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}

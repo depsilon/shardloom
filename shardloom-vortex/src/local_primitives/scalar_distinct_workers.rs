@@ -144,6 +144,7 @@ pub(super) struct ScalarDistinctWorkers {
 }
 
 impl ScalarDistinctWorkers {
+    #[cfg(test)]
     pub(super) fn admit(
         states: &SimpleAggregateStates,
         dtype: &DType,
@@ -152,6 +153,29 @@ impl ScalarDistinctWorkers {
         session: &VortexSession,
         memory: &LiveMemoryPool,
         cancellation: Option<&CancellationToken>,
+    ) -> Result<Option<Self>> {
+        Self::admit_with_pool(
+            states,
+            dtype,
+            columns,
+            policy,
+            session,
+            memory,
+            cancellation,
+            None,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn admit_with_pool(
+        states: &SimpleAggregateStates,
+        dtype: &DType,
+        columns: &[String],
+        policy: VortexLocalPrimitiveExecutionPolicy,
+        session: &VortexSession,
+        memory: &LiveMemoryPool,
+        cancellation: Option<&CancellationToken>,
+        shared_pool: Option<&std::sync::Arc<shardloom_exec::compute_pool::ComputePool>>,
     ) -> Result<Option<Self>> {
         if !shape(states, columns) {
             return Ok(None);
@@ -185,12 +209,13 @@ impl ScalarDistinctWorkers {
             return Ok(None);
         };
         Ok(Some(Self {
-            jobs: AggregateChunkJobs::for_operation(
+            jobs: AggregateChunkJobs::for_operation_with_pool(
                 parallelism,
                 window,
                 memory.snapshot().limit_bytes,
                 memory.clone(),
                 cancellation,
+                shared_pool,
             )?,
             partitions: Some(Arc::new(partitions)),
             column: columns[0].clone(),
