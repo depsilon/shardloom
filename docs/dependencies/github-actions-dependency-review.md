@@ -6,6 +6,15 @@ This document records CI action-version dependency posture for ShardLoom release
 does not authorize package publication, benchmark publication, secrets usage, or fallback
 execution.
 
+## 2026-11-22 Scorecard Action Pin Update
+
+- Merged Dependabot PR <https://github.com/depsilon/shardloom/pull/1712> (`649ef0cb3`) updated
+  `.github/workflows/scorecard.yml` from `ossf/scorecard-action@v2.5.0` to
+  `ossf/scorecard-action@v2.6.0` (pinned commit `23f22cd43608bae7a1f1fa2603d7314dee9538a5`,
+  `Apache-2.0`; inputs, permissions, and triggers unchanged).
+- Synchronized `scripts/check_security_posture.py` from `ossf/scorecard-action@v2.5.0` to
+  `ossf/scorecard-action@v2.6.0`.
+
 ## 2026-10-17 Action Pin Intake
 
 - Dependabot PR <https://github.com/depsilon/shardloom/pull/1553> is absorbed into this batch.
