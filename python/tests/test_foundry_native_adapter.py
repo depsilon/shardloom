@@ -232,11 +232,13 @@ assert hasattr(foundry, "execute_foundry_transform")
         import shardloom as sl
 
         env = os.environ.copy()
-        if SRC.resolve() in Path(sl.__file__).resolve().parents:
+        in_source_checkout = SRC.resolve() in Path(sl.__file__).resolve().parents
+        if in_source_checkout:
             env["PYTHONPATH"] = str(SRC)
+        cmd = [sys.executable, *([] if in_source_checkout else ["-I"]), "-c", script]
         completed = subprocess.run(
-            [sys.executable, "-c", script],
-            cwd=ROOT,
+            cmd,
+            cwd=ROOT if in_source_checkout else None,
             env=env,
             capture_output=True,
             text=True,
@@ -793,6 +795,288 @@ class FoundryNativeAdapterIntegrationTests(unittest.TestCase):
         with sl.context(transport="native", memory_bytes=64 << 20, max_parallelism=1) as reader:
             actual = reader.read_vortex(vtx_dir / "data.vortex").collect(check=True).to_arrow().to_pylist()
         self.assertEqual(actual, [{"k": "x", "v2": 22}, {"k": "y", "v2": 44}])
+
+    def test_append_write_mode_and_failed_append_preservation(self) -> None:
+        import shardloom as sl
+
+        class _DirectAppendDirOutput:
+            def __init__(self, dest_dir: Path) -> None:
+                self.dest_dir = dest_dir
+                self.modes: list[str] = []
+
+            def set_mode(self, mode: str) -> None:
+                self.modes.append(mode)
+
+            def path_for_write_table(self) -> Path:
+                return self.dest_dir
+
+        pq_dir = self.root / "append_pq"
+        out_h = _DirectAppendDirOutput(pq_dir)
+        t1 = self.pa.table({"k": ["a"], "v": [1]})
+        t2 = self.pa.table({"k": ["b"], "v": [2]})
+        execute_foundry_transform(
+            inputs=[FoundryInputSpec(alias="src", handle=_MockArrowInput(t1))],
+            output=FoundryOutputSpec(handle=out_h, output_format="parquet", write_mode="append"),
+            resources=self.resources,
+            transform=lambda _ctx, rels: rels["src"],
+        )
+        execute_foundry_transform(
+            inputs=[FoundryInputSpec(alias="src", handle=_MockArrowInput(t2))],
+            output=FoundryOutputSpec(handle=out_h, output_format="parquet", write_mode="append"),
+            resources=self.resources,
+            transform=lambda _ctx, rels: rels["src"],
+        )
+        self.assertTrue((pq_dir / "part-00000.parquet").is_file())
+        self.assertTrue((pq_dir / "part-00001.parquet").is_file())
+        self.assertEqual(out_h.modes, ["append", "append"])
+
+        with sl.context(transport="native", memory_bytes=64 << 20, max_parallelism=1) as reader:
+            union_rows = sorted(
+                reader.read_parquet(pq_dir).collect(check=True).to_arrow().to_pylist(),
+                key=lambda r: r["k"],
+            )
+        self.assertEqual(union_rows, [{"k": "a", "v": 1}, {"k": "b", "v": 2}])
+
+        # Injected failure on a subsequent append preserves existing committed parts untouched.
+        class _FailingAppendDirOutput(_DirectAppendDirOutput):
+            def path_for_write_table(self) -> Path:
+                raise IOError("injected append publication abort")
+
+        before_parts = {p.name: p.read_bytes() for p in sorted(pq_dir.glob("*.parquet"))}
+        with self.assertRaises(FoundryBoundaryError):
+            execute_foundry_transform(
+                inputs=[FoundryInputSpec(alias="src", handle=_MockArrowInput(t2))],
+                output=FoundryOutputSpec(handle=_FailingAppendDirOutput(pq_dir), output_format="parquet", write_mode="append"),
+                resources=self.resources,
+                transform=lambda _ctx, rels: rels["src"],
+            )
+        after_parts = {p.name: p.read_bytes() for p in sorted(pq_dir.glob("*.parquet"))}
+        self.assertEqual(after_parts, before_parts)
+
+        # Vortex filesystem append creates sequential part-00000.vortex and part-00001.vortex.
+        vtx_dir = self.root / "append_vtx"
+        vtx_out = _MockVortexFsOutput(vtx_dir)
+        execute_foundry_transform(
+            inputs=[FoundryInputSpec(alias="src", handle=_MockArrowInput(t1))],
+            output=FoundryOutputSpec(handle=vtx_out, output_format="vortex", write_mode="append"),
+            resources=self.resources,
+            transform=lambda _ctx, rels: rels["src"],
+        )
+        execute_foundry_transform(
+            inputs=[FoundryInputSpec(alias="src", handle=_MockArrowInput(t2))],
+            output=FoundryOutputSpec(handle=vtx_out, output_format="vortex", write_mode="append"),
+            resources=self.resources,
+            transform=lambda _ctx, rels: rels["src"],
+        )
+        self.assertTrue((vtx_dir / "part-00000.vortex").is_file())
+        self.assertTrue((vtx_dir / "part-00001.vortex").is_file())
+
+    def test_tight_memory_refusal_on_multi_file_join_and_scratch_cleanup(self) -> None:
+        d1 = self.root / "tight_left"
+        d2 = self.root / "tight_right"
+        d1.mkdir()
+        d2.mkdir()
+        self.pq.write_table(self.pa.table({"id": list(range(100)), "v": list(range(100))}), d1 / "p0.parquet")
+        self.pq.write_table(self.pa.table({"id": list(range(100)), "w": list(range(100))}), d2 / "p0.parquet")
+        tight = map_foundry_resources(
+            container_memory_bytes=4096,
+            python_headroom_bytes=2048,
+            max_parallelism=1,
+            spill_dir=self.root / "tight_spill",
+        )
+        with self.assertRaises(Exception):
+            execute_foundry_transform(
+                inputs=[
+                    FoundryInputSpec(alias="l", handle=_MockPathInput(d1)),
+                    FoundryInputSpec(alias="r", handle=_MockPathInput(d2)),
+                ],
+                output=FoundryOutputSpec(handle=_MockArrowOutput(self.root / "never.parquet")),
+                resources=tight,
+                sql="SELECT l.id, l.v + r.w AS s FROM l AS l JOIN r AS r ON l.id = r.id",
+            )
+        self.assertEqual(list((self.root / "tight_spill").glob("shardloom-foundry-job-*")), [])
+
+    def test_adversarial_incremental_gap_recompute_previous_mode_and_bounds(self) -> None:
+        cur_dir = self.root / "adv_cur"
+        prev_dir = self.root / "adv_prev"
+        add_dir = self.root / "adv_add"
+        out_dir = self.root / "adv_out"
+        ckpt_path = self.root / "adv_ckpt.json"
+        for d in (cur_dir, prev_dir, add_dir):
+            d.mkdir()
+        schema = self.pa.schema([self.pa.field("region", self.pa.string()), self.pa.field("amount", self.pa.int64()), self.pa.field("_op", self.pa.string())])
+        self.pq.write_table(self.pa.Table.from_pylist([{"region": "us", "amount": 5, "_op": "insert"}], schema=schema), prev_dir / "p0.parquet")
+        self.pq.write_table(self.pa.Table.from_pylist([{"region": "us", "amount": 10, "_op": "insert"}, {"region": "eu", "amount": 7, "_op": "insert"}], schema=schema), cur_dir / "p0.parquet")
+
+        ice_in = _MockModeAwareIcebergInput(current_dir=cur_dir, added_dir=add_dir, previous_dir=prev_dir)
+        # Verify explicit 'previous' read mode preserves metadata and executes cleanly.
+        prev_rep = execute_foundry_transform(
+            inputs=[FoundryInputSpec(alias="prev_tbl", handle=ice_in, resource_kind="foundry_managed_iceberg", read_mode="previous")],
+            output=FoundryOutputSpec(handle=_MockArrowOutput(self.root / "prev_out.parquet")),
+            resources=self.resources,
+            sql="SELECT region, amount FROM prev_tbl",
+        )
+        self.assertEqual(prev_rep.inputs[0]["read_mode"], "previous")
+
+        # Initial snapshot & gap recovery under on_gap='recompute'.
+        recompute_spec = IncrementalAggregateSpec(
+            source_rid="ri.iceberg.adv",
+            group_by=("region",),
+            sum_columns=("amount",),
+            delta_op_column="_op",
+            on_gap="recompute",
+        )
+        ckpt = IncrementalCheckpointStore(ckpt_path)
+        out_h = _MockPathContextOutput(out_dir)
+        execute_incremental_aggregate_transform(
+            current_input=FoundryInputSpec(alias="cur", handle=ice_in, resource_kind="foundry_managed_iceberg"),
+            output=FoundryOutputSpec(handle=out_h, resource_kind="foundry_managed_iceberg"),
+            spec=recompute_spec,
+            checkpoint_store=ckpt,
+            resources=self.resources,
+            current_transaction_rid="tx-1",
+        )
+        cur_rows_v2 = [{"region": "us", "amount": 100, "_op": "insert"}, {"region": "apac", "amount": 40, "_op": "insert"}]
+        self.pq.write_table(self.pa.Table.from_pylist(cur_rows_v2, schema=schema), cur_dir / "p0.parquet")
+        gap_rep = execute_incremental_aggregate_transform(
+            current_input=FoundryInputSpec(alias="cur", handle=ice_in, resource_kind="foundry_managed_iceberg"),
+            added_input=FoundryInputSpec(alias="add", handle=ice_in, resource_kind="foundry_managed_iceberg", read_mode="added"),
+            output=FoundryOutputSpec(handle=out_h, resource_kind="foundry_managed_iceberg"),
+            spec=recompute_spec,
+            checkpoint_store=ckpt,
+            resources=self.resources,
+            current_transaction_rid="tx-10",
+            previous_transaction_rid="tx-9",
+        )
+        self.assertEqual(gap_rep.incremental["action"], "gap_fallback_full_recompute")
+        self.assertEqual(
+            self.pq.read_table(out_dir / "part-00000.parquet").to_pylist(),
+            [{"region": "apac", "row_count": 1, "sum_amount": 40}, {"region": "us", "row_count": 1, "sum_amount": 100}],
+        )
+
+        # Negative retraction rejection preserves checkpoint and output intact.
+        self.pq.write_table(
+            self.pa.Table.from_pylist([{"region": "apac", "amount": 10, "_op": "delete"}, {"region": "apac", "amount": 10, "_op": "delete"}], schema=schema),
+            add_dir / "p0.parquet",
+        )
+        prior_ckpt = ckpt_path.read_text(encoding="utf-8")
+        with self.assertRaises(FoundryBoundaryError) as neg_err:
+            execute_incremental_aggregate_transform(
+                current_input=FoundryInputSpec(alias="cur", handle=ice_in, resource_kind="foundry_managed_iceberg"),
+                added_input=FoundryInputSpec(alias="add", handle=ice_in, resource_kind="foundry_managed_iceberg", read_mode="added"),
+                output=FoundryOutputSpec(handle=out_h, resource_kind="foundry_managed_iceberg"),
+                spec=recompute_spec,
+                checkpoint_store=ckpt,
+                resources=self.resources,
+                current_transaction_rid="tx-11",
+                previous_transaction_rid="tx-10",
+            )
+        self.assertEqual(neg_err.exception.code, "SL_INCREMENTAL_NEGATIVE_RETRACT")
+        self.assertEqual(ckpt_path.read_text(encoding="utf-8"), prior_ckpt)
+
+        # Schema-signature change automatically triggers full recomputation.
+        self.pq.write_table(
+            self.pa.Table.from_pylist([{"region": "apac", "dept": "d1", "amount": 40, "_op": "insert"}], schema=self.pa.schema([
+                self.pa.field("region", self.pa.string()), self.pa.field("dept", self.pa.string()), self.pa.field("amount", self.pa.int64()), self.pa.field("_op", self.pa.string())
+            ])),
+            cur_dir / "p0.parquet",
+        )
+        schema_spec = IncrementalAggregateSpec(
+            source_rid="ri.iceberg.adv",
+            group_by=("region", "dept"),
+            sum_columns=("amount",),
+            delta_op_column="_op",
+        )
+        schema_rep = execute_incremental_aggregate_transform(
+            current_input=FoundryInputSpec(alias="cur", handle=ice_in, resource_kind="foundry_managed_iceberg"),
+            added_input=FoundryInputSpec(alias="add", handle=ice_in, resource_kind="foundry_managed_iceberg", read_mode="added"),
+            output=FoundryOutputSpec(handle=out_h, resource_kind="foundry_managed_iceberg"),
+            spec=schema_spec,
+            checkpoint_store=ckpt,
+            resources=self.resources,
+            current_transaction_rid="tx-12",
+            previous_transaction_rid="tx-10",
+        )
+        self.assertEqual(schema_rep.incremental["action"], "schema_change_full_recompute")
+
+        # Integer sum exceeding 2^53 boundary fails deterministically.
+        huge_tbl = self.pa.table({"region": ["us"], "amount": self.pa.array([(1 << 53) + 5], type=self.pa.int64())})
+        with self.assertRaises(FoundryBoundaryError) as prec_err:
+            execute_incremental_aggregate_transform(
+                current_input=FoundryInputSpec(alias="cur", handle=_MockArrowInput(huge_tbl)),
+                output=FoundryOutputSpec(handle=_MockArrowOutput(self.root / "prec.parquet")),
+                spec=IncrementalAggregateSpec(source_rid="ri.huge", group_by=("region",), sum_columns=("amount",)),
+                checkpoint_store=IncrementalCheckpointStore(self.root / "huge_ckpt.json"),
+                resources=self.resources,
+                current_transaction_rid="tx-h1",
+            )
+        self.assertEqual(prec_err.exception.code, "SL_INCREMENTAL_PRECISION_BOUND")
+
+
+class FoundrySubprocessReadbackTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.native = _load_native()
+        cls.pa, cls.pq = _optional_pyarrow()
+
+    def test_independent_process_parquet_and_vortex_readback(self) -> None:
+        import shardloom as sl
+
+        with tempfile.TemporaryDirectory(prefix="shardloom-foundry-reopen-") as tmp_dir:
+            root = Path(tmp_dir)
+            resources = map_foundry_resources(
+                container_memory_bytes=128 << 20,
+                max_parallelism=2,
+                spill_dir=root / "spill",
+            )
+            tbl = self.pa.table({"id": [1, 2, 3], "grp": ["a", "b", "a"], "val": [10, 20, 30]})
+            pq_out = root / "published.parquet"
+            vtx_dir = root / "vtx_ds"
+            rep_pq = execute_foundry_transform(
+                inputs=[FoundryInputSpec(alias="src", handle=_MockArrowInput(tbl))],
+                output=FoundryOutputSpec(handle=_MockArrowOutput(pq_out), output_format="parquet"),
+                resources=resources,
+                sql="SELECT grp, SUM(val) AS total FROM src GROUP BY grp ORDER BY grp",
+            )
+            rep_vtx = execute_foundry_transform(
+                inputs=[FoundryInputSpec(alias="src", handle=_MockArrowInput(tbl))],
+                output=FoundryOutputSpec(handle=_MockVortexFsOutput(vtx_dir), output_format="vortex", target_filename="part-00000.vortex"),
+                resources=resources,
+                sql="SELECT grp, SUM(val) AS total FROM src GROUP BY grp ORDER BY grp",
+            )
+            self.assertFalse(rep_pq.live_foundry_enrollment_proved)
+            self.assertFalse(rep_vtx.live_foundry_enrollment_proved)
+
+            child_script = """
+import os, sys
+from pathlib import Path
+lib = os.environ.get("SHARDLOOM_NATIVE_TEST_LIBRARY")
+if lib:
+    import importlib, importlib.machinery, importlib.util
+    importlib.import_module("shardloom")
+    spec = importlib.util.spec_from_file_location(
+        "shardloom._native", lib,
+        loader=importlib.machinery.ExtensionFileLoader("shardloom._native", lib),
+    )
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+import pyarrow.parquet as pq
+import shardloom as sl
+pq_rows = pq.read_table(sys.argv[1]).to_pylist()
+expected = [{"grp": "a", "total": 40.0}, {"grp": "b", "total": 20.0}]
+assert pq_rows == expected, pq_rows
+with sl.context(transport="native", memory_bytes=32 << 20, max_parallelism=1) as ctx:
+    vtx_rows = ctx.read_vortex(Path(sys.argv[2])).collect(check=True).to_arrow().to_pylist()
+assert vtx_rows == expected, vtx_rows
+"""
+            env = os.environ.copy()
+            in_source_checkout = SRC.resolve() in Path(sl.__file__).resolve().parents
+            if in_source_checkout:
+                env["PYTHONPATH"] = str(SRC)
+            cmd = [sys.executable, *([] if in_source_checkout else ["-I"]), "-c", child_script, str(pq_out), str(vtx_dir / "part-00000.vortex")]
+            completed = subprocess.run(cmd, cwd=root, env=env, capture_output=True, text=True, check=False)
+            self.assertEqual(completed.returncode, 0, completed.stderr or completed.stdout)
 
 
 if __name__ == "__main__":

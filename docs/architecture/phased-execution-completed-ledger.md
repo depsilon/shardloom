@@ -17,6 +17,23 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Consolidated Dependabot maintenance, Resonance closeout, RFC 0047/Foundry/AI foundations, Resource-admitted deep traversal hosted acceptance, E2E-ARCH-01, and E2E-PERF-02 — merged`
+  — [PR #1711](https://github.com/depsilon/shardloom/pull/1711) merged into `main` as
+  `91fbee00212e2b4267505ed1b0f63eb68110ce6e` with all `57/57` hosted GitHub Actions and CodeQL
+  checks passing (`CodeQL`, `CodeQL rust`, `CodeQL python`, all `13` `Rust feature matrix` lanes, all
+  `4` `Patched Vortex providers`, all `4` `Native test partitions`, all `3` `Native Python wheel`
+  lanes + `Native Python wheel acceptance`, `Python tests`, `Release readiness reports`,
+  `Dependency and security gates`, and `Website and docs validation`). Local post-edit checks
+  passed `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
+  `794` standalone `vendor/arrow-array` tests (`1` ignored), `license_metadata` (`5`) and
+  `release_readiness_metadata` (`58`), `check_python_license_bundle.py` (`421` registry / `30`
+  vendored / `840` records), and `3,354` workspace tests across `108` targets. Closes
+  **Resource-admitted deep traversal** hosted acceptance (empirical payload depth-24 boundary
+  retained), **Resonance Cells and Leases** closeout (`RFC 0046`, negative screen, zero runtime code
+  retained), `E2E-ARCH-01` R3 inventory + unified `scripts/run_all_checks.py` runner, and
+  `E2E-PERF-02` `ComputePool` targeted wakeups / static row kernels. No fallback execution,
+  competitive-gate closure, performance superiority claim, or package publication follows.
+
 - [x] `Native 2D spatial values and planar expressions — local acceptance`
   — the [contract](native-spatial-values-2026-11-16.md) admits Point, LineString
   and Polygon values through native payload, spill, result and persistence

@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 use shardloom_core::{FloatPolicy, RecursionLimit, Result, ShardLoomError};
 use std::{
+    collections::BTreeSet,
     fmt::Write as _,
     fs::{self, File, OpenOptions},
     io::Read as _,
@@ -129,8 +130,51 @@ fn hex_digest(bytes: &[u8]) -> String {
     out
 }
 
+/// Validate and deterministically canonicalize optional projected-column names
+/// for selective-column durable preparation.
+///
+/// # Errors
+/// Rejects empty column slices, secret-looking strings, or non-SQL ASCII identifiers.
+pub fn normalize_projected_columns(cols: Option<&[String]>) -> Result<Option<Vec<String>>> {
+    let Some(cols) = cols else {
+        return Ok(None);
+    };
+    if cols.is_empty() {
+        return Err(store_error(
+            "projected_columns must specify at least one column when provided",
+        ));
+    }
+    let mut unique = BTreeSet::new();
+    for raw in cols {
+        reject_secret_material("projected_column", raw)?;
+        validate_sql_column_id(raw)?;
+        unique.insert(raw.clone());
+    }
+    Ok(Some(unique.into_iter().collect()))
+}
+
+fn validate_sql_column_id(name: &str) -> Result<()> {
+    let bytes = name.as_bytes();
+    if bytes.is_empty() || bytes.len() > 128 {
+        return Err(store_error(
+            "projected column name must be 1..=128 ASCII bytes",
+        ));
+    }
+    if !(bytes[0].is_ascii_alphabetic() || bytes[0] == b'_')
+        || !bytes[1..]
+            .iter()
+            .all(|b| b.is_ascii_alphanumeric() || *b == b'_')
+    {
+        return Err(store_error(&format!(
+            "projected column '{name}' must match ASCII SQL identifier [A-Za-z_][A-Za-z0-9_]*"
+        )));
+    }
+    Ok(())
+}
+
 /// Full identity binding source bytes, format, semantics, runtime/provider
-/// versions, and caller authorization scope for reusable durable preparation.
+/// versions, optional projected-column subset, and caller authorization scope
+/// for reusable durable preparation.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DurablePreparedSourceIdentity {
@@ -143,6 +187,8 @@ pub struct DurablePreparedSourceIdentity {
     pub provider_vortex_version: String,
     pub provider_arrow_version: String,
     pub authorization_scope_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub projected_columns: Option<Vec<String>>,
 }
 
 impl DurablePreparedSourceIdentity {
@@ -173,7 +219,17 @@ impl DurablePreparedSourceIdentity {
             provider_vortex_version: PROVIDER_VORTEX_VERSION.to_string(),
             provider_arrow_version: PROVIDER_ARROW_VERSION.to_string(),
             authorization_scope_id,
+            projected_columns: None,
         })
+    }
+
+    /// Return a copy of this identity scoped to a canonicalized subset of projected columns.
+    ///
+    /// # Errors
+    /// Rejects empty column lists, secret markers, or non-SQL column identifiers.
+    pub fn with_projected_columns(mut self, cols: Option<&[String]>) -> Result<Self> {
+        self.projected_columns = normalize_projected_columns(cols)?;
+        Ok(self)
     }
 
     /// Deterministic SHA-256 content+policy key used for store lookup.
@@ -716,6 +772,13 @@ fn read_and_validate_prepared_manifest(
         return Err(store_error(&format!(
             "incompatible prepared manifest schema '{}'",
             manifest.schema_version
+        )));
+    }
+    let normalized_manifest_cols =
+        normalize_projected_columns(manifest.identity.projected_columns.as_deref())?;
+    if normalized_manifest_cols != manifest.identity.projected_columns {
+        return Err(store_error(&format!(
+            "non-canonical projected_columns in prepared manifest '{expected_id}'"
         )));
     }
     if manifest.artifact_id != expected_id || manifest.identity != *expected {

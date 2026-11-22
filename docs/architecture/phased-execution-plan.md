@@ -391,7 +391,7 @@ workflow, performance and acceptance work recorded in the historical notes.
   - [x] Complete the enclosing batch's hosted acceptance.
 
 - [x] **Resonance Cells and Leases**
-  Status: Closed (not retained — attribution negative) — [RFC 0046](../rfcs/0046-resonance-cells-and-leases.md)
+  Status: Closed (not retained — attribution negative, merged [#1711](https://github.com/depsilon/shardloom/pull/1711), `91fbee00212e2b4267505ed1b0f63eb68110ce6e`) — [RFC 0046](../rfcs/0046-resonance-cells-and-leases.md)
   completed the Vortex-first provider review and pre-implementation attribution screen
   ([benchmark report](../benchmarks/native-resonance-attribution-screen-2026-11-21.md)).
   The frozen 6-scenario matched two-consumer comparison over `131,072` rows recorded
@@ -407,25 +407,34 @@ workflow, performance and acceptance work recorded in the historical notes.
   - [x] Verify shared preparation, cancellation, resource ownership and final release.
 
 - [ ] **Portable serverless execution**
-  Status: Deliveries 1–2 locally verified — headless Rust worker, durable
-  preparation/result manifests, isolated attempt cleanup, atomic commit fencing and
-  retained-owner pinning implemented under [RFC 0047](../rfcs/0047-portable-serverless-worker-and-durable-artifacts.md);
-  Deliveries 3–5 (live serverless host, live-host routing/cost evidence, real remote
-  selective reader) remain open pending live host access.
+  Status: Deliveries 1–2 and local Delivery 4/5 foundations verified — headless Rust worker,
+  durable preparation/result manifests, canonicalized selective-column durable preparation
+  (`projected_columns` / `prepare_columns`), cost-aware routing policy (`PrepareIfReuseJustifies`),
+  5-cohort local execution proof (`cold_direct`, `cold_prepare`, `warm_prepared_reuse`,
+  invalidation, concurrent reuse), explicit `live_host_verified=false` / `billed_usage_available=false`
+  reporting, isolated attempt cleanup, atomic commit fencing and retained-owner pinning implemented
+  under [RFC 0047](../rfcs/0047-portable-serverless-worker-and-durable-artifacts.md);
+  real managed serverless host deployment, live-host billed telemetry and remote object-store
+  selective range reads remain open pending live host access.
   Use the [portable worker and durable-artifact contract](native-serverless-execution-2026-11-08.md).
   Execution checklist:
   - [x] Complete portable worker, artifact and policy foundations.
   - [ ] Prove one explicitly selected host and selective-access stages.
 
 - [ ] **Foundry integration**
-  Status: Local packaging and transform adapter foundations implemented —
+  Status: Local packaging, transform adapter, multi-file/append/incremental acceptance and isolated
+  wheel integration implemented —
   [`packaging/conda/shardloom-native/meta.yaml`](../../packaging/conda/shardloom-native/meta.yaml)
-  updates the local Conda scaffolds (`1.1.0`) with a platform-specific native package recipe, and
-  [`python/src/shardloom/foundry.py`](../../python/src/shardloom/foundry.py) provides the lazy
-  native Foundry transform, multi-file logical-relation, resource-headroom, failure-safe output,
-  and exact integer incremental/Iceberg maintenance adapter tested against real `shardloom._native`
-  and `pyarrow`. Live Foundry enrollment build, target Linux environment verification, and real
-  platform transaction readback remain open pending enrollment access.
+  supplies the local Conda native package recipe (`1.1.0`),
+  [`python/src/shardloom/foundry.py`](../../python/src/shardloom/foundry.py) and
+  [`python/tests/test_foundry_native_adapter.py`](../../python/tests/test_foundry_native_adapter.py)
+  verify multi-file logical relations, headroom resource mapping, tight-memory refusal/cleanup,
+  `append` / `previous` read-write modes, failure-safe rollback, exact integer incremental/Iceberg
+  maintenance (`on_gap="recompute"`, negative-retraction guards, `2^53` precision bounds,
+  schema-change recompute), and separate-process Parquet/Vortex readback against real
+  `shardloom._native` and `pyarrow`, and [`scripts/prove_native_python_wheel.py`](../../scripts/prove_native_python_wheel.py)
+  requires the suite in isolated native-wheel runs. Live Foundry enrollment build, target Linux
+  environment verification, and real platform transaction readback remain open pending enrollment access.
   Follow the [item-21 delivery contract](native-foundry-integration-2026-10-25.md).
   Foundry hosts the job; ShardLoom computes through its native public interfaces.
   Execution checklist:
@@ -433,8 +442,8 @@ workflow, performance and acceptance work recorded in the historical notes.
   - [ ] Complete scalable multi-file adapter and failure-safe native writer acceptance.
   - [ ] Complete the selected incremental and managed-Iceberg workflows.
 
-- [ ] **Resource-admitted deep traversal**
-  Status: Local acceptance — public payload depth-24 ceiling empirically retained; hosted acceptance pending. The [PR checkpoint](native-deep-traversal-checkpoint-2026-11-17.md)
+- [x] **Resource-admitted deep traversal**
+  Status: Merged and hosted-accepted ([#1711](https://github.com/depsilon/shardloom/pull/1711), `91fbee00212e2b4267505ed1b0f63eb68110ce6e`) — public payload depth-24 ceiling empirically retained; local and hosted acceptance complete (57/57 GitHub Actions + CodeQL checks green on #1711, including `Patched Vortex providers`, `Native test partitions (0..3)`, and `Native Python wheel` acceptance). The [PR checkpoint](native-deep-traversal-checkpoint-2026-11-17.md)
   preserves completed groundwork; public nesting limits and full-item gates
   remain unchanged. Establish the concrete user benefit before expanding this work.
   This will close the remaining depth obligation in the
@@ -680,25 +689,30 @@ workflow, performance and acceptance work recorded in the historical notes.
   - [x] Make physical schema verification iterative with unchanged checks and limits.
   - [x] Complete native provider serialization, value traversal and cleanup.
   - [x] Verify deep import, retain, filter/join, spill, write, reopen and export.
-  - [ ] Complete source, installed-package and hosted acceptance.
+  - [x] Complete source, installed-package and hosted acceptance.
 
 - [ ] **AI data workflows**
-  Status: Core native module and 5-workload acceptance implemented —
+  Status: Core native module, 5-workload acceptance, and mixed-dataset / tight-memory /
+  separate-process `.vortex` reopen / adversarial verification completed locally and wired into
+  [`scripts/prove_native_python_wheel.py`](../../scripts/prove_native_python_wheel.py) —
   [`python/src/shardloom/ai.py`](../../python/src/shardloom/ai.py) and
   [`python/tests/test_ai_data_workflows.py`](../../python/tests/test_ai_data_workflows.py) deliver
   model-ready typed CPU batches over `__arrow_c_stream__`, generation-checked streaming and
   strictly-increasing-read indexed dataset adapters, persisted fitted feature preparation
   (`shardloom.ai_fitted_feature_pipeline.v1`), deterministic group/time splits, availability-time
   `join_asof`, exact filtered native vector retrieval with late payload fetch, lexical BM25/hybrid
-  search, and an evaluated opt-in int8 compact-vector comparison (recording upstream
-  `vortex-turboquant` 0.74.0 is omitted and `exact_globally=false`). Live PyTorch/Hugging Face
-  wheel acceptance and hosted CI remain open.
+  search, evaluated opt-in int8 compact-vector comparison (recording upstream
+  `vortex-turboquant` 0.74.0 is omitted and `exact_globally=false`), empty-dataset / repeated-index /
+  mutation-isolation / partial-publication rollback safety, and mixed scalar+vector+media+nested-struct
+  `.vortex` reopen across separate processes. Optional external PyTorch/Hugging Face consumer wheel
+  handoff remains unverified in zero-dependency core environments until those optional external packages
+  are installed.
   Follow the [item-22 package](native-ai-data-workflows-2026-10-24.md), preserving
   typed model-ready batches, source generations, ownership and retrieval semantics.
   Execution checklist:
   - [x] Complete typed batches, loaders and persisted fitted feature state.
   - [x] Complete exact filtered retrieval and the selected lexical/hybrid workflows.
-  - [ ] Verify mixed workflow fidelity, resources and feature-specific acceptance.
+  - [x] Verify mixed workflow fidelity, resources and feature-specific acceptance.
 
 - [ ] **Version 1.3.0 source milestone**
   Status: Queued — follows AI data workflow acceptance.

@@ -342,16 +342,20 @@ def _apply_dtype_and_shape_checks(batch: Any, spec: TypedBatchSpec, pa: Any) -> 
             elif pa.types.is_list(col.type) or pa.types.is_large_list(col.type):
                 import pyarrow.compute as pc
 
-                lengths = pc.list_value_length(col)
-                mismatch = pc.any(pc.not_equal(lengths, expected_dim)).as_py()
-                if mismatch:
-                    raise AIWorkflowBoundaryError(
-                        "SL_AI_INVALID_SHAPE",
-                        f"column {name!r} contains ragged or mismatched list lengths; expected uniform width {expected_dim}",
-                    )
+                if len(col) > 0:
+                    lengths = pc.list_value_length(col)
+                    mismatch = pc.any(pc.not_equal(lengths, expected_dim)).as_py()
+                    if mismatch:
+                        raise AIWorkflowBoundaryError(
+                            "SL_AI_INVALID_SHAPE",
+                            f"column {name!r} contains ragged or mismatched list lengths; expected uniform width {expected_dim}",
+                        )
                 # Canonicalize validated uniform list column to fixed_size_list.
-                if col.null_count == 0 and len(col) > 0:
-                    col = pa.FixedSizeListArray.from_arrays(col.values, expected_dim)
+                if col.null_count == 0:
+                    if len(col) > 0:
+                        col = pa.FixedSizeListArray.from_arrays(col.values, expected_dim)
+                    else:
+                        col = pa.array([], type=pa.list_(col.type.value_type, expected_dim))
                     field = pa.field(name, col.type, nullable=field.nullable)
             else:
                 raise AIWorkflowBoundaryError(
@@ -664,6 +668,7 @@ class IndexedDataset:
         result = _collect_if_lazy(result_or_frame)
         reader = pa.RecordBatchReader.from_stream(result)
         try:
+            reader_schema = reader.schema
             validated_batches = [
                 _apply_dtype_and_shape_checks(raw, batch_spec, pa) for raw in reader
             ]
@@ -672,8 +677,10 @@ class IndexedDataset:
         if validated_batches:
             self._table = pa.Table.from_batches(validated_batches).combine_chunks()
         else:
-            empty_fields = [pa.field(c, pa.float64()) for c in batch_spec.selected_columns]
-            self._table = pa.Table.from_pylist([], schema=pa.schema(empty_fields))
+            empty_batch = _apply_dtype_and_shape_checks(
+                pa.RecordBatch.from_pylist([], schema=reader_schema), batch_spec, pa
+            )
+            self._table = pa.Table.from_batches([empty_batch])
         self._closed = False
         self.last_unique_sorted_read: tuple[int, ...] = ()
 
@@ -708,7 +715,7 @@ class IndexedDataset:
         unique_sorted = sorted(set(norm))
         self.last_unique_sorted_read = tuple(unique_sorted)
         if not unique_sorted:
-            empty_batch = self._table.slice(0, 0).to_batches()[0] if n > 0 else pa.RecordBatch.from_pylist([], schema=self._table.schema)
+            empty_batch = pa.RecordBatch.from_pylist([], schema=self._table.schema)
             return _make_model_ready_batch(batch_index, empty_batch, self.batch_spec)
 
         unique_tbl = self._table.take(unique_sorted)

@@ -9,8 +9,8 @@ use super::{
     SqlSource, SqlSourceBinding,
     portable_worker_store::{
         AttemptWorkspaceGuard, CommitOutcome, DurableArtifactStore, DurablePreparedSourceIdentity,
-        PROVIDER_ARROW_VERSION, PROVIDER_VORTEX_VERSION, RUNTIME_VERSION, reject_secret_material,
-        sha256_file, validate_safe_id,
+        PROVIDER_ARROW_VERSION, PROVIDER_VORTEX_VERSION, RUNTIME_VERSION,
+        normalize_projected_columns, reject_secret_material, sha256_file, validate_safe_id,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -46,6 +46,10 @@ pub enum WorkerRoutingPolicy {
     DirectOnly,
     ReuseIfCompatible,
     PrepareAndReuse,
+    PrepareIfReuseJustifies {
+        expected_reuse_count: u32,
+        max_source_bytes: u64,
+    },
     RequirePrepared,
 }
 
@@ -59,6 +63,8 @@ pub struct WorkerInputSpec {
     pub schema: Option<String>,
     pub expected_sha256: Option<String>,
     pub expected_size_bytes: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prepare_columns: Option<Vec<String>>,
 }
 
 /// Resource bounds, semantics, and optional spill/deadline settings for one worker attempt.
@@ -113,6 +119,7 @@ pub struct WorkerStageDurations {
 /// Complete machine-readable evidence and publication handle returned by one attempt.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct PortableWorkerReport {
     pub schema_version: String,
     pub request_id: String,
@@ -129,6 +136,9 @@ pub struct PortableWorkerReport {
     pub provider_arrow_version: String,
     pub session_peak_reserved_bytes: u64,
     pub session_final_reserved_bytes: u64,
+    pub live_host_verified: bool,
+    pub billed_usage_available: bool,
+    pub routing_uncertainty_note: String,
     pub fallback_attempted: bool,
     pub external_engine_invoked: bool,
     pub claim_gate_status: String,
@@ -141,6 +151,7 @@ struct ValidatedInput {
     schema: Option<String>,
     sha256: String,
     size_bytes: u64,
+    prepare_columns: Option<Vec<String>>,
 }
 
 struct ResolvedInput {
@@ -258,10 +269,25 @@ impl PortableWorker {
             provider_arrow_version: PROVIDER_ARROW_VERSION.to_string(),
             session_peak_reserved_bytes: executed.peak_reserved,
             session_final_reserved_bytes: final_reserved,
+            live_host_verified: false,
+            billed_usage_available: false,
+            routing_uncertainty_note: routing_uncertainty_note(job.routing_policy),
             fallback_attempted: false,
             external_engine_invoked: false,
             claim_gate_status: "not_claim_grade".to_string(),
         })
+    }
+}
+
+fn routing_uncertainty_note(policy: WorkerRoutingPolicy) -> String {
+    match policy {
+        WorkerRoutingPolicy::PrepareIfReuseJustifies {
+            expected_reuse_count,
+            max_source_bytes,
+        } => format!(
+            "local worker only (live_host_verified=false, billed_usage_available=false); routing evaluated declared expected_reuse_count={expected_reuse_count}, max_source_bytes={max_source_bytes} without live host cold/warm billing or remote network telemetry"
+        ),
+        _ => "local worker only (live_host_verified=false, billed_usage_available=false); static caller routing_policy without live host cold/warm billing or remote network telemetry".to_string(),
     }
 }
 
@@ -458,6 +484,7 @@ fn validate_inputs(
                 input.reference
             )));
         }
+        let prepare_columns = normalize_projected_columns(input.prepare_columns.as_deref())?;
         out.push(ValidatedInput {
             reference: input.reference.clone(),
             original_path: input.path.clone(),
@@ -465,6 +492,7 @@ fn validate_inputs(
             schema: input.schema.clone(),
             sha256,
             size_bytes,
+            prepare_columns,
         });
     }
     Ok(out)
@@ -497,6 +525,7 @@ fn resolve_or_prepare_inputs(
     let mut prepared_ids = Vec::new();
     let mut hit_count = 0_usize;
     let mut built_count = 0_usize;
+    let mut declined_prep_count = 0_usize;
     let mut peak_reserved = session.snapshot().memory.reserved_bytes;
 
     for (idx, input) in validated.iter().enumerate() {
@@ -512,7 +541,8 @@ fn resolve_or_prepare_inputs(
             job.resources.float_policy,
             job.resources.recursion_limit,
             job.authorization_scope_id.clone(),
-        )?;
+        )?
+        .with_projected_columns(input.prepare_columns.as_deref())?;
         if let Some(found) = store.open_validated_prepared(&identity)? {
             hit_count += 1;
             prepared_ids.push(found.manifest.artifact_id.clone());
@@ -535,6 +565,30 @@ fn resolve_or_prepare_inputs(
             WorkerRoutingPolicy::ReuseIfCompatible | WorkerRoutingPolicy::DirectOnly => {
                 resolved.push(direct_resolved(input));
             }
+            WorkerRoutingPolicy::PrepareIfReuseJustifies {
+                expected_reuse_count,
+                max_source_bytes,
+            } => {
+                if expected_reuse_count >= 2 && input.size_bytes <= max_source_bytes {
+                    let (manifest, prep_peak) = prepare_and_publish_input(
+                        idx, input, &identity, store, attempt, resources, session, cancel,
+                    )?;
+                    peak_reserved = peak_reserved.max(prep_peak);
+                    built_count += 1;
+                    let vortex_path = store.resolve_rel_path(&manifest.artifact_rel_path)?;
+                    prepared_ids.push(manifest.artifact_id.clone());
+                    resolved.push(ResolvedInput {
+                        reference: input.reference.clone(),
+                        original_path: input.original_path.clone(),
+                        resolved_path: vortex_path,
+                        effective_format: "vortex".to_string(),
+                        effective_schema: None,
+                    });
+                } else {
+                    declined_prep_count += 1;
+                    resolved.push(direct_resolved(input));
+                }
+            }
             WorkerRoutingPolicy::PrepareAndReuse => {
                 let (manifest, prep_peak) = prepare_and_publish_input(
                     idx, input, &identity, store, attempt, resources, session, cancel,
@@ -554,8 +608,13 @@ fn resolve_or_prepare_inputs(
         }
     }
 
-    let (route_selected, route_reason) =
-        summarize_route(job.routing_policy, validated.len(), hit_count, built_count);
+    let (route_selected, route_reason) = summarize_route(
+        job.routing_policy,
+        validated.len(),
+        hit_count,
+        built_count,
+        declined_prep_count,
+    );
     Ok(ResolvedBatch {
         inputs: resolved,
         route_selected,
@@ -580,23 +639,35 @@ fn summarize_route(
     inputs: usize,
     hits: usize,
     builds: usize,
+    declined_prep: usize,
 ) -> (String, String) {
     match policy {
         WorkerRoutingPolicy::DirectOnly => (
             "direct_source".to_string(),
             "routing_policy=direct_only bypassed durable preparation".to_string(),
         ),
+        WorkerRoutingPolicy::PrepareIfReuseJustifies {
+            expected_reuse_count,
+            max_source_bytes,
+        } if declined_prep > 0 && hits == 0 && builds == 0 => (
+            "direct_source_policy_declined_prep".to_string(),
+            format!(
+                "expected_reuse_count={expected_reuse_count} / max_source_bytes={max_source_bytes} declined durable preparation; executed directly"
+            ),
+        ),
         _ if hits == inputs && inputs > 0 => (
             "reused_durable_prepared_vortex".to_string(),
             format!("all {hits} inputs validated against durable .vortex artifacts"),
         ),
-        _ if builds > 0 && hits == 0 => (
+        _ if builds > 0 && hits == 0 && declined_prep == 0 => (
             "prepared_and_executed_vortex".to_string(),
             format!("materialized {builds} inputs into durable .vortex artifacts and executed"),
         ),
         _ if builds > 0 || hits > 0 => (
             "mixed_prepared_and_direct".to_string(),
-            format!("hits={hits}, builds={builds}, total_inputs={inputs}"),
+            format!(
+                "hits={hits}, builds={builds}, declined_prep={declined_prep}, total_inputs={inputs}"
+            ),
         ),
         _ => (
             "direct_source_cache_miss".to_string(),
@@ -623,7 +694,14 @@ fn prepare_and_publish_input(
         .original_path
         .to_str()
         .ok_or_else(|| worker_error("input path must be valid UTF-8"))?;
-    let prep_sql = format!("SELECT * FROM '{}'", raw_path.replace('\'', "''"));
+    let projection = match identity.projected_columns.as_deref() {
+        Some(cols) if !cols.is_empty() => cols.join(", "),
+        _ => "*".to_string(),
+    };
+    let prep_sql = format!(
+        "SELECT {projection} FROM '{}'",
+        raw_path.replace('\'', "''")
+    );
     let bindings = [SqlSourceBinding {
         reference: raw_path.to_string(),
         source: SqlSource::File {
