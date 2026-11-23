@@ -423,6 +423,37 @@ fn supplied_narrower_session_remains_the_aggregate_cpu_ceiling() {
 
 #[test]
 fn unsupported_two_key_worker_shape_restores_provider_lanes_on_the_same_source() {
+    let fixture_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/metadata_footer_u64_20000.vortex");
+    let request = VortexQueryPrimitiveRequest::simple_aggregate(
+        DatasetUri::new(fixture_path.display().to_string()).unwrap(),
+        VortexSimpleAggregateRequest::grouped(
+            vec![ColumnRef::new("value").unwrap()],
+            vec![measure("count", None, "count_alias")],
+        )
+        .with_order_by(vec![VortexAggregateOrderExpr::new("value", false)]),
+    )
+    .with_source_order_limit(5);
+    let prepared = prepare_aggregate(
+        &request,
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
+    )
+    .unwrap();
+    // Non-struct primitive roots decline parallel workers and restore provider
+    // background progress without losing exact grouped results.
+    assert!(!prepared.worker_pool && prepared.temporary_provider_drivers);
+    for execution in 1..=3 {
+        let result = prepared.execute().unwrap();
+        certified(&result, execution);
+        let actual = payload(&result.report);
+        assert_eq!(actual["aggregate_provider_background_workers"], 1);
+        let values = actual["values"].as_array().unwrap();
+        assert_eq!(values.len(), 5);
+    }
+}
+
+#[test]
+fn two_key_integer_count_uses_general_group_workers() {
     let fixture = Fixture::new();
     let request = fixture.request(VortexSimpleAggregateRequest::grouped(
         vec![
@@ -436,23 +467,94 @@ fn unsupported_two_key_worker_shape_restores_provider_lanes_on_the_same_source()
         VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
     )
     .unwrap();
-    // The compound worker family requires one text key; both fields here are
-    // integer. Generic native aggregation must retain its provider progress.
-    assert!(!prepared.worker_pool && prepared.temporary_provider_drivers);
-    for execution in 1..=3 {
-        let result = prepared.execute().unwrap();
-        certified(&result, execution);
-        let actual = payload(&result.report);
-        assert_eq!(actual["aggregate_provider_background_workers"], 1);
-        let values = actual["values"].as_array().unwrap();
-        assert_eq!(values.len(), 5);
-        for value in values {
-            let key = value["value"].as_u64().unwrap();
-            assert!((1..=5).contains(&key));
-            assert_eq!(value["metric"], key * 10);
-            assert_eq!(value["count_alias"], 1);
-        }
+    assert!(prepared.worker_pool && !prepared.temporary_provider_drivers);
+    let result = prepared.execute().unwrap();
+    certified(&result, 1);
+    let actual = payload(&result.report);
+    assert_eq!(actual["aggregate_workers_family"], "general_group_workers");
+    assert_eq!(actual["aggregate_workers_provider_background_workers"], 0);
+    let values = actual["values"].as_array().unwrap();
+    assert_eq!(values.len(), 5);
+    for value in values {
+        let key = value["value"].as_u64().unwrap();
+        assert!((1..=5).contains(&key));
+        assert_eq!(value["metric"], key * 10);
+        assert_eq!(value["count_alias"], 1);
     }
+}
+
+#[cfg(feature = "vortex-write")]
+#[test]
+fn two_key_float_sum_declines_general_workers_and_restores_provider_lanes() {
+    use vortex::VortexSessionDefault as _;
+    use vortex::array::{
+        IntoArray as _,
+        arrays::{PrimitiveArray, StructArray},
+        dtype::FieldNames,
+        validity::Validity,
+    };
+    use vortex::file::WriteOptionsSessionExt as _;
+    use vortex::io::{
+        runtime::{BlockingRuntime as _, single::SingleThreadRuntime},
+        session::RuntimeSessionExt as _,
+    };
+
+    let dir = std::env::temp_dir().join(format!(
+        "shardloom-float-sum-restore-{}-{}",
+        std::process::id(),
+        NEXT_FIXTURE.fetch_add(1, Ordering::Relaxed)
+    ));
+    std::fs::create_dir(&dir).unwrap();
+    let path = dir.join("float_source.vortex");
+    let struct_array = StructArray::try_new(
+        FieldNames::from(["value", "metric", "weight"]),
+        vec![
+            PrimitiveArray::new(vec![1_i64, 2, 3, 4, 5], Validity::NonNullable).into_array(),
+            PrimitiveArray::new(vec![10_i64, 20, 30, 40, 50], Validity::NonNullable).into_array(),
+            PrimitiveArray::new(vec![1.5_f64, 2.5, 3.5, 4.5, 5.5], Validity::NonNullable)
+                .into_array(),
+        ],
+        5,
+        Validity::NonNullable,
+    )
+    .unwrap()
+    .into_array();
+    let runtime = SingleThreadRuntime::default();
+    let session = vortex::session::VortexSession::default().with_handle(runtime.handle());
+    let mut output = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
+        .unwrap();
+    let mut writer = session
+        .write_options()
+        .blocking(&runtime)
+        .writer(&mut output, struct_array.dtype().clone());
+    writer.push(struct_array).unwrap();
+    assert_eq!(writer.finish().unwrap().row_count(), 5);
+
+    let request = VortexQueryPrimitiveRequest::simple_aggregate(
+        DatasetUri::new(path.display().to_string()).unwrap(),
+        VortexSimpleAggregateRequest::grouped(
+            vec![
+                ColumnRef::new("value").unwrap(),
+                ColumnRef::new("metric").unwrap(),
+            ],
+            vec![measure("sum", Some("weight"), "sum_weight")],
+        ),
+    );
+    let prepared = prepare_aggregate(
+        &request,
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
+    )
+    .unwrap();
+    assert!(!prepared.worker_pool && prepared.temporary_provider_drivers);
+    let result = prepared.execute().unwrap();
+    certified(&result, 1);
+    let actual = payload(&result.report);
+    assert_eq!(actual["aggregate_provider_background_workers"], 1);
+    assert_eq!(actual["values"].as_array().unwrap().len(), 5);
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]

@@ -147,7 +147,7 @@ fn worker_relational_families_reuse_bound_readers_and_deliver_complete_results()
                 &worker.relational(&statement, &[]),
                 &expected,
                 1,
-                case + 1,
+                1,
                 case * 3 + execution,
                 execution > 1,
             );
@@ -172,8 +172,8 @@ fn worker_relational_source_effects_follow_current_plan_with_shared_session_coun
             2,
             false,
         ),
-        (file.as_str(), json!([{"value":1},{"value":2}]), 2, 4, true),
-        ("SELECT 42 AS value", json!([{"value":42}]), 2, 6, false),
+        (file.as_str(), json!([{"value":1},{"value":2}]), 1, 4, true),
+        ("SELECT 42 AS value", json!([{"value":42}]), 1, 6, false),
     ] {
         for repeat in 0..2 {
             let result = worker.relational(statement, &[]);
@@ -191,10 +191,7 @@ fn worker_relational_source_effects_follow_current_plan_with_shared_session_coun
                     usize::from(source_io).to_string(),
                 ),
                 ("source_io_performed", source_io.to_string()),
-                (
-                    "resident_footer_open_performed_this_call",
-                    (source_io && repeat == 0).to_string(),
-                ),
+                ("resident_footer_open_performed_this_call", "false".into()),
                 (
                     "resident_relational_lowering_reused",
                     (repeat > 0).to_string(),
@@ -249,7 +246,7 @@ fn worker_flat_declared_sources_preserve_zero_limit_and_zero_offset() {
                     &result,
                     &expected,
                     1,
-                    case + 1,
+                    1,
                     case * 2 + execution,
                     execution > 1,
                 );

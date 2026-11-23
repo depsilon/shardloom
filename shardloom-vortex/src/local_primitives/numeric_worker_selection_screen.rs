@@ -305,14 +305,20 @@ fn small_count_automatic_selection_preserves_boundaries_encodings_and_nulls() {
     let (_, evidence) = complete_call_with_policy(
         &fixture.query(),
         None,
-        true,
+        false,
         513,
         &expected_counts(&nullable, 10),
         VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(12, 1).unwrap(),
     );
     assert!(
         selection(&evidence).is_null(),
-        "nullable route is unchanged"
+        "small numeric direct selection must still decline nullable keys"
+    );
+    assert!(
+        evidence["summary"]
+            .as_str()
+            .unwrap()
+            .contains("\"aggregate_workers_family\":\"general_group_workers\"")
     );
 }
 

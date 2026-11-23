@@ -218,11 +218,11 @@
     },
     {
       "name": "anyhow",
-      "version": "1.0.102",
+      "version": "1.0.104",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "MIT OR Apache-2.0",
       "repository": "https://github.com/dtolnay/anyhow",
-      "crate_checksum_sha256": "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c",
+      "crate_checksum_sha256": "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470",
       "files": [
         {
           "text": "texts/23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3.txt",
@@ -2054,11 +2054,11 @@
     },
     {
       "name": "event-listener",
-      "version": "5.4.1",
+      "version": "5.4.2",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "Apache-2.0 OR MIT",
       "repository": "https://github.com/smol-rs/event-listener",
-      "crate_checksum_sha256": "e13b66accf52311f30a0db42147dadea9850cb48cd070028831ae5f5d4b856ab",
+      "crate_checksum_sha256": "5a23add41df1562121a9393cb065eab5146a1242410f23a644851e90cfd669d2",
       "files": [
         {
           "text": "texts/23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3.txt",
@@ -2428,11 +2428,11 @@
     },
     {
       "name": "form_urlencoded",
-      "version": "1.2.2",
+      "version": "1.2.3",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "MIT OR Apache-2.0",
       "repository": "https://github.com/servo/rust-url",
-      "crate_checksum_sha256": "cb4cb245038516f5f85277875cdaa4f7d2c9a0fa0468de06ed190163b1581fcf",
+      "crate_checksum_sha256": "afa489199eaffb1211795df1c6236ce1ad0d41a6fa45250add73e3b02420f06e",
       "files": [
         {
           "text": "texts/20c7855c364d57ea4c97889a5e8d98470a9952dade37bd9248b9a54431670e5e.txt",
@@ -6016,11 +6016,11 @@
     },
     {
       "name": "rustix",
-      "version": "1.1.4",
+      "version": "1.1.6",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
       "repository": "https://github.com/bytecodealliance/rustix",
-      "crate_checksum_sha256": "b6fe4565b9518b83ef4f91bb47ce29620ca828bd32cb7e408f0062e9930ba190",
+      "crate_checksum_sha256": "e5e76742e5294153d4dde1207dbec5bdd81eef6fabdc0d2118babadabfd858aa",
       "files": [
         {
           "text": "texts/23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3.txt",
@@ -7442,11 +7442,11 @@
     },
     {
       "name": "url",
-      "version": "2.5.8",
+      "version": "2.5.9",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "MIT OR Apache-2.0",
       "repository": "https://github.com/servo/rust-url",
-      "crate_checksum_sha256": "ff67a8a4397373c3ef660812acab3268222035010ab8680ec4215f38ba3d0eed",
+      "crate_checksum_sha256": "f00cd2407bb42c0ef17be88d4cf020f5cceffd121665bac9b8b9493a369b3b1a",
       "files": [
         {
           "text": "texts/a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2.txt",
@@ -16005,7 +16005,7 @@
           "src/dtype/serde/proto.rs": "c05269720836abbc977cf0503a0d4fac2121a23015a4300482a4e099142fa1dc",
           "src/dtype/struct_.rs": "f2a73ec0d02dafdebcc6c7379d4ef6732eb5a980bd22cab84c3887a503a4634c",
           "src/dtype/union.rs": "2b2d70e3ce28cd4e64572189bc9ab5402e09afaa21facf707b8167547f652dd3",
-          "src/executor.rs": "a2f124ce31b33c6ca9f8c3737006cb48f50f15373b88e9fb27bdcbf66af36d47",
+          "src/executor.rs": "f2e2af6680522cd6cfe3b2ac3591c6fbb6b288b4c79fb4de4270264cbd48fdc6",
           "src/extension/datetime/date.rs": "5726f1c8711b6b7588f41b453408861d884557ff5bce23417d61a1905c22a4c9",
           "src/extension/datetime/time.rs": "d09ce31b25ea291bc4c57bd7ffe777decb9d41d72359659e8c84f846c6571994",
           "src/extension/datetime/timestamp.rs": "c70b6cc2214e98e88749933ca287c6ec7f951a479934ea207b7c57037faa1159",
@@ -16921,7 +16921,7 @@
         },
         "modified_files_sha256": {
           "Cargo.toml": "8867548a2dcdcd4f9baef3f004d109215e3fbf4faede5c18e027e1e11beb12cf",
-          "src/file.rs": "0696a904fc20de8925974d51b3c458d1d9ad5a0d09a931c029ed15c883fe260e",
+          "src/file.rs": "94350381df62cbc582f37f7141e69d484064869b3e387238415db76a9d0dc49a",
           "src/footer/deserializer.rs": "3e3c3068769f50f58bf44c0cba4c70af2380cc735df37a2cb074ca843f694e9a",
           "src/footer/file_layout.rs": "282f0bb3a78cabce20cc458d8a4bec5d1d79c39d2d7db58aa9ed7fde02e544fd",
           "src/footer/file_statistics.rs": "dfd49cb164f1af0771ba5d6926e06570188e802186f16162410f42b927326c47",
@@ -17392,7 +17392,7 @@
           "src/children.rs": "f8745c79e908e79616ccacf1ad21d4eae6180e1a4eb51f3b7620a0493e369c97",
           "src/layout.rs": "5715cf5a179235ec076d3318174c9aa6b353512624f178e28e1d367f3a744e3f",
           "src/layouts/chunked/mod.rs": "815c301e67b41b0b60cfa1dbac835cd37f9be9bf99b2867c3516f686cd027e31",
-          "src/layouts/chunked/reader.rs": "fd29fb866a572c73c328f787137dd209ec9bbf52b7cef9fb8111e83b06b8239c",
+          "src/layouts/chunked/reader.rs": "a6593e0c1e6bcb49293e9a8403ce0e883c12ba5094fba36dcb0c9b5ba7bec299",
           "src/layouts/chunked/writer.rs": "b5a2bc8cf3a151df258f5f173cf03591c18c97ffa48da175cbd4cff5657ae399",
           "src/layouts/dict/writer.rs": "b70fb05db4a9986766034eee5bb0d3863bcb01512296f2e02273ece780732794",
           "src/layouts/file_stats.rs": "4674a636eae4440ce4dc7a1f94663aac2e4a13db9a05d17c6fec4ceaa4ec4985",
@@ -17400,15 +17400,21 @@
           "src/layouts/repartition.rs": "0b6e0ff419698818564132b196687de5b2e4992c1df8dad19f1349cd9fdac26a",
           "src/layouts/struct_/mod.rs": "e52c43574b0aef81f81a69b2a9f2546b64929be6140980ec6ff339eeab033e1e",
           "src/layouts/struct_/reader.rs": "f4f181990e3140a4c9e71985c69b8557d59edb66b11a3a0ac8b9e5bfc5b38b13",
-          "src/layouts/zoned/reader.rs": "f24c631a7006985cf135ad3144aefc9a131ce18a8a06696f18d2704aec6aa1bd",
+          "src/layouts/zoned/reader.rs": "251b7fa7cc4842ac2a8e5fcff4a65c91e793a494869f0ff600c643053a552af0",
           "src/layouts/zoned/writer.rs": "973456f4d3628d54ddc3dbf5f8080d62468106c080881304cd21d11f3b5b9dca",
-          "src/reader.rs": "e63d1631f6fd6dc93abba36da38d242fbb7fe5534ee2b4d45f7c698779641c61",
+          "src/reader.rs": "58b3bbd752edf08e83a27ccc4281be9ed0f7cef9bb81dfde7a2c205b57f45d72",
           "src/scan/multi.rs": "2e3be059b4200225c34ee75ab3b28b57895fb65b6938a3c91a53aecf65e95d47",
           "src/segments/cache.rs": "0d0b4c54e09ebce1cd090460dddaf1583f0f5b14793cc686d679a9f654523563",
           "src/segments/sink.rs": "8e48a0baeb58bb76b1ca524a1f07105972624e602f096f3540a5bd833e88a251",
           "src/serde.rs": "0a148d6180d840cc0e862fdee5f213df6e20ad8e317692f32108b3272df0e3ea",
           "src/strategy.rs": "e20be8616ecd9039a2ead7ba1d52e75f39b35cd818ca38d918eddc0a9e3c1ad3",
-          "src/layouts/zoned/mod.rs": "2464172466b4c78bbf8ff48e16b01c3111f8687a2cd21de1908ea8bbddbb6b5e"
+          "src/layouts/zoned/mod.rs": "2464172466b4c78bbf8ff48e16b01c3111f8687a2cd21de1908ea8bbddbb6b5e",
+          "src/arrays/shared/array.rs": "a2f3e4403049e5d113ff50506d2b5ab74050ef22f7daf7b3915ca93d98d18a35",
+          "src/arrays/shared/vtable.rs": "ce34cb0b759c55415fb14da28adc41a8a9cfec26c39305f02778b044ca3e08e9",
+          "src/layouts/dict/reader.rs": "3bcb58809b35d79413e93478112294ada8da2f0aca26c4e0cbaf37e6a25a2ced",
+          "src/layouts/zoned/pruning.rs": "8a3ffce7c50c953d2948749047fcf013c2e3cf4219eb5a44e83c1bb6d7743b15",
+          "src/reader_context.rs": "892e67b429399e3be3ffdafdf777f555fd42132c128b15213a8288fa603a61ec",
+          "src/segments/source.rs": "1ad2a21ba21cf387bb5e7e458e8470008c122dc8819c4acbace61df8f9efd5a0"
         },
         "added_files_sha256": {
           ".gitignore": "9e7e5b8470baad143c828fe1f9e34ad2d856cf515e63ab8654a9eff82c591ce1",
@@ -17843,7 +17849,7 @@
       "provenance": {
         "added_files_sha256": {
           "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-          "README.shardloom.md": "9a846a5bcef430ea61c3a644e3a39de47e32d8704f5ed8a708c229a48018e384",
+          "README.shardloom.md": "146f15acc334113e65a4cb819308892d724c52bd6fceb3903d8fb79f2f105003",
           "src/compression_resources.rs": "b5253fa5c635d91414533ff8a7a01f4a76e3a18f701945d28402e5334f3443e8",
           "src/compression_resources_tests.rs": "1c3fcbeaa911bfa115e85f24aaeb694e7ba9b5fa606225a44ccfd58a8a7b1dba",
           "src/decoder_workspace.rs": "a40160fffc924e3759a4c08d2bfbe7d4248caa7e420bef17804a73e099145f3c",
@@ -17858,12 +17864,12 @@
         "license_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE",
         "local_changes_documentation": {
           "path": "README.shardloom.md",
-          "sha256": "9a846a5bcef430ea61c3a644e3a39de47e32d8704f5ed8a708c229a48018e384"
+          "sha256": "146f15acc334113e65a4cb819308892d724c52bd6fceb3903d8fb79f2f105003"
         },
         "migration_status": "retained_local_contract_port",
         "modified_files_sha256": {
           "Cargo.toml": "e7fe0bfa3bbb7a30550719c722bcf04a50093e0b4af3a2a71c34f7cecccd8146",
-          "src/array.rs": "9b61ca494417abf6c882729308748712ea66145660a0b32c52892847269ca041",
+          "src/array.rs": "b2193eeb5b8bcb3a60ad0e39232f872749307ca4cd653d6cf2ea8f3ef84f8a2c",
           "src/compute/cast.rs": "48cf6fd95ad460eacc6eba474619c32f9963bd2dfbc24867e2b620c4ea9d378e",
           "src/lib.rs": "3d9219ecd7e556e38093c72b8f1e6d92aa2b7690e491c38583f887d04f5f84c7",
           "src/test.rs": "bf2833947acf51414e9a9300637a5763a2ce97b3444f1138950ae7592fc4dad3",

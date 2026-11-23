@@ -83,11 +83,13 @@ assert hasattr(ai, "exact_vector_search")
         import shardloom as sl
 
         env = os.environ.copy()
-        if SRC.resolve() in Path(sl.__file__).resolve().parents:
+        in_source_checkout = SRC.resolve() in Path(sl.__file__).resolve().parents
+        if in_source_checkout:
             env["PYTHONPATH"] = str(SRC)
+        cmd = [sys.executable, *([] if in_source_checkout else ["-I"]), "-c", script]
         completed = subprocess.run(
-            [sys.executable, "-c", script],
-            cwd=ROOT,
+            cmd,
+            cwd=ROOT if in_source_checkout else None,
             env=env,
             capture_output=True,
             text=True,
@@ -545,6 +547,256 @@ class AIWorkflowNativeIntegrationTests(unittest.TestCase):
             self.assertTrue(ev["rescoring_cannot_recover_omitted_candidates"])
             self.assertFalse(ev["turboquant_upstream_adopted"])
             self.assertFalse(ev["fallback_attempted"])
+
+    def test_mixed_dataset_selective_projection_and_adversarial_edge_cases(self) -> None:
+        import shardloom as sl
+
+        pa, _ = self.pa, self.pq
+        mixed_schema = pa.schema(
+            [
+                pa.field("record_id", pa.int64()),
+                pa.field("label", pa.int64()),
+                pa.field("quality_score", pa.float64()),
+                pa.field("eligible", pa.bool_()),
+                pa.field("text", pa.string()),
+                pa.field("vec", pa.list_(pa.float32(), 8)),
+                pa.field("media", pa.binary()),
+                pa.field(
+                    "model_output",
+                    pa.struct(
+                        [
+                            pa.field("confidence", pa.float64()),
+                            pa.field("tags", pa.list_(pa.string())),
+                        ]
+                    ),
+                ),
+            ]
+        )
+        rows = [
+            {
+                "record_id": i,
+                "label": i % 3,
+                "quality_score": 0.25 if i % 4 == 0 else 0.85,
+                "eligible": i % 2 == 0,
+                "text": f"vortex native document {i}",
+                "vec": [float((i + j) % 7) * 0.125 + 0.1 for j in range(8)],
+                "media": b"\x00\xfe\xed" + f"img-{i}".encode("utf-8"),
+                "model_output": {"confidence": 0.9 - (i % 3) * 0.1, "tags": [f"t{i % 2}", "ok"]},
+            }
+            for i in range(16)
+        ]
+        src_vtx = self.root / "mixed_ai.vortex"
+        filtered_vtx = self.root / "mixed_ai_filtered.vortex"
+        with sl.context(transport="native", memory_bytes=64 << 20, max_parallelism=2) as ctx:
+            ctx.from_arrow_table(pa.Table.from_pylist(rows, schema=mixed_schema)).write_vortex(src_vtx, check=True)
+            vtx_frame = ctx.read_vortex(src_vtx)
+
+            # Ordinary selective projection avoids vector/media/nested columns in schema & result.
+            scalar_tbl = ctx.sql(
+                "SELECT record_id, label, quality_score FROM src WHERE quality_score >= 0.5 ORDER BY record_id",
+                relations={"src": vtx_frame},
+            ).collect(check=True).to_arrow()
+            self.assertEqual([f.name for f in scalar_tbl.schema], ["record_id", "label", "quality_score"])
+            expected_ids = [r["record_id"] for r in rows if r["quality_score"] >= 0.5]
+            self.assertEqual(scalar_tbl.column("record_id").to_pylist(), expected_ids)
+
+            # Full mixed-dataset retention & .vortex write/reopen fidelity across vectors, media, and nested Struct/List.
+            kept = ctx.sql(
+                "SELECT record_id, label, quality_score, eligible, text, vec, media, model_output "
+                "FROM src WHERE quality_score >= 0.5 ORDER BY record_id",
+                relations={"src": vtx_frame},
+            ).collect(check=True)
+            ctx.from_arrow_table(kept.to_arrow()).write_vortex(filtered_vtx, check=True)
+            reopened = ctx.read_vortex(filtered_vtx).collect(check=True).to_arrow().to_pylist()
+            expected_rows = [r for r in rows if r["quality_score"] >= 0.5]
+            self.assertEqual(len(reopened), len(expected_rows))
+            for actual, expected in zip(reopened, expected_rows):
+                self.assertEqual(actual["record_id"], expected["record_id"])
+                self.assertEqual(actual["media"], expected["media"])
+                self.assertEqual(actual["model_output"], expected["model_output"])
+                for av, ev in zip(actual["vec"], expected["vec"]):
+                    self.assertAlmostEqual(av, ev, places=5)
+
+            # Empty 0-row inputs succeed cleanly across TypedBatch, StreamingDataset, IndexedDataset, Vector, and Hybrid.
+            empty_frame = ctx.from_arrow_table(pa.Table.from_pylist([], schema=mixed_schema))
+            empty_spec = TypedBatchSpec(
+                feature_columns=("quality_score", "vec"),
+                label_columns=("label",),
+                id_column="record_id",
+                expected_shapes={"vec": (8,)},
+            )
+            self.assertEqual(list(deliver_typed_batches(empty_frame, empty_spec, batch_size=4)), [])
+            with StreamingDataset(lambda: empty_frame, empty_spec, batch_size=4) as empty_stream:
+                self.assertEqual(list(empty_stream), [])
+            with IndexedDataset(empty_frame, empty_spec) as empty_idx:
+                self.assertEqual(len(empty_idx), 0)
+                self.assertEqual(empty_idx.take_batch([]).num_rows, 0)
+                self.assertEqual(list(empty_idx.iter_epoch_batches(4)), [])
+            vec_spec = VectorRetrievalSpec(
+                id_column="record_id",
+                vector_column="vec",
+                query_vector=[0.2] * 8,
+                k=3,
+                dimensions=8,
+                payload_columns=("media", "model_output"),
+            )
+            empty_vec_res, _ = exact_vector_search(ctx, empty_frame, vec_spec)
+            self.assertEqual(empty_vec_res.to_arrow().num_rows, 0)
+            empty_lex = LexicalIndex.build(ctx, empty_frame, id_column="record_id", text_column="text")
+            empty_hyb_res, _ = hybrid_search(ctx, empty_frame, vector_spec=vec_spec, lexical_index=empty_lex, lexical_query="vortex")
+            self.assertEqual(empty_hyb_res.to_arrow().num_rows, 0)
+
+            # Non-empty IndexedDataset empty-take_batch and mutation isolation.
+            nonempty_idx = IndexedDataset(vtx_frame.select("record_id", "quality_score", "vec", "label"), TypedBatchSpec(
+                feature_columns=("quality_score", "vec"), label_columns=("label",), id_column="record_id", expected_shapes={"vec": (8,)}, writable=True
+            ))
+            with nonempty_idx:
+                self.assertEqual(nonempty_idx.take_batch([]).num_rows, 0)
+                b_mut = nonempty_idx.take_batch([2, 0, 2])
+                bufs = b_mut.writable_feature_buffers("quality_score")
+                bufs[0][0] ^= 0xFF
+                b_fresh = nonempty_idx.take_batch([2, 0, 2])
+                self.assertAlmostEqual(b_fresh.features["quality_score"].to_pylist()[0], rows[2]["quality_score"])
+
+        # Partial publication failure (injected os.replace error) preserves prior committed state & leaves no temp files.
+        pipe_path = self.root / "atomic_pipe.json"
+        pipe_path.write_text('{"sentinel": "prior"}\n', encoding="utf-8")
+        with sl.context(transport="native", memory_bytes=64 << 20, max_parallelism=1) as ctx:
+            fit_tbl = pa.Table.from_pylist([{"id": 1, "x": 10.0, "c": "a"}, {"id": 2, "x": 20.0, "c": "b"}])
+            fitted = FittedFeaturePipeline.fit(ctx, ctx.from_arrow_table(fit_tbl), FeaturePipelineSpec(numeric_columns=("x",), categorical_columns=("c",)))
+            lex = LexicalIndex.build(
+                ctx,
+                ctx.from_arrow_table(pa.Table.from_pylist([{"id": 1, "text": "hello"}])),
+                id_column="id",
+                text_column="text",
+            )
+        idx_path = self.root / "atomic_lex.json"
+        idx_path.write_text('{"sentinel": "prior"}\n', encoding="utf-8")
+        with patch("os.replace", side_effect=OSError("simulated partial publish abort")):
+            with self.assertRaises(OSError):
+                fitted.save(pipe_path)
+            with self.assertRaises(OSError):
+                lex.save(idx_path)
+        self.assertEqual(pipe_path.read_text(encoding="utf-8"), '{"sentinel": "prior"}\n')
+        self.assertEqual(idx_path.read_text(encoding="utf-8"), '{"sentinel": "prior"}\n')
+        self.assertEqual(list(self.root.glob(".sl-ai-*")), [])
+
+        # Worker failure in one worker does not break valid execution or corrupt source generation.
+        with self.assertRaises(AIWorkflowBoundaryError) as bad_w:
+            StreamingDataset(lambda: None, empty_spec, worker_id=2, num_workers=2)
+        self.assertEqual(bad_w.exception.code, "SL_AI_INVALID_PARAM")
+
+        # Modification invalidates LexicalIndex source generation too.
+        gen_vtx = SourceGenerationToken.from_paths([src_vtx])
+        with sl.context(transport="native", memory_bytes=64 << 20, max_parallelism=1) as ctx:
+            lex_gen = LexicalIndex.build(ctx, ctx.read_vortex(src_vtx), id_column="record_id", text_column="text", source_generation=gen_vtx)
+        src_vtx.write_bytes(src_vtx.read_bytes() + b"\x00")
+        with self.assertRaises(AIWorkflowBoundaryError) as lex_stale:
+            lex_gen.search("vortex", k=2)
+        self.assertEqual(lex_stale.exception.code, "SL_AI_SOURCE_GENERATION_CHANGED")
+
+
+class AIWorkflowSubprocessReopenTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.native = _load_native()
+        cls.pa, cls.pq = _optional_pyarrow()
+
+    def test_tight_memory_spill_refusal_and_separate_process_vortex_reopen(self) -> None:
+        import shardloom as sl
+
+        pa = self.pa
+        with tempfile.TemporaryDirectory(prefix="shardloom-ai-reopen-") as tmp_dir:
+            root = Path(tmp_dir)
+            out_vtx = root / "mixed_4k.vortex"
+            mixed_schema = pa.schema(
+                [
+                    pa.field("record_id", pa.int64()),
+                    pa.field("label", pa.int64()),
+                    pa.field("quality_score", pa.float64()),
+                    pa.field("text", pa.string()),
+                    pa.field("vec", pa.list_(pa.float32(), 8)),
+                    pa.field("media", pa.binary()),
+                    pa.field(
+                        "model_output",
+                        pa.struct(
+                            [
+                                pa.field("confidence", pa.float64()),
+                                pa.field("tags", pa.list_(pa.string())),
+                            ]
+                        ),
+                    ),
+                ]
+            )
+            n_rows = 2048
+            table = pa.table(
+                {
+                    "record_id": pa.array(list(range(n_rows)), type=pa.int64()),
+                    "label": pa.array([i % 4 for i in range(n_rows)], type=pa.int64()),
+                    "quality_score": pa.array([float(i % 100) / 100.0 for i in range(n_rows)], type=pa.float64()),
+                    "text": pa.array([f"sample document {i} vortex" for i in range(n_rows)], type=pa.string()),
+                    "vec": pa.array([[float((i + k) % 11) * 0.1 for k in range(8)] for i in range(n_rows)], type=pa.list_(pa.float32(), 8)),
+                    "media": pa.array([b"\x00\x01bin-" + str(i).encode("utf-8") for i in range(n_rows)], type=pa.binary()),
+                    "model_output": pa.array(
+                        [{"confidence": 0.5 + (i % 5) * 0.1, "tags": [f"k{i % 3}", "v1"]} for i in range(n_rows)],
+                        type=mixed_schema.field("model_output").type,
+                    ),
+                },
+                schema=mixed_schema,
+            )
+
+            # 1. Impossibly tiny memory limit fails deterministically without crashing or fallback.
+            with sl.context(transport="native", memory_bytes=512, max_parallelism=1) as tiny_ctx:
+                with self.assertRaises(Exception):
+                    tiny_ctx.from_arrow_table(table).filter(sl.col("record_id") >= 0).collect(check=True)
+
+            # 2. Bounded memory sort + spill/write to durable .vortex file.
+            spill_dir = root / "spill"
+            spill_dir.mkdir()
+            with sl.context(transport="native", memory_bytes=16 << 20, max_parallelism=2) as ctx:
+                sorted_tbl = ctx.sql(
+                    "SELECT record_id, label, quality_score, text, vec, media, model_output "
+                    "FROM s WHERE quality_score >= 0.5 ORDER BY record_id DESC",
+                    relations={"s": ctx.from_arrow_table(table)},
+                ).collect(check=True).to_arrow()
+                ctx.from_arrow_table(sorted_tbl).write_vortex(out_vtx, check=True)
+            expected_count = sorted_tbl.num_rows
+            self.assertEqual(expected_count, 1000)
+
+            # 3. Separate fresh Python process reopens the .vortex output and verifies nested/vector/media fidelity.
+            child_script = """
+import os, sys
+from pathlib import Path
+lib = os.environ.get("SHARDLOOM_NATIVE_TEST_LIBRARY")
+if lib:
+    import importlib, importlib.machinery, importlib.util
+    importlib.import_module("shardloom")
+    spec = importlib.util.spec_from_file_location(
+        "shardloom._native", lib,
+        loader=importlib.machinery.ExtensionFileLoader("shardloom._native", lib),
+    )
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+import shardloom as sl
+vtx_path = Path(sys.argv[1])
+expected_count = int(sys.argv[2])
+with sl.context(transport="native", memory_bytes=32 << 20, max_parallelism=1) as ctx:
+    got = ctx.read_vortex(vtx_path).collect(check=True).to_arrow()
+assert got.num_rows == expected_count, (got.num_rows, expected_count)
+first = got.slice(0, 1).to_pylist()[0]
+assert first["record_id"] == 1999
+assert first["media"] == b"\\x00\\x01bin-1999"
+assert first["model_output"] == {"confidence": 0.9, "tags": [f"k{1999 % 3}", "v1"]}
+assert len(first["vec"]) == 8
+"""
+            env = os.environ.copy()
+            in_source_checkout = SRC.resolve() in Path(sl.__file__).resolve().parents
+            if in_source_checkout:
+                env["PYTHONPATH"] = str(SRC)
+            cmd = [sys.executable, *([] if in_source_checkout else ["-I"]), "-c", child_script, str(out_vtx), str(expected_count)]
+            completed = subprocess.run(cmd, cwd=root, env=env, capture_output=True, text=True, check=False)
+            self.assertEqual(completed.returncode, 0, completed.stderr or completed.stdout)
 
 
 if __name__ == "__main__":

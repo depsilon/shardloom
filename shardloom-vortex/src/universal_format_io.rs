@@ -61,6 +61,7 @@ pub use metadata::inspect_local_columnar_schema;
 #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
 pub mod demanded;
 
+pub mod first_batch_profile;
 pub mod text_stream;
 mod work_sizing;
 
@@ -77,6 +78,15 @@ mod provider_batch_tests;
 pub(crate) mod local_dataset;
 
 mod orc_translation;
+#[cfg_attr(
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    )),
+    allow(unused_imports)
+)]
 pub(crate) use orc_translation::{
     schema as translate_orc_schema, wire_schema_matches as orc_wire_schema_matches,
 };
@@ -274,6 +284,9 @@ pub struct FlatLocalColumnarStreamSource {
     /// leave this absent; the writer then admits their declared source owners.
     #[cfg(feature = "vortex-write")]
     pub ingest_runtime: Option<crate::universal_format_io::IngestRuntime>,
+    /// Content-driven profile computed from the first batch or metadata before
+    /// derived-column planning.
+    pub first_batch_profile: Option<first_batch_profile::FirstBatchProfile>,
     /// Streaming Arrow batch reader consumed by the Vortex writer.
     pub reader: Box<dyn RecordBatchReader + Send>,
 }
@@ -1455,6 +1468,7 @@ fn flat_columnar_stream_source_from_reader(
         #[cfg(feature = "vortex-write")]
         ingest_runtime: None,
         embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
+        first_batch_profile: None,
         reader,
     };
     source.source_dictionary_preservation_status = format!(
@@ -1470,9 +1484,18 @@ struct ParquetDictionarySchemaPlan {
     dictionary_preservation_status: &'static str,
 }
 
+#[cfg(test)]
 fn parquet_dictionary_schema_plan(
     schema: &SchemaRef,
     row_count_hint: Option<usize>,
+) -> ParquetDictionarySchemaPlan {
+    parquet_dictionary_schema_plan_with_metadata(schema, row_count_hint, None)
+}
+
+fn parquet_dictionary_schema_plan_with_metadata(
+    schema: &SchemaRef,
+    row_count_hint: Option<usize>,
+    metadata: Option<&parquet::file::metadata::ParquetMetaData>,
 ) -> ParquetDictionarySchemaPlan {
     if row_count_hint.is_some_and(|rows| rows >= PRODUCT_COLUMNAR_LARGE_STREAM_ROW_THRESHOLD) {
         let schema_hint = parquet_string_view_schema_hint(schema.as_ref());
@@ -1484,7 +1507,8 @@ fn parquet_dictionary_schema_plan(
             dictionary_preservation_status: "parquet_arrow_reader_uses_utf8_view_for_large_olap_text_zstd_artifact_size_guard",
         };
     }
-    let schema_hint = parquet_dictionary_preserving_schema_hint(schema.as_ref());
+    let schema_hint =
+        parquet_dictionary_preserving_schema_hint_from_metadata(schema.as_ref(), metadata);
     let stream_schema = schema_hint
         .as_ref()
         .map_or_else(|| Arc::clone(schema), Arc::clone);
@@ -1524,7 +1548,13 @@ fn parquet_string_view_schema_hint(schema: &Schema) -> Option<SchemaRef> {
 #[path = "universal_format_io_parquet_view_tests.rs"]
 mod parquet_view_tests;
 
-fn parquet_dictionary_preserving_schema_hint(schema: &Schema) -> Option<SchemaRef> {
+fn parquet_dictionary_preserving_schema_hint_from_metadata(
+    schema: &Schema,
+    metadata: Option<&parquet::file::metadata::ParquetMetaData>,
+) -> Option<SchemaRef> {
+    let metadata = metadata?;
+    let profile =
+        first_batch_profile::FirstBatchProfile::from_parquet_metadata(schema, Some(metadata));
     let mut changed = false;
     let fields = schema
         .fields()
@@ -1532,8 +1562,9 @@ fn parquet_dictionary_preserving_schema_hint(schema: &Schema) -> Option<SchemaRe
         .map(|field| {
             let source_column = field.name();
             let should_request_dictionary = is_utf8_arrow_dtype(field.data_type())
-                && (should_embed_utf8_length_column(source_column)
-                    || is_url_like_column_name(source_column));
+                && profile
+                    .column(source_column)
+                    .is_some_and(|col| col.parquet_dictionary_encoded && col.looks_like_url);
             if should_request_dictionary {
                 changed = true;
                 let value_type = parquet_dictionary_hint_utf8_value_type(field.data_type());
@@ -1608,7 +1639,11 @@ fn prepare_embedded_derived_columns(
     mode: EmbeddedDerivedColumnMode,
 ) -> Option<(SchemaRef, Vec<EmbeddedDerivedColumnSpec>)> {
     let input_schema = source.reader.schema();
-    let specs = embedded_derived_column_specs(input_schema.as_ref(), mode);
+    let specs = embedded_derived_column_specs_with_profile(
+        input_schema.as_ref(),
+        source.first_batch_profile.as_ref(),
+        mode,
+    );
     if specs.is_empty() {
         if matches!(mode, EmbeddedDerivedColumnMode::SourceNativeOnly) {
             source.source_dictionary_preservation_status = format!(
@@ -1693,47 +1728,62 @@ fn embedded_derived_column_schema(
     Schema::new(fields)
 }
 
+#[cfg(test)]
 fn embedded_derived_column_specs(
     schema: &Schema,
     mode: EmbeddedDerivedColumnMode,
 ) -> Vec<EmbeddedDerivedColumnSpec> {
+    embedded_derived_column_specs_with_profile(schema, None, mode)
+}
+
+fn embedded_derived_column_specs_with_profile(
+    schema: &Schema,
+    profile: Option<&first_batch_profile::FirstBatchProfile>,
+    mode: EmbeddedDerivedColumnMode,
+) -> Vec<EmbeddedDerivedColumnSpec> {
     let mut specs = Vec::new();
-    visit_embedded_derived_columns(schema, mode, |source_index, field, kind| {
-        let source_column = field.name();
-        let (output_column, output_data_type) = match kind {
-            EmbeddedDerivedColumnKind::Utf8Length => (
-                shardloom_utf8_length_derived_column(source_column),
-                embedded_utf8_length_data_type(field.data_type()),
-            ),
-            EmbeddedDerivedColumnKind::UrlDomain => (
-                shardloom_url_domain_derived_column(source_column),
-                embedded_url_domain_data_type(field.data_type()),
-            ),
-            EmbeddedDerivedColumnKind::ExtractMinute => (
-                shardloom_extract_minute_derived_column(source_column),
-                DataType::UInt8,
-            ),
-            EmbeddedDerivedColumnKind::DateTruncMinute => (
-                shardloom_date_trunc_minute_derived_column(source_column),
-                DataType::Int64,
-            ),
-        };
-        specs.push(EmbeddedDerivedColumnSpec {
-            source_index,
-            source_column: source_column.clone(),
-            output_column,
-            kind,
-            output_data_type,
-        });
-    });
+    visit_embedded_derived_columns_with_profile(
+        schema,
+        profile,
+        mode,
+        |source_index, field, kind| {
+            let source_column = field.name();
+            let (output_column, output_data_type) = match kind {
+                EmbeddedDerivedColumnKind::Utf8Length => (
+                    shardloom_utf8_length_derived_column(source_column),
+                    embedded_utf8_length_data_type(field.data_type()),
+                ),
+                EmbeddedDerivedColumnKind::UrlDomain => (
+                    shardloom_url_domain_derived_column(source_column),
+                    embedded_url_domain_data_type(field.data_type()),
+                ),
+                EmbeddedDerivedColumnKind::ExtractMinute => (
+                    shardloom_extract_minute_derived_column(source_column),
+                    DataType::UInt8,
+                ),
+                EmbeddedDerivedColumnKind::DateTruncMinute => (
+                    shardloom_date_trunc_minute_derived_column(source_column),
+                    DataType::Int64,
+                ),
+            };
+            specs.push(EmbeddedDerivedColumnSpec {
+                source_index,
+                source_column: source_column.clone(),
+                output_column,
+                kind,
+                output_data_type,
+            });
+        },
+    );
     specs
 }
 
 // Allocation-free planning lets the admitted owner reserve before creating
 // specs, output names, cloned fields or lookup structures. Preserve field/kind
 // order and the existing escaped-name collision behavior.
-fn visit_embedded_derived_columns(
+fn visit_embedded_derived_columns_with_profile(
     schema: &Schema,
+    profile: Option<&first_batch_profile::FirstBatchProfile>,
     mode: EmbeddedDerivedColumnMode,
     mut visit: impl FnMut(usize, &Field, EmbeddedDerivedColumnKind),
 ) {
@@ -1746,6 +1796,7 @@ fn visit_embedded_derived_columns(
         if is_shardloom_hidden_derived_column(source_column) {
             continue;
         }
+        let col_profile = profile.and_then(|p| p.column(source_column));
         let is_full_utf8_source = matches!(mode, EmbeddedDerivedColumnMode::FullAdapter)
             && is_utf8_arrow_dtype(field.data_type());
         let is_lean_runtime_utf8_source =
@@ -1754,34 +1805,61 @@ fn visit_embedded_derived_columns(
         let is_source_native_utf8_dictionary = is_dictionary_utf8_arrow_dtype(field.data_type());
         let utf8 =
             is_full_utf8_source || is_lean_runtime_utf8_source || is_source_native_utf8_dictionary;
-        let minute =
-            should_embed_extract_minute_column_for_mode(source_column, field.data_type(), mode)
-                && is_extract_minute_arrow_dtype(field.data_type())
-                && (matches!(mode, EmbeddedDerivedColumnMode::FullAdapter)
-                    || matches!(mode, EmbeddedDerivedColumnMode::SourceNativeLeanRuntime)
-                    || is_source_native_extract_minute_arrow_dtype(field.data_type()));
-        let trunc =
-            should_embed_date_trunc_minute_column_for_mode(source_column, field.data_type(), mode)
-                && is_date_trunc_minute_arrow_dtype(field.data_type());
+        let (enable_utf8_len, enable_url_domain, enable_minute, enable_trunc) =
+            if let Some(col) = col_profile {
+                let time_candidate = col.is_native_timestamp
+                    || col.looks_like_epoch_seconds
+                    || (matches!(
+                        mode,
+                        EmbeddedDerivedColumnMode::FullAdapter
+                            | EmbeddedDerivedColumnMode::SourceNativeLeanRuntime
+                    ) && col.looks_like_timestamp_text);
+                let minute = time_candidate
+                    && is_extract_minute_arrow_dtype(field.data_type())
+                    && (matches!(
+                        mode,
+                        EmbeddedDerivedColumnMode::FullAdapter
+                            | EmbeddedDerivedColumnMode::SourceNativeLeanRuntime
+                    ) || is_source_native_extract_minute_arrow_dtype(field.data_type()));
+                let trunc = time_candidate
+                    && is_date_trunc_minute_arrow_dtype(field.data_type())
+                    && !is_utf8_arrow_dtype(field.data_type());
+                (
+                    utf8 && col.has_varied_or_long_utf8,
+                    utf8 && col.looks_like_url,
+                    minute,
+                    trunc,
+                )
+            } else {
+                let native_ts = matches!(field.data_type(), DataType::Timestamp(_, _));
+                (
+                    (matches!(mode, EmbeddedDerivedColumnMode::FullAdapter)
+                        && is_utf8_arrow_dtype(field.data_type()))
+                        || is_source_native_utf8_dictionary,
+                    false,
+                    native_ts,
+                    native_ts,
+                )
+            };
         for (kind, enabled, prefix) in [
             (
                 EmbeddedDerivedColumnKind::Utf8Length,
-                utf8 && should_embed_utf8_length_column_for_mode(source_column, mode),
+                enable_utf8_len,
                 "__shardloom_derived_utf8_len_",
             ),
             (
                 EmbeddedDerivedColumnKind::UrlDomain,
-                utf8 && should_embed_url_domain_column_for_mode(source_column, mode),
+                enable_url_domain,
                 "__shardloom_derived_url_domain_",
             ),
             (
                 EmbeddedDerivedColumnKind::ExtractMinute,
-                minute,
+                enable_minute,
                 "__shardloom_derived_extract_minute_",
             ),
             (
                 EmbeddedDerivedColumnKind::DateTruncMinute,
-                trunc,
+                enable_trunc,
                 "__shardloom_derived_date_trunc_minute_",
             ),
         ] {
@@ -2635,87 +2713,6 @@ fn is_date_trunc_minute_arrow_dtype(data_type: &DataType) -> bool {
     is_source_native_extract_minute_arrow_dtype(data_type)
 }
 
-fn is_url_like_column_name(column: &str) -> bool {
-    ["url", "referer", "uri"]
-        .iter()
-        .any(|part| contains_ascii_case_insensitive(column, part))
-}
-
-fn contains_ascii_case_insensitive(column: &str, part: &str) -> bool {
-    column
-        .as_bytes()
-        .windows(part.len())
-        .any(|window| window.eq_ignore_ascii_case(part.as_bytes()))
-}
-
-fn should_embed_extract_minute_column(column: &str, data_type: &DataType) -> bool {
-    let known_clean_event_time =
-        column.eq_ignore_ascii_case("eventtime") || column.eq_ignore_ascii_case("event_time");
-    if is_utf8_arrow_dtype(data_type) {
-        return known_clean_event_time;
-    }
-    known_clean_event_time
-        || column
-            .as_bytes()
-            .get(column.len().saturating_sub(4)..)
-            .is_some_and(|suffix| suffix.eq_ignore_ascii_case(b"time"))
-        || contains_ascii_case_insensitive(column, "timestamp")
-}
-
-fn should_embed_extract_minute_column_for_mode(
-    column: &str,
-    data_type: &DataType,
-    mode: EmbeddedDerivedColumnMode,
-) -> bool {
-    if matches!(mode, EmbeddedDerivedColumnMode::SourceNativeLeanRuntime) {
-        return column.eq_ignore_ascii_case("eventtime")
-            || column.eq_ignore_ascii_case("event_time");
-    }
-    should_embed_extract_minute_column(column, data_type)
-}
-
-fn should_embed_date_trunc_minute_column_for_mode(
-    column: &str,
-    data_type: &DataType,
-    mode: EmbeddedDerivedColumnMode,
-) -> bool {
-    if is_utf8_arrow_dtype(data_type) {
-        return false;
-    }
-    should_embed_extract_minute_column_for_mode(column, data_type, mode)
-}
-
-fn should_embed_utf8_length_column(column: &str) -> bool {
-    is_url_like_column_name(column)
-        || ["search", "phrase", "title"]
-            .iter()
-            .any(|part| contains_ascii_case_insensitive(column, part))
-}
-
-fn should_embed_utf8_length_column_for_mode(column: &str, mode: EmbeddedDerivedColumnMode) -> bool {
-    if matches!(mode, EmbeddedDerivedColumnMode::SourceNativeLeanRuntime) {
-        return [
-            "url",
-            "referer",
-            "referrer",
-            "searchphrase",
-            "search_phrase",
-        ]
-        .iter()
-        .any(|name| column.eq_ignore_ascii_case(name));
-    }
-    should_embed_utf8_length_column(column)
-}
-
-fn should_embed_url_domain_column_for_mode(column: &str, mode: EmbeddedDerivedColumnMode) -> bool {
-    if matches!(mode, EmbeddedDerivedColumnMode::SourceNativeLeanRuntime) {
-        return ["url", "referer", "referrer"]
-            .iter()
-            .any(|name| column.eq_ignore_ascii_case(name));
-    }
-    is_url_like_column_name(column)
-}
-
 fn is_shardloom_hidden_derived_column(column: &str) -> bool {
     column.starts_with("__shardloom_derived_")
 }
@@ -2962,7 +2959,7 @@ fn timestamp_nanos_date_trunc_minute(value: i64) -> i64 {
     value.div_euclid(60_000_000_000) * 60
 }
 
-fn parse_timestamp_minute(value: &str) -> Option<u8> {
+pub(super) fn parse_timestamp_minute(value: &str) -> Option<u8> {
     let time = value.split_once('T').map_or_else(
         || value.split_whitespace().nth(1),
         |(_date, time)| Some(time),
@@ -3101,6 +3098,7 @@ fn with_dedicated_source_prefetch(
         source_dictionary_preservation_status,
         ingest_executor_unit_count_hint,
         embedded_derived_build_micros,
+        first_batch_profile,
         source_identities,
         reader,
         ..
@@ -3136,6 +3134,7 @@ fn with_dedicated_source_prefetch(
             ingest_executor_applied_parallelism: 1,
             ingest_executor_unit_count_hint,
             embedded_derived_build_micros,
+            first_batch_profile,
             source_identities,
             reader,
         };
@@ -3164,6 +3163,7 @@ fn with_dedicated_source_prefetch(
         ingest_executor_applied_parallelism: applied_parallelism,
         ingest_executor_unit_count_hint: unit_hint,
         embedded_derived_build_micros,
+        first_batch_profile,
         source_identities,
         reader: Box::new(CapillaryPrefetchRecordBatchReader::new(
             reader,
@@ -3291,11 +3291,15 @@ pub fn stream_flat_text_rows_columnar_source(
                 #[cfg(feature = "vortex-write")]
                 ingest_runtime: None,
                 embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
+                first_batch_profile: None,
                 reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::new())),
             },
             EmbeddedDerivedColumnMode::FullAdapter,
         ));
     }
+    let first_batch_profile = Some(
+        first_batch_profile::FirstBatchProfile::from_named_scalar_rows(schema.as_ref(), &rows),
+    );
     let record_batch_count = row_count.div_ceil(batch_size);
     Ok(attach_embedded_derived_columns_to_stream_source(
         FlatLocalColumnarStreamSource {
@@ -3323,6 +3327,7 @@ pub fn stream_flat_text_rows_columnar_source(
             #[cfg(feature = "vortex-write")]
             ingest_runtime: None,
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
+            first_batch_profile,
             reader: Box::new(TextRowsRecordBatchReader::new(
                 schema, header, rows, batch_size, context,
             )),
@@ -3513,7 +3518,11 @@ pub fn stream_flat_parquet_columnar_source_with_batch_budget_controlled(
     let header = source_schema_header(path, "Parquet", schema.as_ref())?;
     let row_group_metadata = parquet_row_group_stream_metadata(builder.metadata());
     let extent_plan = ParquetExtentPlan::from_metadata(builder.metadata());
-    let schema_plan = parquet_dictionary_schema_plan(&schema, row_group_metadata.total_hint);
+    let schema_plan = parquet_dictionary_schema_plan_with_metadata(
+        &schema,
+        row_group_metadata.total_hint,
+        Some(builder.metadata()),
+    );
     let reader_metadata = parquet::arrow::arrow_reader::ArrowReaderMetadata::try_new(
         Arc::clone(builder.metadata()),
         parquet_reader_options_with_optional_schema_hint(schema_plan.schema_hint.as_ref()),
@@ -3637,6 +3646,12 @@ pub fn stream_flat_parquet_columnar_source_with_batch_budget_controlled(
         source.ingest_executor_requested_parallelism = requested_max_parallelism;
         source.ingest_executor_applied_parallelism = applied_parallelism;
         source.ingest_executor_unit_count_hint = Some(task_count);
+        source.first_batch_profile = Some(
+            first_batch_profile::FirstBatchProfile::from_parquet_metadata(
+                schema_plan.stream_schema.as_ref(),
+                Some(builder.metadata()),
+            ),
+        );
         #[cfg(feature = "vortex-write")]
         {
             source.ingest_runtime = Some(runtime);
@@ -3656,7 +3671,7 @@ pub fn stream_flat_parquet_columnar_source_with_batch_budget_controlled(
         &reader_metadata,
         stream_plan.stream_batch_size,
     )?;
-    let source = flat_columnar_stream_source_from_reader(
+    let mut source = flat_columnar_stream_source_from_reader(
         schema_plan.stream_schema.as_ref(),
         header.clone(),
         header.clone(),
@@ -3664,6 +3679,12 @@ pub fn stream_flat_parquet_columnar_source_with_batch_budget_controlled(
         row_count_hint,
         &stream_plan,
         reader,
+    );
+    source.first_batch_profile = Some(
+        first_batch_profile::FirstBatchProfile::from_parquet_metadata(
+            schema_plan.stream_schema.as_ref(),
+            Some(builder.metadata()),
+        ),
     );
     Ok(generation_checked_parquet_source(
         with_capillary_prefetch_columnar_stream_source_controlled(
@@ -3780,6 +3801,49 @@ pub fn read_flat_arrow_ipc_columnar_source(
     read_flat_record_batch_reader_columnar(&mut reader, path, "Arrow IPC", max_rows)
 }
 
+struct PeekedFirstBatchReader {
+    schema: SchemaRef,
+    first: Option<std::result::Result<RecordBatch, ArrowError>>,
+    inner: Box<dyn RecordBatchReader + Send>,
+}
+
+impl PeekedFirstBatchReader {
+    fn new(
+        mut inner: Box<dyn RecordBatchReader + Send>,
+    ) -> (Self, Option<first_batch_profile::FirstBatchProfile>) {
+        let schema = inner.schema();
+        let first = inner.next();
+        let profile = match &first {
+            Some(Ok(batch)) => Some(first_batch_profile::FirstBatchProfile::from_record_batch(
+                batch,
+            )),
+            _ => None,
+        };
+        (
+            Self {
+                schema,
+                first,
+                inner,
+            },
+            profile,
+        )
+    }
+}
+
+impl Iterator for PeekedFirstBatchReader {
+    type Item = std::result::Result<RecordBatch, ArrowError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.first.take().or_else(|| self.inner.next())
+    }
+}
+
+impl RecordBatchReader for PeekedFirstBatchReader {
+    fn schema(&self) -> SchemaRef {
+        Arc::clone(&self.schema)
+    }
+}
+
 /// Stream a local Arrow IPC file as Arrow batches for product Vortex ingest.
 ///
 /// # Errors
@@ -3793,20 +3857,24 @@ pub fn stream_flat_arrow_ipc_columnar_source(
     let schema = reader.schema();
     let header = source_schema_header(path, "Arrow IPC", schema.as_ref())?;
     let stream_plan = FlatColumnarStreamSourcePlan::source_defined_batches(batch_hint);
-    Ok(flat_columnar_stream_source_from_reader(
+    let limited: Box<dyn RecordBatchReader + Send> = Box::new(RowLimitRecordBatchReader::new(
+        reader,
+        max_rows,
+        path.display().to_string(),
+        "Arrow IPC",
+    ));
+    let (peeked_reader, first_batch_profile) = PeekedFirstBatchReader::new(limited);
+    let mut source = flat_columnar_stream_source_from_reader(
         schema.as_ref(),
         header.clone(),
         header.clone(),
         header,
         None,
         &stream_plan,
-        Box::new(RowLimitRecordBatchReader::new(
-            reader,
-            max_rows,
-            path.display().to_string(),
-            "Arrow IPC",
-        )),
-    ))
+        Box::new(peeked_reader),
+    );
+    source.first_batch_profile = first_batch_profile;
+    Ok(source)
 }
 
 /// Read selected columns from a local Arrow IPC file into flat scalar rows.
@@ -7283,6 +7351,9 @@ mod tests {
         )]));
         let batch = RecordBatch::try_new(Arc::clone(&schema), vec![url_dictionary])
             .expect("dictionary batch");
+        let first_batch_profile = Some(first_batch_profile::FirstBatchProfile::from_record_batch(
+            &batch,
+        ));
         let source = FlatLocalColumnarStreamSource {
             header: vec!["URL".to_string()],
             column_dtypes: vec![Some(LogicalDType::Utf8)],
@@ -7307,6 +7378,7 @@ mod tests {
             #[cfg(feature = "vortex-write")]
             ingest_runtime: None,
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
+            first_batch_profile,
             reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::from([batch]))),
         };
 
@@ -7414,6 +7486,9 @@ mod tests {
         )]));
         let batch = RecordBatch::try_new(Arc::clone(&schema), vec![url_dictionary])
             .expect("dictionary batch");
+        let first_batch_profile = Some(first_batch_profile::FirstBatchProfile::from_record_batch(
+            &batch,
+        ));
         let source = FlatLocalColumnarStreamSource {
             header: vec!["URL".to_string()],
             column_dtypes: vec![Some(LogicalDType::Utf8)],
@@ -7438,6 +7513,7 @@ mod tests {
             #[cfg(feature = "vortex-write")]
             ingest_runtime: None,
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
+            first_batch_profile,
             reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::from([batch]))),
         };
 
@@ -7508,7 +7584,12 @@ mod tests {
 
     #[test]
     fn source_native_typed_time_stream_embeds_compact_minute_metadata() {
-        let event_time = Arc::new(Int64Array::from(vec![0_i64, 60, 3599, 3600])) as ArrayRef;
+        let event_time = Arc::new(Int64Array::from(vec![
+            1_700_002_800_i64,
+            1_700_002_860,
+            1_700_006_399,
+            1_700_006_400,
+        ])) as ArrayRef;
         let schema = Arc::new(Schema::new(vec![Field::new(
             "EventTime",
             DataType::Int64,
@@ -7516,6 +7597,9 @@ mod tests {
         )]));
         let batch =
             RecordBatch::try_new(Arc::clone(&schema), vec![event_time]).expect("time batch");
+        let first_batch_profile = Some(first_batch_profile::FirstBatchProfile::from_record_batch(
+            &batch,
+        ));
         let source = FlatLocalColumnarStreamSource {
             header: vec!["EventTime".to_string()],
             column_dtypes: vec![Some(LogicalDType::Int64)],
@@ -7539,6 +7623,7 @@ mod tests {
             #[cfg(feature = "vortex-write")]
             ingest_runtime: None,
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
+            first_batch_profile,
             reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::from([batch]))),
         };
 
@@ -7574,10 +7659,10 @@ mod tests {
             .as_any()
             .downcast_ref::<Int64Array>()
             .expect("minute bucket keys");
-        assert_eq!(minute_buckets.value(0), 0);
-        assert_eq!(minute_buckets.value(1), 60);
-        assert_eq!(minute_buckets.value(2), 3_540);
-        assert_eq!(minute_buckets.value(3), 3_600);
+        assert_eq!(minute_buckets.value(0), 1_700_002_800);
+        assert_eq!(minute_buckets.value(1), 1_700_002_860);
+        assert_eq!(minute_buckets.value(2), 1_700_006_340);
+        assert_eq!(minute_buckets.value(3), 1_700_006_400);
         assert!(source.reader.next().is_none());
     }
 
@@ -7613,6 +7698,9 @@ mod tests {
         ]));
         let batch = RecordBatch::try_new(Arc::clone(&schema), vec![seconds, millis, nanos])
             .expect("timestamp batch");
+        let first_batch_profile = Some(first_batch_profile::FirstBatchProfile::from_record_batch(
+            &batch,
+        ));
         let source = FlatLocalColumnarStreamSource {
             header: vec![
                 "EventTime".to_string(),
@@ -7656,6 +7744,7 @@ mod tests {
             #[cfg(feature = "vortex-write")]
             ingest_runtime: None,
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
+            first_batch_profile,
             reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::from([batch]))),
         };
 
@@ -7817,6 +7906,7 @@ mod tests {
             #[cfg(feature = "vortex-write")]
             ingest_runtime: None,
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
+            first_batch_profile: None,
             reader: Box::new(TestRecordBatchReader {
                 schema,
                 batches: std::collections::VecDeque::from([batch_1, batch_2]),
@@ -7917,6 +8007,7 @@ mod tests {
             #[cfg(feature = "vortex-write")]
             ingest_runtime: None,
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
+            first_batch_profile: None,
             reader: Box::new(TestRecordBatchReader {
                 schema,
                 batches: std::collections::VecDeque::from([batch]),
@@ -7989,6 +8080,7 @@ mod tests {
             #[cfg(feature = "vortex-write")]
             ingest_runtime: None,
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
+            first_batch_profile: None,
             reader: Box::new(TestRecordBatchReader {
                 schema,
                 batches: std::collections::VecDeque::from([batch]),
@@ -8712,16 +8804,16 @@ mod tests {
                     Some("https://www.google.com/ref"),
                 ]),
                 dictionary_array(&[Some("rust"), Some("shardloom")]),
-                dictionary_array(&[Some("Google title"), Some("Other title")]),
-                dictionary_array(&[
-                    Some("https://www.google.com/original"),
-                    Some("https://example.org/original"),
-                ]),
-                Arc::new(Int64Array::from(vec![60_i64, 121])) as ArrayRef,
+                dictionary_array(&[Some("Tag01"), Some("Tag02")]),
+                dictionary_array(&[Some("home"), Some("page")]),
+                Arc::new(Int64Array::from(vec![1_700_002_860_i64, 1_700_002_921])) as ArrayRef,
                 Arc::new(Int64Array::from(vec![300_i64, 360])) as ArrayRef,
             ],
         )
         .expect("record batch");
+        let first_batch_profile = Some(first_batch_profile::FirstBatchProfile::from_record_batch(
+            &batch,
+        ));
         let source = FlatLocalColumnarStreamSource {
             header: vec![
                 "URL".to_string(),
@@ -8762,6 +8854,7 @@ mod tests {
             #[cfg(feature = "vortex-write")]
             ingest_runtime: None,
             embedded_derived_build_micros: new_embedded_derived_build_micros_counter(),
+            first_batch_profile,
             reader: Box::new(VecRecordBatchReader::new(schema, VecDeque::from([batch]))),
         };
 
@@ -9431,5 +9524,209 @@ mod tests {
                 .collect::<Vec<_>>(),
             [Some("alpha"), None]
         );
+    }
+
+    #[test]
+    fn arrow_ipc_and_parquet_content_driven_profiling_detects_arbitrary_names_and_rejects_misnamed_clickbench()
+     {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("landing_link", DataType::Utf8, true),
+            Field::new("observed_at", DataType::Int64, false),
+            Field::new("raw_note", DataType::Utf8, true),
+            Field::new("short_tag", DataType::Utf8, false),
+        ]));
+        let batch = RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![
+                Arc::new(StringArray::from(vec![
+                    Some("https://shardloom.io/docs/vortex"),
+                    Some("https://docs.rs/arrow"),
+                    Some("https://shardloom.io/docs/vortex"),
+                ])) as ArrayRef,
+                Arc::new(Int64Array::from(vec![
+                    1_700_002_861_i64,
+                    1_700_002_920,
+                    1_700_002_980,
+                ])) as ArrayRef,
+                Arc::new(StringArray::from(vec![
+                    Some("a long descriptive note crossing threshold"),
+                    Some("short"),
+                    Some("another descriptive note"),
+                ])) as ArrayRef,
+                Arc::new(StringArray::from(vec!["aa", "bb", "cc"])) as ArrayRef,
+            ],
+        )
+        .expect("positive batch");
+
+        let uniq = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("time")
+            .as_nanos();
+        let ipc_path = std::env::temp_dir().join(format!(
+            "shardloom-profile-pos-{}-{uniq}.arrow",
+            std::process::id()
+        ));
+        let pq_path = std::env::temp_dir().join(format!(
+            "shardloom-profile-pos-{}-{uniq}.parquet",
+            std::process::id()
+        ));
+
+        {
+            let mut writer = arrow_ipc::writer::FileWriter::try_new(
+                File::create(&ipc_path).expect("ipc create"),
+                schema.as_ref(),
+            )
+            .expect("ipc writer");
+            writer.write(&batch).expect("ipc write");
+            writer.finish().expect("ipc finish");
+        }
+        {
+            let props = parquet::file::properties::WriterProperties::builder()
+                .set_dictionary_enabled(true)
+                .build();
+            let mut writer = parquet::arrow::ArrowWriter::try_new(
+                File::create(&pq_path).expect("pq create"),
+                Arc::clone(&schema),
+                Some(props),
+            )
+            .expect("pq writer");
+            writer.write(&batch).expect("pq write");
+            writer.close().expect("pq close");
+        }
+
+        let ipc_src =
+            stream_flat_arrow_ipc_columnar_source(&ipc_path, usize::MAX).expect("ipc src");
+        assert!(ipc_src.first_batch_profile.is_some());
+        let mut ipc_derived = with_embedded_derived_columns_columnar_stream_source(ipc_src);
+        let ipc_names: Vec<String> = ipc_derived
+            .reader
+            .schema()
+            .fields()
+            .iter()
+            .map(|f| f.name().clone())
+            .collect();
+        for expected in [
+            "__shardloom_derived_utf8_len_landing_link",
+            "__shardloom_derived_url_domain_landing_link",
+            "__shardloom_derived_extract_minute_observed_at",
+            "__shardloom_derived_date_trunc_minute_observed_at",
+            "__shardloom_derived_utf8_len_raw_note",
+        ] {
+            assert!(ipc_names.contains(&expected.to_string()), "{ipc_names:?}");
+        }
+        assert!(!ipc_names.contains(&"__shardloom_derived_url_domain_raw_note".to_string()));
+        assert!(!ipc_names.contains(&"__shardloom_derived_utf8_len_short_tag".to_string()));
+        let ipc_out = ipc_derived.reader.next().expect("ipc batch").expect("ok");
+        assert_eq!(ipc_out.num_rows(), 3);
+        assert!(ipc_derived.reader.next().is_none());
+
+        let pq_src = stream_flat_parquet_columnar_source_with_parallelism(&pq_path, usize::MAX, 2)
+            .expect("pq src");
+        assert!(pq_src.first_batch_profile.is_some());
+        assert_eq!(
+            pq_src
+                .reader
+                .schema()
+                .field_with_name("landing_link")
+                .unwrap()
+                .data_type(),
+            &DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8)),
+            "Parquet dictionary preservation should follow metadata + URL profile without name heuristics"
+        );
+        assert_eq!(
+            pq_src
+                .reader
+                .schema()
+                .field_with_name("short_tag")
+                .unwrap()
+                .data_type(),
+            &DataType::Utf8,
+        );
+        let mut pq_derived = with_embedded_derived_columns_columnar_stream_source(pq_src);
+        let pq_names: Vec<String> = pq_derived
+            .reader
+            .schema()
+            .fields()
+            .iter()
+            .map(|f| f.name().clone())
+            .collect();
+        for expected in [
+            "__shardloom_derived_utf8_len_landing_link",
+            "__shardloom_derived_url_domain_landing_link",
+            "__shardloom_derived_extract_minute_observed_at",
+            "__shardloom_derived_date_trunc_minute_observed_at",
+            "__shardloom_derived_utf8_len_raw_note",
+        ] {
+            assert!(pq_names.contains(&expected.to_string()), "{pq_names:?}");
+        }
+        let pq_out = pq_derived.reader.next().expect("pq batch").expect("ok");
+        assert_eq!(pq_out.num_rows(), 3);
+        assert!(pq_derived.reader.next().is_none());
+
+        // Misnamed ClickBench columns with short labels and small counters must NOT produce URL or time derived columns.
+        let mis_schema = Arc::new(Schema::new(vec![
+            Field::new("URL", DataType::Utf8, false),
+            Field::new("Referer", DataType::Utf8, false),
+            Field::new("EventTime", DataType::Int64, false),
+        ]));
+        let mis_batch = RecordBatch::try_new(
+            Arc::clone(&mis_schema),
+            vec![
+                Arc::new(StringArray::from(vec!["blue", "pink"])) as ArrayRef,
+                Arc::new(StringArray::from(vec!["cyan", "gold"])) as ArrayRef,
+                Arc::new(Int64Array::from(vec![1_i64, 2])) as ArrayRef,
+            ],
+        )
+        .expect("mis batch");
+        let mis_ipc = std::env::temp_dir().join(format!(
+            "shardloom-profile-mis-{}-{uniq}.arrow",
+            std::process::id()
+        ));
+        let mis_pq = std::env::temp_dir().join(format!(
+            "shardloom-profile-mis-{}-{uniq}.parquet",
+            std::process::id()
+        ));
+        {
+            let mut writer = arrow_ipc::writer::FileWriter::try_new(
+                File::create(&mis_ipc).expect("mis ipc"),
+                mis_schema.as_ref(),
+            )
+            .expect("mis ipc writer");
+            writer.write(&mis_batch).expect("mis ipc write");
+            writer.finish().expect("mis ipc finish");
+        }
+        {
+            let mut writer = parquet::arrow::ArrowWriter::try_new(
+                File::create(&mis_pq).expect("mis pq"),
+                Arc::clone(&mis_schema),
+                None,
+            )
+            .expect("mis pq writer");
+            writer.write(&mis_batch).expect("mis pq write");
+            writer.close().expect("mis pq close");
+        }
+        let mis_ipc_src = with_embedded_derived_columns_columnar_stream_source(
+            stream_flat_arrow_ipc_columnar_source(&mis_ipc, usize::MAX).expect("mis ipc src"),
+        );
+        assert_eq!(mis_ipc_src.reader.schema().fields().len(), 3);
+        let mis_pq_src = with_embedded_derived_columns_columnar_stream_source(
+            stream_flat_parquet_columnar_source_with_parallelism(&mis_pq, usize::MAX, 2)
+                .expect("mis pq src"),
+        );
+        assert_eq!(mis_pq_src.reader.schema().fields().len(), 3);
+        assert_eq!(
+            mis_pq_src
+                .reader
+                .schema()
+                .field_with_name("URL")
+                .unwrap()
+                .data_type(),
+            &DataType::Utf8
+        );
+
+        let _ = std::fs::remove_file(ipc_path);
+        let _ = std::fs::remove_file(pq_path);
+        let _ = std::fs::remove_file(mis_ipc);
+        let _ = std::fs::remove_file(mis_pq);
     }
 }

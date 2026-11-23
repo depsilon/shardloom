@@ -364,8 +364,10 @@ fn direct_columnar_borrowed_context_rejects_another_session_before_intake() {
 
 #[test]
 fn direct_columnar_intake_validates_later_values_before_any_payload_admission() {
-    use arrow_ownership::ArrowOwnershipPolicy::{ControlledParquet, ValidatedCopy};
-    for policy in [ValidatedCopy, ControlledParquet] {
+    use arrow_ownership::ArrowOwnershipPolicy::{
+        ControlledOwnedReader, ControlledParquet, ValidatedCopy,
+    };
+    for policy in [ValidatedCopy, ControlledParquet, ControlledOwnedReader] {
         // Metadata fits, but either first-column copying or transfer would
         // exceed the grant. The later invalid value must remain the first error.
         let session = ResidentVortexSession::new(32 << 10, 1).unwrap();
@@ -391,8 +393,10 @@ fn direct_columnar_intake_validates_later_values_before_any_payload_admission() 
 
 #[test]
 fn direct_columnar_intake_snapshot_preserves_shared_buffer_ownership() {
-    use arrow_ownership::ArrowOwnershipPolicy::{ControlledParquet, ValidatedCopy};
-    for policy in [ValidatedCopy, ControlledParquet] {
+    use arrow_ownership::ArrowOwnershipPolicy::{
+        ControlledOwnedReader, ControlledParquet, ValidatedCopy,
+    };
+    for policy in [ValidatedCopy, ControlledParquet, ControlledOwnedReader] {
         for retain_producer in [false, true] {
             let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
             let original: ArrayRef = Arc::new(Int64Array::from_iter_values(0..16));
@@ -408,7 +412,7 @@ fn direct_columnar_intake_snapshot_preserves_shared_buffer_ownership() {
                 .unwrap();
             // The first alias always needs a copy. Only the last remaining
             // private reference can prove the standard allocation is unique.
-            let transfer_last = policy == ControlledParquet && !retain_producer;
+            let transfer_last = policy.allows_zero_copy_transfer() && !retain_producer;
             assert_eq!(
                 source.intake_columnar_buffer_bytes_copied(),
                 if transfer_last { 128 } else { 256 }

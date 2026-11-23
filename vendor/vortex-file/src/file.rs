@@ -19,6 +19,7 @@ use vortex_array::expr::Expression;
 use vortex_buffer::ByteBuffer;
 use vortex_error::VortexResult;
 use vortex_layout::LayoutReader;
+use vortex_layout::LayoutReaderContext;
 use vortex_layout::scan::layout::LayoutReaderDataSource;
 use vortex_layout::scan::scan_builder::ScanBuilder;
 use vortex_layout::scan::split_by::SplitBy;
@@ -55,6 +56,8 @@ pub struct VortexFile {
     layout_reader_cache: Option<OnceLock<Arc<dyn LayoutReader>>>,
     /// None if V2 scan caching is turned off; initialized only by an explicit V2 scan.
     scan_cache: Option<Arc<OnceLock<FileScanCache>>>,
+    /// Per-reader-tree context threaded into `layout_reader`.
+    layout_reader_context: LayoutReaderContext,
 }
 
 /// What repeated V2 scans of a file share: its segment locations, read from the footer once, and
@@ -81,11 +84,12 @@ fn layout_reader(
     segment_source: Arc<dyn SegmentSource>,
     footer: &Footer,
     session: &VortexSession,
+    layout_reader_context: &LayoutReaderContext,
 ) -> VortexResult<Arc<dyn LayoutReader>> {
     let root_reader = footer
         .layout()
         // TODO(ngates): we may want to allow the user pass in a name here?
-        .new_reader("".into(), segment_source, session, &Default::default())?;
+        .new_reader("".into(), segment_source, session, layout_reader_context)?;
 
     Ok(if let Some(stats) = footer.statistics().cloned() {
         Arc::new(FileStatsLayoutReader::new(
@@ -112,6 +116,7 @@ impl VortexFile {
             metadata: Arc::new(HashMap::new()),
             layout_reader_cache: None,
             scan_cache: None,
+            layout_reader_context: LayoutReaderContext::default(),
         }
     }
 
@@ -134,6 +139,7 @@ impl VortexFile {
             metadata: self.metadata,
             layout_reader_cache: Some(OnceLock::new()),
             scan_cache: Some(Arc::new(OnceLock::new())),
+            layout_reader_context: self.layout_reader_context,
         }
     }
 
@@ -207,9 +213,29 @@ impl VortexFile {
         self
     }
 
+    /// Attach a [`LayoutReaderContext`] used when constructing this file's layout reader.
+    ///
+    /// Any cached layout reader is cleared so subsequent scans initialize against
+    /// the replacement context without mutating the shared [`VortexSession`].
+    pub fn with_layout_reader_context(mut self, ctx: LayoutReaderContext) -> Self {
+        self.layout_reader_context = ctx;
+        if self.layout_reader_cache.is_some() {
+            self.layout_reader_cache = Some(OnceLock::new());
+        }
+        self
+    }
+
     /// Returns a reference to the Vortex session used to open this file.
     pub fn session(&self) -> &VortexSession {
         &self.session
+    }
+
+    /// Returns true when this file handle holds an initialized cached layout reader.
+    pub fn has_cached_layout_reader(&self) -> bool {
+        self.layout_reader_cache
+            .as_ref()
+            .and_then(OnceLock::get)
+            .is_some()
     }
 
     /// Create a new layout reader for the file.
@@ -221,6 +247,7 @@ impl VortexFile {
                 Arc::clone(&self.segment_source),
                 &self.footer,
                 &self.session,
+                &self.layout_reader_context,
             ),
             Some(reader) => {
                 // get_or_try_init is unstable
@@ -231,6 +258,7 @@ impl VortexFile {
                         Arc::clone(&self.segment_source),
                         &self.footer,
                         &self.session,
+                        &self.layout_reader_context,
                     )?;
                     Ok(if let Err(val) = reader.set(Arc::clone(&inner)) {
                         val

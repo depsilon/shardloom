@@ -6,13 +6,41 @@ use super::*;
 mod persisted;
 
 fn append(source: ArrayRef, nullable: bool) -> Result<RecordBatch> {
+    let dtype = source.data_type().clone();
     let schema = Arc::new(Schema::new(vec![Field::new(
         "EventTime",
-        source.data_type().clone(),
+        dtype.clone(),
         nullable,
     )]));
     let batch = RecordBatch::try_new(Arc::clone(&schema), vec![source]).unwrap();
-    let specs = embedded_derived_column_specs(&schema, EmbeddedDerivedColumnMode::SourceNativeOnly);
+    let profile = crate::universal_format_io::first_batch_profile::FirstBatchProfile {
+        sample_rows: batch.num_rows(),
+        columns: vec![
+            crate::universal_format_io::first_batch_profile::FirstBatchColumnProfile {
+                name: "EventTime".to_string(),
+                arrow_dtype: dtype.clone(),
+                row_count: batch.num_rows(),
+                null_count: 0,
+                non_null_count: batch.num_rows(),
+                min_byte_len: None,
+                max_byte_len: None,
+                looks_like_url: false,
+                has_varied_or_long_utf8: false,
+                is_native_timestamp: matches!(dtype, DataType::Timestamp(_, _)),
+                looks_like_timestamp_text: false,
+                looks_like_epoch_seconds: !matches!(dtype, DataType::Timestamp(_, _)),
+                distinct_count_sample: batch.num_rows(),
+                distinct_ratio: 1.0,
+                dictionary_candidate: false,
+                parquet_dictionary_encoded: false,
+            },
+        ],
+    };
+    let specs = crate::universal_format_io::embedded_derived_column_specs_with_profile(
+        &schema,
+        Some(&profile),
+        EmbeddedDerivedColumnMode::SourceNativeOnly,
+    );
     assert_eq!(specs.len(), 2);
     let output = Arc::new(embedded_derived_column_schema(&schema, &specs));
     append_embedded_derived_columns_to_batch(&batch, &output, &specs)
@@ -123,18 +151,48 @@ fn nullable_minute_helpers_preserve_nulls_and_signed_bucket_errors() {
 
 #[test]
 fn dictionary_and_text_helper_schema_does_not_promote_row_code_nullability() {
-    for (name, dtype, count) in [
-        ("EventTime", DataType::Utf8, 1),
-        (
-            "URL",
-            DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8)),
-            2,
-        ),
+    use crate::universal_format_io::{
+        embedded_derived_column_specs_with_profile, first_batch_profile::FirstBatchProfile,
+    };
+    use arrow_array::{ArrayRef, DictionaryArray, Int32Array, RecordBatch, StringArray};
+
+    let ts_text_schema = Schema::new(vec![Field::new("ts_col", DataType::Utf8, false)]);
+    let ts_text_batch = RecordBatch::try_new(
+        Arc::new(ts_text_schema.clone()),
+        vec![Arc::new(StringArray::from(vec![
+            "2024-05-01T12:34:56Z",
+            "2024-05-01T12:35:00Z",
+        ])) as ArrayRef],
+    )
+    .unwrap();
+    let ts_text_profile = FirstBatchProfile::from_record_batch(&ts_text_batch);
+
+    let url_dict_dtype = DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8));
+    let url_dict_schema = Schema::new(vec![Field::new("link_col", url_dict_dtype.clone(), false)]);
+    let url_dict_values = StringArray::from(vec!["https://example.com/a", "https://docs.rs/b"]);
+    let url_dict_array = DictionaryArray::<arrow_array::types::Int32Type>::try_new(
+        Int32Array::from(vec![0, 1]),
+        Arc::new(url_dict_values),
+    )
+    .unwrap();
+    let url_dict_batch = RecordBatch::try_new(
+        Arc::new(url_dict_schema.clone()),
+        vec![Arc::new(url_dict_array) as ArrayRef],
+    )
+    .unwrap();
+    let url_dict_profile = FirstBatchProfile::from_record_batch(&url_dict_batch);
+
+    for (schema, profile, count) in [
+        (&ts_text_schema, &ts_text_profile, 2),
+        (&url_dict_schema, &url_dict_profile, 2),
     ] {
-        let schema = Schema::new(vec![Field::new(name, dtype, false)]);
-        let specs = embedded_derived_column_specs(&schema, EmbeddedDerivedColumnMode::FullAdapter);
+        let specs = embedded_derived_column_specs_with_profile(
+            schema,
+            Some(profile),
+            EmbeddedDerivedColumnMode::FullAdapter,
+        );
         assert_eq!(specs.len(), count);
-        let output = embedded_derived_column_schema(&schema, &specs);
+        let output = embedded_derived_column_schema(schema, &specs);
         assert!(
             output
                 .fields()

@@ -503,3 +503,53 @@ fn dictionary_preservation_late_source_failure_releases_owned_credits() {
     assert_eq!(memory.pool.snapshot().reserved_bytes, 0);
     assert!(memory.session.open_options().open_buffer(bytes).is_err());
 }
+
+#[test]
+fn dictionary_preserving_strategy_with_concurrency_roundtrips_values() {
+    use vortex::layout::layouts::flat::writer::FlatLayoutStrategy;
+    let runtime = CurrentThreadRuntime::new();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let timing = super::super::VortexWriterStageTiming::default();
+    let strategy = DictionaryPreservingStrategy::with_concurrency(
+        FlatLayoutStrategy::default(),
+        4096,
+        2,
+        timing.stages,
+        &session,
+    );
+    let (array, expected) = input(128, false);
+    let dtype = array.dtype().clone();
+    let mut bytes = Vec::new();
+    let summary = session
+        .write_options()
+        .with_strategy(Arc::new(strategy))
+        .blocking(&runtime)
+        .write(
+            &mut bytes,
+            ArrayIteratorAdapter::new(dtype, std::iter::once(Ok(array))),
+        )
+        .unwrap();
+    assert_eq!(summary.row_count(), 128);
+    let file = session
+        .open_options()
+        .open_buffer(vortex::buffer::ByteBuffer::from(bytes))
+        .unwrap();
+    let mut ctx = session.create_execution_ctx();
+    let mut actual = Vec::new();
+    for chunk in file
+        .scan()
+        .unwrap()
+        .with_ordered(true)
+        .into_array_iter(&runtime)
+        .unwrap()
+    {
+        let chunk = chunk.unwrap();
+        let structure = chunk.as_::<Struct>();
+        let col = structure.unmasked_field(0);
+        for row in 0..col.len() {
+            let scalar = col.execute_scalar(row, &mut ctx).unwrap();
+            actual.push(scalar.as_utf8().value().map(|s| s.as_str().to_owned()));
+        }
+    }
+    assert_eq!(actual, expected);
+}

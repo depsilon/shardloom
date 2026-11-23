@@ -48,7 +48,9 @@ pub(super) struct PruningState {
     dtype: DType,
     aggregate_fns: Arc<[AggregateFnRef]>,
     lazy_children: Arc<LazyReaderChildren>,
+    zones_segment_source: Arc<dyn crate::segments::SegmentSource>,
     session: VortexSession,
+    storage_allocator: Option<vortex_array::memory::HostAllocatorRef>,
     pruning_result: LazyLock<DashMap<ExactBoundExpr, Option<SharedPruningResult>>>,
     zone_map: OnceLock<SharedZoneMap>,
     pruning_predicates: LazyLock<Arc<DashMap<ExactBoundExpr, PredicateCache>>>,
@@ -60,7 +62,9 @@ impl PruningState {
         zone_count: usize,
         aggregate_fns: Arc<[AggregateFnRef]>,
         lazy_children: Arc<LazyReaderChildren>,
+        zones_segment_source: Arc<dyn crate::segments::SegmentSource>,
         session: VortexSession,
+        storage_allocator: Option<vortex_array::memory::HostAllocatorRef>,
     ) -> Self
     where
         V: VTable<LayoutData = ZonedData>,
@@ -72,7 +76,9 @@ impl PruningState {
             dtype: layout.dtype().clone(),
             aggregate_fns,
             lazy_children,
+            zones_segment_source,
             session,
+            storage_allocator,
             pruning_result: LazyLock::new(|| {
                 DashMap::with_hasher_and_shard_amount(Default::default(), 8)
             }),
@@ -160,7 +166,7 @@ impl PruningState {
                 let zone_count = self.zone_count;
                 let zones_reader = self
                     .lazy_children
-                    .get(1)
+                    .get_with_segment_source(1, Arc::clone(&self.zones_segment_source))
                     .vortex_expect("failed to get zone child");
                 let root = root()
                     .bind(zones_reader.dtype())
@@ -173,6 +179,7 @@ impl PruningState {
                     )
                     .vortex_expect("Failed construct zone map evaluation");
                 let session = self.session.clone();
+                let storage_allocator = self.storage_allocator.clone();
                 let zone_len = self.zone_len;
                 let row_count = self.row_count;
                 let dtype = self.dtype.clone();
@@ -180,6 +187,9 @@ impl PruningState {
 
                 async move {
                     let mut ctx = session.create_execution_ctx();
+                    if let Some(allocator) = storage_allocator {
+                        ctx = ctx.with_host_allocator(allocator);
+                    }
                     let zones_array = zones_eval.await?.execute::<StructArray>(&mut ctx)?;
                     // SAFETY: zoned layout validation checked that this zones child was
                     // written from the same column dtype and aggregate stats-table schema.

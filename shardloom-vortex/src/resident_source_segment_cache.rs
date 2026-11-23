@@ -112,6 +112,7 @@ pub(super) struct Store {
     memory: LiveMemoryPool,
     retention: LiveMemoryPool,
     state: Mutex<State>,
+    layout_pools: Mutex<Vec<Weak<super::execution_context::ResidentLayoutSlotPool>>>,
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     coverage: super::columnar_coverage::Store,
 }
@@ -132,6 +133,7 @@ impl Store {
             memory: memory.clone(),
             retention: LiveMemoryPool::new(MAX_BYTES)?,
             state: Mutex::default(),
+            layout_pools: Mutex::default(),
             #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
             coverage: super::columnar_coverage::Store::new(memory),
         });
@@ -139,6 +141,42 @@ impl Store {
         let enabled = memory.try_install_optional_reclaimer(Arc::downgrade(&endpoint))?;
         store.enabled.store(enabled, Ordering::Release);
         Ok(store)
+    }
+
+    pub(super) fn is_enabled(&self) -> bool {
+        self.enabled.load(Ordering::Acquire)
+    }
+
+    pub(super) fn register_layout_pool(
+        &self,
+        pool: Weak<super::execution_context::ResidentLayoutSlotPool>,
+    ) {
+        if let Ok(mut pools) = self.layout_pools.lock() {
+            pools.retain(|existing| existing.strong_count() > 0);
+            pools.push(pool);
+        }
+    }
+
+    fn layout_pool_reserved_bytes(&self) -> (u64, bool) {
+        let mut total = 0_u64;
+        let mut overflow = false;
+        let mut pools = self
+            .layout_pools
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        pools.retain(|existing| {
+            if let Some(pool) = existing.upgrade() {
+                if let Some(next) = total.checked_add(pool.retained_external_bytes()) {
+                    total = next;
+                } else {
+                    overflow = true;
+                }
+                true
+            } else {
+                false
+            }
+        });
+        (total, overflow)
     }
 
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -341,6 +379,23 @@ impl Store {
             .map_err(|error| vortex_err!("{error}"))
     }
 
+    fn live_layout_pools(&self) -> Vec<Arc<super::execution_context::ResidentLayoutSlotPool>> {
+        let mut pools = self
+            .layout_pools
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut live = Vec::with_capacity(pools.len());
+        pools.retain(|existing| {
+            if let Some(pool) = existing.upgrade() {
+                live.push(pool);
+                true
+            } else {
+                false
+            }
+        });
+        live
+    }
+
     /// Publish only after the call's final consumer, generation and cancellation
     /// checks. Concurrent and failed operations cannot warm another call.
     pub(super) fn complete_operation(&self, operation: u64) -> Result<()> {
@@ -355,12 +410,18 @@ impl Store {
         drop(state);
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
         self.coverage.complete_operation(operation);
+        for pool in self.live_layout_pools() {
+            pool.complete_operation(operation);
+        }
         Ok(())
     }
 
     pub(super) fn discard_uncompleted_operation(&self, operation: u64) {
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
         self.coverage.discard_uncompleted_operation(operation);
+        for pool in self.live_layout_pools() {
+            pool.discard_uncompleted_operation(operation);
+        }
         if let Ok(mut state) = self.state.lock() {
             let before = state.entries.len();
             state
@@ -401,20 +462,26 @@ impl Store {
     }
 
     pub(super) fn snapshot(&self) -> NativeSourceSegmentCacheSnapshot {
+        let (layout_bytes, layout_overflow) = self.layout_pool_reserved_bytes();
         let state = self
             .state
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let state_bytes = state.metadata.as_ref().map_or(0, MemoryLease::bytes);
+        let (table_reserved_bytes, sum_overflow) = match state_bytes.checked_add(layout_bytes) {
+            Some(total) => (total, false),
+            None => (u64::MAX, true),
+        };
         NativeSourceSegmentCacheSnapshot {
             enabled: self.enabled.load(Ordering::Acquire),
             retained_entries: state.entries.len() as u64,
-            table_reserved_bytes: state.metadata.as_ref().map_or(0, MemoryLease::bytes),
+            table_reserved_bytes,
             retained_capacity_bytes: self.retention.snapshot().reserved_bytes,
             retention_limit_bytes: (self.memory.snapshot().limit_bytes / 16).min(MAX_BYTES),
             evictions: state.evictions,
             invalidations: state.invalidations,
             pressure_reclamations: state.reclamations,
-            counters_overflowed: state.overflow,
+            counters_overflowed: state.overflow || layout_overflow || sum_overflow,
         }
     }
 
@@ -431,6 +498,16 @@ impl OptionalMemoryReclaimer for Store {
     fn reclaim_optional_memory(&self) {
         if let Ok(mut state) = self.state.try_lock() {
             state.clear(false, true);
+        }
+        if let Ok(mut pools) = self.layout_pools.try_lock() {
+            pools.retain(|existing| {
+                if let Some(pool) = existing.upgrade() {
+                    pool.try_clear();
+                    true
+                } else {
+                    false
+                }
+            });
         }
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
         self.coverage.reclaim();

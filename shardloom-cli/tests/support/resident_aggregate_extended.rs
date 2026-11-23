@@ -35,12 +35,13 @@ fn worker_retains_wide_and_derived_aggregates_through_complete_public_calls() {
         "measures":[{"function":"count","alias":"frequency"}],
         "order_by":[{"column":"value","descending":true}]}).to_string();
     for execution in 1..=3 {
-        completed(
+        completed_with_footer(
             &worker.aggregate(&path, &aggregate, None, Some("2"), "1", "2"),
             &json!([{"value":5,"prior":4,"frequency":1},{"value":4,"prior":3,"frequency":1}]),
-            "2",
+            "1",
             &(execution + 3).to_string(),
-            execution == 1,
+            false,
+            execution > 1,
         );
     }
 }
@@ -68,7 +69,6 @@ fn worker_retains_explicit_spill_source_and_rebinds_changed_resource_policy() {
             "order_by":[{"column":"frequency","descending":true},{"column":"value","descending":false}],
             "offset":1, "spill":{"workspace":workspace,"quota_bytes":64 << 20,"memory_bytes":memory}}).to_string();
         for execution in 1..=3 {
-            let open_count = generation + 1;
             let completion_count = generation * 3 + execution;
             let result = worker.aggregate(&source, &aggregate, None, Some("2"), "1", "2");
             assert_eq!(result["status"], "success", "{result}");
@@ -78,10 +78,7 @@ fn worker_retains_explicit_spill_source_and_rebinds_changed_resource_policy() {
                     {"value":2,"frequency":1}, {"value":3,"frequency":1}
                 ])
             );
-            assert_eq!(
-                field(&result, "resident_source_opens"),
-                open_count.to_string()
-            );
+            assert_eq!(field(&result, "resident_source_opens"), "1");
             assert_eq!(
                 field(&result, "resident_completed_executions"),
                 completion_count.to_string()
@@ -89,7 +86,7 @@ fn worker_retains_explicit_spill_source_and_rebinds_changed_resource_policy() {
             assert_eq!(field(&result, "resident_aggregate_handle_retained"), "true");
             assert_eq!(
                 field(&result, "resident_footer_open_performed_this_call"),
-                (execution == 1).to_string()
+                (generation == 0 && execution == 1).to_string()
             );
             assert_eq!(
                 field(&result, "resident_aggregate_lowering_reused"),

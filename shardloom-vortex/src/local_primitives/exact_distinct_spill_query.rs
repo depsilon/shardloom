@@ -134,6 +134,7 @@ pub(in super::super) fn execute_with_output(
             file.dtype(),
             request.kind,
         )?);
+        plan.pushdown_predicate = Some(predicate.clone());
     }
     let filter_pushdown_applied = plan.filter.is_some();
     let projection_pushdown_applied = plan.projection.is_some();
@@ -144,7 +145,13 @@ pub(in super::super) fn execute_with_output(
         projection_pushdown_applied,
     );
     if let Some(filter) = plan.filter.as_ref() {
-        embedded_layout.mark_pruning_consulted(file.can_prune(filter).map_err(vortex_error)?)?;
+        embedded_layout.mark_pruning_consulted(
+            crate::local_primitives::file_pruning::can_prune_file_with_predicate(
+                file,
+                filter,
+                plan.pushdown_predicate.as_ref(),
+            )?,
+        )?;
     }
     let mut states = GroupedAggregateStates::new_with_resource_envelope(
         aggregate,
@@ -266,6 +273,7 @@ pub(in super::super) fn execute_with_output(
             scan_columns: None,
             metadata_completed: false,
             auxiliary_metadata_arrays: 0,
+            physical_policy: None,
             scan: LocalVortexScan {
                 source_row_count: file.row_count(),
                 result_row_count,

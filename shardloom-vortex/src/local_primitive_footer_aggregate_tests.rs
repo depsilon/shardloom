@@ -512,17 +512,20 @@ fn footer_aggregate_declines_mixed_arithmetic_predicates_and_groups() {
     );
     for case in 0..7 {
         let mut request = request();
-        let mut states = states(&request);
         let aggregate = request.simple_aggregate.as_mut().unwrap();
         match case {
             0 => aggregate.measures[1].function = "sum".into(),
             1 => aggregate.measures[1].function = "avg".into(),
             2 => aggregate.measures[1].function = "count_distinct".into(),
-            3 => aggregate.measures[1].argument_offset = Some(1),
+            3 => {
+                aggregate.measures[1].function = "sum".into();
+                aggregate.measures[1].argument_offset = Some(1);
+            }
             4 => aggregate.measures[1].value_transform = Some("length".into()),
             5 => request.predicate = Some(PredicateExpr::AlwaysTrue),
             _ => aggregate.group_by = vec![ColumnRef::new("value").unwrap()],
         }
+        let mut states = states(&request);
         let before = states.result_summary(&[]).unwrap();
         assert!(
             complete_from_stats(
@@ -654,4 +657,460 @@ fn footer_aggregate_report_requires_exact_completion_and_zero_scan_work() {
         report.result_summary = Some(format!("simple_aggregate values={payload}"));
         assert!(!report_is_safe(&request, &report));
     }
+}
+
+fn stats_for(field: DType, entries: &[(Stat, Precision<ScalarValue>)]) -> FileStatistics {
+    let mut set = StatsSet::default();
+    for (stat, value) in entries {
+        set.set(*stat, value.clone());
+    }
+    FileStatistics::from_stats(Arc::from([set]), Arc::from([field]))
+}
+
+#[test]
+fn footer_aggregate_completes_count_on_all_nonnullable_and_nullable_dtypes() {
+    for field in [
+        DType::Bool(Nullability::NonNullable),
+        DType::Utf8(Nullability::NonNullable),
+        DType::Binary(Nullability::NonNullable),
+        DType::Primitive(PType::F64, Nullability::NonNullable),
+    ] {
+        let request = VortexQueryPrimitiveRequest::simple_aggregate(
+            DatasetUri::new("footer-any-count.vortex").unwrap(),
+            VortexSimpleAggregateRequest::new(vec![VortexSimpleAggregateMeasure::new(
+                "count",
+                Some(ColumnRef::new("value").unwrap()),
+                "present".into(),
+            )]),
+        );
+        let mut states = states(&request);
+        let completion = complete_from_stats(
+            &dtype(field, Nullability::NonNullable),
+            12,
+            None,
+            &request,
+            &mut states,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(completion.exact_statistics, 0);
+        assert_eq!(
+            serde_json::Value::Object(states.result_values().unwrap()),
+            serde_json::json!({"present": 12})
+        );
+    }
+
+    for field in [
+        DType::Bool(Nullability::Nullable),
+        DType::Utf8(Nullability::Nullable),
+        DType::Binary(Nullability::Nullable),
+        DType::Primitive(PType::F64, Nullability::Nullable),
+    ] {
+        let request = VortexQueryPrimitiveRequest::simple_aggregate(
+            DatasetUri::new("footer-nullable-count.vortex").unwrap(),
+            VortexSimpleAggregateRequest::new(vec![VortexSimpleAggregateMeasure::new(
+                "count",
+                Some(ColumnRef::new("value").unwrap()),
+                "present".into(),
+            )]),
+        );
+        let exact = stats_for(
+            field.clone(),
+            &[(Stat::NullCount, Precision::Exact(3_u64.into()))],
+        );
+        let mut states_exact = states(&request);
+        assert!(
+            complete_from_stats(
+                &dtype(field.clone(), Nullability::NonNullable),
+                12,
+                Some(&exact),
+                &request,
+                &mut states_exact,
+            )
+            .unwrap()
+            .is_some()
+        );
+        assert_eq!(
+            serde_json::Value::Object(states_exact.result_values().unwrap()),
+            serde_json::json!({"present": 9})
+        );
+
+        let inexact = stats_for(
+            field.clone(),
+            &[(Stat::NullCount, Precision::Inexact(3_u64.into()))],
+        );
+        let mut states_inexact = states(&request);
+        assert!(
+            complete_from_stats(
+                &dtype(field, Nullability::NonNullable),
+                12,
+                Some(&inexact),
+                &request,
+                &mut states_inexact,
+            )
+            .unwrap()
+            .is_none()
+        );
+        assert_eq!(states_inexact.states[0].count, 0);
+    }
+}
+
+#[test]
+fn footer_aggregate_completes_bool_utf8_and_finite_nonzero_float_minmax() {
+    for (field, min, max, entries, expected) in [
+        (
+            DType::Bool(Nullability::Nullable),
+            ScalarValue::from(false),
+            ScalarValue::from(true),
+            vec![(Stat::NullCount, Precision::Exact(1_u64.into()))],
+            serde_json::json!({"all": 6, "present": 5, "lo": false, "hi": true}),
+        ),
+        (
+            DType::Utf8(Nullability::Nullable),
+            ScalarValue::from("alpha"),
+            ScalarValue::from("zeta"),
+            vec![(Stat::NullCount, Precision::Exact(2_u64.into()))],
+            serde_json::json!({"all": 6, "present": 4, "lo": "alpha", "hi": "zeta"}),
+        ),
+        (
+            DType::Primitive(PType::F32, Nullability::Nullable),
+            ScalarValue::from(-3.5_f32),
+            ScalarValue::from(12.25_f32),
+            vec![
+                (Stat::NullCount, Precision::Exact(1_u64.into())),
+                (Stat::NaNCount, Precision::Exact(0_u64.into())),
+            ],
+            serde_json::json!({"all": 6, "present": 5, "lo": -3.5, "hi": 12.25}),
+        ),
+        (
+            DType::Primitive(PType::F64, Nullability::Nullable),
+            ScalarValue::from(1.25_f64),
+            ScalarValue::from(99.5_f64),
+            vec![
+                (Stat::NullCount, Precision::Exact(1_u64.into())),
+                (Stat::NaNCount, Precision::Exact(0_u64.into())),
+            ],
+            serde_json::json!({"all": 6, "present": 5, "lo": 1.25, "hi": 99.5}),
+        ),
+    ] {
+        let mut all = entries;
+        all.push((Stat::Min, Precision::Exact(min)));
+        all.push((Stat::Max, Precision::Exact(max)));
+        let stats = stats_for(field.clone(), &all);
+        let request = request();
+        let mut states = states(&request);
+        assert!(
+            complete_from_stats(
+                &dtype(field, Nullability::NonNullable),
+                6,
+                Some(&stats),
+                &request,
+                &mut states,
+            )
+            .unwrap()
+            .is_some()
+        );
+        assert_eq!(
+            serde_json::Value::Object(states.result_values().unwrap()),
+            expected
+        );
+    }
+
+    // Float MIN/MAX must decline cleanly when NaNCount is missing, inexact, or > 0, or extremum is zero/non-finite.
+    let f64_field = DType::Primitive(PType::F64, Nullability::Nullable);
+    for (extra_nan, min, max, expect_err) in [
+        (None, -1.5, 2.5, false),
+        (Some(Precision::Inexact(0_u64.into())), -1.5, 2.5, false),
+        (Some(Precision::Exact(1_u64.into())), -1.5, 2.5, false),
+        (Some(Precision::Exact(0_u64.into())), -0.0, 2.5, false),
+        (Some(Precision::Exact(0_u64.into())), 0.0, 2.5, false),
+        (
+            Some(Precision::Exact(0_u64.into())),
+            -1.5,
+            f64::INFINITY,
+            false,
+        ),
+        (Some(Precision::Exact(6_u64.into())), -1.5, 2.5, true),
+    ] {
+        let mut entries = vec![
+            (Stat::NullCount, Precision::Exact(1_u64.into())),
+            (Stat::Min, Precision::Exact(min.into())),
+            (Stat::Max, Precision::Exact(max.into())),
+        ];
+        if let Some(nan_count) = extra_nan {
+            entries.push((Stat::NaNCount, nan_count));
+        }
+        let stats = stats_for(f64_field.clone(), &entries);
+        let request = request();
+        let mut states = states(&request);
+        let result = complete_from_stats(
+            &dtype(f64_field.clone(), Nullability::NonNullable),
+            6,
+            Some(&stats),
+            &request,
+            &mut states,
+        );
+        if expect_err {
+            assert!(result.is_err());
+        } else {
+            assert!(result.unwrap().is_none());
+        }
+        assert_eq!(states.states[0].count, 0);
+    }
+}
+
+fn sum_avg_test_request() -> VortexQueryPrimitiveRequest {
+    VortexQueryPrimitiveRequest::simple_aggregate(
+        DatasetUri::new("footer-sum-avg.vortex").unwrap(),
+        VortexSimpleAggregateRequest::new(vec![
+            VortexSimpleAggregateMeasure::new(
+                "count",
+                Some(ColumnRef::new("value").unwrap()),
+                "present".into(),
+            ),
+            VortexSimpleAggregateMeasure::new(
+                "sum",
+                Some(ColumnRef::new("value").unwrap()),
+                "total".into(),
+            ),
+            VortexSimpleAggregateMeasure::new(
+                "avg",
+                Some(ColumnRef::new("value").unwrap()),
+                "mean".into(),
+            ),
+        ]),
+    )
+}
+
+#[test]
+fn footer_aggregate_completes_narrow_integer_sum_and_avg() {
+    let sum_request = sum_avg_test_request();
+    for (ptype, sum_scalar, rows, nulls, expected) in [
+        (
+            PType::I32,
+            ScalarValue::from(100_i64),
+            5_u64,
+            1_u64,
+            serde_json::json!({"present": 4, "total": 100.0, "mean": 25.0}),
+        ),
+        (
+            PType::U32,
+            ScalarValue::from(150_u64),
+            5_u64,
+            0_u64,
+            serde_json::json!({"present": 5, "total": 150.0, "mean": 30.0}),
+        ),
+        (
+            PType::I32,
+            ScalarValue::from(0_i64),
+            5_u64,
+            5_u64,
+            serde_json::json!({"present": 0, "total": null, "mean": null}),
+        ),
+    ] {
+        let field = DType::Primitive(ptype, Nullability::Nullable);
+        let stats = stats_for(
+            field.clone(),
+            &[
+                (Stat::NullCount, Precision::Exact(nulls.into())),
+                (Stat::Sum, Precision::Exact(sum_scalar)),
+            ],
+        );
+        let mut states = states(&sum_request);
+        assert!(
+            complete_from_stats(
+                &dtype(field, Nullability::NonNullable),
+                rows,
+                Some(&stats),
+                &sum_request,
+                &mut states,
+            )
+            .unwrap()
+            .is_some()
+        );
+        assert_eq!(
+            serde_json::Value::Object(states.result_values().unwrap()),
+            expected
+        );
+    }
+
+    // Contradictory non-zero sum on all-NULL input must fail explicitly.
+    let i32_field = DType::Primitive(PType::I32, Nullability::Nullable);
+    let bad_empty_sum = stats_for(
+        i32_field.clone(),
+        &[
+            (Stat::NullCount, Precision::Exact(5_u64.into())),
+            (Stat::Sum, Precision::Exact(7_i64.into())),
+        ],
+    );
+    let mut bad_states = states(&sum_request);
+    assert!(
+        complete_from_stats(
+            &dtype(i32_field, Nullability::NonNullable),
+            5,
+            Some(&bad_empty_sum),
+            &sum_request,
+            &mut bad_states,
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn footer_aggregate_enforces_64bit_and_float_sum_avg_bounds() {
+    let sum_request = sum_avg_test_request();
+    // 64-bit integer SUM/AVG admits values within 2^53 and declines beyond 2^53 or missing extrema.
+    let i64_field = DType::Primitive(PType::I64, Nullability::NonNullable);
+    let exact_i64 = stats_for(
+        i64_field.clone(),
+        &[
+            (Stat::Min, Precision::Exact((-10_i64).into())),
+            (Stat::Max, Precision::Exact(((1_i64) << 53).into())),
+            (Stat::Sum, Precision::Exact((((1_i64) << 53) + 10).into())),
+        ],
+    );
+    let mut i64_states = states(&sum_request);
+    let completion = complete_from_stats(
+        &dtype(i64_field.clone(), Nullability::NonNullable),
+        4,
+        Some(&exact_i64),
+        &sum_request,
+        &mut i64_states,
+    )
+    .unwrap()
+    .unwrap();
+    let mut summary = i64_states.result_summary(&[]).unwrap();
+    completion.annotate(&mut summary).unwrap();
+    let mut report = VortexLocalPrimitiveExecutionReport::feature_disabled(
+        VortexQueryPrimitiveKind::SimpleAggregate,
+        crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1).unwrap(),
+    );
+    report.mode = VortexLocalPrimitiveExecutionMode::MetadataPreservingAggregate;
+    report.embedded_layout.metadata_persisted_in_artifact = true;
+    report.embedded_layout.footer_row_count = 4;
+    report.rows_scanned = 4;
+    report.rows_selected = Some(4);
+    report.rows_projected = Some(1);
+    report.result_summary = Some(format!("simple_aggregate values={summary}"));
+    assert!(report_is_safe(&sum_request, &report));
+
+    for uncertified_entries in [
+        vec![(Stat::Sum, Precision::Exact(42_i64.into()))],
+        vec![
+            (Stat::Min, Precision::Exact(0_i64.into())),
+            (Stat::Max, Precision::Exact((((1_i64) << 53) + 1).into())),
+            (Stat::Sum, Precision::Exact(100_i64.into())),
+        ],
+    ] {
+        let stats = stats_for(i64_field.clone(), &uncertified_entries);
+        let mut declined_states = states(&sum_request);
+        assert!(
+            complete_from_stats(
+                &dtype(i64_field.clone(), Nullability::NonNullable),
+                4,
+                Some(&stats),
+                &sum_request,
+                &mut declined_states,
+            )
+            .unwrap()
+            .is_none()
+        );
+        assert_eq!(declined_states.states[0].count, 0);
+        assert_eq!(declined_states.states[1].sum.total().to_bits(), 0);
+    }
+
+    // Float SUM/AVG is always declined from metadata.
+    let f64_field = DType::Primitive(PType::F64, Nullability::NonNullable);
+    let f64_stats = stats_for(
+        f64_field.clone(),
+        &[(Stat::Sum, Precision::Exact(42.0_f64.into()))],
+    );
+    let mut f64_states = states(&sum_request);
+    assert!(
+        complete_from_stats(
+            &dtype(f64_field, Nullability::NonNullable),
+            4,
+            Some(&f64_stats),
+            &sum_request,
+            &mut f64_states,
+        )
+        .unwrap()
+        .is_none()
+    );
+}
+
+#[test]
+fn footer_aggregate_merges_staged_partition_values_and_declines_incompatible_measures() {
+    let min_zero = Some(Value::Min(None));
+    let min_one = Some(Value::Min(Some(StatValue::Int64(-5))));
+    let min_two = Value::Min(Some(StatValue::Int64(12)));
+    assert!(matches!(
+        merge_staged_value(min_zero, min_two).unwrap(),
+        Some(Value::Min(Some(StatValue::Int64(12))))
+    ));
+    let merged_min = merge_staged_value(min_one, Value::Min(Some(StatValue::Int64(-9)))).unwrap();
+    assert!(matches!(
+        merged_min,
+        Some(Value::Min(Some(StatValue::Int64(-9))))
+    ));
+
+    let max_zero = Some(Value::Max(None));
+    let merged_max = merge_staged_value(max_zero, Value::Max(Some(StatValue::Int64(7)))).unwrap();
+    assert!(matches!(
+        merged_max,
+        Some(Value::Max(Some(StatValue::Int64(7))))
+    ));
+    let merged_max2 =
+        merge_staged_value(merged_max, Value::Max(Some(StatValue::Int64(42)))).unwrap();
+    assert!(matches!(
+        merged_max2,
+        Some(Value::Max(Some(StatValue::Int64(42))))
+    ));
+
+    let sum_part = Some(Value::SumOrAvg {
+        count: 2,
+        sum: NumericAggregateSum::exact_integer(100),
+    });
+    let sum_next = Value::SumOrAvg {
+        count: 3,
+        sum: NumericAggregateSum::exact_integer(-25),
+    };
+    match merge_staged_value(sum_part, sum_next).unwrap().unwrap() {
+        Value::SumOrAvg { count, sum } => {
+            assert_eq!(count, 5);
+            assert_eq!(sum.total(), 75.0);
+        }
+        _ => panic!("expected SumOrAvg"),
+    }
+
+    let req = request();
+    let completion = Completion {
+        source_rows: 10,
+        exact_statistics: 18,
+        measures: 4,
+        partitions_covered: Some(3),
+    };
+    let mut s = states(&req);
+    let mut staged: [Option<Value>; MAX_MEASURES] = std::array::from_fn(|_| None);
+    staged[0] = Some(Value::Count(10));
+    staged[1] = Some(Value::Min(Some(StatValue::Int64(1))));
+    staged[2] = Some(Value::Max(Some(StatValue::Int64(20))));
+    staged[3] = Some(Value::Count(8));
+    install_staged_values(staged, required_simple_aggregate(&req).unwrap(), &mut s).unwrap();
+    let mut summary = s.result_summary(&[]).unwrap();
+    completion.annotate(&mut summary).unwrap();
+    let mut report = VortexLocalPrimitiveExecutionReport::feature_disabled(
+        VortexQueryPrimitiveKind::SimpleAggregate,
+        crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1).unwrap(),
+    );
+    report.mode = VortexLocalPrimitiveExecutionMode::MetadataPreservingAggregate;
+    report.embedded_layout.metadata_persisted_in_artifact = true;
+    report.embedded_layout.footer_row_count = 10;
+    report.rows_scanned = 10;
+    report.rows_selected = Some(10);
+    report.rows_projected = Some(1);
+    report.result_summary = Some(format!(
+        "partitioned_vortex_sources=3;simple_aggregate values={summary}"
+    ));
+    assert!(report_is_safe(&req, &report));
 }

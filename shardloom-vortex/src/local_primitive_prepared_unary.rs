@@ -65,7 +65,7 @@ mod schema;
 #[path = "local_primitive_unary_select.rs"]
 mod select;
 #[path = "local_primitive_unary_values.rs"]
-pub(super) mod values;
+pub(in crate::local_primitives) mod values;
 
 const BATCH_ROWS: usize = 2048;
 
@@ -244,6 +244,28 @@ fn validate_policy(policy: VortexLocalPrimitiveExecutionPolicy) -> Result<()> {
 /// Bind a local source once without executing its rows.
 /// # Errors
 /// Rejects invalid requests, policies, source identities and unsupported schemas.
+fn unary_session(
+    request: &VortexQueryPrimitiveRequest,
+    memory_bytes: u64,
+    parallelism: usize,
+) -> Result<ResidentVortexSession> {
+    if matches!(
+        request.kind,
+        VortexQueryPrimitiveKind::DistinctRows | VortexQueryPrimitiveKind::DropDuplicateRows
+    ) && request.predicate.is_none()
+        && parallelism >= 2
+    {
+        ResidentVortexSession::for_external_cpu_pool(memory_bytes, parallelism)
+    } else {
+        ResidentVortexSession::new(memory_bytes, parallelism)
+    }
+}
+
+/// Prepare a local unary operation under a canonical resource policy.
+///
+/// # Errors
+/// Rejects malformed requests, invalid policies, unsupported native schemas,
+/// or source-open failures.
 pub fn prepare_unary(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
@@ -251,7 +273,8 @@ pub fn prepare_unary(
     canonical(request, true)?;
     validate_policy(policy)?;
     let (effective, _) = policy.with_physical_policy_for_request(request);
-    let session = ResidentVortexSession::new(
+    let session = unary_session(
+        request,
         effective.resource_envelope.memory_budget_bytes,
         effective.resource_envelope.max_parallelism,
     )?;
@@ -301,7 +324,8 @@ pub fn prepare_unary_for_optional_reuse(
     canonical(request, true)?;
     validate_policy(policy)?;
     let (effective, _) = policy.with_physical_policy_for_request(request);
-    let session = ResidentVortexSession::new(
+    let session = unary_session(
+        request,
         effective.resource_envelope.memory_budget_bytes,
         effective.max_parallelism,
     )?;
@@ -326,6 +350,30 @@ pub fn prepare_unary_for_optional_reuse_in_session(
     session: &ResidentVortexSession,
     cancellation: &CancellationToken,
 ) -> Result<Option<PreparedVortexUnary>> {
+    prepare_unary_for_optional_reuse_with_source_loader(
+        request,
+        policy,
+        session,
+        cancellation,
+        |path| session.prepare_file_with_cancellation(path, cancellation),
+    )
+}
+
+/// Choose retained native execution from the source schema using an existing
+/// session, a caller-supplied source loader, and the caller's cancellation/deadline
+/// token. Structured projection remains assigned to its separate native provider
+/// and returns `None` before opening any source.
+///
+/// # Errors
+/// Rejects cancellation, malformed requests, policy failures, missing sources,
+/// mismatched session owners, changed generations, and invalid source schemas.
+pub fn prepare_unary_for_optional_reuse_with_source_loader(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &ResidentVortexSession,
+    cancellation: &CancellationToken,
+    open_source: impl FnOnce(&std::path::Path) -> Result<PreparedVortexSource>,
+) -> Result<Option<PreparedVortexUnary>> {
     // Structured projection has its own native provider and result schema.
     if request.structured_projection.is_some() {
         return Ok(None);
@@ -333,7 +381,32 @@ pub fn prepare_unary_for_optional_reuse_in_session(
     canonical(request, true)?;
     validate_policy(policy)?;
     cancellation.check()?;
-    prepare_candidate(request, policy, session, true, cancellation)
+    prepare_candidate_with_source_loader(request, policy, session, true, cancellation, open_source)
+}
+
+/// Choose retained native execution against an already opened source using its
+/// retained session and cancellation token. Structured projection remains
+/// assigned to its separate native provider and returns `None`.
+///
+/// # Errors
+/// Rejects cancellation, malformed requests, policy failures, changed or
+/// mismatched sources, and invalid schemas without opening another source.
+pub fn prepare_unary_for_optional_reuse_from_source(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    source: PreparedVortexSource,
+    cancellation: &CancellationToken,
+) -> Result<Option<PreparedVortexUnary>> {
+    if request.structured_projection.is_some() {
+        return Ok(None);
+    }
+    canonical(request, true)?;
+    validate_policy(policy)?;
+    cancellation.check()?;
+    let session = super::prepared_dispatch::source_session(&source, request, Some(policy))?;
+    prepare_candidate_with_source_loader(request, policy, &session, true, cancellation, |_| {
+        Ok(source)
+    })
 }
 
 fn prepare_candidate(
@@ -342,6 +415,19 @@ fn prepare_candidate(
     session: &ResidentVortexSession,
     optional: bool,
     cancellation: &CancellationToken,
+) -> Result<Option<PreparedVortexUnary>> {
+    prepare_candidate_with_source_loader(request, policy, session, optional, cancellation, |path| {
+        session.prepare_file_with_cancellation(path, cancellation)
+    })
+}
+
+fn prepare_candidate_with_source_loader(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &ResidentVortexSession,
+    optional: bool,
+    cancellation: &CancellationToken,
+    open_source: impl FnOnce(&std::path::Path) -> Result<PreparedVortexSource>,
 ) -> Result<Option<PreparedVortexUnary>> {
     cancellation.check()?;
     canonical(request, true)?;
@@ -363,7 +449,13 @@ fn prepare_candidate(
         .ok_or_else(|| failed("source URI is required"))?;
     let path = super::local_vortex_path(uri, request.kind)?
         .ok_or_else(|| failed("requires one local Vortex file"))?;
-    let source = session.prepare_file_with_cancellation(path, cancellation)?;
+    let source = open_source(&path)?;
+    if !source.retained_session().same_owner(session) {
+        return Err(failed(
+            "retained source belongs to a different session owner",
+        ));
+    }
+    source.validate_generation()?;
     cancellation.check()?;
     if optional {
         let plan = super::row_export_scan_plan(request, source.dtype())?;
@@ -972,7 +1064,13 @@ impl PreparedVortexUnary {
             self.plan.projection.is_some(),
         );
         let pruned = filter
-            .map(|filter| file.can_prune(filter).map_err(vortex_error))
+            .map(|filter| {
+                crate::local_primitives::file_pruning::can_prune_file_with_predicate(
+                    file,
+                    filter,
+                    self.plan.pushdown_predicate.as_ref(),
+                )
+            })
             .transpose()?
             .unwrap_or(false);
         if filter.is_some() {
@@ -1083,6 +1181,30 @@ impl PreparedVortexUnary {
         })
     }
 
+    fn push_scan_chunk(
+        &self,
+        context: &NativeExecutionContext<'_>,
+        uri: &shardloom_core::DatasetUri,
+        meta: ScanChunkMeta,
+        splits: &mut ReservedVec<super::VortexReaderBackedSplitEvidence>,
+        evidence: &mut EvidenceOwners,
+    ) -> Result<()> {
+        evidence.reserve_chunk(context, self.bound.columns.len(), uri.as_str().len())?;
+        splits.reserve_one()?;
+        splits
+            .values
+            .push(super::VortexReaderBackedSplitEvidence::local_scan_chunk(
+                uri.clone(),
+                splits.values.len(),
+                meta.rows,
+                meta.dtype,
+                meta.encoding,
+                meta.nchildren,
+                meta.nbuffers,
+            )?);
+        Ok(())
+    }
+
     fn consume_scan(
         &self,
         file: &vortex::file::VortexFile,
@@ -1119,6 +1241,50 @@ impl PreparedVortexUnary {
             .source_uri
             .as_ref()
             .ok_or_else(|| failed("source URI is absent"))?;
+        if context.provider_background_workers() == 0
+            && self.policy.resource_envelope.max_parallelism >= 2
+            && shardloom_exec::compute_pool::bounded_cpu_parallelism(
+                self.policy.resource_envelope.max_parallelism,
+            ) >= 2
+            && self.bound.predicate.is_none()
+            && matches!(
+                self.bound.request.kind,
+                VortexQueryPrimitiveKind::DistinctRows
+                    | VortexQueryPrimitiveKind::DropDuplicateRows
+            )
+        {
+            return super::parallel_distinct_rows::run_prepared_unary(
+                scan,
+                &self.bound.columns,
+                &self.bound.key_indices,
+                &self.policy,
+                context,
+                |extracted| {
+                    self.push_scan_chunk(
+                        context,
+                        uri,
+                        ScanChunkMeta {
+                            rows: extracted.rows,
+                            dtype: extracted.dtype,
+                            encoding: extracted.encoding,
+                            nchildren: extracted.nchildren,
+                            nbuffers: extracted.nbuffers,
+                        },
+                        splits,
+                        evidence,
+                    )?;
+                    let mut batch = extracted.batch;
+                    state.consume_precomputed_keys(
+                        &self.bound,
+                        &mut batch,
+                        extracted.rows,
+                        extracted.keys,
+                        context,
+                        output,
+                    )
+                },
+            );
+        }
         let mut max_chunk_rows = 0;
         for chunk in scan
             .into_array_iter(context.runtime())
@@ -1126,19 +1292,19 @@ impl PreparedVortexUnary {
         {
             context.check_cancelled()?;
             let chunk = chunk.map_err(vortex_error)?;
-            evidence.reserve_chunk(context, self.bound.columns.len(), uri.as_str().len())?;
-            splits.reserve_one()?;
-            splits
-                .values
-                .push(super::VortexReaderBackedSplitEvidence::local_scan_chunk(
-                    uri.clone(),
-                    splits.values.len(),
-                    chunk.len(),
-                    chunk.dtype().to_string(),
-                    chunk.encoding_id().to_string(),
-                    chunk.nchildren(),
-                    chunk.nbuffers(),
-                )?);
+            self.push_scan_chunk(
+                context,
+                uri,
+                ScanChunkMeta {
+                    rows: chunk.len(),
+                    dtype: chunk.dtype().to_string(),
+                    encoding: chunk.encoding_id().to_string(),
+                    nchildren: chunk.nchildren(),
+                    nbuffers: chunk.nbuffers(),
+                },
+                splits,
+                evidence,
+            )?;
             max_chunk_rows = max_chunk_rows.max(chunk.len());
             let mut batch = NativeBatch::new(&chunk, &self.bound.columns, context)?;
             if state.consume(&self.bound, &mut batch, chunk.len(), context, output)? {
@@ -1147,6 +1313,14 @@ impl PreparedVortexUnary {
         }
         Ok(max_chunk_rows)
     }
+}
+
+struct ScanChunkMeta {
+    rows: usize,
+    dtype: String,
+    encoding: String,
+    nchildren: usize,
+    nbuffers: usize,
 }
 
 struct ScanEvidence {

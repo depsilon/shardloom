@@ -40,6 +40,13 @@ thread_local! {
 pub(super) mod observation;
 
 impl ChunkWorkerContext {
+    pub(super) fn worker_index(&self) -> usize {
+        match self {
+            Self::Pool(context) => context.worker_index,
+            Self::Inline(_) => 0,
+        }
+    }
+
     pub(super) fn check_cancelled(&self) -> Result<()> {
         match self {
             Self::Pool(context) => context.check_cancelled(),
@@ -166,7 +173,8 @@ fn consume_completed<R>(
 
 pub(super) struct AggregateChunkJobs<T> {
     pending: VecDeque<(u64, Pending<T>, WindowPermit)>,
-    pool: Option<ComputePool>,
+    pool: Option<Arc<ComputePool>>,
+    owns_pool: bool,
     memory: LiveMemoryPool,
     cancellation: CancellationToken,
     cancel_on_drop: bool,
@@ -205,6 +213,7 @@ impl<T: Send + 'static> AggregateChunkJobs<T> {
     /// Observe the enclosing operation while keeping stage failure, retirement
     /// and drop cancellation local. One stage must not cancel independent work
     /// or prevent the caller from executing another admitted operation.
+    #[cfg(test)]
     pub(super) fn for_operation(
         max_parallelism: usize,
         window_limit: usize,
@@ -212,7 +221,25 @@ impl<T: Send + 'static> AggregateChunkJobs<T> {
         memory: LiveMemoryPool,
         parent: Option<&CancellationToken>,
     ) -> Result<Self> {
-        Self::with_cancellation(
+        Self::for_operation_with_pool(
+            max_parallelism,
+            window_limit,
+            queue_byte_limit,
+            memory,
+            parent,
+            None,
+        )
+    }
+
+    pub(super) fn for_operation_with_pool(
+        max_parallelism: usize,
+        window_limit: usize,
+        queue_byte_limit: u64,
+        memory: LiveMemoryPool,
+        parent: Option<&CancellationToken>,
+        shared_pool: Option<&Arc<ComputePool>>,
+    ) -> Result<Self> {
+        Self::with_cancellation_and_pool(
             max_parallelism,
             window_limit,
             queue_byte_limit,
@@ -220,15 +247,35 @@ impl<T: Send + 'static> AggregateChunkJobs<T> {
             parent.map_or_else(CancellationToken::default, |parent| {
                 CancellationToken::from_shared_flag_with_parent(Arc::default(), parent)
             }),
+            shared_pool,
         )
     }
 
+    #[cfg(test)]
     pub(super) fn with_cancellation(
         max_parallelism: usize,
         window_limit: usize,
         queue_byte_limit: u64,
         memory: LiveMemoryPool,
         cancellation: CancellationToken,
+    ) -> Result<Self> {
+        Self::with_cancellation_and_pool(
+            max_parallelism,
+            window_limit,
+            queue_byte_limit,
+            memory,
+            cancellation,
+            None,
+        )
+    }
+
+    pub(super) fn with_cancellation_and_pool(
+        max_parallelism: usize,
+        window_limit: usize,
+        queue_byte_limit: u64,
+        memory: LiveMemoryPool,
+        cancellation: CancellationToken,
+        shared_pool: Option<&Arc<ComputePool>>,
     ) -> Result<Self> {
         if max_parallelism == 0 || window_limit == 0 || queue_byte_limit == 0 {
             return Err(failed(
@@ -238,33 +285,56 @@ impl<T: Send + 'static> AggregateChunkJobs<T> {
         if queue_byte_limit > memory.snapshot().limit_bytes {
             return Err(failed("queue byte limit exceeds shared capacity"));
         }
+        let reusable_pool = shared_pool.filter(|pool| {
+            #[cfg(test)]
+            if observation::active() {
+                return false;
+            }
+            max_parallelism > 1
+                && pool.worker_count() >= max_parallelism - 1
+                && queue_byte_limit <= pool.queue_byte_limit()
+                && pool.memory().owns_same_pool(&memory)
+                && !pool.snapshot().queue_closed
+        });
         // The source/progress/merge caller occupies one CPU lane. The runtime
         // integrating this helper must not retain a second full-budget pool.
         // Dictionary preparation may explicitly partition a larger CPU grant
         // between this caller, bounded preparation workers and one native provider driver.
-        let pool = (max_parallelism > 1)
-            .then(|| {
-                #[cfg(test)]
-                if observation::active() {
-                    return ComputePool::with_wait_observation(
-                        max_parallelism - 1,
-                        window_limit,
-                        queue_byte_limit,
-                        memory.clone(),
-                        observation::observe_waits(),
-                    );
-                }
+        let (pool, owns_pool) = if let Some(shared) = reusable_pool {
+            (Some(Arc::clone(shared)), false)
+        } else if max_parallelism > 1 {
+            #[cfg(test)]
+            let created = if observation::active() {
+                ComputePool::with_wait_observation(
+                    max_parallelism - 1,
+                    window_limit,
+                    queue_byte_limit,
+                    memory.clone(),
+                    observation::observe_waits(),
+                )?
+            } else {
                 ComputePool::new(
                     max_parallelism - 1,
                     window_limit,
                     queue_byte_limit,
                     memory.clone(),
-                )
-            })
-            .transpose()?;
+                )?
+            };
+            #[cfg(not(test))]
+            let created = ComputePool::new(
+                max_parallelism - 1,
+                window_limit,
+                queue_byte_limit,
+                memory.clone(),
+            )?;
+            (Some(Arc::new(created)), true)
+        } else {
+            (None, false)
+        };
         Ok(Self {
             pending: VecDeque::new(),
             pool,
+            owns_pool,
             memory,
             cancellation,
             cancel_on_drop: true,
@@ -286,6 +356,10 @@ impl<T: Send + 'static> AggregateChunkJobs<T> {
 
     pub(super) fn memory(&self) -> &LiveMemoryPool {
         &self.memory
+    }
+
+    pub(super) const fn cancellation(&self) -> &CancellationToken {
+        &self.cancellation
     }
 
     pub(super) fn is_full(&self) -> bool {
@@ -321,7 +395,7 @@ impl<T: Send + 'static> AggregateChunkJobs<T> {
     }
 
     pub(super) fn pool_snapshot(&self) -> Option<ComputePoolSnapshot> {
-        self.pool.as_ref().map(ComputePool::snapshot)
+        self.pool.as_deref().map(ComputePool::snapshot)
     }
 
     pub(super) fn cancel(&self) {
@@ -538,12 +612,18 @@ impl<T> Drop for AggregateChunkJobs<T> {
 impl<T> AggregateChunkJobs<T> {
     fn close_pool(&mut self) {
         let pool = self.pool.take();
-        #[cfg(test)]
-        if self.observation_active {
-            if let Some(pool) = pool {
-                self.retired_pool_observation = Some(pool.close_and_snapshot());
+        if self.owns_pool {
+            #[cfg(test)]
+            if self.observation_active {
+                if let Some(pool) = pool {
+                    self.retired_pool_observation =
+                        Some(Arc::try_unwrap(pool).map_or_else(
+                            |shared| shared.snapshot(),
+                            ComputePool::close_and_snapshot,
+                        ));
+                }
+                return;
             }
-            return;
         }
         drop(pool);
     }

@@ -457,32 +457,102 @@ impl ShardLoomExecutionModeSelectionReport {
         }
     }
 
+    /// Captures typed execution-mode selection evidence (`E2E-ARCH-01`).
+    #[must_use]
+    pub fn typed_evidence(&self) -> ExecutionModeSelectionEvidence {
+        ExecutionModeSelectionEvidence {
+            schema_version: self.schema_version.to_string(),
+            requested_execution_mode: self.requested_execution_mode.as_str().to_string(),
+            selected_execution_mode: self.selected_execution_mode.as_str().to_string(),
+            execution_mode: self.selected_execution_mode.as_str().to_string(),
+            mode_selection_reason: self.mode_selection_reason.clone(),
+            execution_mode_family: self.execution_mode_family.as_str().to_string(),
+            source_format: self.source_format.clone(),
+            workload_constitution_id: self.workload_constitution_id.clone(),
+            compatibility_import_included: self.compatibility_import_included.to_string(),
+            vortex_prepare_included: self.vortex_prepare_included.to_string(),
+            vortex_write_reopen_included: self.vortex_write_reopen_included.to_string(),
+            direct_transient_execution: self.direct_transient_execution.to_string(),
+            vortex_native_claim_allowed: self.vortex_native_claim_allowed.to_string(),
+            certification_requested: self.certification_requested.to_string(),
+            result_sink_requested: self.result_sink_requested.to_string(),
+            prepared_artifact_available: self.prepared_artifact_available.to_string(),
+            native_vortex_provider_available: self.native_vortex_provider_available.to_string(),
+            mode_supported: self.mode_supported.to_string(),
+            support_status: self.support_status.clone(),
+            unsupported_diagnostic_code: self.unsupported_diagnostic_code.clone(),
+            blocker_id: self.blocker_id.clone(),
+            required_future_evidence: self.required_future_evidence.clone(),
+            claim_gate_status: self.claim_gate_status.clone(),
+            claim_gate_reason: self.claim_gate_reason.clone(),
+            fallback_attempted: self.fallback_attempted.to_string(),
+            external_engine_invoked: self.external_engine_invoked.to_string(),
+        }
+    }
+
     #[must_use]
     pub fn fields(&self) -> Vec<(String, String)> {
+        self.typed_evidence().to_fields()
+    }
+}
+
+/// Typed execution-mode selection evidence bag replacing `Vec<(String, String)>` (`E2E-ARCH-01`).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ExecutionModeSelectionEvidence {
+    pub schema_version: String,
+    pub requested_execution_mode: String,
+    pub selected_execution_mode: String,
+    pub execution_mode: String,
+    pub mode_selection_reason: String,
+    pub execution_mode_family: String,
+    pub source_format: String,
+    pub workload_constitution_id: String,
+    pub compatibility_import_included: String,
+    pub vortex_prepare_included: String,
+    pub vortex_write_reopen_included: String,
+    pub direct_transient_execution: String,
+    pub vortex_native_claim_allowed: String,
+    pub certification_requested: String,
+    pub result_sink_requested: String,
+    pub prepared_artifact_available: String,
+    pub native_vortex_provider_available: String,
+    pub mode_supported: String,
+    pub support_status: String,
+    pub unsupported_diagnostic_code: String,
+    pub blocker_id: String,
+    pub required_future_evidence: String,
+    pub claim_gate_status: String,
+    pub claim_gate_reason: String,
+    pub fallback_attempted: String,
+    pub external_engine_invoked: String,
+}
+
+impl ExecutionModeSelectionEvidence {
+    /// Emits canonical key/value fields in strict `evidence_schema_registry` order.
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn to_fields(&self) -> Vec<(String, String)> {
         vec![
             (
                 "execution_mode_selection_schema_version".to_string(),
-                self.schema_version.to_string(),
+                self.schema_version.clone(),
             ),
             (
                 "requested_execution_mode".to_string(),
-                self.requested_execution_mode.as_str().to_string(),
+                self.requested_execution_mode.clone(),
             ),
             (
                 "selected_execution_mode".to_string(),
-                self.selected_execution_mode.as_str().to_string(),
+                self.selected_execution_mode.clone(),
             ),
-            (
-                "execution_mode".to_string(),
-                self.selected_execution_mode.as_str().to_string(),
-            ),
+            ("execution_mode".to_string(), self.execution_mode.clone()),
             (
                 "mode_selection_reason".to_string(),
                 self.mode_selection_reason.clone(),
             ),
             (
                 "execution_mode_family".to_string(),
-                self.execution_mode_family.as_str().to_string(),
+                self.execution_mode_family.clone(),
             ),
             ("source_format".to_string(), self.source_format.clone()),
             (
@@ -491,44 +561,41 @@ impl ShardLoomExecutionModeSelectionReport {
             ),
             (
                 "compatibility_import_included".to_string(),
-                self.compatibility_import_included.to_string(),
+                self.compatibility_import_included.clone(),
             ),
             (
                 "vortex_prepare_included".to_string(),
-                self.vortex_prepare_included.to_string(),
+                self.vortex_prepare_included.clone(),
             ),
             (
                 "vortex_write_reopen_included".to_string(),
-                self.vortex_write_reopen_included.to_string(),
+                self.vortex_write_reopen_included.clone(),
             ),
             (
                 "direct_transient_execution".to_string(),
-                self.direct_transient_execution.to_string(),
+                self.direct_transient_execution.clone(),
             ),
             (
                 "vortex_native_claim_allowed".to_string(),
-                self.vortex_native_claim_allowed.to_string(),
+                self.vortex_native_claim_allowed.clone(),
             ),
             (
                 "certification_requested".to_string(),
-                self.certification_requested.to_string(),
+                self.certification_requested.clone(),
             ),
             (
                 "result_sink_requested".to_string(),
-                self.result_sink_requested.to_string(),
+                self.result_sink_requested.clone(),
             ),
             (
                 "prepared_artifact_available".to_string(),
-                self.prepared_artifact_available.to_string(),
+                self.prepared_artifact_available.clone(),
             ),
             (
                 "native_vortex_provider_available".to_string(),
-                self.native_vortex_provider_available.to_string(),
+                self.native_vortex_provider_available.clone(),
             ),
-            (
-                "mode_supported".to_string(),
-                self.mode_supported.to_string(),
-            ),
+            ("mode_supported".to_string(), self.mode_supported.clone()),
             ("support_status".to_string(), self.support_status.clone()),
             (
                 "unsupported_diagnostic_code".to_string(),
@@ -549,20 +616,56 @@ impl ShardLoomExecutionModeSelectionReport {
             ),
             (
                 "fallback_attempted".to_string(),
-                self.fallback_attempted.to_string(),
+                self.fallback_attempted.clone(),
             ),
             (
                 "external_engine_invoked".to_string(),
-                self.external_engine_invoked.to_string(),
+                self.external_engine_invoked.clone(),
             ),
         ]
     }
 }
 
+/// Typed key/value entry inside [`OutputTypedPayload`] and [`OutputEnvelope`] (`E2E-ARCH-01`).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct OutputKeyValueField {
+    pub key: String,
+    pub value: String,
+}
+
+impl OutputKeyValueField {
+    /// Creates a typed key/value envelope entry.
+    #[must_use]
+    pub fn new(key: impl Into<String>, value: impl Into<String>) -> Self {
+        Self {
+            key: key.into(),
+            value: value.into(),
+        }
+    }
+
+    /// Borrows this entry as a `(&str, &str)` pair.
+    #[must_use]
+    pub fn as_pair(&self) -> (&str, &str) {
+        (&self.key, &self.value)
+    }
+}
+
+impl From<(String, String)> for OutputKeyValueField {
+    fn from((key, value): (String, String)) -> Self {
+        Self { key, value }
+    }
+}
+
+impl From<(&str, &str)> for OutputKeyValueField {
+    fn from((key, value): (&str, &str)) -> Self {
+        Self::new(key, value)
+    }
+}
+
 /// Typed key/value payload used inside explicit envelope slots.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub struct OutputTypedPayload {
-    pub fields: Vec<(String, String)>,
+    pub fields: Vec<OutputKeyValueField>,
 }
 
 impl OutputTypedPayload {
@@ -574,7 +677,15 @@ impl OutputTypedPayload {
 
     /// Adds a stable machine-readable field to this payload.
     pub fn add_field(&mut self, key: impl Into<String>, value: impl Into<String>) {
-        self.fields.push((key.into(), value.into()));
+        self.fields.push(OutputKeyValueField::new(key, value));
+    }
+
+    /// Returns true if this payload contains an exact `(key, value)` pair.
+    #[must_use]
+    pub fn contains_pair(&self, key: &str, value: &str) -> bool {
+        self.fields
+            .iter()
+            .any(|entry| entry.key == key && entry.value == value)
     }
 
     #[must_use]
@@ -688,7 +799,7 @@ pub struct OutputEnvelope {
     /// Deprecated key/value mirror retained only while existing command families
     /// are migrated to typed handlers. The primary machine-readable payload is
     /// `result` plus typed refs/artifact/certificate/policy/lifecycle slots.
-    pub fields: Vec<(String, String)>,
+    pub fields: Vec<OutputKeyValueField>,
 }
 
 impl OutputEnvelope {
@@ -742,7 +853,7 @@ impl OutputEnvelope {
         let key = key.into();
         let value = value.into();
         self.result.add_field(key.clone(), value.clone());
-        self.fields.push((key, value));
+        self.fields.push(OutputKeyValueField::new(key, value));
         self
     }
 
@@ -753,8 +864,16 @@ impl OutputEnvelope {
 
     #[must_use]
     pub fn with_legacy_field(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
-        self.fields.push((key.into(), value.into()));
+        self.fields.push(OutputKeyValueField::new(key, value));
         self
+    }
+
+    /// Returns true if the legacy mirror contains an exact `(key, value)` pair.
+    #[must_use]
+    pub fn contains_pair(&self, key: &str, value: &str) -> bool {
+        self.fields
+            .iter()
+            .any(|entry| entry.key == key && entry.value == value)
     }
 
     #[must_use]
@@ -1306,14 +1425,14 @@ pub(crate) fn json_optional_string(value: Option<&str>) -> String {
     value.map_or_else(|| "null".to_string(), json_string)
 }
 
-fn key_value_fields_json(fields: &[(String, String)]) -> String {
+fn key_value_fields_json(fields: &[OutputKeyValueField]) -> String {
     fields
         .iter()
-        .map(|(key, value)| {
+        .map(|entry| {
             format!(
                 "{{\"key\":{},\"value\":{}}}",
-                json_string(key),
-                json_string(value)
+                json_string(&entry.key),
+                json_string(&entry.value)
             )
         })
         .collect::<Vec<_>>()
@@ -1529,11 +1648,11 @@ mod tests {
 
         assert_eq!(
             envelope.fields,
-            vec![("key".to_string(), "value".to_string())]
+            vec![OutputKeyValueField::new("key", "value")]
         );
         assert_eq!(
             envelope.result.fields,
-            vec![("key".to_string(), "value".to_string())]
+            vec![OutputKeyValueField::new("key", "value")]
         );
     }
 
@@ -1543,19 +1662,19 @@ mod tests {
             .with_policy_field("fallback_execution_allowed", "false")
             .with_legacy_field("fallback_execution_allowed", "false");
 
-        assert_eq!(envelope.result.fields, [] as [(String, String); 0]);
+        assert_eq!(envelope.result.fields, [] as [OutputKeyValueField; 0]);
         assert_eq!(
             envelope.policy.fields,
-            vec![(
-                "fallback_execution_allowed".to_string(),
-                "false".to_string()
+            vec![OutputKeyValueField::new(
+                "fallback_execution_allowed",
+                "false"
             )]
         );
         assert_eq!(
             envelope.fields,
-            vec![(
-                "fallback_execution_allowed".to_string(),
-                "false".to_string()
+            vec![OutputKeyValueField::new(
+                "fallback_execution_allowed",
+                "false"
             )]
         );
     }

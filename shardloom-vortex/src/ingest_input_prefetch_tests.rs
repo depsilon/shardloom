@@ -602,3 +602,95 @@ fn dropping_pending_outer_write_releases_child_and_lookahead_ownership() {
         assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
 }
+
+#[test]
+fn bounded_layout_with_max_in_flight_runs_concurrently_preserves_order_and_throttles_pressure() {
+    let memory = LiveMemoryPool::new(4096).unwrap();
+    let trace = trace(vec![Outcome::Pending; 4]);
+    let strategy = BoundedIngestLayout::new(
+        Arc::new(ControlledChild(Arc::clone(&trace))),
+        0,
+        memory.reserve(0).unwrap(),
+    )
+    .with_max_in_flight(2, memory.clone());
+    let session = VortexSession::default();
+    let mut future = write(
+        &strategy,
+        &session,
+        &memory,
+        &trace,
+        vec![
+            SourceStep::Batch(vec![10]),
+            SourceStep::Batch(vec![20]),
+            SourceStep::Batch(vec![30]),
+            SourceStep::Batch(vec![40]),
+        ],
+    );
+    // Initial poll admits and polls exactly 2 concurrent children, NOT 4.
+    assert!(poll_write(&mut future).is_pending());
+    {
+        let state = trace.lock().unwrap();
+        assert_eq!(state.children_started, 2);
+        assert_eq!(state.live_children, 2);
+        assert_eq!(state.max_children, 2);
+        assert_eq!(state.rows, vec![10, 20]);
+    }
+    // Occupy > 75% of LiveMemoryPool headroom so the controller throttles in-flight to 1.
+    let pressure = memory.reserve(3200).unwrap();
+    // Complete child 1 BEFORE child 0: FuturesOrdered holds child 1 until child 0 finishes,
+    // preserving FIFO child layout ordering, and high pressure keeps concurrency throttled at 1.
+    trace.lock().unwrap().outcomes[1] = Outcome::Complete;
+    assert!(poll_write(&mut future).is_pending());
+    assert_eq!(trace.lock().unwrap().children_started, 2);
+    trace.lock().unwrap().outcomes[0] = Outcome::Complete;
+    assert!(poll_write(&mut future).is_pending());
+    assert_eq!(
+        trace.lock().unwrap().children_started,
+        3,
+        "throttled in-flight limit=1 starts child 2 only after both earlier slots clear"
+    );
+    drop(pressure);
+    trace.lock().unwrap().outcomes[2] = Outcome::Complete;
+    trace.lock().unwrap().outcomes[3] = Outcome::Complete;
+    let root = ready(&mut future).unwrap();
+    assert_eq!(root.row_count(), 4);
+    assert_eq!(root.nchildren(), 4);
+    assert_eq!(
+        trace.lock().unwrap().rows,
+        vec![10, 20, 30, 40],
+        "deterministic child sequence order preserved across out-of-order completions"
+    );
+    drop(future);
+    drop(root);
+    drop(strategy);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn bounded_layout_with_max_in_flight_propagates_late_input_error_after_children() {
+    let memory = LiveMemoryPool::new(4096).unwrap();
+    let trace = trace(vec![Outcome::Pending; 2]);
+    let strategy = BoundedIngestLayout::new(
+        Arc::new(ControlledChild(Arc::clone(&trace))),
+        0,
+        memory.reserve(0).unwrap(),
+    )
+    .with_max_in_flight(3, memory.clone());
+    let session = VortexSession::default();
+    let mut future = write(
+        &strategy,
+        &session,
+        &memory,
+        &trace,
+        vec![SourceStep::Batch(vec![1]), SourceStep::Error],
+    );
+    assert!(poll_write(&mut future).is_pending());
+    trace.lock().unwrap().outcomes[0] = Outcome::Complete;
+    let error = ready(&mut future).unwrap_err();
+    assert!(error.to_string().contains("next input failure"));
+    assert_eq!(trace.lock().unwrap().children_started, 1);
+    assert_eq!(trace.lock().unwrap().live_children, 0);
+    drop(future);
+    drop(strategy);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}

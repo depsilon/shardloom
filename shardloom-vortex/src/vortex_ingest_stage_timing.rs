@@ -310,6 +310,7 @@ mod measured {
         ReaderLockWait,
         OrderedHandoffWait,
         TextCanonicalize,
+        #[allow(dead_code)]
         TextCompact,
         TextZstd,
         NumericProbe,

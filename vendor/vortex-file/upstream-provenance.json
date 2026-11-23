@@ -65,7 +65,7 @@
   },
   "modified_files_sha256": {
     "Cargo.toml": "8867548a2dcdcd4f9baef3f004d109215e3fbf4faede5c18e027e1e11beb12cf",
-    "src/file.rs": "0696a904fc20de8925974d51b3c458d1d9ad5a0d09a931c029ed15c883fe260e",
+    "src/file.rs": "94350381df62cbc582f37f7141e69d484064869b3e387238415db76a9d0dc49a",
     "src/footer/deserializer.rs": "3e3c3068769f50f58bf44c0cba4c70af2380cc735df37a2cb074ca843f694e9a",
     "src/footer/file_layout.rs": "282f0bb3a78cabce20cc458d8a4bec5d1d79c39d2d7db58aa9ed7fde02e544fd",
     "src/footer/file_statistics.rs": "dfd49cb164f1af0771ba5d6926e06570188e802186f16162410f42b927326c47",

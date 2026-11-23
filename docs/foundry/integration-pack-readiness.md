@@ -177,8 +177,10 @@ adds:
   optional lazy submodule emitting `shardloom.foundry_native_transform_report.v1` and
   `shardloom.foundry_incremental_state.v1` over duck-typed `LightweightInput`/`LightweightOutput` and
   `TableInput`/`TableOutput`/`IcebergInput` interfaces (multi-file logical relation binding,
-  explicit headroom resource mapping, failure-safe scratch staging/publication, exact integer
-  incremental maintenance with retractions, duplicate/gap checks, and credential redaction).
+  explicit headroom resource mapping, failure-safe scratch staging/publication including `append` and
+  `previous` read modes, exact integer incremental maintenance with retractions, duplicate/gap/recompute
+  checks, `2^53` precision bounds, and credential redaction), exercised against `shardloom._native`
+  in both source runs and `scripts/prove_native_python_wheel.py` isolated-wheel integration runs.
 
 This local groundwork keeps all live platform claims closed (`foundry_runtime_invoked=false`,
 `foundry_compute_invoked=false`, `live_foundry_enrollment_proved=false`, `fallback_attempted=false`,

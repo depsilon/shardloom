@@ -118,6 +118,24 @@ impl FieldPath {
     }
 }
 
+/// Typed metadata key/value entry attached to a [`SchemaField`].
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct SchemaMetadataEntry {
+    pub key: String,
+    pub value: String,
+}
+
+impl SchemaMetadataEntry {
+    /// Creates a schema field metadata entry.
+    #[must_use]
+    pub fn new(key: impl Into<String>, value: impl Into<String>) -> Self {
+        Self {
+            key: key.into(),
+            value: value.into(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SchemaField {
     pub id: Option<FieldId>,
@@ -125,7 +143,7 @@ pub struct SchemaField {
     pub path: FieldPath,
     pub dtype: LogicalDType,
     pub nullability: Nullability,
-    pub metadata: Vec<(String, String)>,
+    pub metadata: Vec<SchemaMetadataEntry>,
 }
 impl SchemaField {
     #[must_use]
@@ -153,7 +171,7 @@ impl SchemaField {
     pub fn add_metadata(&mut self, key: impl Into<String>, value: impl Into<String>) -> Result<()> {
         let key = key.into();
         validate_non_empty("metadata key", &key)?;
-        self.metadata.push((key, value.into()));
+        self.metadata.push(SchemaMetadataEntry::new(key, value));
         Ok(())
     }
     #[must_use]
@@ -1033,7 +1051,7 @@ fn field_has_default(field: &SchemaField) -> bool {
     field
         .metadata
         .iter()
-        .any(|(key, _)| key.eq_ignore_ascii_case("default"))
+        .any(|entry| entry.key.eq_ignore_ascii_case("default"))
 }
 
 fn metadata_was_lost(from_field: &SchemaField, to_field: &SchemaField) -> bool {

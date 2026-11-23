@@ -262,6 +262,8 @@ fn scalar_distinct_workers_admission_cancellation_and_capacity_failure_publish_n
 
 #[test]
 fn scalar_distinct_workers_reject_malformed_text_before_admission_and_ignore_unused_values() {
+    use vortex::array::dtype::Nullability;
+
     let binary = VarBinViewArray::from_iter_bin([
         b"valid".as_slice(),
         b"external invalid UTF8\xff".as_slice(),
@@ -301,17 +303,20 @@ fn scalar_distinct_workers_reject_malformed_text_before_admission_and_ignore_unu
 
 #[test]
 fn scalar_distinct_workers_decline_other_shapes_before_allocating() {
+    use vortex::array::{arrays::DecimalArray, dtype::DecimalDType};
     let memory = LiveMemoryPool::new(MEMORY).unwrap();
     let session = VortexSession::default();
-    let nullable_parent = StructArray::new(
-        ["text"].into(),
-        vec![VarBinViewArray::from_iter_str(["x"]).into_array()],
-        1,
-        Validity::AllInvalid,
-    )
-    .into_array();
-    let numeric = wrap(PrimitiveArray::new(vec![1_u32], Validity::NonNullable).into_array());
-    for input in [nullable_parent, numeric] {
+    let binary = wrap(VarBinViewArray::from_iter_bin([b"a".as_slice()]).into_array());
+    let decimal = wrap(
+        DecimalArray::try_new(
+            vortex::buffer::buffer![100_i64],
+            DecimalDType::new(10, 2),
+            Validity::NonNullable,
+        )
+        .unwrap()
+        .into_array(),
+    );
+    for input in [binary, decimal] {
         assert!(
             ScalarDistinctWorkers::admit(
                 &state(),
@@ -459,6 +464,260 @@ fn scalar_distinct_workers_file_prepared_owned_and_serial_values_agree() {
         drop((json, owned));
         assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
+    drop(file);
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn scalar_distinct_workers_numeric_float_zero_nan_bool_dict_constant_and_nullable_struct() {
+    use vortex::array::arrays::{BoolArray, ConstantArray};
+    use vortex::array::dtype::Nullability;
+    use vortex::array::scalar::Scalar;
+
+    let memory = LiveMemoryPool::new(MEMORY).unwrap();
+
+    // 1. i32 across multiple chunks with zeros, negatives, and nulls.
+    let mut states = state();
+    let c1 = wrap(
+        PrimitiveArray::from_option_iter([Some(0_i32), Some(-1), None, Some(42)]).into_array(),
+    );
+    let c2 = wrap(PrimitiveArray::from_option_iter([Some(42_i32), Some(0), Some(7)]).into_array());
+    let mut workers = admit(&c1, &states, &memory, 2, None);
+    workers.before_next().unwrap();
+    workers.submit(&c1).unwrap();
+    workers.before_next().unwrap();
+    workers.submit(&c2).unwrap();
+    workers.finish(&mut states).unwrap();
+    assert_eq!(n(&states), 4);
+    assert_eq!(
+        states.result_payload(&[]).unwrap()["distinct_state_strategy"],
+        "bounded_native_numeric_partition_exact"
+    );
+    drop(workers);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+    // 2. f64: -0.0 and +0.0 merge to 1 distinct key; distinct NaN bit patterns stay distinct.
+    let nan1 = f64::from_bits(0x7ff8_0000_0000_0001);
+    let nan2 = f64::from_bits(0x7ff8_0000_0000_0002);
+    let floats = wrap(
+        PrimitiveArray::from_option_iter([
+            Some(0.0_f64),
+            Some(-0.0_f64),
+            Some(nan1),
+            Some(nan2),
+            Some(nan1),
+            None,
+        ])
+        .into_array(),
+    );
+    let mut states = state();
+    let mut workers = admit(&floats, &states, &memory, 2, None);
+    workers.submit(&floats).unwrap();
+    workers.finish(&mut states).unwrap();
+    assert_eq!(n(&states), 3);
+    drop(workers);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+    // 3. Bool: canonical + Dictionary + Constant.
+    let bools =
+        wrap(BoolArray::from_iter([Some(true), None, Some(false), Some(true)]).into_array());
+    let bool_dict = wrap(
+        DictArray::try_new(
+            PrimitiveArray::from_option_iter([Some(0_u32), None, Some(0)]).into_array(),
+            BoolArray::from_iter([Some(true), Some(false)]).into_array(),
+        )
+        .unwrap()
+        .into_array(),
+    );
+    let mut states = state();
+    let mut workers = admit(&bools, &states, &memory, 2, None);
+    workers.submit(&bools).unwrap();
+    workers.submit(&bool_dict).unwrap();
+    workers.finish(&mut states).unwrap();
+    assert_eq!(n(&states), 2);
+    drop(workers);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+    // 4. Numeric Dict + Constant + Nullable parent Struct.
+    let num_dict = DictArray::try_new(
+        PrimitiveArray::from_option_iter([Some(0_u32), None, Some(2)]).into_array(),
+        PrimitiveArray::from_option_iter([Some(100_i64), Some(200), Some(300)]).into_array(),
+    )
+    .unwrap()
+    .into_array();
+    let nullable_dict_struct = StructArray::new(
+        ["text"].into(),
+        vec![num_dict],
+        3,
+        Validity::from_iter([true, true, false]),
+    )
+    .into_array();
+    let all_invalid_struct = StructArray::new(
+        ["text"].into(),
+        vec![PrimitiveArray::new(vec![777_i64, 888], Validity::NonNullable).into_array()],
+        2,
+        Validity::AllInvalid,
+    )
+    .into_array();
+    let const_valid =
+        wrap(ConstantArray::new(Scalar::primitive(555_i64, Nullability::Nullable), 4).into_array());
+    let const_null = wrap(
+        ConstantArray::new(
+            Scalar::null(DType::Primitive(PType::I64, Nullability::Nullable)),
+            4,
+        )
+        .into_array(),
+    );
+    let mut states = state();
+    let mut workers = admit(&nullable_dict_struct, &states, &memory, 2, None);
+    workers.submit(&nullable_dict_struct).unwrap();
+    workers.submit(&all_invalid_struct).unwrap();
+    workers.submit(&const_valid).unwrap();
+    workers.submit(&const_null).unwrap();
+    workers.finish(&mut states).unwrap();
+    // Only row 0 of nullable_dict_struct (100) and const_valid (555) are non-null.
+    assert_eq!(n(&states), 2);
+    drop(workers);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[cfg(all(feature = "vortex-write", unix))]
+fn write_filtered_numeric_and_binary_fixture() -> (
+    std::path::PathBuf,
+    std::path::PathBuf,
+    vortex::array::dtype::DType,
+    std::fs::File,
+) {
+    use crate::local_primitives::native_flat_layout;
+    use vortex::file::WriteOptionsSessionExt as _;
+    use vortex::io::{
+        runtime::{BlockingRuntime as _, single::SingleThreadRuntime},
+        session::RuntimeSessionExt as _,
+    };
+
+    static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let directory = std::env::temp_dir().join(format!(
+        "shardloom-scalar-distinct-num-{}",
+        SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
+    std::fs::create_dir(&directory).unwrap();
+    let path = directory.join("source.vortex");
+    let col_i64 =
+        PrimitiveArray::from_option_iter([Some(10_i64), Some(20), Some(10), None, Some(30)])
+            .into_array();
+    let col_bin =
+        VarBinViewArray::from_iter_bin([b"a".as_slice(), b"b", b"c", b"d", b"e"]).into_array();
+    let batch = StructArray::new(
+        ["text", "bin"].into(),
+        vec![col_i64, col_bin],
+        5,
+        Validity::NonNullable,
+    )
+    .into_array();
+    let runtime = SingleThreadRuntime::default();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let mut file = std::fs::File::create_new(&path).unwrap();
+    let mut writer = session
+        .write_options()
+        .with_strategy(native_flat_layout::SequentialNativeFlatLayout::strategy(3))
+        .with_file_statistics(Vec::new())
+        .blocking(&runtime)
+        .writer(&mut file, batch.dtype().clone());
+    for _ in 0..3 {
+        writer.push(batch.clone()).unwrap();
+    }
+    writer.finish().unwrap();
+    (directory, path, batch.dtype().clone(), file)
+}
+
+#[cfg(all(feature = "vortex-write", unix))]
+#[test]
+fn scalar_distinct_workers_filtered_numeric_and_provider_restore() {
+    use crate::local_primitives::{
+        aggregate_count_workers, execute_vortex_local_primitive_with_policy,
+        prepared_aggregate::prepare_aggregate_in_session,
+    };
+    use crate::resident_session::ResidentVortexSession;
+    use shardloom_core::{ComparisonOp, PredicateExpr, StatValue};
+
+    let (directory, path, dtype, file) = write_filtered_numeric_and_binary_fixture();
+
+    let mut filtered = VortexQueryPrimitiveRequest::simple_aggregate(
+        DatasetUri::new(path.display().to_string()).unwrap(),
+        request(),
+    );
+    filtered.predicate = Some(PredicateExpr::Compare {
+        column: ColumnRef::new("text").unwrap(),
+        op: ComparisonOp::Gt,
+        value: StatValue::Int64(10),
+    });
+
+    assert!(request_may_be_admitted(&filtered));
+    assert!(request_schema_may_be_admitted(
+        &filtered,
+        &dtype,
+        policy(2).resource_envelope()
+    ));
+    assert!(!aggregate_count_workers::restore_provider_drivers(
+        &filtered,
+        &dtype,
+        policy(2).resource_envelope(),
+    ));
+
+    let binary_req = VortexQueryPrimitiveRequest::simple_aggregate(
+        DatasetUri::new(path.display().to_string()).unwrap(),
+        VortexSimpleAggregateRequest::new(vec![VortexSimpleAggregateMeasure::new(
+            "count_distinct",
+            Some(ColumnRef::new("bin").unwrap()),
+            "n".into(),
+        )]),
+    );
+    assert!(!request_schema_may_be_admitted(
+        &binary_req,
+        &dtype,
+        policy(2).resource_envelope()
+    ));
+    assert!(aggregate_count_workers::restore_provider_drivers(
+        &binary_req,
+        &dtype,
+        policy(2).resource_envelope(),
+    ));
+
+    let p1 = execute_vortex_local_primitive_with_policy(&filtered, policy(1)).unwrap();
+    let p2 = execute_vortex_local_primitive_with_policy(&filtered, policy(2)).unwrap();
+    let extract_payload = |report: &crate::VortexLocalPrimitiveExecutionReport| {
+        serde_json::from_str::<serde_json::Value>(
+            report
+                .result_summary
+                .as_ref()
+                .unwrap()
+                .split_once(" values=")
+                .unwrap()
+                .1,
+        )
+        .unwrap()
+    };
+    let v1 = extract_payload(&p1);
+    let v2 = extract_payload(&p2);
+    assert_eq!(v1["values"]["n"], 2);
+    assert_eq!(v2["values"]["n"], 2);
+    assert_eq!(
+        v2["aggregate_scalar_distinct_workers"]["strategy"],
+        "bounded_native_numeric_partition_exact"
+    );
+
+    let resident = ResidentVortexSession::for_external_cpu_pool(MEMORY, 2).unwrap();
+    let mem = resident.memory().clone();
+    let prepared = prepare_aggregate_in_session(&filtered, policy(2), &resident).unwrap();
+    let exec = prepared.execute().unwrap();
+    let ev = extract_payload(&exec.report);
+    assert_eq!(ev["values"]["n"], 2);
+    assert_eq!(
+        ev["aggregate_scalar_distinct_workers"]["strategy"],
+        "bounded_native_numeric_partition_exact"
+    );
+    drop((exec, prepared, resident));
+    assert_eq!(mem.snapshot().reserved_bytes, 0);
     drop(file);
     std::fs::remove_dir_all(directory).unwrap();
 }

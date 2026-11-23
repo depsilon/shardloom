@@ -164,9 +164,12 @@ fn coordinator_integer_extrema_constants_and_native_dictionary_dispatch_match_co
                 {"renamed_key":-7,"n":11}, {"renamed_key":i64::MIN,"n":3}, {"renamed_key":i64::MAX,"n":2},
             ])
         );
-        // Dictionary CPU work remained on the pre-existing native route.
-        assert_eq!(result["aggregate_workers_submitted_chunks"], 2);
-        assert_eq!(result["aggregate_workers_rows"], 13);
+        // All three chunks (canonical, dictionary, constant) execute inside
+        // SingleCountWorkers under the shared LiveMemoryPool budget.
+        assert_eq!(result["aggregate_workers_submitted_chunks"], 3);
+        assert_eq!(result["aggregate_workers_rows"], 16);
+        assert_eq!(result["aggregate_workers_native_dictionary_chunks"], 1);
+        assert_eq!(result["aggregate_workers_native_dictionary_values"], 2);
         let result = run(&unsigned, &request(true), Some(10), workers);
         assert_eq!(
             result["values"],
@@ -200,19 +203,18 @@ fn coordinator_chunked_logical_projection_and_nullable_admission_remain_exact() 
         chunk(VarBinViewArray::from_iter_nullable_str([None, Some("a")]).into_array()),
     ];
     let memory = LiveMemoryPool::new(1 << 20).unwrap();
-    assert!(
-        CountWorkers::admit(
-            &states,
-            chunks[0].dtype(),
-            &columns,
-            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(4, 4).unwrap(),
-            &VortexSession::default(),
-            &memory,
-            None,
-        )
-        .unwrap()
-        .is_none()
-    );
+    let admitted = CountWorkers::admit(
+        &states,
+        chunks[0].dtype(),
+        &columns,
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(4, 4).unwrap(),
+        &VortexSession::default(),
+        &memory,
+        None,
+    )
+    .unwrap();
+    assert!(!matches!(admitted, Some(CountWorkers::Single(_))));
+    drop(admitted);
     for chunk in chunks {
         if !states
             .update_compact_direct_from_chunk(&chunk, &columns, None)

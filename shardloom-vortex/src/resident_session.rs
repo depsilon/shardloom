@@ -17,10 +17,10 @@ use futures::{FutureExt as _, future::BoxFuture};
 // Bound each added local extent by useful request bytes while preserving
 // adjacent reads. The allocator and operation grant own the resulting backing.
 const COALESCING_AMPLIFICATION_LIMIT: std::num::NonZeroU64 = std::num::NonZeroU64::new(4).unwrap();
-use shardloom_core::{
-    FloatPolicy, RecursionLimit, Result, ShardLoomError, native_file_scan::NativeFileScanEvidence,
-};
-use shardloom_exec::compute_pool::CancellationToken;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+use shardloom_core::native_file_scan::NativeFileScanEvidence;
+use shardloom_core::{FloatPolicy, RecursionLimit, Result, ShardLoomError};
+use shardloom_exec::compute_pool::{CancellationToken, ComputePool};
 use shardloom_exec::live_memory::{Budgeted, LiveMemoryPool, LiveMemorySnapshot, MemoryLease};
 use vortex::{
     VortexSessionDefault as _,
@@ -135,6 +135,7 @@ struct RuntimeOwner {
     memory: LiveMemoryPool,
     parallelism: usize,
     configured_parallelism: Option<AtomicUsize>,
+    compute_pool: Mutex<Option<Arc<ComputePool>>>,
     provider_background_workers: usize,
     opens: AtomicU64,
     executions: AtomicU64,
@@ -148,6 +149,43 @@ impl RuntimeOwner {
         self.configured_parallelism
             .as_ref()
             .map_or(self.parallelism, |limit| limit.load(Ordering::Acquire))
+    }
+
+    #[cfg(feature = "vortex-local-primitives")]
+    pub(super) fn shared_compute_pool(
+        &self,
+        requested_parallelism: usize,
+    ) -> Result<Option<Arc<ComputePool>>> {
+        let target = requested_parallelism.min(self.cpu_limit());
+        if target <= 1 {
+            return Ok(None);
+        }
+        let needed_workers = target - 1;
+        let required_bytes = self.memory.snapshot().limit_bytes;
+        if required_bytes == 0 {
+            return Ok(None);
+        }
+        let mut guard = self
+            .compute_pool
+            .lock()
+            .map_err(|_| resident_error("session compute pool lock poisoned"))?;
+        if let Some(existing) = guard.as_ref()
+            && existing.worker_count() >= needed_workers
+            && required_bytes <= existing.queue_byte_limit()
+            && !existing.snapshot().queue_closed
+        {
+            return Ok(Some(Arc::clone(existing)));
+        }
+        let workers = self.cpu_limit().saturating_sub(1).max(needed_workers);
+        let queue_limit = workers.saturating_mul(16).clamp(32, 256);
+        let pool = Arc::new(ComputePool::new(
+            workers,
+            queue_limit,
+            required_bytes,
+            self.memory.clone(),
+        )?);
+        *guard = Some(Arc::clone(&pool));
+        Ok(Some(pool))
     }
 }
 
@@ -495,10 +533,16 @@ impl ResidentVortexSession {
     /// Only engine-constructed immutable segment sources may enter here.
     #[cfg(all(feature = "vortex-write", unix))]
     pub(crate) fn prepare_immutable_file(&self, file: VortexFile) -> PreparedVortexSource {
+        let layout_slots = Arc::new(execution_context::ResidentLayoutSlotPool::default());
+        #[cfg(unix)]
+        self.0
+            .source_segments
+            .register_layout_pool(Arc::downgrade(&layout_slots));
         PreparedVortexSource(Arc::new(PreparedSourceOwner {
             file,
             identity: None,
             runtime: Arc::clone(&self.0),
+            layout_slots,
             #[cfg(all(feature = "universal-format-io", unix))]
             preparation: None,
         }))
@@ -719,11 +763,20 @@ impl ResidentVortexSession {
             memory,
             parallelism,
             configured_parallelism: None,
+            compute_pool: Mutex::new(None),
             provider_background_workers,
             opens: AtomicU64::new(0),
             executions: AtomicU64::new(0),
             next_operation: AtomicU64::new(0),
         })))
+    }
+
+    #[cfg(feature = "vortex-local-primitives")]
+    pub(crate) fn shared_compute_pool(
+        &self,
+        max_parallelism: usize,
+    ) -> Result<Option<Arc<ComputePool>>> {
+        self.0.shared_compute_pool(max_parallelism)
     }
 
     #[must_use]
@@ -831,10 +884,16 @@ impl ResidentVortexSession {
         self.binary_object_arena()?
             .insert_batch(objects.value(), cancellation)?;
         self.0.opens.fetch_add(1, Ordering::Relaxed);
+        let layout_slots = Arc::new(execution_context::ResidentLayoutSlotPool::default());
+        #[cfg(unix)]
+        self.0
+            .source_segments
+            .register_layout_pool(Arc::downgrade(&layout_slots));
         Ok(PreparedVortexSource(Arc::new(PreparedSourceOwner {
             file,
             identity: Some(identity),
             runtime: Arc::clone(&self.0),
+            layout_slots,
             #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
             preparation: None,
         })))
@@ -846,6 +905,7 @@ struct PreparedSourceOwner {
     // Engine-owned immutable memory needs no external pathname validation.
     identity: Option<Arc<SourceIdentity>>,
     runtime: Arc<RuntimeOwner>,
+    layout_slots: Arc<execution_context::ResidentLayoutSlotPool>,
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
     preparation: Option<Box<PreparedSourceProvenance>>,
 }
@@ -871,12 +931,17 @@ impl PreparedSourceOwner {
             Ok(())
         })();
         #[cfg(unix)]
-        if result.is_err()
-            && let Some(identity) = &self.identity
-        {
-            self.runtime
-                .source_segments
-                .invalidate_source(identity, true);
+        if result.is_err() {
+            self.layout_slots.clear();
+            if let Some(identity) = &self.identity {
+                self.runtime
+                    .source_segments
+                    .invalidate_source(identity, true);
+            }
+        }
+        #[cfg(not(unix))]
+        if result.is_err() {
+            self.layout_slots.clear();
         }
         result
     }
@@ -884,6 +949,7 @@ impl PreparedSourceOwner {
 
 impl Drop for PreparedSourceOwner {
     fn drop(&mut self) {
+        self.layout_slots.clear();
         #[cfg(unix)]
         if let Some(identity) = &self.identity {
             self.runtime
@@ -900,7 +966,7 @@ pub struct PreparedVortexSource(Arc<PreparedSourceOwner>);
 #[path = "resident_file_evidence.rs"]
 mod file_evidence;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
-pub(crate) use file_evidence::contract_bytes as native_scan_contract_bytes;
+pub(crate) use file_evidence::{ReadWork, contract_bytes as native_scan_contract_bytes};
 
 impl PreparedVortexSource {
     #[cfg(all(feature = "vortex-local-primitives", unix))]
@@ -956,6 +1022,12 @@ impl PreparedVortexSource {
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     pub(crate) fn retained_session(&self) -> ResidentVortexSession {
         ResidentVortexSession(Arc::clone(&self.0.runtime))
+    }
+
+    /// Report whether this source shares the same native runtime owner as `session`.
+    #[must_use]
+    pub fn same_session_owner(&self, session: &ResidentVortexSession) -> bool {
+        Arc::ptr_eq(&self.0.runtime, &session.0)
     }
 
     /// Match prior file admission to the generation held by this native reader,
@@ -1144,11 +1216,25 @@ impl PreparedVortexSource {
         }
         context.check_cancelled()?;
         self.0.validate()?;
-        let file = context.file_view(&self.0.file, self.0.identity.as_ref())?;
-        let result = execute(&file, context)?;
-        context.check_cancelled()?;
-        self.0.validate()?;
-        Ok(result)
+        let mut lease = context.checkout_file_view(
+            &self.0.layout_slots,
+            &self.0.file,
+            self.0.identity.as_ref(),
+        )?;
+        let result = execute(lease.file(), context);
+        lease.detach_operation();
+        let cancelled = context.check_cancelled();
+        let validated = self.0.validate();
+        if result.is_ok() && cancelled.is_ok() && validated.is_ok() {
+            lease.mark_completed();
+        } else if cancelled.is_ok() && validated.is_ok() {
+            lease.preserve_if_previously_completed_and_healthy();
+        }
+        drop(lease);
+        let value = result?;
+        cancelled?;
+        validated?;
+        Ok(value)
     }
 
     /// Drive provider tasks when the operation has no dedicated compute pool,
@@ -1202,14 +1288,31 @@ impl PreparedVortexSource {
             .saturating_sub(1 + source.runtime.provider_background_workers);
         let workers =
             ResidentWorkerGroup::new(&source.runtime.runtime, additional).map_err(native_error)?;
-        let file = context.file_view(&source.file, source.identity.as_ref())?;
-        let result = execute(&file, &source.runtime.session, &source.runtime.runtime)?;
-        drop(file);
+        let mut lease = context.checkout_file_view(
+            &source.layout_slots,
+            &source.file,
+            source.identity.as_ref(),
+        )?;
+        let result = execute(
+            lease.file(),
+            &source.runtime.session,
+            &source.runtime.runtime,
+        );
+        lease.detach_operation();
         drop(workers);
-        context.check_cancelled()?;
-        source.validate()?;
+        let cancelled = context.check_cancelled();
+        let validated = source.validate();
+        if result.is_ok() && cancelled.is_ok() && validated.is_ok() {
+            lease.mark_completed();
+        } else if cancelled.is_ok() && validated.is_ok() {
+            lease.preserve_if_previously_completed_and_healthy();
+        }
+        drop(lease);
+        let value = result?;
+        cancelled?;
+        validated?;
         Ok((
-            result,
+            value,
             additional + source.runtime.provider_background_workers,
         ))
     }
@@ -1307,7 +1410,11 @@ impl PreparedVortexSource {
             .validate_execution_context(context)?;
         let source = &self.0;
         source.validate()?;
-        let operation_file = context.file_view(&source.file, source.identity.as_ref())?;
+        let mut lease = context.checkout_file_view(
+            &source.layout_slots,
+            &source.file,
+            source.identity.as_ref(),
+        )?;
         let additional = if restore_provider_drivers {
             context
                 .cpu_lanes()
@@ -1321,7 +1428,7 @@ impl PreparedVortexSource {
         let started = std::time::Instant::now();
         let generation = Arc::clone(source);
         let Some(cache) = segment_reuse::ScanSegmentReuse::try_new(
-            operation_file.segment_source(),
+            lease.operation_segment_source(),
             source.runtime.memory.clone(),
             policy,
             move || {
@@ -1336,73 +1443,117 @@ impl PreparedVortexSource {
                 retry_requested: false,
             };
             let result = execute(
-                &operation_file,
-                &source.runtime.session,
-                &source.runtime.runtime,
-                &mut attempt,
-            )?;
-            drop(operation_file);
-            drop(workers);
-            context.check_cancelled()?;
-            source.validate()?;
-            let mut snapshot =
-                segment_reuse::SegmentReuseSnapshot::skipped(policy, &source.runtime.memory);
-            snapshot.provider_background_workers = provider_workers;
-            return Ok((result, snapshot));
-        };
-        let file = operation_file
-            .as_ref()
-            .clone()
-            .with_segment_source(Arc::new(cache.clone()));
-        let mut attempt = SegmentReuseAttempt {
-            enabled: true,
-            retry_requested: false,
-        };
-        let result = execute(
-            &file,
-            &source.runtime.session,
-            &source.runtime.runtime,
-            &mut attempt,
-        );
-        // Close on both success and failure; a leaked file clone cannot retain
-        // cache entries or register new work after this execution boundary.
-        cache.close().map_err(native_error)?;
-        drop(file);
-        let mut snapshot = cache.snapshot().map_err(native_error)?;
-        snapshot.provider_background_workers = provider_workers;
-        drop(cache);
-        source.validate()?;
-        let result = if result.is_err() && attempt.retry_requested {
-            drop(result);
-            context.check_cancelled()?;
-            snapshot.uncached_replays = 1;
-            snapshot.discarded_attempt_nanos =
-                u64::try_from(started.elapsed().as_nanos()).map_err(native_error)?;
-            let replay_started = std::time::Instant::now();
-            let mut attempt = SegmentReuseAttempt {
-                enabled: false,
-                retry_requested: false,
-            };
-            let result = execute(
-                &operation_file,
+                lease.file(),
                 &source.runtime.session,
                 &source.runtime.runtime,
                 &mut attempt,
             );
-            source.validate()?;
-            snapshot.uncached_replay_nanos =
-                u64::try_from(replay_started.elapsed().as_nanos()).map_err(native_error)?;
-            snapshot.session = source.runtime.memory.snapshot();
-            result?
-        } else {
-            result?
+            lease.detach_operation();
+            drop(workers);
+            let cancelled = context.check_cancelled();
+            let validated = source.validate();
+            if result.is_ok() && cancelled.is_ok() && validated.is_ok() {
+                lease.mark_completed();
+            } else if cancelled.is_ok() && validated.is_ok() {
+                lease.preserve_if_previously_completed_and_healthy();
+            }
+            drop(lease);
+            let value = result?;
+            cancelled?;
+            validated?;
+            let mut snapshot =
+                segment_reuse::SegmentReuseSnapshot::skipped(policy, &source.runtime.memory);
+            snapshot.provider_background_workers = provider_workers;
+            return Ok((value, snapshot));
         };
-        drop(operation_file);
+        let mut attempt = SegmentReuseAttempt {
+            enabled: true,
+            retry_requested: false,
+        };
+        let (result, cached_file) = if lease.is_slot() {
+            lease.set_delegate(Arc::new(cache.clone()));
+            let result = execute(
+                lease.file(),
+                &source.runtime.session,
+                &source.runtime.runtime,
+                &mut attempt,
+            );
+            // Detach the cache delegate BEFORE closing `cache` so no subsequent use
+            // or dropped future touches it, and discard this layout slot if the
+            // attempt failed so any half-loaded layout cache cannot persist.
+            lease.restore_operation_delegate();
+            (result, None)
+        } else {
+            let cached_file = lease
+                .file()
+                .clone()
+                .with_segment_source(Arc::new(cache.clone()));
+            let result = execute(
+                &cached_file,
+                &source.runtime.session,
+                &source.runtime.runtime,
+                &mut attempt,
+            );
+            (result, Some(cached_file))
+        };
+        cache.close().map_err(native_error)?;
+        drop(cached_file);
+        let mut snapshot = cache.snapshot().map_err(native_error)?;
+        snapshot.provider_background_workers = provider_workers;
+        drop(cache);
+        let first_validated = source.validate();
+        let (result, mut clean_lease, from_replay) =
+            if first_validated.is_ok() && result.is_err() && attempt.retry_requested {
+                drop(result);
+                lease.detach_operation();
+                drop(lease);
+                context.check_cancelled()?;
+                snapshot.uncached_replays = 1;
+                snapshot.discarded_attempt_nanos =
+                    u64::try_from(started.elapsed().as_nanos()).map_err(native_error)?;
+                let replay_started = std::time::Instant::now();
+                let mut attempt = SegmentReuseAttempt {
+                    enabled: false,
+                    retry_requested: false,
+                };
+                let mut replay_lease = context.checkout_file_view(
+                    &source.layout_slots,
+                    &source.file,
+                    source.identity.as_ref(),
+                )?;
+                let replay_result = execute(
+                    replay_lease.file(),
+                    &source.runtime.session,
+                    &source.runtime.runtime,
+                    &mut attempt,
+                );
+                replay_lease.detach_operation();
+                snapshot.uncached_replay_nanos =
+                    u64::try_from(replay_started.elapsed().as_nanos()).map_err(native_error)?;
+                snapshot.session = source.runtime.memory.snapshot();
+                (replay_result, replay_lease, true)
+            } else {
+                lease.detach_operation();
+                (result, lease, false)
+            };
         drop(workers);
-        context.check_cancelled()?;
-        if source.runtime.serving.is_some() {
-            source.validate()?;
+        let cancelled = context.check_cancelled();
+        let tail_validated = if from_replay || source.runtime.serving.is_some() {
+            source.validate()
+        } else {
+            Ok(())
+        };
+        let all_valid = first_validated.is_ok() && cancelled.is_ok() && tail_validated.is_ok();
+        if result.is_ok() && all_valid {
+            clean_lease.mark_completed();
+        } else if all_valid && !from_replay {
+            clean_lease.preserve_if_previously_completed_and_healthy();
         }
+        drop(clean_lease);
+        first_validated?;
+        let result = result?;
+        cancelled?;
+        tail_validated?;
         Ok((result, snapshot))
     }
     pub(crate) fn file(&self) -> &VortexFile {
@@ -1714,10 +1865,14 @@ impl PreparedVortexProjection {
         let workers =
             ResidentWorkerGroup::new(&runtime.runtime, additional).map_err(native_error)?;
         source.validate()?;
-        let file = context.file_view(&source.file, source.identity.as_ref())?;
+        let mut slot_lease = context.checkout_file_view(
+            &source.layout_slots,
+            &source.file,
+            source.identity.as_ref(),
+        )?;
         let mut arrays = Vec::new();
         let mut lease = runtime.memory.reserve(0)?;
-        let (rows, logical_bytes) = self.consume_scan(&file, &context, &mut |array| {
+        let scan_result = self.consume_scan(slot_lease.file(), &context, &mut |array| {
             if arrays.len() == arrays.capacity() {
                 let capacity = arrays.capacity().saturating_mul(2).max(4);
                 let bytes = capacity
@@ -1731,12 +1886,21 @@ impl PreparedVortexProjection {
             }
             arrays.push(array);
             Ok(())
-        })?;
-        drop(file);
+        });
+        slot_lease.detach_operation();
         drop(workers);
         context.drain_io();
-        context.check_cancelled()?;
-        source.validate()?;
+        let cancelled = context.check_cancelled();
+        let validated = source.validate();
+        if scan_result.is_ok() && cancelled.is_ok() && validated.is_ok() {
+            slot_lease.mark_completed();
+        } else if cancelled.is_ok() && validated.is_ok() {
+            slot_lease.preserve_if_previously_completed_and_healthy();
+        }
+        drop(slot_lease);
+        let (rows, logical_bytes) = scan_result?;
+        cancelled?;
+        validated?;
         #[cfg(all(feature = "vortex-local-primitives", unix))]
         let (file_scan_evidence, file_scan_metadata) = context.take_native_file_scan_evidence()?;
         #[cfg(not(all(feature = "vortex-local-primitives", unix)))]

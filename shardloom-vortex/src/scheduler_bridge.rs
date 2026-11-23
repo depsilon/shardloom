@@ -1318,6 +1318,202 @@ where
 
     worker_states.sort_by_key(|(worker_index, _)| *worker_index);
     worker_utilization.sort_by_key(|utilization| utilization.worker_index);
+    finish_morsel_scheduler_run(
+        plan,
+        applied_workers,
+        execution_start,
+        worker_states,
+        &worker_utilization,
+    )
+}
+
+/// Executes a bounded local morsel schedule on a persistent session [`ComputePool`],
+/// throttling active concurrency by an optional `PulseWeave` report and merging
+/// worker states deterministically in worker-index order.
+///
+/// # Errors
+/// Returns an error when cancellation triggers, worker execution/join fails,
+/// or deterministic state merging fails.
+pub fn execute_vortex_morsel_scheduler_with_state_in_pool<S>(
+    plan: VortexMorselSchedulerPlan,
+    pool: &shardloom_exec::compute_pool::ComputePool,
+    pulseweave: Option<&shardloom_exec::pulseweave::PulseWeaveReport>,
+    cancellation: &shardloom_exec::compute_pool::CancellationToken,
+) -> Result<VortexMorselSchedulerRun<S>>
+where
+    S: VortexMorselThreadLocalState,
+{
+    execute_vortex_morsel_scheduler_with_pool(
+        plan,
+        pool,
+        pulseweave,
+        cancellation,
+        |state: &mut S, work| state.observe_morsel(work),
+    )
+}
+
+/// Executes a bounded local morsel schedule with caller-supplied worker logic on
+/// a persistent session [`ComputePool`] under optional `PulseWeave` concurrency limits.
+///
+/// # Errors
+/// Returns an error when cancellation triggers, pool submission or worker
+/// execution/join fails, or deterministic state merging fails.
+#[allow(clippy::too_many_lines)]
+pub fn execute_vortex_morsel_scheduler_with_pool<S, F>(
+    plan: VortexMorselSchedulerPlan,
+    pool: &shardloom_exec::compute_pool::ComputePool,
+    pulseweave: Option<&shardloom_exec::pulseweave::PulseWeaveReport>,
+    cancellation: &shardloom_exec::compute_pool::CancellationToken,
+    observer: F,
+) -> Result<VortexMorselSchedulerRun<S>>
+where
+    S: VortexMorselThreadLocalState,
+    F: Fn(&mut S, &VortexMorselWorkUnit) -> Result<()> + Send + Sync + 'static,
+{
+    cancellation.check()?;
+    let runnable = plan.runnable_work_units();
+    let pool_ceiling = pulseweave.map_or_else(
+        || pool.worker_count(),
+        |report| report.batch_window_size(pool.worker_count()),
+    );
+    let throttled_workers = pool_ceiling.clamp(1, pool.worker_count().max(1));
+    let applied_workers = plan
+        .policy
+        .applied_workers(runnable.len())
+        .min(throttled_workers)
+        .max(1);
+    if !plan.memory_envelope_admitted() {
+        return Ok(VortexMorselSchedulerRun {
+            report: blocked_morsel_scheduler_report(
+                &plan,
+                VortexMorselSchedulerStatus::BlockedByMemoryPolicy,
+                applied_workers,
+                "morsel estimated bytes exceed per-worker memory budget",
+            ),
+            merged_state: S::new(usize::MAX),
+        });
+    }
+    if runnable.is_empty() {
+        return Ok(VortexMorselSchedulerRun {
+            report: metadata_only_morsel_scheduler_report(&plan, applied_workers),
+            merged_state: S::new(usize::MAX),
+        });
+    }
+
+    let mut assignments = vec![Vec::<VortexMorselWorkUnit>::new(); applied_workers];
+    for (index, work) in runnable.into_iter().enumerate() {
+        assignments[index % applied_workers].push(work);
+    }
+
+    let _limit_guard = pool.scope_active_worker_limit(applied_workers);
+    let observer = Arc::new(observer);
+    let execution_start = Instant::now();
+    let mut handles = Vec::with_capacity(assignments.len());
+    let mut submit_failure = None;
+    for (worker_index, work_units) in assignments.into_iter().enumerate() {
+        let observer = Arc::clone(&observer);
+        let descriptor_bytes = u64::try_from(
+            work_units
+                .len()
+                .saturating_mul(std::mem::size_of::<VortexMorselWorkUnit>()),
+        )
+        .unwrap_or(0)
+        .min(pool.queue_byte_limit());
+        let lease = match pool.memory().reserve(descriptor_bytes) {
+            Ok(lease) => lease,
+            Err(error) => {
+                submit_failure = Some(error);
+                break;
+            }
+        };
+        match pool.submit(
+            shardloom_exec::live_memory::Budgeted::new(
+                move |context: &shardloom_exec::compute_pool::WorkerContext,
+                      _lease: &mut shardloom_exec::live_memory::MemoryLease| {
+                    let stage_start = Instant::now();
+                    let assigned_morsels = work_units.len();
+                    let mut rows_processed = 0_u64;
+                    let mut estimated_bytes_processed = 0_u64;
+                    let mut state = S::new(worker_index);
+                    for work in &work_units {
+                        context.check_cancelled()?;
+                        observer(&mut state, work)?;
+                        rows_processed = rows_processed.checked_add(work.row_count).ok_or_else(|| {
+                            ShardLoomError::InvalidOperation(
+                                "morsel worker row count overflowed; fallback execution was not attempted"
+                                    .to_string(),
+                            )
+                        })?;
+                        estimated_bytes_processed = estimated_bytes_processed
+                            .checked_add(work.estimated_bytes)
+                            .ok_or_else(|| {
+                                ShardLoomError::InvalidOperation(
+                                    "morsel worker estimated bytes overflowed; fallback execution was not attempted"
+                                        .to_string(),
+                                )
+                            })?;
+                    }
+                    Ok((
+                        worker_index,
+                        state,
+                        VortexMorselWorkerUtilization {
+                            worker_index,
+                            assigned_morsels,
+                            completed_morsels: assigned_morsels,
+                            rows_processed,
+                            estimated_bytes_processed,
+                            stage_micros: stage_start.elapsed().as_micros(),
+                        },
+                    ))
+                },
+                lease,
+            ),
+            cancellation.clone(),
+        ) {
+            Ok(task) => handles.push(task),
+            Err(error) => {
+                submit_failure = Some(error);
+                break;
+            }
+        }
+    }
+    let mut worker_states = Vec::with_capacity(handles.len());
+    let mut worker_utilization = Vec::with_capacity(handles.len());
+    let mut first_failure = None;
+    for handle in handles {
+        match handle.join() {
+            Ok(budgeted) => {
+                let ((worker_index, state, utilization), _lease) = budgeted.into_parts();
+                worker_states.push((worker_index, state));
+                worker_utilization.push(utilization);
+            }
+            Err(error) => {
+                if first_failure.is_none() {
+                    first_failure = Some(error);
+                }
+            }
+        }
+    }
+    if let Some(error) = first_failure.or(submit_failure) {
+        return Err(error);
+    }
+    cancellation.check()?;
+    finish_morsel_scheduler_run(
+        plan,
+        applied_workers,
+        execution_start,
+        worker_states,
+        &worker_utilization,
+    )
+}
+
+fn finish_morsel_scheduler_run<S: VortexMorselThreadLocalState>(
+    plan: VortexMorselSchedulerPlan,
+    applied_workers: usize,
+    execution_start: Instant,
+    worker_states: Vec<(usize, S)>,
+    worker_utilization: &[VortexMorselWorkerUtilization],
+) -> Result<VortexMorselSchedulerRun<S>> {
     let merge_start = Instant::now();
     let mut merged_state = S::new(usize::MAX);
     for (_, state) in worker_states {
@@ -1957,5 +2153,71 @@ mod tests {
         assert_eq!(run.merged_state.weighted_rows, expected);
         assert_eq!(run.merged_state.observed_work_ids.len(), 9);
         assert!(!run.report.has_errors());
+    }
+
+    #[test]
+    fn morsel_scheduler_pool_reuses_workers_and_throttles_with_pulseweave() {
+        let memory = shardloom_exec::live_memory::LiveMemoryPool::new(1 << 20).expect("memory");
+        let pool = shardloom_exec::compute_pool::ComputePool::new(4, 16, 1 << 20, memory.clone())
+            .expect("pool");
+        let baseline_run = execute_vortex_morsel_scheduler_with_state::<VortexMorselRowCountState>(
+            test_scheduler_plan(4, scheduler_work_units()),
+        )
+        .expect("baseline run");
+        let pool_run_one =
+            execute_vortex_morsel_scheduler_with_state_in_pool::<VortexMorselRowCountState>(
+                test_scheduler_plan(4, scheduler_work_units()),
+                &pool,
+                None,
+                &shardloom_exec::compute_pool::CancellationToken::default(),
+            )
+            .expect("pool run 1");
+        let pool_run_two =
+            execute_vortex_morsel_scheduler_with_state_in_pool::<VortexMorselRowCountState>(
+                test_scheduler_plan(4, scheduler_work_units()),
+                &pool,
+                None,
+                &shardloom_exec::compute_pool::CancellationToken::default(),
+            )
+            .expect("pool run 2");
+        assert_eq!(pool_run_one.merged_state, baseline_run.merged_state);
+        assert_eq!(pool_run_two.merged_state, baseline_run.merged_state);
+        assert_eq!(pool.snapshot().workers_created, 4);
+
+        let pulseweave_input = shardloom_exec::pulseweave::PulseWeaveInput::new(
+            "prepared_local_compute",
+            "scheduler_bridge_test",
+            "morsel_throttle",
+            vec![
+                shardloom_exec::pulseweave::PulseWeaveTaskShape::new(
+                    "m0",
+                    "scan",
+                    shardloom_exec::OperatorMemoryClass::Scan,
+                    64,
+                )
+                .unwrap(),
+            ],
+            1 << 20,
+            2,
+            256,
+        )
+        .unwrap();
+        let pulseweave_report = shardloom_exec::pulseweave::plan_pulseweave(pulseweave_input)
+            .expect("pulseweave report");
+        let throttled_run =
+            execute_vortex_morsel_scheduler_with_state_in_pool::<VortexMorselRowCountState>(
+                test_scheduler_plan(4, scheduler_work_units()),
+                &pool,
+                Some(&pulseweave_report),
+                &shardloom_exec::compute_pool::CancellationToken::default(),
+            )
+            .expect("throttled run");
+        assert_eq!(throttled_run.merged_state, baseline_run.merged_state);
+        assert!(
+            throttled_run.report.applied_workers
+                <= pulseweave_report.batch_window_size(pool.worker_count())
+        );
+        assert_eq!(pool.active_worker_limit(), 4);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
 }

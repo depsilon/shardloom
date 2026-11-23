@@ -228,26 +228,26 @@ fn worker_reuses_filtered_counts_and_clears_changed_or_failed_operations() {
         assert_eq!(field(&result, "data_read"), "true");
     }
     let pruned = worker.count_where(&path, "gt:value:99", "2");
-    assert_filtered_count(&pruned, "0", "2", "4");
+    assert_filtered_count(&pruned, "0", "1", "4");
     assert_eq!(field(&pruned, "data_read"), "false");
     assert_eq!(field(&pruned, "resident_provider_background_workers"), "0");
     assert_filtered_count(
         &worker.count_where(&path, "gt:value:99", "2"),
         "0",
-        "2",
+        "1",
         "5",
     );
     assert_filtered_count(
         &worker.count_where(&path, "gt:value:99", "1"),
         "0",
-        "3",
+        "2",
         "6",
     );
     assert_eq!(worker.raw_request("{invalid")["status"], "error");
     assert_filtered_count(
         &worker.count_where(&path, "gt:value:99", "1"),
         "0",
-        "4",
+        "2",
         "7",
     );
     assert_eq!(
@@ -257,14 +257,14 @@ fn worker_reuses_filtered_counts_and_clears_changed_or_failed_operations() {
     assert_filtered_count(
         &worker.count_where(&path, "gt:value:99", "1"),
         "0",
-        "6",
+        "3",
         "8",
     );
-    assert_completed(&worker.collect(&path, "metric", "2"), "7", "9");
+    assert_completed(&worker.collect(&path, "metric", "2"), "4", "9");
     assert_filtered_count(
         &worker.count_where(&path, "gt:value:2", "2"),
         "3",
-        "8",
+        "4",
         "10",
     );
 }
@@ -325,7 +325,7 @@ fn worker_reuses_prepared_native_execution_and_rebinds_changed_requests() {
         complete_result::rows(&changed)
     );
     assert_eq!(worker.request(&["--version"])["status"], "success");
-    assert_completed(&worker.collect(&path, "metric", "3"), "3", "4");
+    assert_completed(&worker.collect(&path, "metric", "3"), "2", "4");
 }
 
 #[test]
@@ -369,10 +369,14 @@ fn worker_releases_retained_source_before_binding_error_or_directory_dispatch() 
     let source = root.join("input.vortex");
     std::fs::copy(fixture(), &source).unwrap();
     let mut worker = Worker::new();
-    for (with_part, before, after_opens, after_executions) in
-        [(false, "1", "2", "2"), (true, "3", "4", "5")]
+    for (with_part, before_opens, before_executions, after_opens, after_executions) in
+        [(false, "1", "1", "2", "2"), (true, "2", "3", "3", "5")]
     {
-        assert_completed(&worker.collect(&source, "metric", "2"), before, before);
+        assert_completed(
+            &worker.collect(&source, "metric", "2"),
+            before_opens,
+            before_executions,
+        );
         std::fs::remove_file(&source).unwrap();
         std::fs::create_dir(&source).unwrap();
         if with_part {
@@ -581,7 +585,7 @@ fn worker_executes_resident_footer_count_each_call_and_releases_changed_handles(
     let changed = worker.count(&path, "3");
     assert_metadata_count_certificate(&changed, "5", "4", "true");
     assert_eq!(field(&changed, "resident_completed_executions"), "4");
-    assert_completed(&worker.collect(&path, "metric", "3"), "3", "5");
+    assert_completed(&worker.collect(&path, "metric", "3"), "2", "5");
     assert_eq!(
         field(&worker.count(&path, "3"), "resident_completed_executions"),
         "6"
@@ -821,4 +825,140 @@ fn worker_releases_memory_runtime_on_a_different_public_run_route() {
         field(&worker.request(&memory), "resident_completed_executions"),
         "3"
     );
+}
+
+fn assert_worker_reused_source(result: &Value, expected_opens: &str, expected_executions: &str) {
+    assert_eq!(result["status"], "success", "{result}");
+    assert_eq!(field(result, "resident_source_opens"), expected_opens);
+    assert_eq!(
+        field(result, "resident_completed_executions"),
+        expected_executions
+    );
+    assert_eq!(
+        field(result, "resident_footer_open_performed_this_call"),
+        "false"
+    );
+}
+
+fn assert_worker_sql_and_join_reuse(worker: &mut Worker, path_str: &str) {
+    let sql_stmt = format!("SELECT SUM(metric) AS total FROM '{path_str}' WHERE value >= 4");
+    let sql_result = worker.request(&[
+        "run",
+        "sql",
+        "--input",
+        path_str,
+        "--input-format",
+        "vortex",
+        "--sql",
+        &sql_stmt,
+        "--request",
+        "collect",
+        "--bounded",
+        "true",
+        "--materialization-policy",
+        "bounded",
+        "--memory-gb",
+        "1",
+        "--max-parallelism",
+        "2",
+    ]);
+    assert_worker_reused_source(&sql_result, "1", "6");
+    assert_eq!(
+        complete_result::rows(&sql_result),
+        vec![json!({"total": 90.0})]
+    );
+
+    let rel_stmt = format!(
+        "SELECT l.value, r.metric FROM '{path_str}' AS l JOIN '{path_str}' AS r ON l.value = r.value WHERE l.value = 5"
+    );
+    let rel_result = worker.request(&[
+        "run",
+        "sql",
+        "--sql",
+        &rel_stmt,
+        "--request",
+        "collect",
+        "--bounded",
+        "true",
+        "--materialization-policy",
+        "bounded",
+        "--memory-gb",
+        "1",
+        "--max-parallelism",
+        "2",
+    ]);
+    assert_worker_reused_source(&rel_result, "1", "7");
+    assert_eq!(
+        complete_result::rows(&rel_result),
+        vec![json!({"l.value": 5, "r.metric": 50})]
+    );
+}
+
+#[test]
+fn worker_preserves_file_keyed_source_across_all_query_families_and_version_calls() {
+    let path = fixture();
+    let path_str = path.to_str().unwrap();
+    let mut worker = Worker::new();
+
+    assert_metadata_count_certificate(&worker.count(&path, "2"), "5", "1", "true");
+    assert_eq!(worker.request(&["--version"])["status"], "success");
+    assert_filtered_count(&worker.count_where(&path, "gt:value:2", "2"), "3", "1", "2");
+    assert_completed(&worker.collect(&path, "metric", "2"), "1", "3");
+
+    let aggregate = json!({
+        "measures": [
+            {"function": "count", "alias": "rows_alias"},
+            {"function": "sum", "column": "metric", "alias": "total_alias"}
+        ]
+    })
+    .to_string();
+    let agg_result = worker.request(&[
+        "run",
+        "dataframe",
+        "--input",
+        path_str,
+        "--input-format",
+        "vortex",
+        "--request",
+        "collect",
+        "--bounded",
+        "true",
+        "--materialization-policy",
+        "bounded",
+        "--vortex-primitive",
+        "aggregate",
+        "--vortex-aggregate",
+        &aggregate,
+        "--memory-gb",
+        "1",
+        "--max-parallelism",
+        "2",
+    ]);
+    assert_worker_reused_source(&agg_result, "1", "4");
+
+    let unary_result = worker.request(&[
+        "run",
+        "dataframe",
+        "--input",
+        path_str,
+        "--input-format",
+        "vortex",
+        "--request",
+        "collect",
+        "--bounded",
+        "true",
+        "--materialization-policy",
+        "bounded",
+        "--vortex-primitive",
+        "distinct",
+        "--vortex-columns",
+        "value",
+        "--memory-gb",
+        "1",
+        "--max-parallelism",
+        "2",
+    ]);
+    assert_worker_reused_source(&unary_result, "1", "5");
+
+    assert_worker_sql_and_join_reuse(&mut worker, path_str);
 }

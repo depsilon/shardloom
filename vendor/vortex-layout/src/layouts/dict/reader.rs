@@ -48,6 +48,7 @@ pub struct DictReader {
     layout: DictLayout,
     name: Arc<str>,
     session: VortexSession,
+    storage_allocator: Option<vortex_array::memory::HostAllocatorRef>,
 
     /// Length of the values array
     values_len: usize,
@@ -68,16 +69,24 @@ impl DictReader {
         session: VortexSession,
         ctx: crate::LayoutReaderContext,
     ) -> VortexResult<Self> {
+        let storage_allocator = ctx.explicit_storage_allocator().cloned();
         let values_layout = layout
             .slot(0)?
             .vortex_expect("DictLayout always has a values child");
         let codes_layout = layout
             .slot(1)?
             .vortex_expect("DictLayout always has a codes child");
+        let values_segment_source = match &storage_allocator {
+            Some(allocator) => crate::segments::StorageAllocatedSegmentSource::wrap(
+                Arc::clone(&segment_source),
+                Arc::clone(allocator),
+            ),
+            None => Arc::clone(&segment_source),
+        };
         let values_len = usize::try_from(values_layout.row_count())?;
         let values = values_layout.new_reader(
             format!("{name}.values").into(),
-            Arc::clone(&segment_source),
+            values_segment_source,
             &session,
             &ctx,
         )?;
@@ -92,6 +101,7 @@ impl DictReader {
             layout,
             name,
             session,
+            storage_allocator,
             values_len,
             values_array: Default::default(),
             values_evals: DashMap::with_hasher_and_shard_amount(Default::default(), 8),
@@ -104,6 +114,7 @@ impl DictReader {
         // We capture the name, so it may be wrong if we re-use the same reader within multiple
         // different parent readers. But that's rare...
         let values_len = self.values_len;
+        let storage_allocator = self.storage_allocator.clone();
         let root = root()
             .bind(self.values.dtype())
             .vortex_expect("root must bind against the dictionary values dtype");
@@ -117,7 +128,9 @@ impl DictReader {
                     )
                     .vortex_expect("must construct dict values array evaluation")
                     .map_err(Arc::new)
-                    .map(move |array| Ok(Shared::new(array?).into_array()))
+                    .map(move |array| {
+                        Ok(Shared::with_storage_allocator(array?, storage_allocator).into_array())
+                    })
                     .boxed()
                     .shared()
             })
@@ -159,13 +172,14 @@ impl DictReader {
             return fut.clone();
         }
 
+        let storage_allocator = self.storage_allocator.clone();
         self.values_evals
             .entry(key)
             .or_insert_with(|| {
                 self.values_array_uncanonical()
                     .map(move |array| {
                         let array = array?.apply_bound(&expr)?;
-                        Ok(Shared::new(array).into_array())
+                        Ok(Shared::with_storage_allocator(array, storage_allocator).into_array())
                     })
                     .boxed()
                     .shared()
@@ -313,6 +327,7 @@ impl LayoutReader for DictReader {
             // self.values with uncompressed data. Supply uncached data
             let values_len = self.values_len;
             let values_root = root().bind(self.values.dtype())?;
+            let storage_allocator = self.storage_allocator.clone();
             self.values
                 .projection_evaluation(
                     &(0..values_len as u64),
@@ -321,7 +336,12 @@ impl LayoutReader for DictReader {
                 )
                 .vortex_expect("must construct dict values array evaluation")
                 .map_err(Arc::new)
-                .map(move |array| Ok(Shared::new(array?.apply_bound(&inner)?).into_array()))
+                .map(move |array| {
+                    Ok(
+                        Shared::with_storage_allocator(array?.apply_bound(&inner)?, storage_allocator)
+                            .into_array(),
+                    )
+                })
                 .boxed()
                 .shared()
         } else {

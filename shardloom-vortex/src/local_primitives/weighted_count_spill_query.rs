@@ -51,6 +51,7 @@ thread_local! {
 }
 
 /// The native result owner survives the caller's final source-generation check.
+#[cfg(test)]
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 pub(super) fn execute(
     source_uri: &DatasetUri,
@@ -76,6 +77,7 @@ pub(super) fn execute(
     )
 }
 
+#[cfg(test)]
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 pub(super) fn execute_with_output(
     source_uri: &DatasetUri,
@@ -88,6 +90,35 @@ pub(super) fn execute_with_output(
     allow_workers: bool,
     output: Option<&mut super::aggregate_owned::AggregateOutput>,
     cancellation: Option<&shardloom_exec::compute_pool::CancellationToken>,
+) -> Result<(LocalVortexAggregateScan, Arc<OwnedResult>)> {
+    execute_with_output_and_pool(
+        source_uri,
+        request,
+        policy,
+        file,
+        session,
+        runtime,
+        memory,
+        allow_workers,
+        output,
+        cancellation,
+        None,
+    )
+}
+
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+pub(super) fn execute_with_output_and_pool(
+    source_uri: &DatasetUri,
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    file: &VortexFile,
+    session: &VortexSession,
+    runtime: &impl AggregateScanRuntime,
+    memory: &LiveMemoryPool,
+    allow_workers: bool,
+    output: Option<&mut super::aggregate_owned::AggregateOutput>,
+    cancellation: Option<&shardloom_exec::compute_pool::CancellationToken>,
+    shared_pool: Option<&Arc<shardloom_exec::compute_pool::ComputePool>>,
 ) -> Result<(LocalVortexAggregateScan, Arc<OwnedResult>)> {
     if let Some(token) = cancellation {
         token.check()?;
@@ -123,6 +154,7 @@ pub(super) fn execute_with_output(
             file.dtype(),
             request.kind,
         )?);
+        plan.pushdown_predicate = Some(predicate.clone());
     }
     let filter_pushdown_applied = plan.filter.is_some();
     let projection_pushdown_applied = plan.projection.is_some();
@@ -133,11 +165,17 @@ pub(super) fn execute_with_output(
         projection_pushdown_applied,
     );
     if let Some(filter) = plan.filter.as_ref() {
-        embedded_layout.mark_pruning_consulted(file.can_prune(filter).map_err(vortex_error)?)?;
+        embedded_layout.mark_pruning_consulted(
+            crate::local_primitives::file_pruning::can_prune_file_with_predicate(
+                file,
+                filter,
+                plan.pushdown_predicate.as_ref(),
+            )?,
+        )?;
     }
     let caller_only = allow_workers && worker_request_admitted(request);
     let mut workers = if caller_only && !embedded_layout.metadata_pruned_entire_input {
-        Workers::try_new(
+        Workers::try_new_with_pool(
             accumulator.worker_contract(),
             policy.resource_envelope.max_parallelism,
             policy.resource_envelope.group_state_soft_item_budget,
@@ -156,6 +194,7 @@ pub(super) fn execute_with_output(
                     )
                 },
             ),
+            shared_pool,
         )?
     } else {
         None
@@ -312,6 +351,7 @@ pub(super) fn execute_with_output(
             scan,
             result_summary: summary,
             state_budget,
+            physical_policy: None,
             restored_provider_background_workers: 0,
         },
         owner,

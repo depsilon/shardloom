@@ -4,7 +4,7 @@ use super::{
     CommandStatus, ExitCode, NativeVortexInputBinding, OutputFormat, PublicExecutionSession,
     PublicSourcePreparations, PublicVortexPrimitive, PublicWorkflowRoutePlan,
     PublicWorkflowRouteRequest, ShardLoomError, effective_public_workflow_request,
-    emit_blocked_facade, execute_native_vortex_materializing_with_source,
+    emit_blocked_facade, execute_native_vortex_materializing_with_source_and_session,
     execute_native_vortex_owned_collect_with_source, native_vortex_bound_request_and_arg,
     native_vortex_input_binding_for_request, native_vortex_materializing_error,
     native_vortex_materializing_policy, normalized_vortex_primitive, resident_aggregate,
@@ -12,7 +12,7 @@ use super::{
 };
 #[cfg(feature = "vortex-write")]
 use super::{emit_native_vortex_primitive_row_export, native_vortex_primitive_row_export_targets};
-use shardloom_vortex::local_primitives::prepared_dispatch;
+use shardloom_vortex::local_primitives::{prepared_dispatch, prepared_relational};
 
 /// SQL integer literals have signed, type-bound arithmetic semantics. The
 /// primitive offset contract instead retains the input signedness. Rebind the
@@ -304,17 +304,20 @@ pub(super) fn run_if_needed(
         return None;
     }
     if let Err(error) = admission.check() {
-        session.clear();
+        session.clear_operation_slots();
         return Some(native_vortex_materializing_error(format, primitive, &error));
     }
     let binding = match native_vortex_input_binding_for_request(request, admission) {
         Ok(binding) => binding,
         Err(error) => {
-            session.clear();
+            session.clear_operation_slots();
+            session.evict_prepared_request_inputs(request);
             return Some(native_vortex_materializing_error(format, primitive, &error));
         }
     };
     if binding.mode != "single_file" {
+        session.evict_prepared_request_inputs(request);
+        session.evict_prepared_binding(&binding);
         return Some(
             match run_file_collection(
                 request,
@@ -327,7 +330,9 @@ pub(super) fn run_if_needed(
             ) {
                 Ok(exit) => exit,
                 Err(error) => {
-                    session.clear();
+                    session.clear_operation_slots();
+                    session.evict_prepared_request_inputs(request);
+                    session.evict_prepared_binding(&binding);
                     native_vortex_materializing_error(format, primitive, &error)
                 }
             },
@@ -373,14 +378,27 @@ pub(super) fn run_if_needed(
         let (primitive_request, _, _) =
             native_vortex_bound_request_and_arg(request, primitive, &binding)?;
         let policy = native_vortex_materializing_policy(request)?;
-        session.clear();
+        session.clear_operation_slots();
         let cancellation = admission.cancellation();
-        let source = prepared_dispatch::prepare_source_in_session(
-            &primitive_request,
-            policy,
-            admission.native_session()?,
-            &cancellation,
-        )?;
+        let native_session = admission.native_session()?;
+        prepared_relational::validate_session_policy(policy, native_session)?;
+        let (source, source_reused) = if preparations.sources.is_empty()
+            && let Some(uri) = primitive_request.source_uri.as_ref()
+            && let Some((cached, reused)) =
+                session.get_or_prepare_uri_source(uri, native_session, &cancellation)?
+        {
+            (cached, reused)
+        } else {
+            (
+                prepared_dispatch::prepare_source_in_session(
+                    &primitive_request,
+                    policy,
+                    native_session,
+                    &cancellation,
+                )?,
+                false,
+            )
+        };
         let extended = request_requires_relational(&source, &primitive_request)?;
         let fields = std::mem::take(extra_fields);
         let exit = if extended {
@@ -406,7 +424,15 @@ pub(super) fn run_if_needed(
             #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
             let source = source.with_preparation_sources(preparations.sources)?;
             run_optimized_source(
-                request, plan, format, fields, &binding, session, source, admission,
+                request,
+                plan,
+                format,
+                fields,
+                &binding,
+                session,
+                source,
+                source_reused,
+                admission,
             )?
         };
         Ok(Some(exit))
@@ -414,7 +440,9 @@ pub(super) fn run_if_needed(
     match result {
         Ok(exit) => exit,
         Err(error) => {
-            session.clear();
+            session.clear_operation_slots();
+            session.evict_prepared_request_inputs(request);
+            session.evict_prepared_binding(&binding);
             Some(native_vortex_materializing_error(format, primitive, &error))
         }
     }
@@ -433,7 +461,7 @@ fn run_file_collection(
     let selected = resident_relational::route_admitted_statement(request).ok_or_else(|| {
         ShardLoomError::InvalidOperation("native file collection SQL is not admitted".into())
     })?;
-    session.clear();
+    session.clear_operation_slots();
     if selected.status != CommandStatus::Success {
         return Ok(emit_blocked_facade("run", format, request, &selected));
     }
@@ -459,6 +487,7 @@ fn run_optimized_source(
     binding: &NativeVortexInputBinding,
     session: &mut PublicExecutionSession,
     source: shardloom_vortex::resident_session::PreparedVortexSource,
+    source_reused: bool,
     admission: &crate::command_context::CommandAdmission<'_>,
 ) -> Result<ExitCode, ShardLoomError> {
     admission.check()?;
@@ -472,7 +501,7 @@ fn run_optimized_source(
             format,
             fields,
             session,
-            Some(source),
+            Some((source, source_reused)),
             admission,
         ),
         PublicVortexPrimitive::CountWhere => resident_count_where::run_with_source(
@@ -482,18 +511,21 @@ fn run_optimized_source(
             fields,
             binding,
             session,
-            Some(source),
+            Some((source, source_reused)),
             admission,
         ),
-        PublicVortexPrimitive::SortRows => execute_native_vortex_materializing_with_source(
-            request,
-            plan,
-            format,
-            fields,
-            primitive,
-            Some(source),
-            admission,
-        ),
+        PublicVortexPrimitive::SortRows => {
+            execute_native_vortex_materializing_with_source_and_session(
+                request,
+                plan,
+                format,
+                fields,
+                Some(session),
+                primitive,
+                Some(source),
+                admission,
+            )
+        }
         _ => execute_native_vortex_owned_collect_with_source(
             request,
             plan,

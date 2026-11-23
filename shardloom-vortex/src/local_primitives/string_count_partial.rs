@@ -8,7 +8,11 @@ use super::aggregate_chunk_jobs::ChunkWorkerContext;
 use super::native_utf8::borrowed_bytes;
 use shardloom_core::{Result, ShardLoomError};
 use shardloom_exec::live_memory::MemoryLease;
-use std::{hash::Hasher as _, sync::Arc, time::Instant};
+use std::{
+    hash::Hasher as _,
+    sync::{Arc, Mutex},
+    time::Instant,
+};
 use vortex::array::{
     ArrayRef, ExecutionCtx,
     arrays::{
@@ -20,7 +24,7 @@ use vortex::array::{
 };
 
 #[derive(Clone, Copy, Default)]
-struct CountSlot<W> {
+pub(super) struct CountSlot<W> {
     hash: u64,
     value_index: W,
     count: W,
@@ -28,17 +32,146 @@ struct CountSlot<W> {
 
 // Width is chosen once per native chunk from its row and values domains. Larger
 // inputs retain exact u64 counts; compact storage is not an admission limit.
-enum CountSlots {
+pub(super) enum CountSlots {
     Compact(Vec<CountSlot<u32>>),
     Wide(Vec<CountSlot<u64>>),
 }
 
-trait CountWord: Copy + Default + Ord + TryFrom<usize> + Into<u64> {
+struct PooledCountSlots {
+    slots: CountSlots,
+    lease: MemoryLease,
+}
+
+#[cfg(test)]
+#[derive(Default)]
+struct ScratchStats {
+    recycled: std::sync::atomic::AtomicU64,
+    reused: std::sync::atomic::AtomicU64,
+}
+
+/// Bounded per-worker pool of `LiveMemoryPool`-backed `CountSlots` scratch
+/// tables. Entries retain their own reservation leases while pooled and are
+/// eagerly cleared on pressure, handoff, stage completion, or drop.
+pub(super) struct CountSlotScratchPool {
+    max_entries: usize,
+    entries: Mutex<Vec<PooledCountSlots>>,
+    #[cfg(test)]
+    stats: ScratchStats,
+}
+
+impl CountSlotScratchPool {
+    pub(super) fn new(max_entries: usize) -> Self {
+        Self {
+            max_entries: max_entries.clamp(1, 32),
+            entries: Mutex::new(Vec::new()),
+            #[cfg(test)]
+            stats: ScratchStats::default(),
+        }
+    }
+
+    pub(super) fn clear(&self) {
+        let drained = {
+            let mut entries = self
+                .entries
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            std::mem::take(&mut *entries)
+        };
+        drop(drained);
+    }
+
+    #[cfg(test)]
+    pub(super) fn reused_count(&self) -> u64 {
+        self.stats.reused.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    pub(super) fn recycle(&self, slots: (CountSlots, MemoryLease)) {
+        let (mut slots, lease) = slots;
+        match &mut slots {
+            CountSlots::Compact(vec) => vec.clear(),
+            CountSlots::Wide(vec) => vec.clear(),
+        }
+        let capacity = match &slots {
+            CountSlots::Compact(vec) => vec.capacity(),
+            CountSlots::Wide(vec) => vec.capacity(),
+        };
+        if capacity == 0 {
+            return;
+        }
+        let mut entries = self
+            .entries
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if entries.len() < self.max_entries {
+            entries.push(PooledCountSlots { slots, lease });
+            #[cfg(test)]
+            self.stats
+                .recycled
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+
+    fn take_compact(&self, count: usize) -> Option<(Vec<CountSlot<u32>>, MemoryLease)> {
+        let max_cap = count.saturating_mul(4).saturating_add(256);
+        let mut entries = self
+            .entries
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let index = entries.iter().rposition(|entry| {
+            matches!(
+                &entry.slots,
+                CountSlots::Compact(vec) if vec.capacity() >= count && vec.capacity() <= max_cap
+            )
+        })?;
+        let PooledCountSlots { slots, lease } = entries.swap_remove(index);
+        #[cfg(test)]
+        self.stats
+            .reused
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let CountSlots::Compact(mut vec) = slots else {
+            unreachable!("matched Compact variant above");
+        };
+        vec.clear();
+        vec.resize(count, CountSlot::default());
+        Some((vec, lease))
+    }
+
+    fn take_wide(&self, count: usize) -> Option<(Vec<CountSlot<u64>>, MemoryLease)> {
+        let max_cap = count.saturating_mul(4).saturating_add(256);
+        let mut entries = self
+            .entries
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let index = entries.iter().rposition(|entry| {
+            matches!(
+                &entry.slots,
+                CountSlots::Wide(vec) if vec.capacity() >= count && vec.capacity() <= max_cap
+            )
+        })?;
+        let PooledCountSlots { slots, lease } = entries.swap_remove(index);
+        #[cfg(test)]
+        self.stats
+            .reused
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let CountSlots::Wide(mut vec) = slots else {
+            unreachable!("matched Wide variant above");
+        };
+        vec.clear();
+        vec.resize(count, CountSlot::default());
+        Some((vec, lease))
+    }
+}
+
+pub(super) trait CountWord: Copy + Default + Ord + TryFrom<usize> + Into<u64> {
     const ZERO: Self;
     const ONE: Self;
 
     fn increment(self) -> Option<Self>;
     fn into_slots(slots: Vec<CountSlot<Self>>) -> CountSlots;
+    fn take_from_scratch(
+        pool: &CountSlotScratchPool,
+        count: usize,
+    ) -> Option<(Vec<CountSlot<Self>>, MemoryLease)>;
 
     fn from_size(value: usize) -> Result<Self> {
         Self::try_from(value).map_err(|_| failed("admitted partial word overflowed"))
@@ -61,6 +194,13 @@ impl CountWord for u32 {
     fn into_slots(slots: Vec<CountSlot<Self>>) -> CountSlots {
         CountSlots::Compact(slots)
     }
+
+    fn take_from_scratch(
+        pool: &CountSlotScratchPool,
+        count: usize,
+    ) -> Option<(Vec<CountSlot<Self>>, MemoryLease)> {
+        pool.take_compact(count)
+    }
 }
 
 impl CountWord for u64 {
@@ -73,6 +213,13 @@ impl CountWord for u64 {
 
     fn into_slots(slots: Vec<CountSlot<Self>>) -> CountSlots {
         CountSlots::Wide(slots)
+    }
+
+    fn take_from_scratch(
+        pool: &CountSlotScratchPool,
+        count: usize,
+    ) -> Option<(Vec<CountSlot<Self>>, MemoryLease)> {
+        pool.take_wide(count)
     }
 }
 
@@ -200,6 +347,7 @@ impl StringCountPartial {
         Ok((borrowed_bytes(&self.values, value_index), hash, count))
     }
 
+    #[cfg(test)]
     pub(super) fn retain_unconsumed(&mut self, start: usize, rows: u64) {
         match &mut self.counts {
             CountSlots::Compact(counts) => {
@@ -211,6 +359,36 @@ impl StringCountPartial {
         }
         self.work.rows = rows;
         self.work.partial_entries = self.counts.len() as u64;
+    }
+
+    pub(super) fn retain_unconsumed_partitions(
+        &mut self,
+        cursors: &[usize],
+        ends: &[usize],
+        rows: u64,
+    ) {
+        fn compact<W: CountWord>(slots: &mut Vec<CountSlot<W>>, cursors: &[usize], ends: &[usize]) {
+            let mut write = 0_usize;
+            for (&cursor, &end) in cursors.iter().zip(ends.iter()) {
+                if cursor < end {
+                    let count = end - cursor;
+                    slots.copy_within(cursor..end, write);
+                    write += count;
+                }
+            }
+            slots.truncate(write);
+        }
+        match &mut self.counts {
+            CountSlots::Compact(counts) => compact(counts, cursors, ends),
+            CountSlots::Wide(counts) => compact(counts, cursors, ends),
+        }
+        self.work.rows = rows;
+        self.work.partial_entries = self.counts.len() as u64;
+    }
+
+    #[allow(clippy::used_underscore_binding)]
+    pub(super) fn into_reusable_slots(self) -> (CountSlots, MemoryLease) {
+        (self.counts, self._counts_lease)
     }
     /// The ordinary count path records canonical keys in first-occurrence order.
     /// Native Dict already enumerates referenced values in its own domain order.
@@ -735,7 +913,25 @@ pub(super) fn count_string_chunk(
     worker: &ChunkWorkerContext,
     lease: &mut MemoryLease,
 ) -> Result<StringCountPartial> {
-    count_with_provider_error(array, ctx, worker, lease, &mut super::vortex_error)
+    count_string_chunk_with_scratch(array, ctx, worker, lease, None)
+}
+
+#[allow(clippy::too_many_lines)]
+pub(super) fn count_string_chunk_with_scratch(
+    array: &ArrayRef,
+    ctx: ExecutionCtx,
+    worker: &ChunkWorkerContext,
+    lease: &mut MemoryLease,
+    scratch: Option<&CountSlotScratchPool>,
+) -> Result<StringCountPartial> {
+    count_with_provider_error_and_scratch(
+        array,
+        ctx,
+        worker,
+        lease,
+        scratch,
+        &mut super::vortex_error,
+    )
 }
 
 #[cfg(all(feature = "vortex-write", unix))]
@@ -745,11 +941,23 @@ pub(super) enum CountOutcome {
 }
 
 #[cfg(all(feature = "vortex-write", unix))]
+#[allow(dead_code)]
 pub(super) fn count_admitted(
+    array: &ArrayRef,
+    ctx: ExecutionCtx,
+    worker: &ChunkWorkerContext,
+    lease: &mut MemoryLease,
+) -> Result<CountOutcome> {
+    count_admitted_with_scratch(array, ctx, worker, lease, None)
+}
+
+#[cfg(all(feature = "vortex-write", unix))]
+pub(super) fn count_admitted_with_scratch(
     array: &ArrayRef,
     mut ctx: ExecutionCtx,
     worker: &ChunkWorkerContext,
     lease: &mut MemoryLease,
+    scratch: Option<&CountSlotScratchPool>,
 ) -> Result<CountOutcome> {
     let mut owned_denial = false;
     let mut lease_denial = false;
@@ -782,8 +990,14 @@ pub(super) fn count_admitted(
             }
         }
         let structural_nanos = started.elapsed().as_nanos();
-        let mut partial =
-            count_with_provider_error(&resolved, ctx, worker, lease, &mut provider_error)?;
+        let mut partial = count_with_provider_error_and_scratch(
+            &resolved,
+            ctx,
+            worker,
+            lease,
+            scratch,
+            &mut provider_error,
+        )?;
         partial.work.canonicalization_nanos += structural_nanos;
         Ok(partial)
     })();
@@ -797,11 +1011,12 @@ pub(super) fn count_admitted(
 }
 
 #[allow(clippy::too_many_lines)]
-fn count_with_provider_error(
+fn count_with_provider_error_and_scratch(
     array: &ArrayRef,
     ctx: ExecutionCtx,
     worker: &ChunkWorkerContext,
     lease: &mut MemoryLease,
+    scratch: Option<&CountSlotScratchPool>,
     provider_error: &mut impl FnMut(vortex::error::VortexError) -> ShardLoomError,
 ) -> Result<StringCountPartial> {
     worker.check_cancelled()?;
@@ -814,18 +1029,30 @@ fn count_with_provider_error(
         ));
     }
     if compact_storage(array) {
-        count_with_word::<u32>(array, ctx, worker, lease, provider_error)
+        count_with_word_with_scratch::<u32>(array, ctx, worker, lease, scratch, provider_error)
     } else {
-        count_with_word::<u64>(array, ctx, worker, lease, provider_error)
+        count_with_word_with_scratch::<u64>(array, ctx, worker, lease, scratch, provider_error)
     }
 }
 
-#[allow(clippy::too_many_lines)]
+#[cfg(test)]
 fn count_with_word<W: CountWord>(
+    array: &ArrayRef,
+    ctx: ExecutionCtx,
+    worker: &ChunkWorkerContext,
+    lease: &mut MemoryLease,
+    provider_error: &mut impl FnMut(vortex::error::VortexError) -> ShardLoomError,
+) -> Result<StringCountPartial> {
+    count_with_word_with_scratch::<W>(array, ctx, worker, lease, None, provider_error)
+}
+
+#[allow(clippy::too_many_lines)]
+fn count_with_word_with_scratch<W: CountWord>(
     array: &ArrayRef,
     mut ctx: ExecutionCtx,
     worker: &ChunkWorkerContext,
     lease: &mut MemoryLease,
+    scratch: Option<&CountSlotScratchPool>,
     provider_error: &mut impl FnMut(vortex::error::VortexError) -> ShardLoomError,
 ) -> Result<StringCountPartial> {
     let started = Instant::now();
@@ -844,7 +1071,7 @@ fn count_with_word<W: CountWord>(
         }
         let canonicalization_nanos = started.elapsed().as_nanos();
         let started = Instant::now();
-        let (mut counts, counts_lease) = allocate_slots::<W>(value_count, lease)?;
+        let (mut counts, counts_lease) = allocate_slots::<W>(value_count, lease, scratch)?;
         let rows = u64_count(array.len())?;
         if value_count == 1 {
             values
@@ -899,7 +1126,7 @@ fn count_with_word<W: CountWord>(
         }
         let canonicalization_nanos = started.elapsed().as_nanos();
         let started = Instant::now();
-        let (mut counts, counts_lease) = allocate_slots::<W>(values.len(), lease)?;
+        let (mut counts, counts_lease) = allocate_slots::<W>(values.len(), lease, scratch)?;
         macro_rules! count_codes {
             ($ty:ty) => {{
                 for (row, code) in codes.as_slice::<$ty>().iter().copied().enumerate() {
@@ -977,7 +1204,7 @@ fn count_with_word<W: CountWord>(
     let canonicalization_nanos = started.elapsed().as_nanos();
     let started = Instant::now();
     let slot_count = hash_slot_count(values.len())?;
-    let (mut counts, counts_lease) = allocate_slots::<W>(slot_count, lease)?;
+    let (mut counts, counts_lease) = allocate_slots::<W>(slot_count, lease, scratch)?;
     let mask = slot_count - 1;
     let hash_mask = u64_count(mask)?;
     let mut work = StringCountPartialWork {
@@ -1060,7 +1287,13 @@ fn validate_values(values: &VarBinViewArray) -> Result<()> {
 fn allocate_slots<W: CountWord>(
     count: usize,
     task_lease: &mut MemoryLease,
+    scratch: Option<&CountSlotScratchPool>,
 ) -> Result<(Vec<CountSlot<W>>, MemoryLease)> {
+    if let Some(pool) = scratch
+        && let Some((slots, lease)) = W::take_from_scratch(pool, count)
+    {
+        return Ok((slots, lease));
+    }
     let bytes = slot_bytes::<W>(count)?;
     let lease = task_lease.split(bytes)?;
     let mut slots = Vec::new();

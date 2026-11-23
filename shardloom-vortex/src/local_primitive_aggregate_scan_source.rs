@@ -102,13 +102,25 @@ impl<'a> AggregateScanSource<'a> {
         Ok((self.scan(session)?, None))
     }
 
-    pub(super) fn can_prune(self, expr: &Expression) -> VortexResult<Option<bool>> {
+    pub(super) fn can_prune(
+        self,
+        expr: &Expression,
+        predicate: Option<&crate::local_primitives::PredicateExpr>,
+    ) -> Result<Option<bool>> {
         match self {
-            Self::File(file) => file.can_prune(expr).map(Some),
+            Self::File(file) => {
+                crate::local_primitives::file_pruning::can_prune_file_with_predicate(
+                    file, expr, predicate,
+                )
+                .map(Some)
+            }
             #[cfg(unix)]
             Self::ObservedFile(file, evidence) => {
-                let excluded = file.can_prune(expr)?;
-                evidence.pruning(excluded)?;
+                let excluded =
+                    crate::local_primitives::file_pruning::can_prune_file_with_predicate(
+                        file, expr, predicate,
+                    )?;
+                evidence.pruning(excluded).map_err(vortex_error)?;
                 Ok(Some(excluded))
             }
             #[cfg(all(feature = "vortex-write", unix))]

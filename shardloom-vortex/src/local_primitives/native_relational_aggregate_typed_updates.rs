@@ -3,8 +3,9 @@
 use super::super::super::{NativeNumericOwner, update_count};
 use super::{
     DensePages, Extreme, FloatPolicy, Function, GroupOrdinals, KeyColumn, Kind, Mask, Measure,
-    NativeExecutionContext, NumericAggregateSum, Result, Table, failed,
+    NativeExecutionContext, Result, Table, failed,
 };
+use crate::local_primitives::CompactI128;
 use crate::local_primitives::native_relational_keys::validate_float_scalar;
 use shardloom_core::{StatValue, float_policy::float_key_bits};
 use std::cmp::Ordering;
@@ -47,15 +48,16 @@ pub(super) fn consume(
     record_bound(slot.kind, ordinals.len());
     match slot.kind {
         Kind::Integer => bind_states!(table.integers, states, {
-            numeric(owner, rows, ordinals, context, |group, value| {
+            integer(owner, rows, ordinals, context, |group, value| {
                 let state = &mut states[group * width + slot.index];
                 update_count(&mut state.count, 1)?;
-                NumericAggregateSum::add_integer_parts(
-                    &mut state.sum,
-                    &mut state.correction,
-                    value,
-                );
-                finite_sum(state.sum + state.correction)
+                let next = state
+                    .sum
+                    .into_i128()
+                    .checked_add(value)
+                    .ok_or_else(|| failed("aggregate sum overflowed i128"))?;
+                state.sum = CompactI128::from_i128(next);
+                Ok(())
             })
         })?,
         Kind::StrictFloat => bind_states!(table.strict, states, {
@@ -183,6 +185,28 @@ fn finite_sum(value: f64) -> Result<()> {
         Ok(())
     } else {
         Err(failed("aggregate sum became nonfinite"))
+    }
+}
+
+fn integer(
+    owner: &NativeNumericOwner,
+    rows: Option<&[usize]>,
+    ordinals: &GroupOrdinals,
+    context: &NativeExecutionContext<'_>,
+    mut update: impl FnMut(usize, i128) -> Result<()>,
+) -> Result<()> {
+    let visit = |row: usize, value| {
+        if row.is_multiple_of(1024) {
+            context.check_cancelled()?;
+        }
+        if let Some(value) = value {
+            update(ordinals.at(row), value)?;
+        }
+        Ok(())
+    };
+    match rows {
+        Some(rows) => owner.visit_selected_integer(rows, visit),
+        None => owner.visit_integer(visit),
     }
 }
 

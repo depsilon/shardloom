@@ -330,60 +330,100 @@ pub struct FlowInventoryReport {
     pub existing_scheduler_preserved: Option<bool>,
 }
 
-impl FlowInventoryReport {
+/// Typed `FlowInventory` evidence record (`E2E-ARCH-01`).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct FlowInventoryEvidence {
+    pub schema_version: String,
+    pub wip_limit: String,
+    pub planned_task_count: String,
+    pub estimated_held_for_memory_count: String,
+    pub estimated_held_for_downstream_count: String,
+    pub peak_in_flight: String,
+    pub ready_task_count: String,
+    pub held_for_memory_count: String,
+    pub held_for_downstream_count: String,
+    pub completed_task_count: String,
+    pub failed_task_count: String,
+    pub backpressure_event_count: String,
+    pub existing_scheduler_preserved: String,
+}
+
+impl FlowInventoryEvidence {
     #[must_use]
-    pub fn fields(&self) -> [(&'static str, String); 13] {
+    pub fn to_fields(&self) -> [(&'static str, String); 13] {
         [
-            (
-                "flow_inventory_schema_version",
-                String::from(FLOW_INVENTORY_SCHEMA_VERSION),
-            ),
-            ("flow_inventory_wip_limit", self.wip_limit.to_string()),
+            ("flow_inventory_schema_version", self.schema_version.clone()),
+            ("flow_inventory_wip_limit", self.wip_limit.clone()),
             (
                 "flow_inventory_planned_task_count",
-                self.planned_task_count.to_string(),
+                self.planned_task_count.clone(),
             ),
             (
                 "flow_inventory_estimated_held_for_memory_count",
-                self.estimated_held_for_memory_count.to_string(),
+                self.estimated_held_for_memory_count.clone(),
             ),
             (
                 "flow_inventory_estimated_held_for_downstream_count",
-                self.estimated_held_for_downstream_count.to_string(),
+                self.estimated_held_for_downstream_count.clone(),
             ),
-            (
-                "flow_inventory_peak_in_flight",
-                observed_field(self.peak_in_flight),
-            ),
+            ("flow_inventory_peak_in_flight", self.peak_in_flight.clone()),
             (
                 "flow_inventory_ready_task_count",
-                observed_field(self.ready_task_count),
+                self.ready_task_count.clone(),
             ),
             (
                 "flow_inventory_held_for_memory_count",
-                observed_field(self.held_for_memory_count),
+                self.held_for_memory_count.clone(),
             ),
             (
                 "flow_inventory_held_for_downstream_count",
-                observed_field(self.held_for_downstream_count),
+                self.held_for_downstream_count.clone(),
             ),
             (
                 "flow_inventory_completed_task_count",
-                observed_field(self.completed_task_count),
+                self.completed_task_count.clone(),
             ),
             (
                 "flow_inventory_failed_task_count",
-                observed_field(self.failed_task_count),
+                self.failed_task_count.clone(),
             ),
             (
                 "flow_inventory_backpressure_event_count",
-                observed_field(self.backpressure_event_count),
+                self.backpressure_event_count.clone(),
             ),
             (
                 "flow_inventory_existing_scheduler_preserved",
-                observed_field(self.existing_scheduler_preserved),
+                self.existing_scheduler_preserved.clone(),
             ),
         ]
+    }
+}
+
+impl FlowInventoryReport {
+    #[must_use]
+    pub fn typed_evidence(&self) -> FlowInventoryEvidence {
+        FlowInventoryEvidence {
+            schema_version: String::from(FLOW_INVENTORY_SCHEMA_VERSION),
+            wip_limit: self.wip_limit.to_string(),
+            planned_task_count: self.planned_task_count.to_string(),
+            estimated_held_for_memory_count: self.estimated_held_for_memory_count.to_string(),
+            estimated_held_for_downstream_count: self
+                .estimated_held_for_downstream_count
+                .to_string(),
+            peak_in_flight: observed_field(self.peak_in_flight),
+            ready_task_count: observed_field(self.ready_task_count),
+            held_for_memory_count: observed_field(self.held_for_memory_count),
+            held_for_downstream_count: observed_field(self.held_for_downstream_count),
+            completed_task_count: observed_field(self.completed_task_count),
+            failed_task_count: observed_field(self.failed_task_count),
+            backpressure_event_count: observed_field(self.backpressure_event_count),
+            existing_scheduler_preserved: observed_field(self.existing_scheduler_preserved),
+        }
+    }
+
+    #[must_use]
+    pub fn fields(&self) -> [(&'static str, String); 13] {
+        self.typed_evidence().to_fields()
     }
 }
 
@@ -444,41 +484,56 @@ pub struct ScarcityLedgerDecision {
     pub decision_digest: String,
 }
 
-impl ScarcityLedgerDecision {
+/// Typed `ScarcityLedger` evidence record (`E2E-ARCH-01`).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ScarcityLedgerEvidence {
+    pub schema_version: String,
+    pub memory_price_bps: String,
+    pub queue_price_bps: String,
+    pub decode_price_bps: String,
+    pub sink_price_bps: String,
+    pub spill_price_bps: String,
+    pub total_price_bps: String,
+    pub selected_action: String,
+    pub decision_reason: String,
+    pub decision_digest: String,
+}
+
+impl ScarcityLedgerEvidence {
     #[must_use]
-    pub fn fields(&self) -> [(&'static str, String); 10] {
+    pub fn to_fields(&self) -> [(&'static str, String); 10] {
         [
             (
                 "scarcity_ledger_schema_version",
-                SCARCITY_LEDGER_SCHEMA_VERSION.to_string(),
+                self.schema_version.clone(),
             ),
             (
                 "scarcity_ledger_memory_price_bps",
-                self.memory_price_bps.to_string(),
+                self.memory_price_bps.clone(),
             ),
             (
                 "scarcity_ledger_queue_price_bps",
-                self.queue_price_bps.to_string(),
+                self.queue_price_bps.clone(),
             ),
             (
                 "scarcity_ledger_decode_price_bps",
-                self.decode_price_bps.to_string(),
+                self.decode_price_bps.clone(),
             ),
             (
                 "scarcity_ledger_sink_price_bps",
-                self.sink_price_bps.to_string(),
+                self.sink_price_bps.clone(),
             ),
             (
                 "scarcity_ledger_spill_price_bps",
-                self.spill_price_bps.to_string(),
+                self.spill_price_bps.clone(),
             ),
             (
                 "scarcity_ledger_total_price_bps",
-                self.total_price_bps.to_string(),
+                self.total_price_bps.clone(),
             ),
             (
                 "scarcity_ledger_selected_action",
-                self.selected_action.as_str().to_string(),
+                self.selected_action.clone(),
             ),
             (
                 "scarcity_ledger_decision_reason",
@@ -489,6 +544,29 @@ impl ScarcityLedgerDecision {
                 self.decision_digest.clone(),
             ),
         ]
+    }
+}
+
+impl ScarcityLedgerDecision {
+    #[must_use]
+    pub fn typed_evidence(&self) -> ScarcityLedgerEvidence {
+        ScarcityLedgerEvidence {
+            schema_version: SCARCITY_LEDGER_SCHEMA_VERSION.to_string(),
+            memory_price_bps: self.memory_price_bps.to_string(),
+            queue_price_bps: self.queue_price_bps.to_string(),
+            decode_price_bps: self.decode_price_bps.to_string(),
+            sink_price_bps: self.sink_price_bps.to_string(),
+            spill_price_bps: self.spill_price_bps.to_string(),
+            total_price_bps: self.total_price_bps.to_string(),
+            selected_action: self.selected_action.as_str().to_string(),
+            decision_reason: self.decision_reason.clone(),
+            decision_digest: self.decision_digest.clone(),
+        }
+    }
+
+    #[must_use]
+    pub fn fields(&self) -> [(&'static str, String); 10] {
+        self.typed_evidence().to_fields()
     }
 }
 
@@ -507,42 +585,77 @@ pub struct EndoPulseDecision {
     pub persistent_state_used: bool,
 }
 
-impl EndoPulseDecision {
+/// Typed `EndoPulse` evidence record (`E2E-ARCH-01`).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct EndoPulseEvidence {
+    pub schema_version: String,
+    pub signal_set: String,
+    pub previous_target_task_bytes: String,
+    pub next_target_task_bytes: String,
+    pub previous_wip_limit: String,
+    pub next_wip_limit: String,
+    pub adjustment_proposed: String,
+    pub adjustment_applied: String,
+    pub hysteresis_state: String,
+    pub persistent_state_used: String,
+}
+
+impl EndoPulseEvidence {
     #[must_use]
-    pub fn fields(&self) -> [(&'static str, String); 10] {
+    pub fn to_fields(&self) -> [(&'static str, String); 10] {
         [
-            (
-                "endopulse_schema_version",
-                ENDOPULSE_SCHEMA_VERSION.to_string(),
-            ),
+            ("endopulse_schema_version", self.schema_version.clone()),
             ("endopulse_signal_set", self.signal_set.clone()),
             (
                 "endopulse_previous_target_task_bytes",
-                self.previous_target_task_bytes.to_string(),
+                self.previous_target_task_bytes.clone(),
             ),
             (
                 "endopulse_next_target_task_bytes",
-                self.next_target_task_bytes.to_string(),
+                self.next_target_task_bytes.clone(),
             ),
             (
                 "endopulse_previous_wip_limit",
-                self.previous_wip_limit.to_string(),
+                self.previous_wip_limit.clone(),
             ),
-            ("endopulse_next_wip_limit", self.next_wip_limit.to_string()),
+            ("endopulse_next_wip_limit", self.next_wip_limit.clone()),
             (
                 "endopulse_adjustment_proposed",
-                self.adjustment_proposed.to_string(),
+                self.adjustment_proposed.clone(),
             ),
             (
                 "endopulse_adjustment_applied",
-                self.adjustment_applied.to_string(),
+                self.adjustment_applied.clone(),
             ),
             ("endopulse_hysteresis_state", self.hysteresis_state.clone()),
             (
                 "endopulse_persistent_state_used",
-                self.persistent_state_used.to_string(),
+                self.persistent_state_used.clone(),
             ),
         ]
+    }
+}
+
+impl EndoPulseDecision {
+    #[must_use]
+    pub fn typed_evidence(&self) -> EndoPulseEvidence {
+        EndoPulseEvidence {
+            schema_version: ENDOPULSE_SCHEMA_VERSION.to_string(),
+            signal_set: self.signal_set.clone(),
+            previous_target_task_bytes: self.previous_target_task_bytes.to_string(),
+            next_target_task_bytes: self.next_target_task_bytes.to_string(),
+            previous_wip_limit: self.previous_wip_limit.to_string(),
+            next_wip_limit: self.next_wip_limit.to_string(),
+            adjustment_proposed: self.adjustment_proposed.to_string(),
+            adjustment_applied: self.adjustment_applied.to_string(),
+            hysteresis_state: self.hysteresis_state.clone(),
+            persistent_state_used: self.persistent_state_used.to_string(),
+        }
+    }
+
+    #[must_use]
+    pub fn fields(&self) -> [(&'static str, String); 10] {
+        self.typed_evidence().to_fields()
     }
 }
 
@@ -561,14 +674,25 @@ pub struct ProofBoundAutoGate {
     pub claim_allowed: bool,
 }
 
-impl ProofBoundAutoGate {
+/// Typed `ProofBound` auto-gate evidence record (`E2E-ARCH-01`).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ProofBoundEvidence {
+    pub schema_version: String,
+    pub pre_application_status: String,
+    pub prerequisite_evidence_status: String,
+    pub post_application_status: String,
+    pub required_evidence: String,
+    pub missing_evidence: String,
+    pub certificate_status: String,
+    pub no_fallback_status: String,
+    pub claim_allowed: String,
+}
+
+impl ProofBoundEvidence {
     #[must_use]
-    pub fn fields(&self) -> [(&'static str, String); 9] {
+    pub fn to_fields(&self) -> [(&'static str, String); 9] {
         [
-            (
-                "proofbound_schema_version",
-                PROOFBOUND_SCHEMA_VERSION.to_string(),
-            ),
+            ("proofbound_schema_version", self.schema_version.clone()),
             (
                 "proofbound_pre_application_status",
                 self.pre_application_status.clone(),
@@ -594,8 +718,30 @@ impl ProofBoundAutoGate {
                 "proofbound_no_fallback_status",
                 self.no_fallback_status.clone(),
             ),
-            ("proofbound_claim_allowed", self.claim_allowed.to_string()),
+            ("proofbound_claim_allowed", self.claim_allowed.clone()),
         ]
+    }
+}
+
+impl ProofBoundAutoGate {
+    #[must_use]
+    pub fn typed_evidence(&self) -> ProofBoundEvidence {
+        ProofBoundEvidence {
+            schema_version: PROOFBOUND_SCHEMA_VERSION.to_string(),
+            pre_application_status: self.pre_application_status.clone(),
+            prerequisite_evidence_status: self.prerequisite_evidence_status.clone(),
+            post_application_status: self.post_application_status.clone(),
+            required_evidence: self.required_evidence.clone(),
+            missing_evidence: self.missing_evidence.clone(),
+            certificate_status: self.certificate_status.clone(),
+            no_fallback_status: self.no_fallback_status.clone(),
+            claim_allowed: self.claim_allowed.to_string(),
+        }
+    }
+
+    #[must_use]
+    pub fn fields(&self) -> [(&'static str, String); 9] {
+        self.typed_evidence().to_fields()
     }
 }
 
@@ -708,22 +854,46 @@ impl PulseWeaveReport {
             fallback_max_parallelism.max(1)
         }
     }
+}
 
+/// Typed aggregate `PulseWeave` evidence bag replacing raw tuples (`E2E-ARCH-01`).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct PulseWeaveEvidence {
+    pub schema_version: String,
+    pub status: String,
+    pub evidence_kind: String,
+    pub decision_admitted: String,
+    pub application_scope: String,
+    pub runtime_decision_applied: String,
+    pub policy_mutated: String,
+    pub decision_digest: String,
+    pub blocker: String,
+    pub claim_gate_status: String,
+    pub fallback_attempted: String,
+    pub external_engine_invoked: String,
+    pub flow_inventory: FlowInventoryEvidence,
+    pub scarcity_ledger: ScarcityLedgerEvidence,
+    pub endopulse: EndoPulseEvidence,
+    pub proofbound: ProofBoundEvidence,
+}
+
+impl PulseWeaveEvidence {
+    /// Emits canonical `pulseweave_*` and sub-component keys in strict order.
     #[must_use]
-    pub fn fields(&self) -> Vec<(String, String)> {
+    pub fn to_fields(&self) -> Vec<(String, String)> {
         let mut fields = vec![
             (
                 "pulseweave_schema_version".to_string(),
-                self.schema_version.to_string(),
+                self.schema_version.clone(),
             ),
             ("pulseweave_status".to_string(), self.status.clone()),
             (
                 "pulseweave_evidence_kind".to_string(),
-                "policy_plan".to_string(),
+                self.evidence_kind.clone(),
             ),
             (
                 "pulseweave_decision_admitted".to_string(),
-                self.decision_admitted.to_string(),
+                self.decision_admitted.clone(),
             ),
             (
                 "pulseweave_application_scope".to_string(),
@@ -731,11 +901,11 @@ impl PulseWeaveReport {
             ),
             (
                 "pulseweave_runtime_decision_applied".to_string(),
-                self.runtime_decision_applied.to_string(),
+                self.runtime_decision_applied.clone(),
             ),
             (
                 "pulseweave_policy_mutated".to_string(),
-                self.policy_mutated.to_string(),
+                self.policy_mutated.clone(),
             ),
             (
                 "pulseweave_decision_digest".to_string(),
@@ -748,38 +918,68 @@ impl PulseWeaveReport {
             ),
             (
                 "pulseweave_fallback_attempted".to_string(),
-                self.fallback_attempted.to_string(),
+                self.fallback_attempted.clone(),
             ),
             (
                 "pulseweave_external_engine_invoked".to_string(),
-                self.external_engine_invoked.to_string(),
+                self.external_engine_invoked.clone(),
             ),
         ];
         fields.extend(
             self.flow_inventory
-                .fields()
+                .to_fields()
                 .into_iter()
                 .map(|(key, value)| (key.to_string(), value)),
         );
         fields.extend(
             self.scarcity_ledger
-                .fields()
+                .to_fields()
                 .into_iter()
                 .map(|(key, value)| (key.to_string(), value)),
         );
         fields.extend(
             self.endopulse
-                .fields()
+                .to_fields()
                 .into_iter()
                 .map(|(key, value)| (key.to_string(), value)),
         );
         fields.extend(
             self.proofbound
-                .fields()
+                .to_fields()
                 .into_iter()
                 .map(|(key, value)| (key.to_string(), value)),
         );
         fields
+    }
+}
+
+impl PulseWeaveReport {
+    /// Captures strongly-typed `PulseWeave` policy and gate evidence (`E2E-ARCH-01`).
+    #[must_use]
+    pub fn typed_evidence(&self) -> PulseWeaveEvidence {
+        PulseWeaveEvidence {
+            schema_version: self.schema_version.to_string(),
+            status: self.status.clone(),
+            evidence_kind: "policy_plan".to_string(),
+            decision_admitted: self.decision_admitted.to_string(),
+            application_scope: self.application_scope.clone(),
+            runtime_decision_applied: self.runtime_decision_applied.to_string(),
+            policy_mutated: self.policy_mutated.to_string(),
+            decision_digest: self.decision_digest.clone(),
+            blocker: self.blocker.clone(),
+            claim_gate_status: self.claim_gate_status.clone(),
+            fallback_attempted: self.fallback_attempted.to_string(),
+            external_engine_invoked: self.external_engine_invoked.to_string(),
+            flow_inventory: self.flow_inventory.typed_evidence(),
+            scarcity_ledger: self.scarcity_ledger.typed_evidence(),
+            endopulse: self.endopulse.typed_evidence(),
+            proofbound: self.proofbound.typed_evidence(),
+        }
+    }
+
+    #[must_use]
+    pub fn fields(&self) -> Vec<(String, String)> {
+        self.typed_evidence().to_fields()
     }
 }
 
@@ -1551,5 +1751,6 @@ mod tests {
             ScarcityLedgerAction::KeepCurrentShape
         );
         assert!(!report.runtime_decision_applied);
+        assert_eq!(report.fields(), report.typed_evidence().to_fields());
     }
 }

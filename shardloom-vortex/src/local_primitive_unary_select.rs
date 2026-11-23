@@ -166,6 +166,23 @@ impl State {
         }
     }
 
+    pub(super) fn consume_precomputed_keys(
+        &mut self,
+        plan: &BoundUnary,
+        batch: &mut NativeBatch,
+        rows: usize,
+        keys: ReservedVec<Budgeted<String>>,
+        context: &NativeExecutionContext<'_>,
+        output: &mut UnaryOutput<'_, '_>,
+    ) -> Result<bool> {
+        match self {
+            Self::Select(state) => {
+                state.consume_with_keys(plan, batch, rows, Some(keys), context, output)
+            }
+            _ => Err(failed("precomputed keys require a selector unary state")),
+        }
+    }
+
     pub(super) fn finish(
         self,
         plan: &BoundUnary,
@@ -252,6 +269,13 @@ impl Tail {
     }
 }
 
+struct SelectionBuffers<'a> {
+    selected: &'a mut ReservedVec<usize>,
+    mask: &'a mut ReservedVec<bool>,
+    output_rows: usize,
+    has_payload: bool,
+}
+
 pub(super) struct Selector {
     keys: Keys,
     ordinal: usize,
@@ -269,9 +293,111 @@ impl Selector {
         context: &NativeExecutionContext<'_>,
         output: &mut UnaryOutput<'_, '_>,
     ) -> Result<bool> {
+        self.consume_with_keys(plan, batch, rows, None, context, output)
+    }
+
+    fn record_observed_row(
+        &mut self,
+        plan: &BoundUnary,
+        batch: &mut NativeBatch,
+        row: usize,
+        key: Budgeted<String>,
+        context: &NativeExecutionContext<'_>,
+        buffers: &mut SelectionBuffers<'_>,
+    ) -> Result<bool> {
         let kind = plan.request.kind;
         let keep = plan.request.duplicate_keep;
         let limit = plan.request.source_order_limit.unwrap_or(usize::MAX);
+        let (index, first) = self.keys.observe(key, self.ordinal)?;
+        let mut complete = false;
+        match kind {
+            Kind::DistinctRows => {
+                if first {
+                    buffers.selected.push(row)?;
+                }
+                if buffers
+                    .output_rows
+                    .saturating_add(buffers.selected.values.len())
+                    >= limit
+                {
+                    complete = true;
+                }
+            }
+            Kind::DropDuplicateRows => match keep {
+                Keep::First => {
+                    if first
+                        && buffers
+                            .output_rows
+                            .saturating_add(buffers.selected.values.len())
+                            < limit
+                    {
+                        buffers.selected.push(row)?;
+                    }
+                    // Later rows cannot change the first selected occurrence.
+                    complete = buffers
+                        .output_rows
+                        .saturating_add(buffers.selected.values.len())
+                        >= limit;
+                }
+                Keep::Last => {
+                    if buffers.has_payload {
+                        self.keys.entries.values[index].row =
+                            Some(batch.row(&plan.output_indices, row, context)?);
+                    }
+                }
+                Keep::AllDuplicates => {
+                    if first && buffers.has_payload {
+                        self.keys.entries.values[index].row =
+                            Some(batch.row(&plan.output_indices, row, context)?);
+                    } else {
+                        self.keys.entries.values[index].row = None;
+                    }
+                }
+            },
+            Kind::DuplicateMaskRows if keep == Keep::First => {
+                buffers.mask.push(!first)?;
+                if buffers
+                    .output_rows
+                    .saturating_add(buffers.mask.values.len())
+                    >= limit
+                {
+                    complete = true;
+                }
+            }
+            Kind::DuplicateMaskRows => {
+                if self.identities.values.len() < limit {
+                    self.identities.push((self.ordinal, index))?;
+                }
+            }
+            _ => return Err(failed("row selector kind is not admitted")),
+        }
+        self.ordinal = self
+            .ordinal
+            .checked_add(1)
+            .ok_or_else(|| failed("row ordinal overflow"))?;
+        Ok(complete)
+    }
+
+    fn consume_with_keys(
+        &mut self,
+        plan: &BoundUnary,
+        batch: &mut NativeBatch,
+        rows: usize,
+        precomputed_keys: Option<ReservedVec<Budgeted<String>>>,
+        context: &NativeExecutionContext<'_>,
+        output: &mut UnaryOutput<'_, '_>,
+    ) -> Result<bool> {
+        let kind = plan.request.kind;
+        if let Some(keys) = &precomputed_keys {
+            if plan.predicate.is_some() {
+                return Err(failed(
+                    "precomputed unary keys cannot bypass residual predicates",
+                ));
+            }
+            if keys.values.len() != rows {
+                return Err(failed("precomputed unary key count mismatched chunk rows"));
+            }
+        }
         self.visited = self
             .visited
             .checked_add(rows)
@@ -280,8 +406,18 @@ impl Selector {
             output.emit_selected(plan, batch, rows, context, |row| row)?;
             return Ok(false);
         }
+        let mut precomputed = precomputed_keys.map(|keys| {
+            let (values, lease) = keys.into_parts();
+            (values.into_iter(), lease)
+        });
         let mut selected = ReservedVec::new(context.memory())?;
         let mut mask = ReservedVec::new(context.memory())?;
+        let mut buffers = SelectionBuffers {
+            selected: &mut selected,
+            mask: &mut mask,
+            output_rows: output.rows,
+            has_payload: output.payload.is_some(),
+        };
         let mut complete = false;
         for row in 0..rows {
             if row % 256 == 0 {
@@ -292,58 +428,13 @@ impl Selector {
             {
                 continue;
             }
-            let (index, first) = self
-                .keys
-                .observe(batch.key(&plan.key_indices, row)?, self.ordinal)?;
-            match kind {
-                Kind::DistinctRows => {
-                    if first {
-                        selected.push(row)?;
-                    }
-                    if output.rows.saturating_add(selected.values.len()) >= limit {
-                        complete = true;
-                    }
-                }
-                Kind::DropDuplicateRows => match keep {
-                    Keep::First => {
-                        if first && output.rows.saturating_add(selected.values.len()) < limit {
-                            selected.push(row)?;
-                        }
-                        // Later rows cannot change the first selected occurrence.
-                        complete = output.rows.saturating_add(selected.values.len()) >= limit;
-                    }
-                    Keep::Last => {
-                        if output.payload.is_some() {
-                            self.keys.entries.values[index].row =
-                                Some(batch.row(&plan.output_indices, row, context)?);
-                        }
-                    }
-                    Keep::AllDuplicates => {
-                        if first && output.payload.is_some() {
-                            self.keys.entries.values[index].row =
-                                Some(batch.row(&plan.output_indices, row, context)?);
-                        } else {
-                            self.keys.entries.values[index].row = None;
-                        }
-                    }
-                },
-                Kind::DuplicateMaskRows if keep == Keep::First => {
-                    mask.push(!first)?;
-                    if output.rows.saturating_add(mask.values.len()) >= limit {
-                        complete = true;
-                    }
-                }
-                Kind::DuplicateMaskRows => {
-                    if self.identities.values.len() < limit {
-                        self.identities.push((self.ordinal, index))?;
-                    }
-                }
-                _ => return Err(failed("row selector kind is not admitted")),
-            }
-            self.ordinal = self
-                .ordinal
-                .checked_add(1)
-                .ok_or_else(|| failed("row ordinal overflow"))?;
+            let key = if let Some((keys, _)) = precomputed.as_mut() {
+                keys.next()
+                    .ok_or_else(|| failed("precomputed unary key iterator exhausted early"))?
+            } else {
+                batch.key(&plan.key_indices, row)?
+            };
+            complete = self.record_observed_row(plan, batch, row, key, context, &mut buffers)?;
             if complete {
                 break;
             }

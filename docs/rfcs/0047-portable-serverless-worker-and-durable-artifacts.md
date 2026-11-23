@@ -4,14 +4,17 @@
 
 ## Status
 
-Proposed and locally verified for Deliveries 1 and 2 (November 21, 2026) under the
+Proposed and locally verified for Deliveries 1 and 2 alongside local policy/projection
+foundations for Deliveries 4 and 5 (November 22, 2026) under the
 [portable serverless execution queue](../architecture/native-serverless-execution-2026-11-08.md) and
 the [phased execution plan](../architecture/phased-execution-plan.md#current-execution). Covers the
 headless Rust worker entrypoint, deterministic job/manifest/evidence schemas, durable prepared
-source validation, isolated attempt cleanup, atomic host commit fencing, and retained-owner
-protection. Deliveries 3–5 (real managed host deployment, live-host cold/warm routing and billed
-resource measurements, and remote selective range access) remain explicitly deferred pending actual
-host access; no HTTP listener, fallback engine, or competitive gate closes here.
+source validation (including canonicalized selective-column `projected_columns` preparation),
+cost-aware routing policy (`PrepareIfReuseJustifies` plus frozen 5-cohort local execution parity),
+isolated attempt cleanup, atomic host commit fencing, and retained-owner protection. Live managed
+host deployment, real billed host usage telemetry, and remote cloud object-store selective range
+access (`live_host_verified=false`, `billed_usage_available=false`) remain explicitly deferred
+pending actual host access; no HTTP listener, fallback engine, or competitive gate closes here.
 
 ## Summary and context
 
@@ -90,11 +93,11 @@ unchanged) is introduced.
      `complete_request_nanos`, plus `fallback_attempted: false`, `external_engine_invoked: false`,
      and `claim_gate_status: "not_claim_grade"`.
 
-## Deferred scope (Deliveries 3–5)
+## Local Delivery 4 & 5 foundations and remaining live-host scope
 
-- **Delivery 3**: Selecting and deploying to one real managed serverless host (`Foundry` batch
-  transforms remain package/transform-first; Compute Modules remain optional without preference).
-- **Delivery 4**: Cold/warm/scale-to-zero routing policy comparisons and host billing attribution on
-  a live deployment.
-- **Delivery 5**: Live remote selective range reader and partition/column preparation over object
-  storage or Foundry datasets beyond host-staged local files.
+- **Local Delivery 4 additions**: `WorkerRoutingPolicy::PrepareIfReuseJustifies { expected_reuse_count, max_source_bytes }` records explicit `direct_source_policy_declined_prep` decisions when declared reuse or byte thresholds do not justify preparation, and `PortableWorkerReport` exposes `live_host_verified: false`, `billed_usage_available: false`, and `routing_uncertainty_note`.
+- **Local Delivery 5 additions**: `WorkerInputSpec::prepare_columns` and `DurablePreparedSourceIdentity::projected_columns` hash canonicalized column projections into the durable artifact key so narrow `.vortex` preparations stay isolated from wider queries.
+- **Still deferred pending live host access**:
+  - **Delivery 3**: Selecting and deploying to one real managed serverless host (`Foundry` batch transforms remain package/transform-first; Compute Modules remain optional without preference).
+  - **Delivery 4 (live host)**: Cold/warm/scale-to-zero routing policy comparisons and host billing attribution on a live deployment.
+  - **Delivery 5 (remote storage)**: Live remote selective range reader and partition/column preparation over object storage or Foundry datasets beyond host-staged local files.

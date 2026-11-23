@@ -1253,7 +1253,7 @@ fn apply_command_capability_snapshot_fields(
             .capability_snapshot
             .fields
             .iter()
-            .any(|(existing_key, _)| existing_key == &key)
+            .any(|existing| existing.key == key)
         {
             continue;
         }
@@ -1536,9 +1536,9 @@ mod tests {
         assert_eq!(envelope.certificates[0].status, "available");
         assert_eq!(
             envelope.fields,
-            vec![(
-                "execution_certificate_ref".to_string(),
-                "cert.execution.local".to_string()
+            vec![shardloom_core::OutputKeyValueField::new(
+                "execution_certificate_ref",
+                "cert.execution.local",
             )]
         );
     }
@@ -1752,13 +1752,9 @@ mod tests {
         assert!(
             envelope.artifacts[0]
                 .payload
-                .fields
-                .contains(&("artifact_count".to_string(), "6".to_string()))
+                .contains_pair("artifact_count", "6")
         );
-        assert!(envelope.fields.contains(&(
-            "fallback_execution_allowed".to_string(),
-            "false".to_string()
-        )));
+        assert!(envelope.contains_pair("fallback_execution_allowed", "false"));
     }
 
     #[test]
@@ -1790,10 +1786,11 @@ mod tests {
             "benchmark_claim_evidence_report"
         );
         assert_eq!(envelope.artifacts[0].status, "evidence_missing");
-        assert!(envelope.artifacts[0].payload.fields.contains(&(
-            "measured_benchmark_result_rows_present".to_string(),
-            "false".to_string()
-        )));
+        assert!(
+            envelope.artifacts[0]
+                .payload
+                .contains_pair("measured_benchmark_result_rows_present", "false")
+        );
     }
 
     #[test]
@@ -1814,15 +1811,15 @@ mod tests {
             "traditional-analytics-run.execution_mode_selection_report"
         );
         assert_eq!(artifact.status, "available");
-        assert!(artifact.payload.fields.contains(&(
-            "selected_execution_mode".to_string(),
-            "compatibility_import_certified".to_string()
-        )));
         assert!(
             artifact
                 .payload
-                .fields
-                .contains(&("fallback_attempted".to_string(), "false".to_string()))
+                .contains_pair("selected_execution_mode", "compatibility_import_certified")
+        );
+        assert!(
+            artifact
+                .payload
+                .contains_pair("fallback_attempted", "false")
         );
         let compute_flow = envelope
             .artifacts
@@ -1834,19 +1831,19 @@ mod tests {
             "traditional-analytics-run.compute_flow_evidence"
         );
         assert_eq!(compute_flow.status, "not_claim_grade");
-        assert!(compute_flow.payload.fields.contains(&(
-            "fact_vortex_path".to_string(),
-            "evidence_incomplete".to_string()
-        )));
-        assert!(compute_flow.payload.fields.contains(&(
-            "prepared_state_reuse_scope".to_string(),
-            "prepared_state_created_not_reused".to_string()
-        )));
         assert!(
             compute_flow
                 .payload
-                .fields
-                .contains(&("prepared_state_reuse_hit".to_string(), "false".to_string()))
+                .contains_pair("fact_vortex_path", "evidence_incomplete")
+        );
+        assert!(compute_flow.payload.contains_pair(
+            "prepared_state_reuse_scope",
+            "prepared_state_created_not_reused"
+        ));
+        assert!(
+            compute_flow
+                .payload
+                .contains_pair("prepared_state_reuse_hit", "false")
         );
     }
 
@@ -2017,19 +2014,18 @@ mod tests {
             artifact.artifact_id == "native-io.local.fixture"
                 && artifact.artifact_kind == "native_io_certificate"
                 && artifact.status == "certified"
-                && artifact.payload.fields.contains(&(
-                    "local_primitive_native_io_source_kind".to_string(),
-                    "vortex_file".to_string(),
-                ))
+                && artifact
+                    .payload
+                    .contains_pair("local_primitive_native_io_source_kind", "vortex_file")
         }));
         assert!(envelope.artifacts.iter().any(|artifact| {
             artifact.artifact_id == "execution.local.fixture"
                 && artifact.artifact_kind == "execution_certificate"
                 && artifact.status == "certified"
-                && artifact.payload.fields.contains(&(
-                    "local_primitive_execution_certificate_fixture_id".to_string(),
-                    "vortex-local-count-where-struct-five".to_string(),
-                ))
+                && artifact.payload.contains_pair(
+                    "local_primitive_execution_certificate_fixture_id",
+                    "vortex-local-count-where-struct-five",
+                )
         }));
     }
 
@@ -2041,37 +2037,35 @@ mod tests {
             artifact.artifact_id == "vortex-run.source_report"
                 && artifact.artifact_kind == "source_report"
                 && artifact.status == "certified"
-                && artifact.payload.fields.contains(&(
-                    "local_primitive_native_io_adapter_id".to_string(),
-                    "vortex-local".to_string(),
-                ))
+                && artifact
+                    .payload
+                    .contains_pair("local_primitive_native_io_adapter_id", "vortex-local")
         }));
         assert!(envelope.artifacts.iter().any(|artifact| {
             artifact.artifact_id == "vortex-run.source_pushdown_report"
                 && artifact.artifact_kind == "source_pushdown_report"
                 && artifact.status == "certified"
-                && artifact.payload.fields.contains(&(
-                    "local_primitive_native_io_pushdown_guarantee".to_string(),
-                    "metadata_only".to_string(),
-                ))
+                && artifact.payload.contains_pair(
+                    "local_primitive_native_io_pushdown_guarantee",
+                    "metadata_only",
+                )
         }));
         assert!(envelope.artifacts.iter().any(|artifact| {
             artifact.artifact_id == "vortex-run.sink_report"
                 && artifact.artifact_kind == "sink_report"
                 && artifact.status == "certified"
-                && artifact.payload.fields.contains(&(
-                    "local_primitive_native_io_sink_target_format".to_string(),
-                    "vortex".to_string(),
-                ))
+                && artifact
+                    .payload
+                    .contains_pair("local_primitive_native_io_sink_target_format", "vortex")
         }));
         assert!(envelope.artifacts.iter().any(|artifact| {
             artifact.artifact_id == "vortex-run.adapter_fidelity_report"
                 && artifact.artifact_kind == "adapter_fidelity_report"
                 && artifact.status == "certified"
-                && artifact.payload.fields.contains(&(
-                    "local_primitive_native_io_adapter_materialization_required".to_string(),
-                    "false".to_string(),
-                ))
+                && artifact.payload.contains_pair(
+                    "local_primitive_native_io_adapter_materialization_required",
+                    "false",
+                )
         }));
     }
 
@@ -2098,9 +2092,9 @@ mod tests {
         );
         assert_eq!(
             envelope.lifecycle.fields,
-            vec![(
-                "execution_certificate_status".to_string(),
-                "evidence_unavailable".to_string()
+            vec![shardloom_core::OutputKeyValueField::new(
+                "execution_certificate_status",
+                "evidence_unavailable",
             )]
         );
     }
@@ -2140,10 +2134,11 @@ mod tests {
             "streaming_batch_runtime_report"
         );
         assert_eq!(envelope.artifacts[0].status, "executed");
-        assert!(envelope.artifacts[0].payload.fields.contains(&(
-            "streaming_batch_runtime_zero_decode".to_string(),
-            "preserved".to_string()
-        )));
+        assert!(
+            envelope.artifacts[0]
+                .payload
+                .contains_pair("streaming_batch_runtime_zero_decode", "preserved")
+        );
     }
 
     #[test]
@@ -2178,10 +2173,11 @@ mod tests {
             "materialization_boundary_report"
         );
         assert_eq!(envelope.artifacts[0].status, "requires_materialization");
-        assert!(envelope.artifacts[0].payload.fields.contains(&(
-            "materialization_boundary".to_string(),
-            "full_materialization_boundary".to_string()
-        )));
+        assert!(
+            envelope.artifacts[0]
+                .payload
+                .contains_pair("materialization_boundary", "full_materialization_boundary")
+        );
     }
 
     #[test]
@@ -2211,8 +2207,7 @@ mod tests {
         assert!(
             envelope.artifacts[0]
                 .payload
-                .fields
-                .contains(&("source_kind".to_string(), "parquet".to_string()))
+                .contains_pair("source_kind", "parquet")
         );
     }
 
@@ -2237,23 +2232,116 @@ mod tests {
         assert!(
             envelope
                 .capability_snapshot
-                .fields
-                .contains(&("adapter_count".to_string(), "32".to_string()))
+                .contains_pair("adapter_count", "32")
         );
         assert!(
             envelope
                 .capability_snapshot
-                .fields
-                .contains(&("native_vortex_status".to_string(), "planned".to_string()))
+                .contains_pair("native_vortex_status", "planned")
         );
         assert_eq!(
             envelope
                 .capability_snapshot
                 .fields
                 .iter()
-                .filter(|(key, _)| key == "supported_adapter_count")
+                .filter(|entry| entry.key == "supported_adapter_count")
                 .count(),
             1
         );
+    }
+
+    fn assert_json_round_trip<T>(value: &T)
+    where
+        T: serde::Serialize + serde::de::DeserializeOwned + PartialEq + std::fmt::Debug,
+    {
+        let encoded = serde_json::to_string(value).expect("serialize typed evidence");
+        let decoded: T = serde_json::from_str(&encoded).expect("deserialize typed evidence");
+        assert_eq!(&decoded, value);
+    }
+
+    #[test]
+    fn typed_evidence_structs_round_trip_through_serde_json() {
+        use shardloom_core::{
+            CrateVersionEntry, ExecutionResources, OutputKeyValueField, SchemaMetadataEntry,
+            ShardLoomExecutionMode, ShardLoomExecutionModeSelectionReport,
+            ShardLoomExecutionModeSelectionRequest, WorkspaceSafeLocalWriteEvidence,
+        };
+        use shardloom_exec::ShardLoomExecutionInlineArtifact;
+
+        assert_json_round_trip(&OutputKeyValueField::new("k", "v"));
+        assert_json_round_trip(&CrateVersionEntry::new("shardloom-core", "1.1.0"));
+        assert_json_round_trip(&SchemaMetadataEntry::new("default", "0"));
+
+        let selection = ShardLoomExecutionModeSelectionReport::from_request(
+            ShardLoomExecutionModeSelectionRequest::new(ShardLoomExecutionMode::PreparedVortex),
+        );
+        let sel_ev = selection.typed_evidence();
+        assert_eq!(sel_ev.to_fields(), selection.fields());
+        assert_json_round_trip(&sel_ev);
+
+        let mut req = shardloom_core::ExecutionResourceRequest::new(
+            shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+        );
+        req.memory_gb = Some(4);
+        req.max_parallelism = Some(2);
+        let res = ExecutionResources::resolve(req, None, None).unwrap();
+        let res_ev = res.typed_evidence();
+        assert_eq!(res_ev.to_fields(), res.evidence_fields());
+        assert_json_round_trip(&res_ev);
+
+        assert_json_round_trip(
+            &ShardLoomExecutionInlineArtifact::new("a", "k", "s").with_field("x", "y"),
+        );
+        assert_json_round_trip(&WorkspaceSafeLocalWriteEvidence {
+            workspace_path_safety_status: "enforced".into(),
+            workspace_path_safety_schema_version: "v1".into(),
+            workspace_root: "/tmp".into(),
+            canonical_workspace_root: "/tmp".into(),
+            requested_output_path: "/tmp/out.vortex".into(),
+            canonical_output_path: "/tmp/out.vortex".into(),
+            within_workspace: "true".into(),
+            path_traversal_checked: "true".into(),
+            symlink_followed: "false".into(),
+            symlink_policy: "deny".into(),
+            hardlink_policy: "deny".into(),
+            hardlink_count: "1".into(),
+            overwrite_allowed: "false".into(),
+            overwrite_performed: "false".into(),
+            target_existed_before: "false".into(),
+            staging_path: "/tmp/.staging".into(),
+            commit_mode: "atomic".into(),
+            commit_status: "committed".into(),
+            cleanup_status: "clean".into(),
+            rollback_status: "none".into(),
+            bytes_written: "12".into(),
+            output_digest: "sha256:00".into(),
+            fallback_attempted: "false".into(),
+            external_engine_invoked: "false".into(),
+        });
+
+        let pw_report = shardloom_exec::plan_pulseweave(
+            shardloom_exec::PulseWeaveInput::new(
+                "vortex-run",
+                "local",
+                "w1",
+                vec![
+                    shardloom_exec::PulseWeaveTaskShape::new(
+                        "t1",
+                        "scan",
+                        shardloom_exec::OperatorMemoryClass::Scan,
+                        1024,
+                    )
+                    .unwrap(),
+                ],
+                1 << 20,
+                2,
+                1024,
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let pw_ev = pw_report.typed_evidence();
+        assert_eq!(pw_ev.to_fields(), pw_report.fields());
+        assert_json_round_trip(&pw_ev);
     }
 }

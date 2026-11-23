@@ -428,6 +428,60 @@ fn controlled_preparation_binding_and_identity_refuse_before_source_access() {
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 
+#[test]
+fn preparation_identity_reuses_explicit_and_thread_local_runtime() {
+    let dir = std::env::temp_dir().join(format!(
+        "shardloom-prep-identity-reuse-{}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir(&dir).unwrap();
+    let source = dir.join("source.csv");
+    std::fs::write(&source, "a\n1\n").unwrap();
+    let binding = local_preparation_binding(&source, "csv", "metadata_only").unwrap();
+    let target = dir.join("prepared.vortex");
+    {
+        use vortex::{
+            VortexSessionDefault as _,
+            array::{IntoArray as _, arrays::PrimitiveArray, validity::Validity},
+            file::WriteOptionsSessionExt as _,
+            io::{runtime::BlockingRuntime as _, session::RuntimeSessionExt as _},
+            layout::layouts::flat::writer::FlatLayoutStrategy,
+            session::VortexSession,
+        };
+        let rt = vortex::io::runtime::current::CurrentThreadRuntime::new();
+        let session = VortexSession::default().with_handle(rt.handle());
+        let mut file = std::fs::File::create(&target).unwrap();
+        let array = vortex::array::arrays::StructArray::try_new(
+            ["a"].into(),
+            vec![PrimitiveArray::from_iter([1_i64]).into_array()],
+            1,
+            Validity::NonNullable,
+        )
+        .unwrap()
+        .into_array();
+        let mut writer = session
+            .write_options()
+            .with_strategy(std::sync::Arc::new(FlatLayoutStrategy::default()))
+            .with_metadata_segment(KEY, binding.as_bytes().to_vec())
+            .blocking(&rt)
+            .writer(&mut file, array.dtype().clone());
+        writer.push(array).unwrap();
+        writer.finish().unwrap();
+    }
+    let memory = shardloom_exec::live_memory::LiveMemoryPool::new(1 << 20).unwrap();
+    let token = CancellationToken::default();
+    let rt = vortex::io::runtime::current::CurrentThreadRuntime::new();
+    let a = local_preparation_identity_controlled(&target, &binding, &memory, &token).unwrap();
+    let b =
+        local_preparation_identity_with_runtime(&target, &binding, &memory, &token, &rt).unwrap();
+    assert_eq!(a.row_count, 1);
+    assert_eq!(a.prepared_digest, b.prepared_digest);
+    drop((a, b));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// Resolve the same public identity after creation and on subsequent reuse.
 /// Only the footer and bounded source-binding metadata are read.
 /// # Errors
@@ -440,7 +494,8 @@ pub fn local_preparation_identity(
     local_preparation_identity_controlled(path, expected, memory, &CancellationToken::default())
 }
 
-/// Read bounded preparation metadata using the operation's cancellation owner.
+/// Read bounded preparation metadata using the operation's cancellation owner
+/// and a thread-local Vortex runtime reused across repeated identity checks.
 /// # Errors
 /// Rejects cancellation, changed generations, missing bindings and invalid Vortex files.
 pub fn local_preparation_identity_controlled(
@@ -448,6 +503,25 @@ pub fn local_preparation_identity_controlled(
     expected: &str,
     memory: &shardloom_exec::live_memory::LiveMemoryPool,
     cancellation: &CancellationToken,
+) -> Result<LocalPreparationIdentity> {
+    thread_local! {
+        static METADATA_RUNTIME: vortex::io::runtime::current::CurrentThreadRuntime =
+            vortex::io::runtime::current::CurrentThreadRuntime::new();
+    }
+    METADATA_RUNTIME.with(|runtime| {
+        local_preparation_identity_with_runtime(path, expected, memory, cancellation, runtime)
+    })
+}
+
+/// Read bounded preparation metadata using an explicit shared Vortex runtime.
+/// # Errors
+/// Rejects cancellation, changed generations, missing bindings and invalid Vortex files.
+pub fn local_preparation_identity_with_runtime(
+    path: &Path,
+    expected: &str,
+    memory: &shardloom_exec::live_memory::LiveMemoryPool,
+    cancellation: &CancellationToken,
+    runtime: &vortex::io::runtime::current::CurrentThreadRuntime,
 ) -> Result<LocalPreparationIdentity> {
     use vortex::{
         VortexSessionDefault as _,
@@ -468,7 +542,6 @@ pub fn local_preparation_identity_controlled(
     )?;
     validate_in_pool(expected, cancellation, memory)?;
     let identity = SourceIdentity::capture(path)?;
-    let runtime = vortex::io::runtime::current::CurrentThreadRuntime::new();
     let session = vortex::session::VortexSession::default()
         .with_handle(runtime.handle())
         .with_host_allocator(std::sync::Arc::new(

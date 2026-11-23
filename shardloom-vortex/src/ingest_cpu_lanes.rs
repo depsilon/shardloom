@@ -6,9 +6,12 @@
 
 #[cfg(any(test, feature = "vortex-write"))]
 use shardloom_core::{Result, ShardLoomError};
+#[cfg_attr(not(feature = "vortex-write"), allow(unused_imports))]
+use shardloom_exec::live_memory::LiveMemoryPool;
 
 /// Measured policy inputs, not independent grants. Unused lanes go to the native
 /// writer runtime, which also retains the caller as its mandatory progress lane.
+#[cfg_attr(not(feature = "universal-format-io"), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IngestCpuDemand {
     pub(crate) source_workers: usize,
@@ -16,6 +19,7 @@ pub(crate) struct IngestCpuDemand {
     pub(crate) prefetch_slots: usize,
 }
 
+#[cfg_attr(not(feature = "universal-format-io"), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IngestCpuLanes {
     requested: usize,
@@ -40,7 +44,10 @@ pub(crate) struct IngestCpuActivity {
 
 // A compatibility-reader-only build uses the source grant; remaining accessors
 // are consumed when the optional native writer is enabled.
-#[cfg_attr(not(feature = "vortex-write"), allow(dead_code))]
+#[cfg_attr(
+    not(all(feature = "vortex-write", feature = "universal-format-io")),
+    allow(dead_code)
+)]
 impl IngestCpuLanes {
     pub(crate) const CALLER_LANES: usize = 1;
 
@@ -64,15 +71,25 @@ impl IngestCpuLanes {
         Ok(Self::partition(requested, source_task_capacity, demand))
     }
 
-    /// Initial measured-candidate recipe. Source work has one ordered producer,
-    /// conversion has one worker when there is room, and the native writer gets
-    /// the remaining grant. This is a policy choice, not a claim of optimality.
+    /// Balanced pipeline lane allocation. Source workers scale with both the
+    /// CPU grant and `source_task_capacity` while preserving caller/conversion
+    /// progress lanes and remaining provider drivers.
     #[cfg(any(test, not(feature = "vortex-write")))]
     pub(crate) fn pipeline(requested: usize, source_task_capacity: usize) -> Self {
+        let requested = requested.max(1);
+        let source_workers = if source_task_capacity == 0 || requested <= 1 {
+            0
+        } else if requested == 2 {
+            1
+        } else {
+            (requested / 2)
+                .min(requested.saturating_sub(2).max(1))
+                .min(source_task_capacity)
+        };
         Self::partition(
-            requested.max(1),
+            requested,
             source_task_capacity,
-            Self::pipeline_demand(requested, 1),
+            Self::pipeline_demand(requested, source_workers),
         )
     }
 
@@ -250,10 +267,49 @@ impl IngestCpuLanes {
 }
 
 #[cfg(any(test, feature = "vortex-write"))]
+#[cfg_attr(not(feature = "universal-format-io"), allow(dead_code))]
 fn lane_error(reason: &str) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
         "ingest CPU lane admission: {reason}; no fallback execution was attempted"
     ))
+}
+
+/// Govern per-column writer compression and stats concurrency against the shared
+/// `LiveMemoryPool` headroom so high memory pressure throttles down safely.
+#[cfg_attr(not(feature = "vortex-write"), allow(dead_code))]
+pub(crate) fn governed_writer_concurrency(
+    requested: usize,
+    memory: Option<&LiveMemoryPool>,
+) -> usize {
+    let requested = requested.max(1);
+    let Some(pool) = memory else {
+        return requested;
+    };
+    let snapshot = pool.snapshot();
+    if snapshot.limit_bytes == 0 {
+        return 1;
+    }
+    let headroom = snapshot.limit_bytes.saturating_sub(snapshot.reserved_bytes);
+    if headroom < snapshot.limit_bytes / 4 {
+        1
+    } else if headroom < snapshot.limit_bytes / 2 {
+        (requested / 2).max(1)
+    } else {
+        requested
+    }
+}
+
+/// Govern concurrent child `write_stream` chunks in [`BoundedIngestLayout`] under
+/// the same [`LiveMemoryPool`] headroom controller (capped at 4 in-flight chunks).
+#[cfg_attr(
+    not(all(feature = "vortex-write", feature = "universal-format-io")),
+    allow(dead_code)
+)]
+pub(crate) fn governed_layout_in_flight(
+    requested: usize,
+    memory: Option<&LiveMemoryPool>,
+) -> usize {
+    governed_writer_concurrency(requested, memory).min(4)
 }
 
 #[cfg(test)]

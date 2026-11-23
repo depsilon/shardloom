@@ -772,6 +772,18 @@ def _atomic_copy_file(src: Path, dst: Path) -> None:
         tmp_path.unlink(missing_ok=True)
 
 
+def _next_part_index(existing_names: Iterable[str], ext: str) -> int:
+    max_idx = -1
+    for name in existing_names:
+        base = Path(name).name
+        stem = base[: -len(ext)] if base.endswith(ext) else Path(base).stem
+        if stem.startswith("part-"):
+            suffix = stem[5:]
+            if suffix.isdigit():
+                max_idx = max(max_idx, int(suffix))
+    return max_idx + 1
+
+
 def _write_staged_to_destination_path(
     staged_file: Path,
     dest_path: Path,
@@ -785,7 +797,7 @@ def _write_staged_to_destination_path(
     dest_path.mkdir(parents=True, exist_ok=True)
     existing_parts = sorted(dest_path.glob(f"part-*{ext}"))
     if write_mode == "append":
-        next_idx = len(existing_parts)
+        next_idx = _next_part_index((p.name for p in existing_parts), ext)
         _atomic_copy_file(staged_file, dest_path / f"part-{next_idx:05d}{ext}")
         return
     target = dest_path / f"part-00000{ext}"
@@ -941,7 +953,14 @@ def publish_foundry_output(
                         )
                 elif hasattr(handle, "filesystem") and callable(handle.filesystem):
                     fs = handle.filesystem()
-                    target_name = spec.target_filename or "part-00000.vortex"
+                    if spec.target_filename is not None:
+                        target_name = spec.target_filename
+                    elif spec.write_mode == "append" and hasattr(fs, "ls") and callable(fs.ls):
+                        existing = _list_filesystem_files(fs, "current")
+                        next_idx = _next_part_index(existing, ".vortex")
+                        target_name = f"part-{next_idx:05d}.vortex"
+                    else:
+                        target_name = "part-00000.vortex"
                     with fs.open(target_name, "wb") as out_fh, staged_file.open("rb") as in_fh:
                         shutil.copyfileobj(in_fh, out_fh)
                 else:
@@ -1260,10 +1279,15 @@ def _check_exact_int_value(col: str, val: object) -> int | None:
             )
         return val
     if isinstance(val, float):
-        if not math.isfinite(val) or not val.is_integer() or abs(val) > _EXACT_SAFE_INT_LIMIT:
+        if not math.isfinite(val) or not val.is_integer():
             raise FoundryBoundaryError(
                 "SL_INCREMENTAL_UNSUPPORTED_TYPE",
-                f"floating-point or out-of-range sum value in column {col!r} prohibits direct delta maintenance",
+                f"floating-point sum value in column {col!r} prohibits direct delta maintenance",
+            )
+        if abs(val) > _EXACT_SAFE_INT_LIMIT:
+            raise FoundryBoundaryError(
+                "SL_INCREMENTAL_PRECISION_BOUND",
+                f"integer sum column {col!r} exceeded exact 2^53 boundary during SQL evaluation",
             )
         return int(val)
     raise FoundryBoundaryError(
@@ -1415,6 +1439,8 @@ def execute_incremental_aggregate_transform(
     transport: str = "native",
     route: str = FoundryRoute.SINGLE_NODE_NATIVE_TRANSFORM,
     execution_host: str = "local_foundry_adapter_fixture",
+    binary: str | os.PathLike[str] | None = None,
+    repo_root: str | os.PathLike[str] | None = None,
     check: bool = True,
 ) -> FoundryTransformReport:
     """Execute snapshot, append, or retraction incremental maintenance via ShardLoom."""
@@ -1520,6 +1546,8 @@ def execute_incremental_aggregate_transform(
         io_start = time.monotonic_ns()
         with open_shardloom_context(
             transport=transport,
+            binary=binary,
+            repo_root=repo_root,
             resources=resources.execution_resources,
         ) as ctx:
             selected_spec = current_input if use_full_recompute else added_input

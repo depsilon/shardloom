@@ -7,7 +7,7 @@
 use super::super::{
     EmbeddedDerivedColumnKind, EmbeddedDerivedColumnMode, EmbeddedDerivedColumnSpec,
     FlatLocalColumnarStreamSource, append_embedded_derived_columns_to_batch,
-    owned_batch::OwnedBatch, visit_embedded_derived_columns,
+    owned_batch::OwnedBatch, visit_embedded_derived_columns_with_profile,
 };
 use arrow_array::{
     Array, ArrayRef, LargeStringArray, RecordBatch, StringArray, StringViewArray,
@@ -25,7 +25,12 @@ pub(super) fn reserve_metadata(
 ) -> Result<Option<MemoryLease>> {
     let schema = source.reader.schema();
     let mut count = 0_u64;
-    visit_embedded_derived_columns(&schema, mode, |_, _, _| count += 1);
+    visit_embedded_derived_columns_with_profile(
+        &schema,
+        source.first_batch_profile.as_ref(),
+        mode,
+        |_, _, _| count += 1,
+    );
     if count == 0 {
         // The source-native mode still appends an availability diagnostic. Its
         // replacement string remains owned by the source metadata facade.

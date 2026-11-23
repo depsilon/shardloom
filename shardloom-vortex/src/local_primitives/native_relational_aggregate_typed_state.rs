@@ -2,6 +2,7 @@
 //! Binding fixes numeric type and policy; only retained state is specialized.
 //! Unknown or changed domains keep the ordinary ordered reducer's contract.
 
+use super::super::super::CompactI128;
 use super::super::{
     Cell, Function, GroupOrdinals, Measure, NativeExecutionContext, NumericAggregateSum, Spec,
     State, Value, failed, numeric_reuse,
@@ -73,8 +74,7 @@ struct Slot {
 #[derive(Clone, Copy, Default)]
 struct Integer {
     count: u64,
-    sum: f64,
-    correction: f64,
+    sum: CompactI128,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -352,10 +352,7 @@ impl Table {
                 let value = self.integers[position];
                 state.count = value.count;
                 if value.count != 0 {
-                    state.sum = NumericAggregateSum::Integer {
-                        sum: value.sum,
-                        correction: value.correction,
-                    };
+                    state.sum = NumericAggregateSum::ExactInteger(value.sum);
                 }
             }
             Kind::StrictFloat => {
@@ -549,9 +546,12 @@ impl Table {
             Function::Sum => {
                 Value::Float(state.specials.result().unwrap_or_else(|| state.sum.total()))
             }
-            Function::Avg => Value::Float(state.specials.result().unwrap_or_else(|| {
-                crate::local_primitives::simple_average_value(state.sum.total(), state.count)
-            })),
+            Function::Avg => Value::Float(
+                state
+                    .specials
+                    .result()
+                    .unwrap_or_else(|| state.sum.average(state.count)),
+            ),
             Function::Min | Function::Max => match state.extreme {
                 Some(Cell::NegativeInteger(value)) => Value::Int(value),
                 Some(Cell::NonnegativeInteger(value))

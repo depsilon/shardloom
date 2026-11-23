@@ -182,7 +182,7 @@ pub use execution_certificate::{
 };
 pub use execution_resources::{
     BYTES_PER_GIB, ExecutionResourceLimits, ExecutionResourceOrigin, ExecutionResourceRequest,
-    ExecutionResources,
+    ExecutionResources, ExecutionResourcesEvidence,
 };
 pub use extension::{
     DeterministicEmbeddingVectorFixtureReport, DeterministicScalarUdfFixtureReport,
@@ -202,8 +202,8 @@ pub use extension::{
 };
 
 pub use feature_footprint::{
-    ExternalBaselineAvailability, FeatureFootprintGate, FeatureFootprintGateStatus,
-    FeatureFootprintReport,
+    CrateVersionEntry, ExternalBaselineAvailability, FeatureFootprintGate,
+    FeatureFootprintGateStatus, FeatureFootprintReport,
 };
 pub use generated_source::{
     GeneratedSourceApiAdmissionMatrix, GeneratedSourceApiAdmissionRow, GeneratedSourceCaseKind,
@@ -303,10 +303,10 @@ pub use operator::{
 };
 
 pub use output::{
-    CliApiJsonProtocolReport, CommandStatus, OutputEnvelope, OutputFormat, OutputTypedArtifact,
-    OutputTypedPayload, OutputTypedRef, PythonWrapperFoundationReport, ShardLoomExecutionMode,
-    ShardLoomExecutionModeFamily, ShardLoomExecutionModeSelectionReport,
-    ShardLoomExecutionModeSelectionRequest,
+    CliApiJsonProtocolReport, CommandStatus, ExecutionModeSelectionEvidence, OutputEnvelope,
+    OutputFormat, OutputKeyValueField, OutputTypedArtifact, OutputTypedPayload, OutputTypedRef,
+    PythonWrapperFoundationReport, ShardLoomExecutionMode, ShardLoomExecutionModeFamily,
+    ShardLoomExecutionModeSelectionReport, ShardLoomExecutionModeSelectionRequest,
 };
 
 pub use release::{
@@ -353,9 +353,9 @@ pub use schema::{
     PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec, PartitionTransform,
     SchemaChange, SchemaChangeKind, SchemaCompatibilityLevel, SchemaCompatibilityReport,
     SchemaDefinition, SchemaEvolutionCompatibilityReport, SchemaEvolutionPolicy,
-    SchemaEvolutionPolicyKind, SchemaField, SchemaId, SchemaVersion, TableCompatibilityPlan,
-    TableCompatibilityReport, TableCompatibilityStatus, TableFeature, TableFeatureKind,
-    TableFeatureStatus, TableFormatKind, evaluate_delete_tombstone_compatibility,
+    SchemaEvolutionPolicyKind, SchemaField, SchemaId, SchemaMetadataEntry, SchemaVersion,
+    TableCompatibilityPlan, TableCompatibilityReport, TableCompatibilityStatus, TableFeature,
+    TableFeatureKind, TableFeatureStatus, TableFormatKind, evaluate_delete_tombstone_compatibility,
     evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
 };
 
@@ -369,11 +369,11 @@ pub use security::{
     SecretRefId, SecurityGovernanceEvidenceArea, SecurityGovernanceEvidenceEntry,
     SecurityGovernanceEvidenceGateReport, SecurityGovernanceEvidenceStatus, SecurityPlan,
     SecurityPolicyStatus, SecurityReport, SensitiveField, WorkspacePathSafetyReport,
-    WorkspaceSafeCommittedArtifact, WorkspaceSafeLocalStagingWriter, WorkspaceSafeLocalWritePlan,
-    WorkspaceSafeLocalWriteReport, infer_local_output_workspace_root,
-    plan_credential_policy_enforcement_gate, plan_sandbox_governance_readiness_gate,
-    plan_security_governance_evidence_gate, plan_workspace_safe_local_output,
-    redact_credential_like_values, write_workspace_safe_bytes,
+    WorkspaceSafeCommittedArtifact, WorkspaceSafeLocalStagingWriter,
+    WorkspaceSafeLocalWriteEvidence, WorkspaceSafeLocalWritePlan, WorkspaceSafeLocalWriteReport,
+    infer_local_output_workspace_root, plan_credential_policy_enforcement_gate,
+    plan_sandbox_governance_readiness_gate, plan_security_governance_evidence_gate,
+    plan_workspace_safe_local_output, redact_credential_like_values, write_workspace_safe_bytes,
     write_workspace_safe_bytes_with_producer, write_workspace_safe_bytes_with_validated_producer,
     write_workspace_safe_bytes_with_validated_producer_receipt,
 };

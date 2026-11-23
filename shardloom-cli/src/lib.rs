@@ -184,7 +184,7 @@ fn handle_python_worker(args: impl Iterator<Item = String>) -> ExitCode {
             Ok(Some(line)) => line,
             Ok(None) => break,
             Err(error) => {
-                execution_session.clear();
+                execution_session.clear_operation_slots();
                 let _ = emit_error(
                     "python-worker",
                     OutputFormat::Json,
@@ -205,7 +205,7 @@ fn handle_python_worker(args: impl Iterator<Item = String>) -> ExitCode {
                 let emission_count_before = cli_output::output_emission_count();
                 let _ = run_with_session(request_args, &mut execution_session);
                 if cli_output::output_emission_count() == emission_count_before {
-                    execution_session.clear();
+                    execution_session.clear_operation_slots();
                     let _ = emit_error(
                         "python-worker",
                         OutputFormat::Json,
@@ -218,7 +218,7 @@ fn handle_python_worker(args: impl Iterator<Item = String>) -> ExitCode {
                 }
             }
             Err(error) => {
-                execution_session.clear();
+                execution_session.clear_operation_slots();
                 let _ = emit_error(
                     "python-worker",
                     OutputFormat::Json,
@@ -1154,7 +1154,7 @@ fn run_with_session_and_context(
     let (args, format) = match parse_output_format(args) {
         Ok(parsed) => parsed,
         Err(message) => {
-            execution_session.clear();
+            execution_session.clear_operation_slots();
             return emit_error(
                 "cli",
                 requested_format,
@@ -1164,12 +1164,12 @@ fn run_with_session_and_context(
         }
     };
     if matches!(args.as_slice(), [flag] if flag == "--version" || flag == "-V") {
-        execution_session.clear();
+        execution_session.clear_operation_slots();
         return handle_version(format);
     }
     let args = normalize_help_aliases(args);
     if args.first().is_none_or(|command| command != "run") {
-        execution_session.clear();
+        execution_session.clear_operation_slots();
     }
     let mut args = args.into_iter();
 

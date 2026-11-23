@@ -7,7 +7,8 @@ use super::{
     VortexLocalPrimitivePhysicalPolicyReport, VortexQueryPrimitiveKind,
     VortexQueryPrimitiveRequest, aggregate_count_workers, aggregate_lowering::AggregateLowering,
     local_primitive_native_io_certificate, local_vortex_path,
-    read_lowered_vortex_simple_aggregate_scan, required_simple_aggregate, simple_aggregate_report,
+    read_lowered_vortex_simple_aggregate_scan_with_pool, required_simple_aggregate,
+    simple_aggregate_report,
 };
 use crate::resident_session::{
     NativeExecutionContext, PreparedVortexSource, ResidentSessionSnapshot, ResidentVortexSession,
@@ -371,12 +372,58 @@ pub fn prepare_aggregate_for_optional_reuse_in_session(
     session: &ResidentVortexSession,
     cancellation: &CancellationToken,
 ) -> Result<Option<PreparedAggregateDisposition>> {
+    prepare_aggregate_for_optional_reuse_with_source_loader(
+        request,
+        policy,
+        session,
+        cancellation,
+        |path| session.prepare_file_with_cancellation(path, cancellation),
+    )
+}
+
+/// Prepare an optional retained aggregate using the caller's native session, a
+/// caller-supplied source loader, and the cancellation/deadline token.
+/// Canonically inadmissible requests return `None` before opening any source.
+///
+/// # Errors
+/// Rejects cancellation, invalid resource grants, mismatched session owners,
+/// unreadable or changed sources, and invalid native lowering.
+pub fn prepare_aggregate_for_optional_reuse_with_source_loader(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &ResidentVortexSession,
+    cancellation: &CancellationToken,
+    open_source: impl FnOnce(&std::path::Path) -> Result<PreparedVortexSource>,
+) -> Result<Option<PreparedAggregateDisposition>> {
     if canonical(request).is_err() {
         return Ok(None);
     }
     validate_policy(policy)?;
     cancellation.check()?;
-    let operation = prepare_candidate_in_session(request, policy, session, cancellation)?;
+    let operation =
+        prepare_candidate_with_source_loader(request, policy, session, cancellation, open_source)?;
+    Ok(Some(PreparedAggregateDisposition::Reusable(operation)))
+}
+
+/// Prepare an optional retained aggregate against an already opened source
+/// without reopening the file. Canonically inadmissible requests return `None`.
+///
+/// # Errors
+/// Rejects cancellation, invalid resource grants, mismatched or changed
+/// sources, and invalid native lowering.
+pub fn prepare_aggregate_for_optional_reuse_from_source(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    source: PreparedVortexSource,
+    cancellation: &CancellationToken,
+) -> Result<Option<PreparedAggregateDisposition>> {
+    if canonical(request).is_err() {
+        return Ok(None);
+    }
+    validate_policy(policy)?;
+    cancellation.check()?;
+    let operation = prepare_aggregate_from_source(request, policy, source)?;
+    cancellation.check()?;
     Ok(Some(PreparedAggregateDisposition::Reusable(operation)))
 }
 
@@ -452,8 +499,20 @@ fn prepare_candidate_in_session(
     session: &ResidentVortexSession,
     cancellation: &CancellationToken,
 ) -> Result<PreparedVortexAggregate> {
+    prepare_candidate_with_source_loader(request, policy, session, cancellation, |path| {
+        session.prepare_file_with_cancellation(path, cancellation)
+    })
+}
+
+fn prepare_candidate_with_source_loader(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &ResidentVortexSession,
+    cancellation: &CancellationToken,
+    open_source: impl FnOnce(&std::path::Path) -> Result<PreparedVortexSource>,
+) -> Result<PreparedVortexAggregate> {
     cancellation.check()?;
-    let (policy, physical_policy) = prepared_policy(request, policy, session)?;
+    let (policy, _) = prepared_policy(request, policy, session)?;
     cancellation.check()?;
     let uri = request
         .source_uri
@@ -461,12 +520,17 @@ fn prepare_candidate_in_session(
         .ok_or_else(|| failed("source URI is required"))?;
     let path = local_vortex_path(uri, request.kind)?
         .ok_or_else(|| failed("requires one local Vortex file"))?;
-    let source = session.prepare_file_with_cancellation(path, cancellation)?;
+    let source = open_source(&path)?;
+    if !source.retained_session().same_owner(session) {
+        return Err(failed(
+            "retained source belongs to a different session owner",
+        ));
+    }
+    source.validate_generation()?;
     cancellation.check()?;
     let prepared = prepare_bound_aggregate(
         request,
         policy,
-        physical_policy,
         session,
         PreparedAggregateSource::File(source),
         None,
@@ -499,11 +563,10 @@ pub(super) fn prepare_aggregate_from_source_with_context(
         Some(policy),
         context,
     )?;
-    let (policy, physical_policy) = prepared_policy(request, policy, &session)?;
+    let (policy, _) = prepared_policy(request, policy, &session)?;
     prepare_bound_aggregate(
         request,
         policy,
-        physical_policy,
         &session,
         PreparedAggregateSource::File(source),
         context,
@@ -551,11 +614,10 @@ pub(crate) fn prepare_memory_aggregate(
     if let Some(context) = context {
         session.validate_execution_context(context)?;
     }
-    let (policy, physical_policy) = prepared_policy(request, policy, &session)?;
+    let (policy, _) = prepared_policy(request, policy, &session)?;
     let mut prepared = prepare_bound_aggregate(
         request,
         policy,
-        physical_policy,
         &session,
         PreparedAggregateSource::File(source),
         context,
@@ -581,11 +643,10 @@ pub(crate) fn prepare_owned_aggregate(
         ));
     }
     let session = source.session();
-    let (policy, physical_policy) = prepared_policy(request, policy, &session)?;
+    let (policy, _) = prepared_policy(request, policy, &session)?;
     prepare_bound_aggregate(
         request,
         policy,
-        physical_policy,
         &session,
         PreparedAggregateSource::Owned(source.clone()),
         None,
@@ -595,7 +656,6 @@ pub(crate) fn prepare_owned_aggregate(
 fn prepare_bound_aggregate(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
-    physical_policy: VortexLocalPrimitivePhysicalPolicyReport,
     session: &ResidentVortexSession,
     source: PreparedAggregateSource,
     context: Option<&NativeExecutionContext<'_>>,
@@ -605,6 +665,8 @@ fn prepare_bound_aggregate(
     if parallelism > policy.resource_envelope.max_parallelism {
         return Err(failed("supplied session exceeds the requested CPU policy"));
     }
+    let (policy, physical_policy) =
+        policy.with_physical_policy_for_request_and_dtype(request, Some(source.dtype()));
     let (policy, physical_policy) = cap_session_cpu(policy, physical_policy, parallelism);
     #[cfg(feature = "vortex-write")]
     if required_simple_aggregate(request)?.spill.is_some() {
@@ -961,6 +1023,12 @@ impl PreparedVortexAggregate {
             .as_ref()
             .ok_or_else(|| failed("prepared source URI is absent"))?;
         let memory = self.worker_pool.then(|| self.session.memory());
+        let shared_pool = if self.worker_pool {
+            self.session
+                .shared_compute_pool(self.policy.resource_envelope.max_parallelism)?
+        } else {
+            None
+        };
         let mut scan =
             |file: &vortex::file::VortexFile,
              session: &vortex::session::VortexSession,
@@ -977,7 +1045,7 @@ impl PreparedVortexAggregate {
                         )
                     }
                 };
-                let result = read_lowered_vortex_simple_aggregate_scan(
+                let result = read_lowered_vortex_simple_aggregate_scan_with_pool(
                     uri,
                     &self.request,
                     self.policy,
@@ -990,6 +1058,7 @@ impl PreparedVortexAggregate {
                     std::time::Instant::now(),
                     output.as_deref_mut(),
                     context.map(NativeExecutionContext::cancellation),
+                    shared_pool.as_ref(),
                 )?;
                 if let (Some(evidence), Some(context)) = (evidence, context)
                     && evidence.scan_invocations() == 0
@@ -1082,12 +1151,18 @@ impl PreparedVortexAggregate {
         mut output: Option<&mut super::aggregate_owned::AggregateOutput>,
         context: Option<&NativeExecutionContext<'_>>,
     ) -> Result<LocalVortexAggregateScan> {
+        let shared_pool = if self.worker_pool {
+            self.session
+                .shared_compute_pool(self.policy.resource_envelope.max_parallelism)?
+        } else {
+            None
+        };
         let mut execute = |context: &NativeExecutionContext<'_>| {
             let (mut scan, drivers) = self.session.with_owned_execution_drivers(
                 context,
                 self.temporary_provider_drivers,
                 || {
-                    read_lowered_vortex_simple_aggregate_scan(
+                    read_lowered_vortex_simple_aggregate_scan_with_pool(
                         source.source_uri(),
                         &self.request,
                         self.policy,
@@ -1100,6 +1175,7 @@ impl PreparedVortexAggregate {
                         std::time::Instant::now(),
                         output.as_deref_mut(),
                         Some(context.cancellation()),
+                        shared_pool.as_ref(),
                     )
                 },
             )?;

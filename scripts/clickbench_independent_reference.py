@@ -133,18 +133,18 @@ def projection_item(item: str, index: int, query_id: int) -> tuple[str, str]:
             else:
                 alias = f"{function}_{'distinct_' if distinct else ''}{column}_{index}"
         if function in ("sum", "avg"):
-            # Preserve per-input F64 conversion and widen before addition.
-            # Every admitted operand in these pinned queries is integral. Sum
-            # those converted values exactly in HUGEINT, then round the total
-            # once to DOUBLE. Ordinary floating AVG itself drifted beyond the
-            # acceptance tolerance on Q4; an oracle must not impose that error.
-            # Overflow is an explicit baseline failure, never a wrapped total.
+            # Align with E2E-FIX-01 exact i128 integer accumulation before final
+            # F64 conversion: avoid lossy DOUBLE pre-rounding on integer operands.
+            # Overflow remains an explicit baseline failure, never wrapped.
             additive = re.fullmatch(r"(\w+) ([+-]) (\d+)", argument)
-            argument = (f"CAST({additive[1]} AS DOUBLE) {additive[2]} {additive[3]}"
-                        if additive else f"CAST({dialect_expression(argument)} AS DOUBLE)")
-            expression = f"CAST(SUM(CAST({argument} AS HUGEINT)) AS DOUBLE)"
+            operand = (
+                f"(CAST({additive[1]} AS HUGEINT) {additive[2]} {additive[3]})"
+                if additive else f"CAST({dialect_expression(argument)} AS HUGEINT)"
+            )
+            count_arg = additive[1] if additive else dialect_expression(argument)
+            expression = f"CAST(SUM({operand}) AS DOUBLE)"
             if function == "avg":
-                expression += f" / COUNT({argument})"
+                expression += f" / COUNT({count_arg})"
         else:
             expression = dialect_expression(expression)
     else:

@@ -39,17 +39,25 @@ pub(super) struct NumericDataStrategy {
 }
 
 impl NumericDataStrategy {
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(super) fn new(
         child: impl LayoutStrategy,
         timings: IngestStageTimings,
         session: &VortexSession,
     ) -> Self {
+        Self::with_concurrency(child, 1, timings, session)
+    }
+
+    pub(super) fn with_concurrency(
+        child: impl LayoutStrategy,
+        concurrency: usize,
+        timings: IngestStageTimings,
+        session: &VortexSession,
+    ) -> Self {
         let other: Arc<dyn LayoutStrategy> = Arc::new(child);
-        // One outstanding compression job per leaf. This does not claim a
-        // global writer task limit: upstream field/zone concurrency still applies.
         let numeric = Arc::new(
             CompressingStrategy::new(Arc::clone(&other), NumericCompressor::new(timings, session))
-                .with_concurrency(1)
+                .with_concurrency(concurrency.max(1))
                 // BtrBlocks computes its required statistics inside the measured
                 // call. Avoid an additional unmeasured Stat::all() pass here;
                 // existing Zoned and file-level statistics remain unchanged.

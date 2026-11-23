@@ -13,7 +13,7 @@ use shardloom_vortex::resident_session::ResidentSessionSnapshot;
 struct ExecutedCount {
     count: u64,
     snapshot: ResidentSessionSnapshot,
-    prepared_now: bool,
+    footer_opened_this_call: bool,
     native_io_certificate: shardloom_core::NativeIoCertificate,
     rows: shardloom_vortex::local_primitives::collect::CollectedCountRows,
 }
@@ -31,20 +31,22 @@ pub(super) fn execute_native_vortex_resident_count(
     let ExecutedCount {
         count,
         snapshot,
-        prepared_now,
+        footer_opened_this_call,
         native_io_certificate,
         rows,
     } = match result {
         Ok(result) => result,
         Err(error) => {
-            execution_session.clear();
+            execution_session.clear_operation_slots();
+            execution_session.evict_prepared_request_inputs(request);
+            execution_session.evict_prepared_binding(binding);
             return native_vortex_materializing_error(format, PublicVortexPrimitive::Count, &error);
         }
     };
     let mut fields = execution_attachment_fields("run", request, plan);
     fields.append(&mut extra_fields);
     fields.extend(binding.evidence_fields());
-    fields.extend(count_fields(count, snapshot, prepared_now));
+    fields.extend(count_fields(count, snapshot, footer_opened_this_call));
     crate::execution_resources::append_query_timing_fields(&mut fields, Some(rows.timing));
     let (jsonl, _json_ownership) = rows.result_jsonl.into_parts();
     let (schema, _schema_ownership) = rows.result_schema_json.into_parts();
@@ -187,18 +189,32 @@ fn execute(
         .count
         .as_ref()
         .is_some_and(|entry| entry.request == *request);
+    let mut footer_opened_this_call = false;
     if prepared_now {
-        execution_session.clear();
+        execution_session.clear_operation_slots();
         let (primitive_request, _, _) =
             native_vortex_bound_request_and_arg(request, PublicVortexPrimitive::Count, binding)?;
         native_vortex_materializing_policy(request)?;
         let session = admission.native_session()?.clone();
-        let operation =
+        let cancellation = admission.cancellation();
+        let operation = if let Some(uri) = primitive_request.source_uri.as_ref()
+            && let Some((source, reused)) =
+                execution_session.get_or_prepare_uri_source(uri, &session, &cancellation)?
+        {
+            footer_opened_this_call = !reused;
+            shardloom_vortex::local_primitives::collect::prepare_count_from_source(
+                &primitive_request,
+                &source,
+                &cancellation,
+            )?
+        } else {
+            footer_opened_this_call = true;
             shardloom_vortex::local_primitives::collect::prepare_count_in_session_controlled(
                 &primitive_request,
                 &session,
-                &admission.cancellation(),
-            )?;
+                &cancellation,
+            )?
+        };
         execution_session.count = Some(PreparedPublicCount {
             request: request.clone(),
             operation,
@@ -220,14 +236,15 @@ fn execute(
     let snapshot = prepared.session.snapshot();
     // Issue evidence only after the retained operation completed both generation
     // checks. Repeated calls still execute against the retained native footer.
-    let native_io_certificate = count_certificate(binding, count, snapshot, prepared_now)?;
+    let native_io_certificate =
+        count_certificate(binding, count, snapshot, footer_opened_this_call)?;
     rows.timing.execution = started
         .elapsed()
         .saturating_sub(rows.timing.result_serialization);
     Ok(ExecutedCount {
         count,
         snapshot,
-        prepared_now,
+        footer_opened_this_call,
         native_io_certificate,
         rows,
     })

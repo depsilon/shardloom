@@ -86,7 +86,7 @@ fn fixture_and_expected() -> (Fixture, VortexRelationalPlan, Vec<Value>, String)
 fn ordered_aggregate_spilled_all_eight_writers_reopen_every_group_and_type() {
     let (fixture, plan, expected, csv) = fixture_and_expected();
     let prepared = prepared_file(&fixture, &plan);
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     for (index, format) in [
         Format::Vortex,
         Format::Parquet,
@@ -128,7 +128,10 @@ fn ordered_aggregate_spilled_all_eight_writers_reopen_every_group_and_type() {
         }
         drop(result);
         assert_eq!(prepared.snapshot().completed_executions, (index + 1) as u64);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert_eq!(fs::read_dir(fixture.0.join("runs")).unwrap().count(), 0);
     }
 }

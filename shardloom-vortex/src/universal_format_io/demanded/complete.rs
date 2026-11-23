@@ -116,13 +116,30 @@ impl LocalColumnarSource {
         if requested_max_parallelism == 0 {
             return Err(failed("max_parallelism must be positive"));
         }
-        let (source, reader) = self.complete_source(max_rows, memory, cancellation, true)?;
+        let (mut source, reader) = self.complete_source(max_rows, memory, cancellation, true)?;
         if self
             .other
             .as_ref()
             .is_some_and(|source| source.format == "parquet")
         {
             parquet::ingest(source, reader, requested_max_parallelism)
+        } else if self
+            .other
+            .as_ref()
+            .is_some_and(|source| source.format == "arrow-ipc")
+            && source.first_batch_profile.is_none()
+        {
+            let mut peeked = PeekedOwnedBatchReader::new(Box::new(reader));
+            if let Some(profile) = peeked.take_profile() {
+                source.first_batch_profile = Some(profile);
+            }
+            Ok(
+                crate::universal_format_io::IngestColumnarStreamSource::from_owned(
+                    source,
+                    Box::new(peeked),
+                    memory,
+                ),
+            )
         } else {
             Ok(
                 crate::universal_format_io::IngestColumnarStreamSource::from_owned(
@@ -236,8 +253,33 @@ impl LocalColumnarSource {
         } else {
             shared_policy
         };
+        source.first_batch_profile = complete_first_batch_profile(format, schema.as_ref());
         source.ingest_executor_kind = "sequential_generation_held_local_dataset".into();
         Ok((source, reader))
+    }
+}
+
+fn complete_first_batch_profile(
+    format: &generic::Source,
+    schema: &arrow_schema::Schema,
+) -> Option<crate::universal_format_io::first_batch_profile::FirstBatchProfile> {
+    if format.format == "parquet" {
+        format
+            .files
+            .first()
+            .and_then(|file| file.parquet.as_ref())
+            .map(|parquet| {
+                crate::universal_format_io::first_batch_profile::FirstBatchProfile::from_parquet_metadata(
+                    schema,
+                    Some(parquet.metadata().as_ref()),
+                )
+            })
+    } else {
+        format
+            .files
+            .first()
+            .and_then(|file| file.text.as_ref())
+            .and_then(|text| text.first_batch_profile().cloned())
     }
 }
 
@@ -315,6 +357,54 @@ impl Iterator for CompleteReader {
                 Some(Err(ArrowError::ExternalError(Box::new(error))))
             }
         }
+    }
+}
+
+struct PeekedOwnedBatchReader {
+    schema: SchemaRef,
+    first: Option<BatchResult>,
+    first_profile: Option<crate::universal_format_io::first_batch_profile::FirstBatchProfile>,
+    inner: Box<dyn OwnedBatchReader + Send>,
+}
+
+impl PeekedOwnedBatchReader {
+    fn new(mut inner: Box<dyn OwnedBatchReader + Send>) -> Self {
+        let schema = inner.schema();
+        let first = inner.next();
+        let first_profile = match &first {
+            Some(Ok(batch)) => Some(
+                crate::universal_format_io::first_batch_profile::FirstBatchProfile::from_record_batch(
+                    batch,
+                ),
+            ),
+            _ => None,
+        };
+        Self {
+            schema,
+            first,
+            first_profile,
+            inner,
+        }
+    }
+
+    fn take_profile(
+        &mut self,
+    ) -> Option<crate::universal_format_io::first_batch_profile::FirstBatchProfile> {
+        self.first_profile.take()
+    }
+}
+
+impl Iterator for PeekedOwnedBatchReader {
+    type Item = BatchResult;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.first.take().or_else(|| self.inner.next())
+    }
+}
+
+impl OwnedBatchReader for PeekedOwnedBatchReader {
+    fn schema(&self) -> SchemaRef {
+        Arc::clone(&self.schema)
     }
 }
 

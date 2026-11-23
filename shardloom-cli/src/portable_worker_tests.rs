@@ -207,6 +207,7 @@ fn portable_worker_parity_across_vortex_parquet_arrow_ipc_json_and_csv() {
                 schema,
                 expected_sha256: None,
                 expected_size_bytes: None,
+                prepare_columns: None,
             }],
             WorkerRoutingPolicy::PrepareAndReuse,
         );
@@ -235,6 +236,7 @@ fn portable_worker_fresh_worker_reuses_durable_vortex_after_producer_disappears(
         schema: None,
         expected_sha256: Some(sha.clone()),
         expected_size_bytes: Some(size),
+        prepare_columns: None,
     };
     let sql = "SELECT grp, SUM(val) AS total FROM orders GROUP BY grp ORDER BY grp";
     let first = default_job(
@@ -288,6 +290,7 @@ fn portable_worker_rejects_stale_corrupted_missing_incompatible_unauthorized_and
             schema: None,
             expected_sha256: Some(sha.clone()),
             expected_size_bytes: Some(size),
+            prepare_columns: None,
         }],
         WorkerRoutingPolicy::RequirePrepared,
     );
@@ -374,6 +377,7 @@ fn portable_worker_rejects_corrupted_or_incompatible_prepared_artifacts() {
         schema: None,
         expected_sha256: Some(sha.clone()),
         expected_size_bytes: Some(size),
+        prepare_columns: None,
     }];
     let prep_job = default_job(
         "req-seed",
@@ -461,6 +465,7 @@ fn portable_worker_atomic_commit_fencing_preserves_first_winner_across_competing
                         schema: None,
                         expected_sha256: None,
                         expected_size_bytes: None,
+                        prepare_columns: None,
                     }],
                     WorkerRoutingPolicy::PrepareAndReuse,
                 );
@@ -525,6 +530,7 @@ fn portable_worker_failures_clean_attempts_and_preserve_committed_manifest() {
         schema: None,
         expected_sha256: None,
         expected_size_bytes: None,
+        prepare_columns: None,
     };
 
     // Commit valid winner first.
@@ -625,6 +631,7 @@ fn durable_store_retained_owner_lease_blocks_reclamation_until_dropped() {
             schema: None,
             expected_sha256: None,
             expected_size_bytes: None,
+            prepare_columns: None,
         }],
         WorkerRoutingPolicy::PrepareAndReuse,
     );
@@ -678,6 +685,7 @@ fn portable_worker_respects_inline_max_bytes_cutoff_and_stage_timings() {
             schema: None,
             expected_sha256: None,
             expected_size_bytes: None,
+            prepare_columns: None,
         }],
         WorkerRoutingPolicy::DirectOnly,
     );
@@ -699,4 +707,425 @@ fn portable_worker_respects_inline_max_bytes_cutoff_and_stage_timings() {
     assert!(report.stage_durations.complete_request_nanos >= sum_stages);
     let on_disk = fs::read(store_root.join(manifest.output_rel_path)).unwrap();
     assert_eq!(parse_jsonl_rows(&on_disk).len(), 4);
+}
+
+fn write_wide_parquet_fixture(path: &Path, row_count: i64) {
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("id", DataType::Int64, false),
+        Field::new("grp", DataType::Utf8, false),
+        Field::new("val", DataType::Int64, false),
+        Field::new("heavy_blob", DataType::Utf8, false),
+    ]));
+    let ids: Vec<i64> = (0..row_count).collect();
+    let grps: Vec<String> = (0..row_count)
+        .map(|i| if i % 2 == 0 { "alpha" } else { "beta" }.to_string())
+        .collect();
+    let vals: Vec<i64> = (0..row_count).map(|i| (i % 7) + 1).collect();
+    let blobs: Vec<String> = (0..row_count)
+        .map(|i| format!("payload-{i}-{}", "x".repeat(128)))
+        .collect();
+    let batch = RecordBatch::try_new(
+        schema,
+        vec![
+            Arc::new(Int64Array::from(ids)),
+            Arc::new(StringArray::from(grps)),
+            Arc::new(Int64Array::from(vals)),
+            Arc::new(StringArray::from(blobs)),
+        ],
+    )
+    .unwrap();
+    let file = fs::File::create(path).unwrap();
+    let mut writer = ParquetArrowWriter::try_new(file, batch.schema(), None).unwrap();
+    writer.write(&batch).unwrap();
+    let _ = writer.close().unwrap();
+}
+
+fn wide_input(
+    path: &Path,
+    sha: &str,
+    size: u64,
+    prepare_columns: Option<Vec<String>>,
+) -> WorkerInputSpec {
+    WorkerInputSpec {
+        reference: "orders".to_string(),
+        path: path.to_path_buf(),
+        format: "parquet".to_string(),
+        schema: None,
+        expected_sha256: Some(sha.to_string()),
+        expected_size_bytes: Some(size),
+        prepare_columns,
+    }
+}
+
+#[test]
+fn portable_worker_selective_column_preparation_shrinks_artifact_and_reuses_canonical_key() {
+    let ws = TempWorkspace::new("selective-prep-shrink");
+    let wide_path = ws.path("wide_orders.parquet");
+    write_wide_parquet_fixture(&wide_path, 64);
+    let (sha, size) = sha256_file(&wide_path).unwrap();
+    let full_store = ws.path("store-full");
+    let narrow_store = ws.path("store-narrow");
+    let agg_sql = "SELECT grp, SUM(val) AS total FROM 'orders' GROUP BY grp ORDER BY grp";
+
+    let full_rep = PortableWorker::execute(
+        &default_job(
+            "req-full",
+            "att-1",
+            &full_store,
+            agg_sql,
+            vec![wide_input(&wide_path, &sha, size, None)],
+            WorkerRoutingPolicy::PrepareAndReuse,
+        ),
+        &CancellationToken::default(),
+    )
+    .unwrap();
+    let full_artifact = full_store
+        .join("prepared")
+        .join(&full_rep.prepared_artifact_ids[0])
+        .join("data.vortex");
+    let full_bytes = fs::metadata(&full_artifact).unwrap().len();
+
+    // Reordered + duplicate columns canonicalize deterministically into one narrow identity.
+    let narrow_rep = PortableWorker::execute(
+        &default_job(
+            "req-narrow-1",
+            "att-1",
+            &narrow_store,
+            agg_sql,
+            vec![wide_input(
+                &wide_path,
+                &sha,
+                size,
+                Some(vec![
+                    "val".to_string(),
+                    "grp".to_string(),
+                    "val".to_string(),
+                ]),
+            )],
+            WorkerRoutingPolicy::PrepareAndReuse,
+        ),
+        &CancellationToken::default(),
+    )
+    .unwrap();
+    assert_eq!(narrow_rep.route_selected, "prepared_and_executed_vortex");
+    assert_eq!(
+        narrow_rep.inline_payload_bytes,
+        full_rep.inline_payload_bytes
+    );
+    let narrow_artifact = narrow_store
+        .join("prepared")
+        .join(&narrow_rep.prepared_artifact_ids[0])
+        .join("data.vortex");
+    let narrow_bytes = fs::metadata(&narrow_artifact).unwrap().len();
+    assert!(
+        narrow_bytes < full_bytes,
+        "expected selective-column artifact ({narrow_bytes} B) < full artifact ({full_bytes} B)"
+    );
+
+    let reuse_rep = PortableWorker::execute(
+        &default_job(
+            "req-narrow-2",
+            "att-1",
+            &narrow_store,
+            agg_sql,
+            vec![wide_input(
+                &wide_path,
+                &sha,
+                size,
+                Some(vec!["grp".to_string(), "val".to_string()]),
+            )],
+            WorkerRoutingPolicy::RequirePrepared,
+        ),
+        &CancellationToken::default(),
+    )
+    .unwrap();
+    assert_eq!(reuse_rep.route_selected, "reused_durable_prepared_vortex");
+    assert_eq!(
+        reuse_rep.prepared_artifact_ids,
+        narrow_rep.prepared_artifact_ids
+    );
+}
+
+#[test]
+fn portable_worker_selective_column_preparation_isolates_omitted_and_invalid_columns() {
+    let ws = TempWorkspace::new("selective-prep-isolate");
+    let wide_path = ws.path("wide_orders.parquet");
+    write_wide_parquet_fixture(&wide_path, 32);
+    let (sha, size) = sha256_file(&wide_path).unwrap();
+    let narrow_store = ws.path("store-narrow");
+    let narrow_cols = Some(vec!["grp".to_string(), "val".to_string()]);
+
+    PortableWorker::execute(
+        &default_job(
+            "req-seed-narrow",
+            "att-1",
+            &narrow_store,
+            "SELECT grp, SUM(val) AS total FROM 'orders' GROUP BY grp",
+            vec![wide_input(&wide_path, &sha, size, narrow_cols.clone())],
+            WorkerRoutingPolicy::PrepareAndReuse,
+        ),
+        &CancellationToken::default(),
+    )
+    .unwrap();
+
+    // Querying column omitted from prepare_columns ("heavy_blob") fails cleanly on RequirePrepared.
+    let missing_col_query = default_job(
+        "req-narrow-missing-col",
+        "att-1",
+        &narrow_store,
+        "SELECT id, heavy_blob FROM 'orders' LIMIT 1",
+        vec![wide_input(&wide_path, &sha, size, narrow_cols.clone())],
+        WorkerRoutingPolicy::RequirePrepared,
+    );
+    assert!(PortableWorker::execute(&missing_col_query, &CancellationToken::default()).is_err());
+
+    // Changing projected columns misses the narrow artifact under RequirePrepared.
+    let widened_req = default_job(
+        "req-wide-miss",
+        "att-1",
+        &narrow_store,
+        "SELECT id, heavy_blob FROM 'orders' LIMIT 1",
+        vec![wide_input(
+            &wide_path,
+            &sha,
+            size,
+            Some(vec!["id".to_string(), "heavy_blob".to_string()]),
+        )],
+        WorkerRoutingPolicy::RequirePrepared,
+    );
+    assert!(
+        PortableWorker::execute(&widened_req, &CancellationToken::default())
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("missing")
+    );
+
+    // Empty or unsafe prepare_columns fails deterministically upfront.
+    for (req_id, cols) in [
+        ("req-empty-proj", vec![]),
+        ("req-unsafe-proj", vec!["bad;col".to_string()]),
+    ] {
+        let mut bad_proj = default_job(
+            req_id,
+            "att-1",
+            &narrow_store,
+            "SELECT * FROM 'orders'",
+            vec![wide_input(&wide_path, &sha, size, Some(cols))],
+            WorkerRoutingPolicy::DirectOnly,
+        );
+        bad_proj.routing_policy = WorkerRoutingPolicy::PrepareAndReuse;
+        assert!(PortableWorker::execute(&bad_proj, &CancellationToken::default()).is_err());
+    }
+}
+
+#[test]
+fn portable_worker_prepare_if_reuse_justifies_declines_low_reuse_or_oversize() {
+    let ws = TempWorkspace::new("cost-aware-decline");
+    let parquet_path = ws.path("orders.parquet");
+    write_parquet_fixture(&parquet_path);
+    let (_, size) = sha256_file(&parquet_path).unwrap();
+    let sql = "SELECT grp, SUM(val) AS total FROM 'orders' GROUP BY grp ORDER BY grp";
+    let declined_store = ws.path("store-declined");
+    let empty: Vec<String> = Vec::new();
+    let input = WorkerInputSpec {
+        reference: "orders".to_string(),
+        path: parquet_path,
+        format: "parquet".to_string(),
+        schema: None,
+        expected_sha256: None,
+        expected_size_bytes: None,
+        prepare_columns: None,
+    };
+
+    let low_reuse = default_job(
+        "req-low-reuse",
+        "att-1",
+        &declined_store,
+        sql,
+        vec![input.clone()],
+        WorkerRoutingPolicy::PrepareIfReuseJustifies {
+            expected_reuse_count: 1,
+            max_source_bytes: 16 << 20,
+        },
+    );
+    let r_low = PortableWorker::execute(&low_reuse, &CancellationToken::default()).unwrap();
+    assert_eq!(r_low.route_selected, "direct_source_policy_declined_prep");
+    assert_eq!(r_low.prepared_artifact_ids, empty);
+    assert!(!r_low.live_host_verified);
+    assert!(!r_low.billed_usage_available);
+    assert!(
+        r_low
+            .routing_uncertainty_note
+            .contains("expected_reuse_count=1")
+    );
+
+    let oversize = default_job(
+        "req-oversize",
+        "att-1",
+        &declined_store,
+        sql,
+        vec![input],
+        WorkerRoutingPolicy::PrepareIfReuseJustifies {
+            expected_reuse_count: 10,
+            max_source_bytes: size.saturating_sub(1),
+        },
+    );
+    let r_over = PortableWorker::execute(&oversize, &CancellationToken::default()).unwrap();
+    assert_eq!(r_over.route_selected, "direct_source_policy_declined_prep");
+    assert_eq!(r_over.prepared_artifact_ids, empty);
+    assert!(!declined_store.join("prepared").exists());
+}
+
+fn write_alt_orders_fixture(path: &Path) {
+    let batch = RecordBatch::try_new(
+        sample_batch().schema(),
+        vec![
+            Arc::new(Int64Array::from(vec![10_i64, 20])),
+            Arc::new(StringArray::from(vec!["alpha", "beta"])),
+            Arc::new(Int64Array::from(vec![100_i64, 200])),
+        ],
+    )
+    .unwrap();
+    let file = fs::File::create(path).unwrap();
+    let mut writer = ParquetArrowWriter::try_new(file, batch.schema(), None).unwrap();
+    writer.write(&batch).unwrap();
+    let _ = writer.close().unwrap();
+}
+
+fn cohort_input(path: &Path) -> WorkerInputSpec {
+    WorkerInputSpec {
+        reference: "orders".to_string(),
+        path: path.to_path_buf(),
+        format: "parquet".to_string(),
+        schema: None,
+        expected_sha256: None,
+        expected_size_bytes: None,
+        prepare_columns: None,
+    }
+}
+
+fn run_concurrent_prepared_cohort(
+    store: &Path,
+    path: &Path,
+    sql: &str,
+) -> Vec<PortableWorkerReport> {
+    std::thread::scope(|scope| {
+        (0..3_usize)
+            .map(|idx| {
+                scope.spawn(move || {
+                    PortableWorker::execute(
+                        &default_job(
+                            &format!("cohort-5-concurrent-{idx}"),
+                            "att-1",
+                            store,
+                            sql,
+                            vec![cohort_input(path)],
+                            WorkerRoutingPolicy::RequirePrepared,
+                        ),
+                        &CancellationToken::default(),
+                    )
+                    .unwrap()
+                })
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .map(|h| h.join().unwrap())
+            .collect()
+    })
+}
+
+#[test]
+fn portable_worker_five_frozen_local_cohorts() {
+    let ws = TempWorkspace::new("five-cohorts");
+    let parquet_path = ws.path("orders.parquet");
+    write_parquet_fixture(&parquet_path);
+    let (_, size) = sha256_file(&parquet_path).unwrap();
+    let sql = "SELECT grp, SUM(val) AS total FROM 'orders' GROUP BY grp ORDER BY grp";
+    let cohort_store = ws.path("store-cohorts");
+    let justified_policy = WorkerRoutingPolicy::PrepareIfReuseJustifies {
+        expected_reuse_count: 4,
+        max_source_bytes: size.saturating_add(1024),
+    };
+
+    let r_cold_direct = PortableWorker::execute(
+        &default_job(
+            "cohort-1-cold-direct",
+            "att-1",
+            &cohort_store,
+            sql,
+            vec![cohort_input(&parquet_path)],
+            WorkerRoutingPolicy::DirectOnly,
+        ),
+        &CancellationToken::default(),
+    )
+    .unwrap();
+    let r_cold_prepare = PortableWorker::execute(
+        &default_job(
+            "cohort-2-cold-prepare",
+            "att-1",
+            &cohort_store,
+            sql,
+            vec![cohort_input(&parquet_path)],
+            justified_policy,
+        ),
+        &CancellationToken::default(),
+    )
+    .unwrap();
+    let r_warm_reuse = PortableWorker::execute(
+        &default_job(
+            "cohort-3-warm-reuse",
+            "att-1",
+            &cohort_store,
+            sql,
+            vec![cohort_input(&parquet_path)],
+            justified_policy,
+        ),
+        &CancellationToken::default(),
+    )
+    .unwrap();
+    assert_eq!(r_cold_direct.route_selected, "direct_source");
+    assert_eq!(
+        r_cold_prepare.route_selected,
+        "prepared_and_executed_vortex"
+    );
+    assert_eq!(
+        r_warm_reuse.route_selected,
+        "reused_durable_prepared_vortex"
+    );
+    assert_eq!(
+        r_warm_reuse.prepared_artifact_ids,
+        r_cold_prepare.prepared_artifact_ids
+    );
+    assert_eq!(
+        r_warm_reuse.inline_payload_bytes,
+        r_cold_direct.inline_payload_bytes
+    );
+
+    let alt_path = ws.path("orders_v2.parquet");
+    write_alt_orders_fixture(&alt_path);
+    let r_invalidated = PortableWorker::execute(
+        &default_job(
+            "cohort-4-invalidation",
+            "att-1",
+            &cohort_store,
+            sql,
+            vec![cohort_input(&alt_path)],
+            WorkerRoutingPolicy::PrepareAndReuse,
+        ),
+        &CancellationToken::default(),
+    )
+    .unwrap();
+    assert_ne!(
+        r_invalidated.prepared_artifact_ids,
+        r_warm_reuse.prepared_artifact_ids
+    );
+
+    for rep in run_concurrent_prepared_cohort(&cohort_store, &parquet_path, sql) {
+        assert_eq!(rep.route_selected, "reused_durable_prepared_vortex");
+        assert_eq!(rep.inline_payload_bytes, r_cold_direct.inline_payload_bytes);
+        assert!(!rep.live_host_verified);
+        assert!(!rep.billed_usage_available);
+        assert_eq!(rep.session_final_reserved_bytes, 0);
+    }
 }

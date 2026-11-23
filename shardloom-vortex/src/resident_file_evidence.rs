@@ -16,7 +16,7 @@ use std::sync::{
 };
 
 #[derive(Default)]
-pub(super) struct ReadWork {
+pub(crate) struct ReadWork {
     segments: AtomicU64,
     requests: AtomicU64,
     bytes: AtomicU64,
@@ -32,11 +32,11 @@ pub(super) struct ReadWork {
 }
 
 impl ReadWork {
-    pub(super) fn segment_requested(&self) -> Result<()> {
+    pub(crate) fn segment_requested(&self) -> Result<()> {
         increment(&self.segments, 1)
     }
 
-    pub(super) fn read_completed(&self, bytes: usize) -> Result<()> {
+    pub(crate) fn read_completed(&self, bytes: usize) -> Result<()> {
         increment(&self.requests, 1)?;
         increment(&self.bytes, bytes as u64)
     }
@@ -235,6 +235,16 @@ impl Evidence {
         }
         contract.source = index;
         self.begin(contract, memory)
+    }
+
+    pub(super) fn source_for_path(
+        &self,
+        path: &std::path::Path,
+    ) -> Option<(Arc<SourceIdentity>, Arc<ReadWork>)> {
+        self.sources
+            .iter()
+            .find(|source| source.identity.path() == path)
+            .map(|source| (Arc::clone(&source.identity), Arc::clone(&source.work)))
     }
 
     /// The operation must drain all reader work before taking this snapshot.

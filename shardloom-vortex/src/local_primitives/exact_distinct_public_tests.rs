@@ -319,15 +319,40 @@ fn exact_distinct_source_shape_preflight_restores_nonadmitted_provider_lanes() {
         Validity::NonNullable,
     )
     .unwrap();
+    let single_core = crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
+        .expect("explicit fixture allocation");
+    let multi_core = crate::VortexLocalPrimitiveResourceEnvelope::new(4, 4)
+        .expect("explicit fixture allocation");
+    assert!(!super::request_schema_may_be_admitted(
+        &query,
+        nullable.dtype(),
+        multi_core,
+    ));
+    // GeneralGroupWorkers declines 1-core policies and admits nullable schemas
+    // on multi-core policies, while non-struct schemas always restore drivers.
     assert!(aggregate_count_workers::restore_provider_drivers(
         &query,
         nullable.dtype(),
-        crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
-            .expect("explicit fixture allocation")
+        single_core,
+    ));
+    assert!(!aggregate_count_workers::restore_provider_drivers(
+        &query,
+        nullable.dtype(),
+        multi_core,
+    ));
+    let non_struct = vortex::array::dtype::DType::Primitive(
+        vortex::array::dtype::PType::U64,
+        vortex::array::dtype::Nullability::NonNullable,
+    );
+    assert!(aggregate_count_workers::restore_provider_drivers(
+        &query,
+        &non_struct,
+        multi_core,
     ));
     let mut unbounded = query.clone();
     unbounded.source_order_limit = None;
-    assert!(!aggregate_count_workers::request_may_be_admitted(
+    assert!(!super::request_may_be_admitted(&unbounded));
+    assert!(aggregate_count_workers::request_may_be_admitted(
         &unbounded,
         crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
             .expect("explicit fixture allocation")

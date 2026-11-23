@@ -145,6 +145,60 @@ pub(super) fn count_numeric_constant<K: NumericCountKey>(
     Ok(OwnedNumericCounts { pairs, rows, lease })
 }
 
+/// Coalesce pre-aggregated weighted `(key, weight)` dictionary entries inside
+/// the worker thread without expanding per-row keys.
+pub(super) fn count_numeric_weighted_pairs<K: NumericCountKey>(
+    weighted: &[(K, u64)],
+    total_rows: u64,
+    context: &ChunkWorkerContext,
+    task_lease: &mut MemoryLease,
+) -> Result<OwnedNumericCounts<K>> {
+    context.check_cancelled()?;
+    let non_zero = weighted.iter().filter(|&&(_, weight)| weight > 0).count();
+    let lease = task_lease.split(partial_bytes::<K>(non_zero)?)?;
+    let mut pairs = reserved_pairs(non_zero)?;
+    let mut seen_rows = 0_u64;
+    for (index, &(key, weight)) in weighted.iter().enumerate() {
+        if index.is_multiple_of(1024) {
+            context.check_cancelled()?;
+        }
+        if weight == 0 {
+            continue;
+        }
+        seen_rows = seen_rows
+            .checked_add(weight)
+            .ok_or_else(|| failed("weighted dictionary row count overflowed u64"))?;
+        pairs.push((key, weight));
+    }
+    if seen_rows != total_rows {
+        return Err(failed(
+            "weighted dictionary weights differed from chunk row count",
+        ));
+    }
+    context.check_cancelled()?;
+    pairs.sort_unstable_by_key(|pair| pair.0);
+    context.check_cancelled()?;
+    let mut groups = 0_usize;
+    for index in 0..pairs.len() {
+        if index.is_multiple_of(1024) {
+            context.check_cancelled()?;
+        }
+        let (key, count) = pairs[index];
+        if groups > 0 && pairs[groups - 1].0 == key {
+            pairs[groups - 1].1 = checked_count(pairs[groups - 1].1, count)?;
+        } else {
+            pairs[groups] = (key, count);
+            groups += 1;
+        }
+    }
+    pairs.truncate(groups);
+    Ok(OwnedNumericCounts {
+        pairs,
+        rows: total_rows,
+        lease,
+    })
+}
+
 /// Complete one balanced pair merge, preserving both inputs on failure.
 /// Production can instead consume weighted `pairs()` into admitted global
 /// typed state. Repeatedly rebuilding a growing global vector is not an admitted

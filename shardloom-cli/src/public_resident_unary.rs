@@ -12,7 +12,8 @@ use crate::command_context::CommandAdmission;
 use shardloom_vortex::{
     VortexLocalPrimitiveExecutionPolicy, VortexQueryPrimitiveRequest,
     local_primitives::prepared_unary::{
-        CollectedVortexUnary, PreparedVortexUnary, prepare_unary_for_optional_reuse_in_session,
+        CollectedVortexUnary, PreparedVortexUnary,
+        prepare_unary_for_optional_reuse_with_source_loader,
     },
 };
 
@@ -26,7 +27,8 @@ pub(super) struct PreparedPublicUnary {
 struct Executed {
     value: CollectedVortexUnary,
     primitive_arg: String,
-    opened: bool,
+    source_opened: bool,
+    operation_reused: bool,
 }
 
 pub(super) fn run(
@@ -39,11 +41,11 @@ pub(super) fn run(
     admission: &CommandAdmission<'_>,
 ) -> ExitCode {
     if let Err(error) = admission.check() {
-        execution_session.clear();
+        execution_session.clear_operation_slots();
         return native_vortex_materializing_error(format, primitive, &error);
     }
     if request.materialization_policy == "zero_decode" {
-        execution_session.clear();
+        execution_session.clear_operation_slots();
         return execute_native_vortex_materializing_primitive_run_with_extra(
             request,
             plan,
@@ -56,7 +58,8 @@ pub(super) fn run(
     let binding = match native_vortex_input_binding_for_request(request, admission) {
         Ok(binding) => binding,
         Err(error) => {
-            execution_session.clear();
+            execution_session.clear_operation_slots();
+            execution_session.evict_prepared_request_inputs(request);
             return native_vortex_materializing_error(format, primitive, &error);
         }
     };
@@ -69,12 +72,18 @@ pub(super) fn run(
             Err(error) => {
                 // Source/resource/operator failure is terminal. Repreparation
                 // requires a later explicit call, never an internal retry.
-                execution_session.clear();
+                execution_session.clear_operation_slots();
+                execution_session.evict_prepared_request_inputs(request);
+                execution_session.evict_prepared_binding(&binding);
                 return native_vortex_materializing_error(format, primitive, &error);
             }
         }
     }
-    execution_session.clear();
+    execution_session.clear_operation_slots();
+    if binding.mode != "single_file" {
+        execution_session.evict_prepared_request_inputs(request);
+        execution_session.evict_prepared_binding(&binding);
+    }
     execute_native_vortex_materializing_primitive_run_with_extra(
         request,
         plan,
@@ -100,13 +109,24 @@ fn execute(
     let matches = execution_session.unary.as_ref().is_some_and(|entry| {
         entry.request == *request && entry.primitive == primitive && entry.policy == policy
     });
+    let mut source_opened = false;
     if !matches {
-        execution_session.clear();
-        let Some(operation) = prepare_unary_for_optional_reuse_in_session(
+        execution_session.clear_operation_slots();
+        let native_session = admission.native_session()?;
+        let Some(operation) = prepare_unary_for_optional_reuse_with_source_loader(
             &primitive,
             policy,
-            admission.native_session()?,
+            native_session,
             &cancellation,
+            |path| {
+                let (opened, reused) = execution_session.get_or_prepare_file_source(
+                    path,
+                    native_session,
+                    &cancellation,
+                )?;
+                source_opened = !reused;
+                Ok(opened)
+            },
         )?
         else {
             return Ok(None);
@@ -126,7 +146,8 @@ fn execute(
     Ok(Some(Executed {
         value: entry.operation.collect_jsonl(&cancellation)?,
         primitive_arg,
-        opened: !matches,
+        source_opened,
+        operation_reused: matches,
     }))
 }
 
@@ -182,12 +203,12 @@ fn render(
         ),
         (
             "resident_footer_open_performed_this_call".into(),
-            executed.opened.to_string(),
+            executed.source_opened.to_string(),
         ),
         ("resident_unary_handle_retained".into(), "true".into()),
         (
             "resident_unary_lowering_reused".into(),
-            (!executed.opened).to_string(),
+            executed.operation_reused.to_string(),
         ),
         (
             "resident_source_generation_validation".into(),

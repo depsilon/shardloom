@@ -31,7 +31,7 @@ pub(super) struct Session;
 impl Session {
     pub(super) fn start() -> Self {
         assert!(
-            !ACTIVE.swap(true, Ordering::SeqCst),
+            !ACTIVE.swap(true, Ordering::AcqRel),
             "compact selection observation requires serial execution"
         );
         for counter in [&OWNERS, &INPUT_ROWS, &MAX_ROWS, &TAKE_ARRAYS, &TAKE_ROWS] {
@@ -55,6 +55,6 @@ impl Session {
 
 impl Drop for Session {
     fn drop(&mut self) {
-        ACTIVE.store(false, Ordering::SeqCst);
+        ACTIVE.store(false, Ordering::Release);
     }
 }

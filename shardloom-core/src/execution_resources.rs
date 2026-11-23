@@ -315,56 +315,102 @@ impl ExecutionResources {
     pub const fn limits(self) -> Option<ExecutionResourceLimits> {
         self.limits
     }
+}
+
+/// Typed configuration-resource evidence replacing `Vec<(String, String)>` bags (`E2E-ARCH-01`).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ExecutionResourcesEvidence {
+    pub schema_version: String,
+    pub configuration_status: String,
+    pub declared_memory_bytes: String,
+    pub declared_memory_gb: String,
+    pub declared_max_parallelism: String,
+    pub memory_origin: String,
+    pub parallelism_origin: String,
+    pub authorized_memory_limit_bytes: String,
+    pub authorized_parallelism_limit: String,
+    pub memory_gb_unit: String,
+    pub allocation_semantics: String,
+    pub parallelism_semantics: String,
+    pub origin_scope: String,
+    pub whole_process_memory_limit_enforced: String,
+}
+
+impl ExecutionResourcesEvidence {
+    /// Converts this typed evidence record into prefixed key/value pairs in canonical order.
+    #[must_use]
+    pub fn to_fields(&self) -> Vec<(String, String)> {
+        [
+            ("schema_version", self.schema_version.clone()),
+            ("configuration_status", self.configuration_status.clone()),
+            ("declared_memory_bytes", self.declared_memory_bytes.clone()),
+            ("declared_memory_gb", self.declared_memory_gb.clone()),
+            (
+                "declared_max_parallelism",
+                self.declared_max_parallelism.clone(),
+            ),
+            ("memory_origin", self.memory_origin.clone()),
+            ("parallelism_origin", self.parallelism_origin.clone()),
+            (
+                "authorized_memory_limit_bytes",
+                self.authorized_memory_limit_bytes.clone(),
+            ),
+            (
+                "authorized_parallelism_limit",
+                self.authorized_parallelism_limit.clone(),
+            ),
+            ("memory_gb_unit", self.memory_gb_unit.clone()),
+            ("allocation_semantics", self.allocation_semantics.clone()),
+            ("parallelism_semantics", self.parallelism_semantics.clone()),
+            ("origin_scope", self.origin_scope.clone()),
+            (
+                "whole_process_memory_limit_enforced",
+                self.whole_process_memory_limit_enforced.clone(),
+            ),
+        ]
+        .into_iter()
+        .map(|(key, value)| (format!("execution_resource_{key}"), value))
+        .collect()
+    }
+}
+
+impl ExecutionResources {
+    /// Captures strongly-typed configuration evidence (`E2E-ARCH-01`).
+    #[must_use]
+    pub fn typed_evidence(self) -> ExecutionResourcesEvidence {
+        ExecutionResourcesEvidence {
+            schema_version: "shardloom.execution_resources.v1".to_string(),
+            configuration_status: "explicit_validated".to_string(),
+            declared_memory_bytes: self.memory_bytes.to_string(),
+            declared_memory_gb: self
+                .whole_gib()
+                .map_or_else(|| "unavailable".to_string(), |value| value.to_string()),
+            declared_max_parallelism: self.max_parallelism.to_string(),
+            memory_origin: self.memory_origin.as_str().to_string(),
+            parallelism_origin: self.parallelism_origin.as_str().to_string(),
+            authorized_memory_limit_bytes: self
+                .limits
+                .and_then(ExecutionResourceLimits::memory_bytes)
+                .map_or_else(|| "not_supplied".to_string(), |value| value.to_string()),
+            authorized_parallelism_limit: self
+                .limits
+                .and_then(ExecutionResourceLimits::max_parallelism)
+                .map_or_else(|| "not_supplied".to_string(), |value| value.to_string()),
+            memory_gb_unit: "GiB=1073741824_bytes".to_string(),
+            allocation_semantics: "permission_not_preallocated_memory_or_measured_usage"
+                .to_string(),
+            parallelism_semantics: "integer_execution_lane_ceiling_not_cpu_quota_or_utilization"
+                .to_string(),
+            origin_scope: "caller_supplied_provenance_not_platform_authentication".to_string(),
+            whole_process_memory_limit_enforced: "false".to_string(),
+        }
+    }
 
     /// Configuration evidence only: permission is not admission or measured use.
     /// Runtime reports append their actual admission, ownership and spill evidence.
     #[must_use]
     pub fn evidence_fields(self) -> Vec<(String, String)> {
-        [
-            ("schema_version", "shardloom.execution_resources.v1".into()),
-            ("configuration_status", "explicit_validated".into()),
-            ("declared_memory_bytes", self.memory_bytes.to_string()),
-            (
-                "declared_memory_gb",
-                self.whole_gib()
-                    .map_or_else(|| "unavailable".into(), |value| value.to_string()),
-            ),
-            ("declared_max_parallelism", self.max_parallelism.to_string()),
-            ("memory_origin", self.memory_origin.as_str().into()),
-            (
-                "parallelism_origin",
-                self.parallelism_origin.as_str().into(),
-            ),
-            (
-                "authorized_memory_limit_bytes",
-                self.limits
-                    .and_then(ExecutionResourceLimits::memory_bytes)
-                    .map_or_else(|| "not_supplied".into(), |value| value.to_string()),
-            ),
-            (
-                "authorized_parallelism_limit",
-                self.limits
-                    .and_then(ExecutionResourceLimits::max_parallelism)
-                    .map_or_else(|| "not_supplied".into(), |value| value.to_string()),
-            ),
-            ("memory_gb_unit", "GiB=1073741824_bytes".into()),
-            (
-                "allocation_semantics",
-                "permission_not_preallocated_memory_or_measured_usage".into(),
-            ),
-            (
-                "parallelism_semantics",
-                "integer_execution_lane_ceiling_not_cpu_quota_or_utilization".into(),
-            ),
-            (
-                "origin_scope",
-                "caller_supplied_provenance_not_platform_authentication".into(),
-            ),
-            ("whole_process_memory_limit_enforced", "false".into()),
-        ]
-        .into_iter()
-        .map(|(key, value)| (format!("execution_resource_{key}"), value))
-        .collect()
+        self.typed_evidence().to_fields()
     }
 }
 
@@ -562,5 +608,27 @@ mod tests {
         );
         assert!(ExecutionResourceLimits::new(Some(0), None).is_err());
         assert!(ExecutionResourceLimits::new(None, Some(0)).is_err());
+    }
+
+    #[test]
+    fn execution_resources_typed_evidence_preserves_canonical_keys() {
+        let mut req = ExecutionResourceRequest::new(ExecutionResourceOrigin::ExecutionCall);
+        req.memory_gb = Some(8);
+        req.max_parallelism = Some(4);
+        let resources = ExecutionResources::resolve(req, None, None).expect("resolved");
+        let evidence = resources.typed_evidence();
+        let fields = resources.evidence_fields();
+
+        assert_eq!(evidence.declared_memory_gb, "8");
+        assert_eq!(evidence.declared_max_parallelism, "4");
+        assert_eq!(fields.len(), 14);
+        assert_eq!(
+            fields[0],
+            (
+                "execution_resource_schema_version".to_string(),
+                "shardloom.execution_resources.v1".to_string()
+            )
+        );
+        assert_eq!(fields, evidence.to_fields());
     }
 }

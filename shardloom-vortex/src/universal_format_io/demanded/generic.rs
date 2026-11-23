@@ -76,7 +76,7 @@ impl Source {
 pub(super) struct File {
     pub(super) path: PathBuf,
     pub(super) identity: Arc<SourceIdentity>,
-    text: Option<Arc<TextSource>>,
+    pub(super) text: Option<Arc<TextSource>>,
     pub(super) schema: SchemaRef,
     ipc: Option<Arc<super::ipc::Metadata>>,
     pub(super) parquet: Option<super::ArrowReaderMetadata>,
@@ -401,7 +401,15 @@ pub(super) fn preparation_layout(
             .checked_mul(3)
             .ok_or_else(|| failed("preparation schema capacity overflow"))?,
     )?;
-    let plan = super::super::parquet_dictionary_schema_plan(&file.schema, rows);
+    let parquet_meta = file
+        .parquet
+        .as_ref()
+        .map(|parquet| Arc::clone(parquet.metadata()));
+    let plan = super::super::parquet_dictionary_schema_plan_with_metadata(
+        &file.schema,
+        rows,
+        parquet_meta.as_deref(),
+    );
     let old = file
         .parquet
         .as_ref()

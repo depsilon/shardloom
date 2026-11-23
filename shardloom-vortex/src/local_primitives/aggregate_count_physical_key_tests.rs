@@ -145,10 +145,51 @@ fn physical_integer_key_workers_keep_i32_and_reconstruct_all_dependent_outputs()
             ])
         );
         assert_eq!(result["candidate_groups"], 4);
-        assert_eq!(result["aggregate_workers_integer_dictionary_handoff"], true);
-        assert_eq!(result["aggregate_workers_submitted_chunks"], 3);
-        assert_eq!(result["aggregate_workers_rows"], 9);
+        assert_eq!(
+            result["aggregate_workers_integer_dictionary_handoff"],
+            false
+        );
+        assert_eq!(result["aggregate_workers_submitted_chunks"], 4);
+        assert_eq!(result["aggregate_workers_rows"], 12);
+        assert_eq!(result["aggregate_workers_native_dictionary_chunks"], 1);
+        assert_eq!(result["aggregate_workers_native_dictionary_values"], 2);
         assert_eq!(result["aggregate_workers_native_constant_chunks"], 1);
+    }
+}
+
+#[test]
+fn physical_integer_key_workers_coalesce_duplicate_dictionary_values_across_widths() {
+    let i64_dict = DictArray::try_new(
+        PrimitiveArray::new(vec![0_u16, 1, 2, 1, 0, 2], Validity::NonNullable).into_array(),
+        PrimitiveArray::new(vec![42_i64, -9, 42], Validity::NonNullable).into_array(),
+    )
+    .unwrap()
+    .into_array();
+    let i64_flat = PrimitiveArray::new(vec![-9_i64, 7], Validity::NonNullable).into_array();
+    for workers in [1, 4] {
+        let result = execute(
+            &[chunk(i64_dict.clone()), chunk(i64_flat.clone())],
+            &request(&[5]),
+            3,
+            workers,
+        )
+        .unwrap();
+        assert_eq!(
+            result["values"],
+            serde_json::json!([
+                {"renamed_number": 42, "shifted_0": 47, "occurrences": 4},
+                {"renamed_number": -9, "shifted_0": -4, "occurrences": 3},
+                {"renamed_number": 7, "shifted_0": 12, "occurrences": 1},
+            ])
+        );
+        assert_eq!(
+            result["aggregate_workers_integer_dictionary_handoff"],
+            false
+        );
+        assert_eq!(result["aggregate_workers_submitted_chunks"], 2);
+        assert_eq!(result["aggregate_workers_rows"], 8);
+        assert_eq!(result["aggregate_workers_native_dictionary_chunks"], 1);
+        assert_eq!(result["aggregate_workers_native_dictionary_values"], 3);
     }
 }
 
@@ -251,19 +292,18 @@ fn physical_integer_key_workers_decline_missing_identity_nullable_and_float_sour
         let chunk = chunk(array);
         let states =
             GroupedAggregateStates::new(&request, Some(1), &columns, false, false).unwrap();
-        assert!(
-            CountWorkers::admit(
-                &states,
-                chunk.dtype(),
-                &columns,
-                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(4, 4).unwrap(),
-                &session,
-                &memory,
-                None,
-            )
-            .unwrap()
-            .is_none()
-        );
+        let admitted = CountWorkers::admit(
+            &states,
+            chunk.dtype(),
+            &columns,
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(4, 4).unwrap(),
+            &session,
+            &memory,
+            None,
+        )
+        .unwrap();
+        assert!(matches!(admitted, Some(CountWorkers::GeneralGroup(_))));
+        drop(admitted);
     }
     let mut expression_only = request.clone();
     expression_only.group_by.clear();
@@ -275,7 +315,7 @@ fn physical_integer_key_workers_decline_missing_identity_nullable_and_float_sour
         expression_only,
     )
     .with_source_order_limit(1);
-    assert!(!request_may_be_admitted(
+    assert!(request_may_be_admitted(
         &public,
         crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
             .expect("explicit fixture allocation")

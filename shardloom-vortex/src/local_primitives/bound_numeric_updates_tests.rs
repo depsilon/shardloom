@@ -30,6 +30,7 @@ fn states(specs: &[(SimpleAggregateFunction, Option<usize>)]) -> SimpleAggregate
         fused_utf8_dictionary_transform_updates: false,
         lazy_utf8_dictionary_minmax_updates: false,
         partition_distinct_completed: false,
+        partition_distinct_strategy: None,
     }
 }
 

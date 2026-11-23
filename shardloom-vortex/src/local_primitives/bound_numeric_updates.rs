@@ -4,7 +4,8 @@
 use super::{
     AggregateDirectColumnAccessor, AggregateValueTransform, CompactAggregateMeasureSpec,
     CompactAggregateMeasureValue, CompactAggregateMeasures, Result, ShardLoomError,
-    SimpleAggregateFunction, SimpleAggregateStates, native_numeric_owner::BoundNumericColumn,
+    SimpleAggregateFunction, SimpleAggregateStates,
+    native_numeric_owner::{BoundNumericCell, BoundNumericColumn},
 };
 
 #[derive(Clone, Copy)]
@@ -83,11 +84,15 @@ impl<'a> BoundNumericUpdates<'a> {
                 SimpleRowKernel::CountStar { chunk_rows } => {
                     states.states[index].update_count_star_direct_row(row, chunk_rows)?;
                 }
-                SimpleRowKernel::Numeric(column) => {
-                    if let Some((numeric, integer_input)) = column.numeric_at(row)? {
-                        states.states[index].update_direct_numeric_value(numeric, integer_input)?;
+                SimpleRowKernel::Numeric(column) => match column.exact_at(row)? {
+                    Some(BoundNumericCell::Integer(value)) => {
+                        states.states[index].update_direct_integer_value(value)?;
                     }
-                }
+                    Some(BoundNumericCell::Float(numeric)) => {
+                        states.states[index].update_direct_numeric_value(numeric, false)?;
+                    }
+                    None => {}
+                },
             }
         }
         Ok(())
@@ -159,11 +164,11 @@ impl<'a> BoundCompactNumericUpdates<'a> {
                         value.increment_count()?;
                     }
                 }
-                CompactRowKernel::Numeric(column) => {
-                    if let Some((numeric, integer_input)) = column.numeric_at(row)? {
-                        value.add_numeric(numeric, integer_input)?;
-                    }
-                }
+                CompactRowKernel::Numeric(column) => match column.exact_at(row)? {
+                    Some(BoundNumericCell::Integer(integer)) => value.add_i128(integer)?,
+                    Some(BoundNumericCell::Float(numeric)) => value.add_numeric(numeric, false)?,
+                    None => {}
+                },
             }
         }
         Ok(())
@@ -177,6 +182,22 @@ impl CompactAggregateMeasureValue {
                 "local Vortex compact aggregate count overflowed u64".to_string(),
             )
         })?;
+        Ok(())
+    }
+
+    pub(super) fn add_i128(&mut self, value: i128) -> Result<()> {
+        self.count = self.count.checked_add(1).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex compact numeric aggregate count overflowed u64".to_string(),
+            )
+        })?;
+        self.sum.add_i128(value);
+        if !self.sum.is_finite() {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex compact numeric aggregate sum became non-finite; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
         Ok(())
     }
 

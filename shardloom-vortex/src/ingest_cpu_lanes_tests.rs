@@ -324,3 +324,36 @@ fn one_and_two_lanes_write_and_reopen_without_a_background_provider_driver() {
         );
     }
 }
+
+#[test]
+fn pipeline_unclamps_source_workers_and_governs_concurrency_with_live_memory_pool() {
+    let lanes = IngestCpuLanes::pipeline(16, usize::MAX);
+    assert_eq!(lanes.source_workers(), 8);
+    assert_eq!(lanes.conversion_workers(), 1);
+    assert_eq!(lanes.provider_drivers(), 6);
+    assert_eq!(lanes.prefetch_slots(), 4);
+    assert_eq!(lanes.configured_cpu_lanes(), 16);
+
+    let capped = IngestCpuLanes::pipeline(16, 2);
+    assert_eq!(capped.source_workers(), 2);
+    assert_eq!(capped.configured_cpu_lanes(), 16);
+
+    let pool = LiveMemoryPool::new(1000).unwrap();
+    assert_eq!(governed_writer_concurrency(6, None), 6);
+    assert_eq!(governed_layout_in_flight(6, None), 4);
+    assert_eq!(governed_writer_concurrency(6, Some(&pool)), 6);
+    assert_eq!(governed_layout_in_flight(6, Some(&pool)), 4);
+
+    // 55% used (45% remaining headroom -> < 50%, >= 25%): halve requested concurrency.
+    let moderate = pool.reserve(550).unwrap();
+    assert_eq!(governed_writer_concurrency(6, Some(&pool)), 3);
+    assert_eq!(governed_layout_in_flight(6, Some(&pool)), 3);
+    drop(moderate);
+
+    // 76% used (24% remaining headroom -> < 25%): clamp to 1.
+    let high = pool.reserve(760).unwrap();
+    assert_eq!(governed_writer_concurrency(6, Some(&pool)), 1);
+    assert_eq!(governed_layout_in_flight(6, Some(&pool)), 1);
+    drop(high);
+    assert_eq!(governed_writer_concurrency(6, Some(&pool)), 6);
+}

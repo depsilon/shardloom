@@ -83,7 +83,7 @@ pub mod generalized_encoded_primitive_gate;
 pub mod generalized_encoded_projection_execution;
 pub mod generalized_filter_execution;
 pub mod generalized_projection_execution;
-#[cfg(feature = "universal-format-io")]
+#[cfg(any(feature = "universal-format-io", feature = "vortex-write"))]
 mod ingest_cpu_lanes;
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 mod ingest_runtime;
@@ -175,6 +175,8 @@ pub mod read_planning;
 pub mod relational_query;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 pub mod resident_memory_source;
+#[cfg(feature = "vortex-local-primitives")]
+pub(crate) mod resident_segment_prefetch;
 #[cfg(all(feature = "vortex-local-primitives", not(target_arch = "wasm32")))]
 pub mod resident_session;
 #[cfg(any(
@@ -707,6 +709,7 @@ pub use vortex_ingest::{
     evaluate_vortex_prepared_state_append_only_refinement, evaluate_vortex_prepared_state_reuse,
     evaluate_vortex_scout_ingress, prepare_native_vortex_artifact,
     prepare_native_vortex_artifact_controlled, publish_vortex_prepared_olap_single_artifact_state,
+    publish_vortex_prepared_olap_single_artifact_state_with_receipt,
     vortex_differential_refinement_manifest_path, vortex_ingest_write_feature_enabled,
     vortex_prepared_state_reuse_manifest_path, write_flat_scalar_vortex_prepared_state,
     write_flat_scalar_vortex_prepared_state_with_receipt,
@@ -749,7 +752,8 @@ pub use scheduler_bridge::{
     VortexSchedulerBridgeMode, VortexSchedulerBridgeReport, VortexSchedulerBridgeStatus,
     VortexSchedulingDecisionKind, VortexTaskBatchPlan, VortexTaskQueueClass,
     VortexTaskSchedulingDecision, execute_vortex_morsel_scheduler_with_observer,
-    execute_vortex_morsel_scheduler_with_state, plan_vortex_scheduler_queue,
+    execute_vortex_morsel_scheduler_with_pool, execute_vortex_morsel_scheduler_with_state,
+    execute_vortex_morsel_scheduler_with_state_in_pool, plan_vortex_scheduler_queue,
     vortex_scheduler_bridge_is_side_effect_free,
 };
 

@@ -17,6 +17,7 @@ publish = false
 workspace = true
 
 [dependencies]
+serde = { workspace = true, features = ["derive"] }
 shardloom-core = { workspace = true }
 shardloom-plan = { workspace = true }
 

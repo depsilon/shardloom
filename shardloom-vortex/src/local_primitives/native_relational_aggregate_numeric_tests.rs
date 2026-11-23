@@ -51,13 +51,61 @@ fn batch(column: ArrayRef) -> ArrayRef {
 fn assert_same(actual: &State, expected: &State) {
     assert_eq!(actual.count, expected.count);
     let bits = |sum: NumericAggregateSum| match sum {
-        NumericAggregateSum::Ordered(value) => (0, value.to_bits(), 0),
+        NumericAggregateSum::Ordered(value) => (0, u128::from(value.to_bits()), 0),
         NumericAggregateSum::Integer { sum, correction } => {
-            (1, sum.to_bits(), correction.to_bits())
+            (1, u128::from(sum.to_bits()), correction.to_bits())
         }
+        NumericAggregateSum::ExactInteger(value) => (2, value.into_i128().cast_unsigned(), 0),
     };
     assert_eq!(bits(actual.sum), bits(expected.sum));
     assert_eq!(actual.extreme, expected.extreme);
+}
+
+fn compare_owner(
+    owner: &NativeNumericOwner,
+    values: &KeyColumn,
+    binding: &Spec,
+    actual: &mut State,
+    expected: &mut State,
+    context: &NativeExecutionContext<'_>,
+) -> Option<String> {
+    if owner.is_integer() {
+        owner
+            .visit_integer(|row, value| {
+                let reference = values
+                    .raw_cell(row)
+                    .and_then(|value| update(expected, &binding.measures[0], Some(value), context));
+                let observed = value.map_or(Ok(()), |value| {
+                    update_integer_parts(&mut actual.count, &mut actual.sum, value)
+                });
+                assert_eq!(
+                    observed.as_ref().err().map(ToString::to_string),
+                    reference.as_ref().err().map(ToString::to_string)
+                );
+                assert_same(actual, expected);
+                observed
+            })
+            .err()
+            .map(|failure| failure.to_string())
+    } else {
+        owner
+            .visit_numeric(|row, value, integer| {
+                let reference = values
+                    .raw_cell(row)
+                    .and_then(|value| update(expected, &binding.measures[0], Some(value), context));
+                let observed = value.map_or(Ok(()), |value| {
+                    update_numeric(actual, value, integer, shardloom_core::FloatPolicy::Strict)
+                });
+                assert_eq!(
+                    observed.as_ref().err().map(ToString::to_string),
+                    reference.as_ref().err().map(ToString::to_string)
+                );
+                assert_same(actual, expected);
+                observed
+            })
+            .err()
+            .map(|failure| failure.to_string())
+    }
 }
 
 fn compare(column: &ArrayRef, count: u64) {
@@ -79,28 +127,14 @@ fn compare(column: &ArrayRef, count: u64) {
                     count,
                     ..State::default()
                 };
-                let error = owner
-                    .visit_numeric(|row, value, integer| {
-                        let reference = values.raw_cell(row).and_then(|value| {
-                            update(&mut expected, &binding.measures[0], Some(value), context)
-                        });
-                        let observed = value.map_or(Ok(()), |value| {
-                            update_numeric(
-                                &mut actual,
-                                value,
-                                integer,
-                                shardloom_core::FloatPolicy::Strict,
-                            )
-                        });
-                        assert_eq!(
-                            observed.as_ref().err().map(ToString::to_string),
-                            reference.as_ref().err().map(ToString::to_string)
-                        );
-                        assert_same(&actual, &expected);
-                        observed
-                    })
-                    .err()
-                    .map(|failure| failure.to_string());
+                let error = compare_owner(
+                    owner,
+                    &values,
+                    &binding,
+                    &mut actual,
+                    &mut expected,
+                    context,
+                );
                 let mut aggregate = Aggregate::new(&binding, context.memory())?;
                 aggregate.states.values[0].count = count;
                 let observed = aggregate.consume(&batch(column.clone()), context, 2);
@@ -488,4 +522,99 @@ fn composed_numeric_consumer_needs_no_heap_kernel_and_checks_cancelled_null_rows
         drop(session);
         assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
+}
+
+#[test]
+fn wide_i64_cancellation_preserves_exact_sum_and_avg_across_consumers() {
+    let make_spec = |functions: &[Function], input_ptype: Option<PType>| {
+        let groups = vec![(
+            "g".into(),
+            DType::Primitive(PType::I64, Nullability::NonNullable),
+        )];
+        let measures: Vec<_> = functions
+            .iter()
+            .map(|&function| Measure {
+                secondary_column: None,
+                filter_column: None,
+                quantile_level: None,
+                selection: None,
+                separator: None,
+                function,
+                column: Some("n".into()),
+                dtype: if function == Function::Count {
+                    DType::Primitive(PType::U64, Nullability::NonNullable)
+                } else {
+                    DType::Primitive(PType::F64, Nullability::Nullable)
+                },
+                decimal_source: None,
+                input_ptype,
+                decimal_output: None,
+                distinct_fields: vec![],
+                distinct_names: vec![],
+            })
+            .collect();
+        let mut fields = groups.clone();
+        fields.extend(
+            measures
+                .iter()
+                .enumerate()
+                .map(|(index, measure)| (format!("a{index}"), measure.dtype.clone())),
+        );
+        Spec {
+            fields,
+            groups,
+            group_names: vec!["g".into()],
+            measures,
+        }
+    };
+    let session = ResidentVortexSession::new(4 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            let values = PrimitiveArray::from_iter([
+                i64::MAX,
+                -i64::MAX,
+                11_i64,
+                1_i64 << 54,
+                -(1_i64 << 54),
+            ])
+            .into_array();
+            let keys_col = PrimitiveArray::from_iter([0_i64; 5]).into_array();
+            let input = StructArray::try_new(
+                FieldNames::from(["g", "n"]),
+                vec![keys_col, values],
+                5,
+                Validity::NonNullable,
+            )
+            .unwrap()
+            .into_array();
+
+            for function in [Function::Sum, Function::Avg] {
+                let expected = if function == Function::Sum {
+                    11.0_f64
+                } else {
+                    11.0_f64 / 5.0_f64
+                };
+                for (functions, input_ptype) in [
+                    (vec![function], Some(PType::I64)),
+                    (vec![function, Function::Count], None),
+                ] {
+                    let spec = make_spec(&functions, input_ptype);
+                    let mut aggregate = Aggregate::new(&spec, context.memory())?;
+                    aggregate.consume(&input, context, 2)?;
+                    let mut observed = None;
+                    aggregate.finish(context, 4, &mut |array| {
+                        let column =
+                            keys(&logical_field_from_native_array(&array, "a0")?, context)?;
+                        observed = Some(column.raw_cell(0)?);
+                        Ok(())
+                    })?;
+                    assert_eq!(observed, Some(Cell::Float(expected.to_bits())));
+                }
+            }
+            Ok(())
+        })
+        .unwrap();
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
 }

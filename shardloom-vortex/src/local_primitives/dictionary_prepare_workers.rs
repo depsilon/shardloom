@@ -166,6 +166,7 @@ pub(super) fn request_may_be_admitted(request: &VortexQueryPrimitiveRequest) -> 
 }
 
 impl DictionaryPrepareWorkers {
+    #[cfg(test)]
     pub(super) fn admit(
         states: &GroupedAggregateStates<'_>,
         dtype: &DType,
@@ -173,6 +174,18 @@ impl DictionaryPrepareWorkers {
         policy: VortexLocalPrimitiveExecutionPolicy,
         memory: &LiveMemoryPool,
         cancellation: Option<&CancellationToken>,
+    ) -> Result<Option<Self>> {
+        Self::admit_with_pool(states, dtype, columns, policy, memory, cancellation, None)
+    }
+
+    pub(super) fn admit_with_pool(
+        states: &GroupedAggregateStates<'_>,
+        dtype: &DType,
+        columns: &[String],
+        policy: VortexLocalPrimitiveExecutionPolicy,
+        memory: &LiveMemoryPool,
+        cancellation: Option<&CancellationToken>,
+        shared_pool: Option<&std::sync::Arc<shardloom_exec::compute_pool::ComputePool>>,
     ) -> Result<Option<Self>> {
         let parallelism = policy
             .resource_envelope
@@ -206,12 +219,13 @@ impl DictionaryPrepareWorkers {
             return Ok(None);
         };
         Ok(Some(Self {
-            jobs: AggregateChunkJobs::for_operation(
+            jobs: AggregateChunkJobs::for_operation_with_pool(
                 background_workers + 1,
                 window,
                 memory.snapshot().limit_bytes,
                 memory.clone(),
                 cancellation,
+                shared_pool,
             )?,
             recipe: Arc::new(Recipe {
                 transform: states.group_columns[0].transform,

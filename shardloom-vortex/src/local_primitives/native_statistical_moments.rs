@@ -115,6 +115,15 @@ fn scaled_sum(value: NumericAggregateSum, factor: f64) -> NumericAggregateSum {
             sum: sum * factor,
             correction: correction * factor,
         },
+        NumericAggregateSum::ExactInteger(acc) => {
+            let mut sum = 0.0;
+            let mut correction = 0.0;
+            NumericAggregateSum::add_i128_to_parts(&mut sum, &mut correction, acc.into_i128());
+            NumericAggregateSum::Integer {
+                sum: sum * factor,
+                correction: correction * factor,
+            }
+        }
     }
 }
 

@@ -810,6 +810,9 @@ struct VortexIngestSourceData {
     source_format: LocalSourceFormat,
     header: Vec<String>,
     column_arrow_dtypes: Vec<Option<DataType>>,
+    #[cfg(feature = "universal-format-io")]
+    first_batch_profile:
+        Option<shardloom_vortex::universal_format_io::first_batch_profile::FirstBatchProfile>,
     read_plan: LocalSourceReadPlan,
     materialized_columns: Vec<String>,
     reader_projection_columns: Vec<String>,
@@ -870,6 +873,8 @@ impl VortexIngestSourceData {
             source_format: source.source_format,
             header: source.header,
             column_arrow_dtypes: source.column_arrow_dtypes,
+            #[cfg(feature = "universal-format-io")]
+            first_batch_profile: None,
             read_plan: source.read_plan,
             materialized_columns: source.materialized_columns,
             reader_projection_columns: source.reader_projection_columns,
@@ -902,6 +907,8 @@ impl VortexIngestSourceData {
             source_adapter,
             header: columnar_source.header.clone(),
             column_arrow_dtypes: columnar_source.column_arrow_dtypes.clone(),
+            #[cfg(feature = "universal-format-io")]
+            first_batch_profile: columnar_source.first_batch_profile.clone(),
             read_plan: LocalSourceReadPlan::full("streaming_columnar_source_state_default"),
             materialized_columns: columnar_source.materialized_columns.clone(),
             reader_projection_columns: columnar_source.reader_projection_columns.clone(),
@@ -4401,22 +4408,21 @@ fn layout_source_profile(source: &VortexIngestSourceData) -> &'static str {
 }
 
 fn layout_source_has_text_domain_columns(source: &VortexIngestSourceData) -> bool {
-    source
-        .header
-        .iter()
-        .any(|column| layout_text_domain_column_name(column))
-}
-
-fn layout_text_domain_column_name(column: &str) -> bool {
-    let lower = column.to_ascii_lowercase();
-    lower.contains("url")
-        || lower.contains("referer")
-        || lower.contains("search")
-        || lower.contains("phrase")
-        || lower.contains("title")
-        || lower.contains("utm")
-        || lower.contains("param")
-        || lower.contains("useragent")
+    #[cfg(feature = "universal-format-io")]
+    if let Some(profile) = &source.first_batch_profile {
+        return profile
+            .columns
+            .iter()
+            .any(|column| column.looks_like_url || column.has_varied_or_long_utf8);
+    }
+    source.header.iter().enumerate().any(|(index, column)| {
+        !column.starts_with("__shardloom_derived_")
+            && source
+                .column_arrow_dtypes
+                .get(index)
+                .and_then(Option::as_ref)
+                .is_some_and(writer_candidate_arrow_dtype_is_utf8_like)
+    })
 }
 
 fn layout_writer_compression_candidate_fields(source: &VortexIngestSourceData) -> Vec<String> {
@@ -4425,12 +4431,21 @@ fn layout_writer_compression_candidate_fields(source: &VortexIngestSourceData) -
         .iter()
         .enumerate()
         .filter_map(|(index, column)| {
+            #[cfg(feature = "universal-format-io")]
+            let profiled_dtype = source
+                .first_batch_profile
+                .as_ref()
+                .and_then(|profile| profile.column(column))
+                .map(|column_profile| &column_profile.arrow_dtype);
+            #[cfg(not(feature = "universal-format-io"))]
+            let profiled_dtype: Option<&DataType> = None;
             layout_writer_compression_candidate_field(
                 column,
                 source
                     .column_arrow_dtypes
                     .get(index)
-                    .and_then(Option::as_ref),
+                    .and_then(Option::as_ref)
+                    .or(profiled_dtype),
             )
         })
         .collect()
@@ -4443,11 +4458,9 @@ fn layout_writer_compression_candidate_field(
     if column.starts_with("__shardloom_derived_") {
         return None;
     }
-    match arrow_dtype {
-        Some(dtype) if writer_candidate_arrow_dtype_is_utf8_like(dtype) => Some(column.to_string()),
-        None if layout_text_domain_column_name(column) => Some(column.to_string()),
-        Some(_) | None => None,
-    }
+    arrow_dtype
+        .is_some_and(writer_candidate_arrow_dtype_is_utf8_like)
+        .then(|| column.to_string())
 }
 
 fn writer_candidate_arrow_dtype_is_utf8_like(data_type: &DataType) -> bool {
@@ -4471,33 +4484,59 @@ fn writer_candidate_arrow_dtype_is_utf8_like(data_type: &DataType) -> bool {
 }
 
 fn layout_source_has_time_bucket_columns(source: &VortexIngestSourceData) -> bool {
+    #[cfg(feature = "universal-format-io")]
+    if let Some(profile) = &source.first_batch_profile {
+        return profile.columns.iter().any(|column| {
+            column.is_native_timestamp
+                || column.looks_like_timestamp_text
+                || column.looks_like_epoch_seconds
+        });
+    }
     source
-        .header
+        .column_arrow_dtypes
         .iter()
-        .any(|column| layout_time_bucket_column_name(column))
-}
-
-fn layout_time_bucket_column_name(column: &str) -> bool {
-    let lower = column.to_ascii_lowercase();
-    lower == "eventtime"
-        || lower == "event_time"
-        || lower.ends_with("_time")
-        || lower.ends_with("time")
-        || lower.contains("timestamp")
-        || lower.contains("date")
+        .flatten()
+        .any(|dtype| matches!(dtype, DataType::Timestamp(_, _)))
 }
 
 fn layout_source_has_counter_columns(source: &VortexIngestSourceData) -> bool {
-    source.header.iter().any(|column| {
-        let lower = column.to_ascii_lowercase();
-        lower.contains("id")
-            || lower.contains("counter")
-            || lower.contains("userid")
-            || lower.contains("watchid")
-            || lower.contains("clientip")
-            || lower.contains("region")
-            || lower.contains("browser")
+    #[cfg(feature = "universal-format-io")]
+    if let Some(profile) = &source.first_batch_profile {
+        return profile.columns.iter().any(|column| {
+            !column.name.starts_with("__shardloom_derived_")
+                && is_integer_arrow_dtype(&column.arrow_dtype)
+                && !column.looks_like_epoch_seconds
+        });
+    }
+    source.header.iter().enumerate().any(|(index, column)| {
+        !column.starts_with("__shardloom_derived_")
+            && source
+                .column_arrow_dtypes
+                .get(index)
+                .and_then(Option::as_ref)
+                .is_some_and(is_integer_arrow_dtype)
     })
+}
+
+fn is_integer_arrow_dtype(data_type: &DataType) -> bool {
+    matches!(
+        data_type,
+        DataType::Int8
+            | DataType::Int16
+            | DataType::Int32
+            | DataType::Int64
+            | DataType::UInt8
+            | DataType::UInt16
+            | DataType::UInt32
+            | DataType::UInt64
+    )
+}
+
+fn is_wide_integer_arrow_dtype(data_type: &DataType) -> bool {
+    matches!(
+        data_type,
+        DataType::Int32 | DataType::Int64 | DataType::UInt32 | DataType::UInt64
+    )
 }
 
 fn layout_prepared_layout_family(source: &VortexIngestSourceData) -> &'static str {
@@ -4530,20 +4569,22 @@ fn layout_key_profile(source: &VortexIngestSourceData) -> &'static str {
 }
 
 fn layout_source_has_high_cardinality_key_columns(source: &VortexIngestSourceData) -> bool {
-    source.header.iter().any(|column| {
-        let lower = column.to_ascii_lowercase();
-        matches!(
-            lower.as_str(),
-            "userid"
-                | "watchid"
-                | "clientip"
-                | "urlhash"
-                | "refererhash"
-                | "titlehash"
-                | "windowclientwidth"
-                | "windowclientheight"
-        ) || lower.ends_with("_id")
-            || lower.ends_with("id")
+    #[cfg(feature = "universal-format-io")]
+    if let Some(profile) = &source.first_batch_profile {
+        return profile.columns.iter().any(|column| {
+            !column.name.starts_with("__shardloom_derived_")
+                && is_wide_integer_arrow_dtype(&column.arrow_dtype)
+                && !column.looks_like_epoch_seconds
+                && !column.dictionary_candidate
+        });
+    }
+    source.header.iter().enumerate().any(|(index, column)| {
+        !column.starts_with("__shardloom_derived_")
+            && source
+                .column_arrow_dtypes
+                .get(index)
+                .and_then(Option::as_ref)
+                .is_some_and(is_wide_integer_arrow_dtype)
     })
 }
 
@@ -5287,6 +5328,7 @@ fn try_run_schema_declared_text_vortex_prepare(
         ingest_runtime: None,
         embedded_derived_build_micros: shardloom_vortex::new_embedded_derived_build_micros_counter(
         ),
+        first_batch_profile: None,
         reader: Box::new(batch_reader),
     };
     let columnar_source =
@@ -5530,6 +5572,7 @@ fn try_run_inferred_text_vortex_prepare(
         ingest_runtime: None,
         embedded_derived_build_micros: shardloom_vortex::new_embedded_derived_build_micros_counter(
         ),
+        first_batch_profile: None,
         reader: Box::new(batch_reader),
     };
     let columnar_source =
@@ -6200,13 +6243,21 @@ fn columnar_stream_source_prefers_full_embedded_text_metadata(
 fn columnar_stream_source_has_missing_source_native_text_metadata(
     source: &shardloom_vortex::FlatLocalColumnarStreamSource,
 ) -> bool {
+    if let Some(profile) = &source.first_batch_profile {
+        return profile.columns.iter().any(|column| {
+            (column.looks_like_url || column.has_varied_or_long_utf8)
+                && !is_dictionary_utf8_arrow_dtype(&column.arrow_dtype)
+        });
+    }
     source.header.iter().enumerate().any(|(index, column)| {
-        layout_text_domain_column_name(column)
-            && !source
+        !column.starts_with("__shardloom_derived_")
+            && source
                 .column_arrow_dtypes
                 .get(index)
                 .and_then(Option::as_ref)
-                .is_some_and(is_dictionary_utf8_arrow_dtype)
+                .is_some_and(|dtype| {
+                    is_utf8_arrow_dtype(dtype) && !is_dictionary_utf8_arrow_dtype(dtype)
+                })
     })
 }
 
@@ -6214,14 +6265,13 @@ fn columnar_stream_source_has_missing_source_native_text_metadata(
 fn columnar_stream_source_has_missing_source_native_time_metadata(
     source: &shardloom_vortex::FlatLocalColumnarStreamSource,
 ) -> bool {
-    source.header.iter().enumerate().any(|(index, column)| {
-        layout_time_bucket_column_name(column)
-            && !source
-                .column_arrow_dtypes
-                .get(index)
-                .and_then(Option::as_ref)
-                .is_some_and(is_source_native_extract_minute_arrow_dtype)
-    })
+    if let Some(profile) = &source.first_batch_profile {
+        return profile.columns.iter().any(|column| {
+            column.looks_like_timestamp_text
+                && !is_source_native_extract_minute_arrow_dtype(&column.arrow_dtype)
+        });
+    }
+    false
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -6458,6 +6508,7 @@ fn stream_columnar_vortex_ingest_partition_source(
         ingest_executor_requested_parallelism: _,
         ingest_executor_applied_parallelism: _,
         embedded_derived_build_micros,
+        first_batch_profile,
         mut source_identities,
         ingest_runtime: _,
         reader,
@@ -6540,6 +6591,7 @@ fn stream_columnar_vortex_ingest_partition_source(
             .or(combined_record_batch_count_hint)
             .or(Some(readers.len())),
         embedded_derived_build_micros,
+        first_batch_profile,
         source_identities,
         // Partition readers were admitted at P1 and own no background drivers
         // or queued source tasks. The combined source receives the caller's

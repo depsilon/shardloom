@@ -173,6 +173,7 @@ struct Queue {
     peak_jobs: usize,
     active: usize,
     peak_active: usize,
+    active_worker_limit: usize,
     idle_workers: usize,
     waiting_producers: usize,
     closed: bool,
@@ -342,7 +343,10 @@ impl ComputePool {
         let waits = observe_waits.then(|| WaitStats::new(&memory)).transpose()?;
         let mut pool = Self {
             shared: Arc::new(Shared {
-                queue: Mutex::new(Queue::default()),
+                queue: Mutex::new(Queue {
+                    active_worker_limit: workers,
+                    ..Queue::default()
+                }),
                 worker_ready: Condvar::new(),
                 producer_ready: Condvar::new(),
                 memory,
@@ -366,6 +370,64 @@ impl ComputePool {
             pool.workers.push(worker);
         }
         Ok(pool)
+    }
+
+    #[must_use]
+    pub fn worker_count(&self) -> usize {
+        self.shared.worker_count
+    }
+
+    #[must_use]
+    pub fn queue_byte_limit(&self) -> u64 {
+        self.shared.queue_byte_limit
+    }
+
+    #[must_use]
+    pub fn active_worker_limit(&self) -> usize {
+        self.shared
+            .queue
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .active_worker_limit
+    }
+
+    /// Adjust the active concurrency ceiling (`1..=worker_count`) without
+    /// spawning or destroying worker threads. Returns the previous ceiling.
+    pub fn set_active_worker_limit(&self, limit: usize) -> usize {
+        let clamped = limit.clamp(1, self.shared.worker_count);
+        let (previous, should_wake) = {
+            let mut queue = self
+                .shared
+                .queue
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            let previous = queue.active_worker_limit;
+            queue.active_worker_limit = clamped;
+            let should_wake =
+                clamped > previous && !queue.jobs.is_empty() && queue.idle_workers > 0;
+            (previous, should_wake)
+        };
+        if should_wake {
+            self.shared.worker_ready.notify_all();
+        }
+        previous
+    }
+
+    /// Apply a `PulseWeave` report's admitted WIP ceiling to this pool and
+    /// return the previous ceiling.
+    #[allow(clippy::must_use_candidate)]
+    pub fn apply_pulseweave_report(&self, report: &crate::pulseweave::PulseWeaveReport) -> usize {
+        self.set_active_worker_limit(report.batch_window_size(self.shared.worker_count))
+    }
+
+    /// Temporarily scope the active worker ceiling and restore the prior limit on drop.
+    #[must_use]
+    pub fn scope_active_worker_limit(&self, limit: usize) -> ComputePoolWorkerLimitGuard<'_> {
+        let previous = self.set_active_worker_limit(limit);
+        ComputePoolWorkerLimitGuard {
+            pool: self,
+            previous,
+        }
     }
 
     #[must_use]
@@ -522,7 +584,7 @@ impl ComputePool {
             queue.jobs.push_back(queued);
             queue.peak_bytes = queue.peak_bytes.max(queue.bytes);
             queue.peak_jobs = queue.peak_jobs.max(queue.jobs.len());
-            queue.idle_workers > 0
+            queue.idle_workers > 0 && (queue.closed || queue.active < queue.active_worker_limit)
         };
         self.shared
             .enqueue_wait_nanos
@@ -531,6 +593,18 @@ impl ComputePool {
             self.shared.worker_ready.notify_one();
         }
         Ok(ComputeTask { slot })
+    }
+}
+
+/// Restores the previous [`ComputePool`] active worker limit when dropped.
+pub struct ComputePoolWorkerLimitGuard<'a> {
+    pool: &'a ComputePool,
+    previous: usize,
+}
+
+impl Drop for ComputePoolWorkerLimitGuard<'_> {
+    fn drop(&mut self) {
+        let _ = self.pool.set_active_worker_limit(self.previous);
     }
 }
 
@@ -577,20 +651,22 @@ fn worker_loop(index: usize, shared: &Shared) {
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
             loop {
-                if let Some(job) = queue.jobs.pop_front() {
-                    queue.bytes -= job.bytes;
-                    queue.active += 1;
-                    queue.peak_active = queue.peak_active.max(queue.active);
-                    debug_assert!(queue.active <= shared.worker_count);
-                    let wake_producers = queue.waiting_producers > 0;
-                    drop(queue);
-                    if wake_producers {
-                        shared.producer_ready.notify_all();
+                if queue.closed || queue.active < queue.active_worker_limit {
+                    if let Some(job) = queue.jobs.pop_front() {
+                        queue.bytes -= job.bytes;
+                        queue.active += 1;
+                        queue.peak_active = queue.peak_active.max(queue.active);
+                        debug_assert!(queue.active <= shared.worker_count);
+                        let wake_producers = queue.waiting_producers > 0;
+                        drop(queue);
+                        if wake_producers {
+                            shared.producer_ready.notify_all();
+                        }
+                        break job;
                     }
-                    break job;
-                }
-                if queue.closed {
-                    return;
+                    if queue.closed {
+                        return;
+                    }
                 }
                 queue.idle_workers += 1;
                 let wait_started = shared.waits.as_ref().map(|waits| {
@@ -622,6 +698,13 @@ fn worker_loop(index: usize, shared: &Shared) {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         queue.active -= 1;
+        let wake_worker = !queue.jobs.is_empty()
+            && (queue.closed || queue.active < queue.active_worker_limit)
+            && queue.idle_workers > 0;
+        drop(queue);
+        if wake_worker {
+            shared.worker_ready.notify_one();
+        }
     }
 }
 
@@ -879,6 +962,86 @@ mod tests {
         assert!(running.join().is_err());
         assert!(queued.join().is_err());
         assert!(!queued_ran.load(Ordering::Relaxed));
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+
+    #[test]
+    fn active_worker_limit_throttles_and_wakes_on_pulseweave_increase() {
+        let memory = LiveMemoryPool::new(1024).unwrap();
+        let pool = ComputePool::new(4, 8, 512, memory.clone()).unwrap();
+        assert_eq!(pool.worker_count(), 4);
+        assert_eq!(pool.active_worker_limit(), 4);
+        let prior = pool.set_active_worker_limit(2);
+        assert_eq!(prior, 4);
+        assert_eq!(pool.active_worker_limit(), 2);
+
+        let (entered_tx, entered_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let release_rx = Arc::new(Mutex::new(release_rx));
+        let mut tasks = Vec::new();
+        for _ in 0..4 {
+            let tx = entered_tx.clone();
+            let rx = Arc::clone(&release_rx);
+            tasks.push(
+                pool.submit(
+                    Budgeted::new(
+                        move |_: &WorkerContext, _: &mut MemoryLease| {
+                            tx.send(()).unwrap();
+                            rx.lock().unwrap().recv().unwrap();
+                            Ok(())
+                        },
+                        memory.reserve(16).unwrap(),
+                    ),
+                    CancellationToken::default(),
+                )
+                .unwrap(),
+            );
+        }
+        entered_rx.recv().unwrap();
+        entered_rx.recv().unwrap();
+        assert!(entered_rx.recv_timeout(Duration::from_millis(50)).is_err());
+        assert_eq!(pool.snapshot().peak_active_workers, 2);
+
+        let previous = pool.set_active_worker_limit(4);
+        assert_eq!(previous, 2);
+        entered_rx.recv().unwrap();
+        entered_rx.recv().unwrap();
+        for _ in 0..4 {
+            release_tx.send(()).unwrap();
+        }
+        for task in tasks {
+            drop(task.join().unwrap());
+        }
+        assert_eq!(pool.snapshot().peak_active_workers, 4);
+
+        let input = crate::pulseweave::PulseWeaveInput::new(
+            "prepared_local_compute",
+            "compute_pool_test",
+            "throttle_test",
+            vec![
+                crate::pulseweave::PulseWeaveTaskShape::new(
+                    "t0",
+                    "scan",
+                    crate::OperatorMemoryClass::Scan,
+                    64,
+                )
+                .unwrap(),
+            ],
+            1 << 20,
+            4,
+            256,
+        )
+        .unwrap();
+        let report = crate::pulseweave::plan_pulseweave(input).unwrap();
+        let expected_limit = report.batch_window_size(pool.worker_count());
+        {
+            let _guard = pool.scope_active_worker_limit(1);
+            assert_eq!(pool.active_worker_limit(), 1);
+            let prev = pool.apply_pulseweave_report(&report);
+            assert_eq!(prev, 1);
+            assert_eq!(pool.active_worker_limit(), expected_limit.clamp(1, 4));
+        }
+        assert_eq!(pool.active_worker_limit(), 4);
         assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
 }

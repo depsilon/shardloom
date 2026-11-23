@@ -98,7 +98,7 @@ fn source(
         .iter()
         .map(|field| field.name().clone())
         .collect::<Vec<_>>();
-    let metadata = flat_columnar_stream_source_from_reader(
+    let mut metadata = flat_columnar_stream_source_from_reader(
         &schema,
         names.clone(),
         names.clone(),
@@ -106,6 +106,11 @@ fn source(
         None,
         &FlatColumnarStreamSourcePlan::product_batches(5, None, "owned_test_batches", "unchanged"),
         Box::new(SchemaReader(Arc::clone(&schema))),
+    );
+    metadata.first_batch_profile = Some(
+        crate::universal_format_io::first_batch_profile::FirstBatchProfile::from_record_batch(
+            &shape.batch(Arc::clone(&schema)),
+        ),
     );
     IngestColumnarStreamSource::from_owned(
         metadata,

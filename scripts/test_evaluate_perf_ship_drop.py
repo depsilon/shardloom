@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: Apache-2.0
+import unittest
+
+from evaluate_perf_ship_drop import evaluate_ship_drop
+
+
+def _make_summary(
+    *,
+    engine_times: dict[int, float],
+    rss: int = 64_000_000,
+    sys_cpu: float = 0.1,
+    minor_faults: int = 1000,
+    timing_surface: str = "cold_process_cli",
+    input_format: str = "vortex",
+    result_sha256: str = "abc",
+    zero_cache: bool = True,
+) -> dict:
+    records = [
+        {
+            "query": q,
+            "run": 1,
+            "passed": True,
+            "seconds": t + 0.05,
+            "engine_execution_seconds": t,
+            "native_peak_rss_bytes": rss,
+            "system_cpu_seconds": sys_cpu,
+            "minor_page_faults": minor_faults,
+            "major_page_faults": 0,
+            "result_sha256": f"{result_sha256}-{q}",
+            "execution_report": {
+                "fallback_attempted": False,
+                "external_engine_invoked": False,
+            },
+        }
+        for q, t in sorted(engine_times.items())
+    ]
+    return {
+        "complete": True,
+        "runs_completed": len(records),
+        "runs_passed": len(records),
+        "selected_query_ids": sorted(engine_times),
+        "timing_metric": "engine_execution_seconds",
+        "timing_surface": timing_surface,
+        "input_format": input_format,
+        "zero_answer_cache_verified": zero_cache,
+        "records": records,
+    }
+
+
+class EvaluatePerfShipDropTests(unittest.TestCase):
+    def test_retains_when_total_improves_and_tail_and_os_budgets_hold(self):
+        base = _make_summary(engine_times={1: 1.0, 2: 2.0})
+        cand = _make_summary(engine_times={1: 0.90, 2: 1.90}, rss=66_000_000)
+        decision = evaluate_ship_drop(base, cand)
+        self.assertEqual(decision["decision"], "retain")
+        self.assertLess(decision["total_delta_pct"], -2.0)
+        self.assertFalse(decision["fallback_attempted"])
+
+    def test_drops_on_tail_regression_rss_growth_or_result_mismatch(self):
+        base = _make_summary(engine_times={1: 1.0, 2: 10.0})
+        tail_bad = _make_summary(engine_times={1: 1.15, 2: 8.0})
+        self.assertEqual(evaluate_ship_drop(base, tail_bad)["decision"], "drop")
+
+        rss_bad = _make_summary(engine_times={1: 0.8, 2: 8.0}, rss=90_000_000)
+        self.assertEqual(evaluate_ship_drop(base, rss_bad)["decision"], "drop")
+
+        hash_bad = _make_summary(engine_times={1: 0.8, 2: 8.0}, result_sha256="changed")
+        self.assertEqual(evaluate_ship_drop(base, hash_bad)["decision"], "drop")
+
+    def test_blocks_mismatched_timing_surface_or_zero_cache_failure(self):
+        base = _make_summary(engine_times={1: 1.0}, timing_surface="cold_process_cli")
+        cand = _make_summary(engine_times={1: 0.5}, timing_surface="warm_resident_session")
+        self.assertEqual(evaluate_ship_drop(base, cand)["decision"], "blocked")
+
+        cached = _make_summary(engine_times={1: 0.5}, zero_cache=False)
+        self.assertEqual(evaluate_ship_drop(base, cached)["decision"], "drop")
+
+
+if __name__ == "__main__":
+    unittest.main()

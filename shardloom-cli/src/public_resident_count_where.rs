@@ -38,14 +38,19 @@ pub(super) fn run_with_source(
     mut extra_fields: Vec<(String, String)>,
     binding: &NativeVortexInputBinding,
     execution_session: &mut PublicExecutionSession,
-    source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
+    source: Option<(
+        shardloom_vortex::resident_session::PreparedVortexSource,
+        bool,
+    )>,
     admission: &crate::command_context::CommandAdmission<'_>,
 ) -> ExitCode {
-    let (executed, rows, prepared_now) =
+    let (executed, rows, footer_opened_this_call) =
         match execute(request, binding, execution_session, source, admission) {
             Ok(result) => result,
             Err(error) => {
-                execution_session.clear();
+                execution_session.clear_operation_slots();
+                execution_session.evict_prepared_request_inputs(request);
+                execution_session.evict_prepared_binding(binding);
                 return native_vortex_materializing_error(
                     format,
                     PublicVortexPrimitive::CountWhere,
@@ -56,7 +61,7 @@ pub(super) fn run_with_source(
     let mut fields = execution_attachment_fields("run", request, plan);
     fields.append(&mut extra_fields);
     fields.extend(binding.evidence_fields());
-    append_fields(&mut fields, request, &executed, prepared_now);
+    append_fields(&mut fields, request, &executed, footer_opened_this_call);
     crate::execution_resources::append_query_timing_fields(&mut fields, Some(rows.timing));
     let (jsonl, _json_ownership) = rows.result_jsonl.into_parts();
     let (schema, _schema_ownership) = rows.result_schema_json.into_parts();
@@ -95,7 +100,9 @@ pub(super) fn run_with_source(
         fields,
     );
     if failed {
-        execution_session.clear();
+        execution_session.clear_operation_slots();
+        execution_session.evict_prepared_request_inputs(request);
+        execution_session.evict_prepared_binding(binding);
         ExitCode::from(1)
     } else {
         ExitCode::SUCCESS
@@ -106,7 +113,10 @@ fn execute(
     request: &PublicWorkflowRouteRequest,
     binding: &NativeVortexInputBinding,
     execution_session: &mut PublicExecutionSession,
-    source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
+    source: Option<(
+        shardloom_vortex::resident_session::PreparedVortexSource,
+        bool,
+    )>,
     admission: &crate::command_context::CommandAdmission<'_>,
 ) -> Result<
     (
@@ -125,21 +135,34 @@ fn execute(
         .count_where
         .as_ref()
         .is_some_and(|entry| entry.request == *request);
+    let mut footer_opened_this_call = false;
     if prepared_now {
-        execution_session.clear();
+        execution_session.clear_operation_slots();
         let (primitive, _, _) = native_vortex_bound_request_and_arg(
             request,
             PublicVortexPrimitive::CountWhere,
             binding,
         )?;
         let policy = native_vortex_materializing_policy(request)?;
-        let operation = if let Some(source) = source {
+        let cancellation = admission.cancellation();
+        let native_session = admission.native_session()?;
+        let operation = if let Some((source, source_reused)) = source {
+            footer_opened_this_call = !source_reused;
             shardloom_vortex::local_primitives::prepared_count::prepare_count_where_from_source_controlled(
-                &primitive, policy, source, &admission.cancellation(),
+                &primitive, policy, source, &cancellation,
+            )?
+        } else if let Some(uri) = primitive.source_uri.as_ref()
+            && let Some((source, reused)) =
+                execution_session.get_or_prepare_uri_source(uri, native_session, &cancellation)?
+        {
+            footer_opened_this_call = !reused;
+            shardloom_vortex::local_primitives::prepared_count::prepare_count_where_from_source_controlled(
+                &primitive, policy, source, &cancellation,
             )?
         } else {
+            footer_opened_this_call = true;
             shardloom_vortex::local_primitives::prepared_count::prepare_count_where_in_session_controlled(
-                &primitive, policy, admission.native_session()?, &admission.cancellation(),
+                &primitive, policy, native_session, &cancellation,
             )?
         };
         execution_session.count_where = Some(PreparedPublicCountWhere {
@@ -155,7 +178,7 @@ fn execute(
     let (execution, rows) = prepared
         .operation
         .collect_jsonl_controlled(&admission.cancellation())?;
-    Ok((execution, rows, prepared_now))
+    Ok((execution, rows, footer_opened_this_call))
 }
 
 fn append_fields(

@@ -841,28 +841,55 @@ fn predicate(expr: &Expression, columns: &BTreeMap<String, Value>) -> Option<Pre
             PredicateExpr::And(vec![predicate(left, columns)?, predicate(right, columns)?])
         }
         E::Binary(left, BinaryOp::Or, right) => {
-            let PredicateExpr::Compare {
-                column: left_column,
-                op: ComparisonOp::Eq,
-                value: left,
-            } = predicate(left, columns)?
-            else {
-                return None;
-            };
-            let PredicateExpr::Compare {
-                column: right_column,
-                op: ComparisonOp::Eq,
-                value: right,
-            } = predicate(right, columns)?
-            else {
-                return None;
-            };
-            if left_column != right_column {
-                return None;
+            fn collect_or_eq_inlist(
+                expr: &Expression,
+                columns: &BTreeMap<String, Value>,
+                target_column: &mut Option<ColumnRef>,
+                values: &mut Vec<StatValue>,
+            ) -> Option<()> {
+                if let E::Binary(lhs, BinaryOp::Or, rhs) = &expr.kind {
+                    collect_or_eq_inlist(lhs, columns, target_column, values)?;
+                    collect_or_eq_inlist(rhs, columns, target_column, values)?;
+                    return Some(());
+                }
+                match predicate(expr, columns)? {
+                    PredicateExpr::Compare {
+                        column,
+                        op: ComparisonOp::Eq,
+                        value,
+                    } => {
+                        match target_column {
+                            Some(existing) if existing != &column => return None,
+                            Some(_) => {}
+                            None => *target_column = Some(column),
+                        }
+                        values.push(value);
+                        Some(())
+                    }
+                    PredicateExpr::InList {
+                        column,
+                        values: item_values,
+                        negated: false,
+                    } => {
+                        match target_column {
+                            Some(existing) if existing != &column => return None,
+                            Some(_) => {}
+                            None => *target_column = Some(column),
+                        }
+                        values.extend(item_values);
+                        Some(())
+                    }
+                    _ => None,
+                }
             }
+
+            let mut target_column = None;
+            let mut values = Vec::new();
+            collect_or_eq_inlist(left, columns, &mut target_column, &mut values)?;
+            collect_or_eq_inlist(right, columns, &mut target_column, &mut values)?;
             PredicateExpr::InList {
-                column: left_column,
-                values: vec![left, right],
+                column: target_column?,
+                values,
                 negated: false,
             }
         }
@@ -935,5 +962,99 @@ fn having_predicates(expr: &Expression) -> Option<Vec<VortexAggregateHavingExpr>
             )])
         }
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use vortex::array::{dtype::Nullability, scalar::Scalar};
+
+    fn i64_dtype() -> DType {
+        DType::Primitive(PType::I64, Nullability::NonNullable)
+    }
+
+    fn col_expr(name: &str) -> Expression {
+        Expression::new(i64_dtype(), E::Column(name.to_string()))
+    }
+
+    fn lit_i64(value: i64) -> Expression {
+        Expression::new(i64_dtype(), E::Literal(Scalar::from(value)))
+    }
+
+    fn eq_expr(name: &str, value: i64) -> Expression {
+        Expression::new(
+            DType::Bool(Nullability::NonNullable),
+            E::Compare(
+                Box::new(col_expr(name)),
+                ComparisonOp::Eq,
+                Box::new(lit_i64(value)),
+            ),
+        )
+    }
+
+    fn or_expr(left: Expression, right: Expression) -> Expression {
+        Expression::new(
+            DType::Bool(Nullability::NonNullable),
+            E::Binary(Box::new(left), BinaryOp::Or, Box::new(right)),
+        )
+    }
+
+    #[test]
+    fn predicate_folds_arbitrary_single_column_or_eq_chains_to_in_list() {
+        let mut columns = BTreeMap::new();
+        columns.insert("id".to_string(), Value::Column("id".to_string()));
+        columns.insert("other".to_string(), Value::Column("other".to_string()));
+
+        let two = or_expr(eq_expr("id", 1), eq_expr("id", 2));
+        assert_eq!(
+            predicate(&two, &columns),
+            Some(PredicateExpr::InList {
+                column: ColumnRef::new("id").unwrap(),
+                values: vec![StatValue::Int64(1), StatValue::Int64(2)],
+                negated: false,
+            })
+        );
+
+        let three = or_expr(
+            or_expr(eq_expr("id", 1), eq_expr("id", 2)),
+            eq_expr("id", 3),
+        );
+        assert_eq!(
+            predicate(&three, &columns),
+            Some(PredicateExpr::InList {
+                column: ColumnRef::new("id").unwrap(),
+                values: vec![
+                    StatValue::Int64(1),
+                    StatValue::Int64(2),
+                    StatValue::Int64(3)
+                ],
+                negated: false,
+            })
+        );
+
+        let four_balanced = or_expr(
+            or_expr(eq_expr("id", 10), eq_expr("id", 20)),
+            or_expr(eq_expr("id", 30), eq_expr("id", 40)),
+        );
+        assert_eq!(
+            predicate(&four_balanced, &columns),
+            Some(PredicateExpr::InList {
+                column: ColumnRef::new("id").unwrap(),
+                values: vec![
+                    StatValue::Int64(10),
+                    StatValue::Int64(20),
+                    StatValue::Int64(30),
+                    StatValue::Int64(40),
+                ],
+                negated: false,
+            })
+        );
+
+        let mixed = or_expr(
+            or_expr(eq_expr("id", 1), eq_expr("id", 2)),
+            eq_expr("other", 3),
+        );
+        assert_eq!(predicate(&mixed, &columns), None);
     }
 }
