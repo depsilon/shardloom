@@ -107,6 +107,7 @@ pub(super) fn prepare(
         ingest_runtime: None,
         embedded_derived_build_micros: shardloom_vortex::new_embedded_derived_build_micros_counter(
         ),
+        first_batch_profile: text.first_batch_profile().cloned(),
         reader: Box::new(reader),
     };
     let columnar_source =

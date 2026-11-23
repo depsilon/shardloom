@@ -2642,47 +2642,7 @@ pub fn write_vortex_prepared_olap_state_bundle_with_receipt(
     receipt: VortexPreparedArtifactReceipt,
 ) -> Result<VortexPreparedOlapStateReport> {
     normalize_prepared_olap_bundle_request(&mut request);
-    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-    {
-        receipt.cancellation.check()?;
-        for identity in &receipt.source_identities {
-            identity.validate()?;
-        }
-    }
-    let report = receipt.committed.with_verified_digest(
-        &request.prepared_artifact_path,
-        |digest, size_bytes, modified| {
-            let fingerprint = LocalReuseFileFingerprint {
-                path: absolute_local_path(&request.prepared_artifact_path)?,
-                size_bytes,
-                mtime_ns: modified.duration_since(UNIX_EPOCH).map_or_else(
-                    |_| "unknown".to_string(),
-                    |value| value.as_nanos().to_string(),
-                ),
-                content_digest: digest.to_owned(),
-                digest_source: "committed_writer_streaming_sha256".to_string(),
-                payload_bytes_read: 0,
-            };
-            Ok(prepared_olap_report_from_request(
-                &request,
-                &fingerprint,
-                prepared_olap_state_status(
-                    &request,
-                    prepared_olap_exact_sidecar_family_count(&request),
-                ),
-                fingerprint.content_digest.clone(),
-                false,
-            ))
-        },
-    )?;
-    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-    {
-        for identity in &receipt.source_identities {
-            identity.validate()?;
-        }
-        receipt.cancellation.check()?;
-    }
-    Ok(report)
+    publish_vortex_prepared_olap_single_artifact_state_with_receipt(&request, receipt)
 }
 
 fn normalize_prepared_olap_bundle_request(request: &mut VortexPreparedOlapStateWriteRequest) {
@@ -2725,6 +2685,60 @@ pub fn publish_vortex_prepared_olap_single_artifact_state(
         artifact_fingerprint.content_digest.clone(),
         false,
     ))
+}
+
+/// Publish fail-closed, content-addressed OLAP evidence directly from a
+/// completed native writer's consumed [`VortexPreparedArtifactReceipt`] so no
+/// second file pass is performed (`payload_bytes_read == 0`).
+///
+/// # Errors
+/// Refuses any cancellation, source-generation change, or artifact mismatch
+/// between the writer commit and publication.
+pub fn publish_vortex_prepared_olap_single_artifact_state_with_receipt(
+    request: &VortexPreparedOlapStateWriteRequest,
+    receipt: VortexPreparedArtifactReceipt,
+) -> Result<VortexPreparedOlapStateReport> {
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    {
+        receipt.cancellation.check()?;
+        for identity in &receipt.source_identities {
+            identity.validate()?;
+        }
+    }
+    let report = receipt.committed.with_verified_digest(
+        &request.prepared_artifact_path,
+        |digest, size_bytes, modified| {
+            let fingerprint = LocalReuseFileFingerprint {
+                path: absolute_local_path(&request.prepared_artifact_path)?,
+                size_bytes,
+                mtime_ns: modified.duration_since(UNIX_EPOCH).map_or_else(
+                    |_| "unknown".to_string(),
+                    |value| value.as_nanos().to_string(),
+                ),
+                content_digest: digest.to_owned(),
+                digest_source: "committed_writer_streaming_sha256".to_string(),
+                payload_bytes_read: 0,
+            };
+            Ok(prepared_olap_report_from_request(
+                request,
+                &fingerprint,
+                prepared_olap_state_status(
+                    request,
+                    prepared_olap_exact_sidecar_family_count(request),
+                ),
+                fingerprint.content_digest.clone(),
+                false,
+            ))
+        },
+    )?;
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    {
+        for identity in &receipt.source_identities {
+            identity.validate()?;
+        }
+        receipt.cancellation.check()?;
+    }
+    Ok(report)
 }
 
 /// Evaluate existing single-artifact OLAP prepared-state evidence for
@@ -15005,6 +15019,7 @@ impl LocalVortexWriteContext {
                 writer_session,
                 false,
                 dtype,
+                None,
             ))
         } else {
             options
@@ -15017,6 +15032,7 @@ impl LocalVortexWriteContext {
         writer_session: &vortex::session::VortexSession,
         preserve_input_dictionaries: bool,
         dtype: &vortex::array::dtype::DType,
+        memory: Option<&LiveMemoryPool>,
     ) -> Arc<dyn vortex::layout::LayoutStrategy> {
         use vortex::compressor::BtrBlocksCompressorBuilder;
         use vortex::file::WriteStrategyBuilder;
@@ -15033,12 +15049,22 @@ impl LocalVortexWriteContext {
         if vortex_layout_write_strategy_applies(layout_write_decision) {
             let row_block_size = vortex_writer_row_block_size(layout_write_decision);
             let block_target_bytes = vortex_writer_block_target_bytes(layout_write_decision);
-            let stats_concurrency = vortex_writer_stats_concurrency(layout_write_decision);
+            let stats_concurrency = crate::ingest_cpu_lanes::governed_writer_concurrency(
+                vortex_writer_stats_concurrency(layout_write_decision),
+                memory,
+            );
+            let governed_compression_concurrency =
+                crate::ingest_cpu_lanes::governed_writer_concurrency(
+                    vortex_writer_compression_concurrency(layout_write_decision)
+                        .max(stats_concurrency),
+                    memory,
+                );
             if vortex_writer_uses_large_source_fast_load(layout_write_decision) {
                 std::sync::Arc::new(
-                    large_source_fast_load_table_strategy_with_dictionaries(
+                    large_source_fast_load_table_strategy_with_concurrency(
                         row_block_size,
                         block_target_bytes,
+                        governed_compression_concurrency,
                         stats_concurrency,
                         writer_stage_timing,
                         writer_session,
@@ -15059,7 +15085,7 @@ impl LocalVortexWriteContext {
                     large_source_text_vortex_write_strategy_with_dictionaries(
                         row_block_size,
                         block_target_bytes,
-                        vortex_writer_compression_concurrency(layout_write_decision),
+                        governed_compression_concurrency,
                         stats_concurrency,
                         &layout_write_decision.writer_compression_field_names,
                         writer_stage_timing,
@@ -15224,11 +15250,33 @@ fn large_source_fast_load_table_strategy(
     )
 }
 
-#[cfg(feature = "vortex-write")]
+#[cfg(all(test, feature = "vortex-write"))]
 #[allow(clippy::too_many_lines)] // Keep the native strategy tree in one reviewable assembly.
 fn large_source_fast_load_table_strategy_with_dictionaries(
     row_block_size: usize,
     block_target_bytes: u64,
+    stats_concurrency: usize,
+    writer_stage_timing: &VortexWriterStageTiming,
+    writer_session: &vortex::session::VortexSession,
+    preserve_input_dictionaries: bool,
+) -> vortex::layout::layouts::table::TableStrategy {
+    large_source_fast_load_table_strategy_with_concurrency(
+        row_block_size,
+        block_target_bytes,
+        1,
+        stats_concurrency,
+        writer_stage_timing,
+        writer_session,
+        preserve_input_dictionaries,
+    )
+}
+
+#[cfg(feature = "vortex-write")]
+#[allow(clippy::too_many_lines)] // Keep the native strategy tree in one reviewable assembly.
+fn large_source_fast_load_table_strategy_with_concurrency(
+    row_block_size: usize,
+    block_target_bytes: u64,
+    compression_concurrency: usize,
     stats_concurrency: usize,
     writer_stage_timing: &VortexWriterStageTiming,
     writer_session: &vortex::session::VortexSession,
@@ -15247,6 +15295,7 @@ fn large_source_fast_load_table_strategy_with_dictionaries(
     let row_block_len = row_block_size.max(1);
     let row_block_size =
         NonZeroUsize::new(row_block_len).expect("row_block_len is clamped to at least one");
+    let compression_concurrency = compression_concurrency.max(1);
     let stats_concurrency = NonZeroUsize::new(stats_concurrency.max(1))
         .expect("stats_concurrency is clamped to at least one");
     // Preserve the accepted probe's empty encoding allow-list explicitly.
@@ -15275,8 +15324,9 @@ fn large_source_fast_load_table_strategy_with_dictionaries(
     // Dictionary codes, values and text retain their existing routes. Only
     // non-Dict numeric data is compressed, after the final canonicalizing step.
     let numeric_fallback = RepartitionStrategy::new(
-        numeric_encoding::NumericDataStrategy::new(
+        numeric_encoding::NumericDataStrategy::with_concurrency(
             buffered,
+            compression_concurrency,
             writer_stage_timing.stages.clone(),
             writer_session,
         ),
@@ -15309,12 +15359,15 @@ fn large_source_fast_load_table_strategy_with_dictionaries(
     );
     let validity_strategy = CollectStrategy::new(flat);
     let data: std::sync::Arc<dyn vortex::layout::LayoutStrategy> = if preserve_input_dictionaries {
-        std::sync::Arc::new(dictionary_preservation::DictionaryPreservingStrategy::new(
-            repartition,
-            row_block_len,
-            writer_stage_timing.stages.clone(),
-            writer_session,
-        ))
+        std::sync::Arc::new(
+            dictionary_preservation::DictionaryPreservingStrategy::with_concurrency(
+                repartition,
+                row_block_len,
+                compression_concurrency,
+                writer_stage_timing.stages.clone(),
+                writer_session,
+            ),
+        )
     } else {
         std::sync::Arc::new(repartition)
     };
@@ -15362,9 +15415,10 @@ fn large_source_text_vortex_write_strategy_with_dictionaries(
         compression_concurrency,
         writer_stage_timing,
     );
-    let mut strategy = large_source_fast_load_table_strategy_with_dictionaries(
+    let mut strategy = large_source_fast_load_table_strategy_with_concurrency(
         row_block_size,
         block_target_bytes,
+        compression_concurrency,
         stats_concurrency,
         writer_stage_timing,
         writer_session,
@@ -15456,7 +15510,7 @@ fn large_source_fast_zstd_text_leaf_strategy(
     writer_stage_timing: &VortexWriterStageTiming,
 ) -> std::sync::Arc<dyn vortex::layout::LayoutStrategy> {
     use vortex::array::Executable as _;
-    use vortex::array::arrays::VarBinViewArray;
+    use vortex::array::arrays::{VarBin, VarBinView, VarBinViewArray};
     use vortex::layout::layouts::chunked::writer::ChunkedLayoutStrategy;
     use vortex::layout::layouts::compressed::CompressingStrategy;
     use vortex::layout::layouts::flat::writer::FlatLayoutStrategy;
@@ -15480,41 +15534,52 @@ fn large_source_fast_zstd_text_leaf_strategy(
         let compression_start = Instant::now();
         let _active_scope = writer_stage_timing.stages.text_scope();
         let rows = u64::try_from(chunk.len()).unwrap_or(u64::MAX);
-        let input_bytes = chunk.nbytes();
-        let started = Instant::now();
-        let canonical = VarBinViewArray::execute(chunk.clone(), ctx);
-        writer_stage_timing.stages.record(
-            Stage::TextCanonicalize,
-            started.elapsed(),
-            rows,
-            input_bytes,
-            canonical.as_ref().map_or(0, vortex::array::Array::nbytes),
-        );
-        let canonical = canonical?;
-        let input_bytes = canonical.nbytes();
-        let started = Instant::now();
-        let varbin = canonical.compact_buffers(ctx);
-        writer_stage_timing.stages.record(
-            Stage::TextCompact,
-            started.elapsed(),
-            rows,
-            input_bytes,
-            varbin.as_ref().map_or(0, vortex::array::Array::nbytes),
-        );
-        let varbin = varbin?;
-        let input_bytes = varbin.nbytes();
-        let started = Instant::now();
-        let compressed = vortex_zstd::Zstd::from_var_bin_view_without_dict(
-            &varbin,
-            VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_ZSTD_FAST_LEVEL,
-            values_per_frame,
-            ctx,
-        );
+        let (zstd_input_bytes, zstd_started, compressed) =
+            if let Some(varbin_view) = chunk.as_opt::<VarBinView>() {
+                let started = Instant::now();
+                let owned = varbin_view.into_owned();
+                let compressed = vortex_zstd::Zstd::from_var_bin_view_without_dict(
+                    &owned,
+                    VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_ZSTD_FAST_LEVEL,
+                    values_per_frame,
+                    ctx,
+                );
+                (chunk.nbytes(), started, compressed)
+            } else if let Some(varbin) = chunk.as_opt::<VarBin>() {
+                let started = Instant::now();
+                let owned = varbin.into_owned();
+                let compressed = vortex_zstd::Zstd::from_var_bin_without_dict(
+                    &owned,
+                    VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_ZSTD_FAST_LEVEL,
+                    values_per_frame,
+                    ctx,
+                );
+                (chunk.nbytes(), started, compressed)
+            } else {
+                let started = Instant::now();
+                let canonical = VarBinViewArray::execute(chunk.clone(), ctx);
+                writer_stage_timing.stages.record(
+                    Stage::TextCanonicalize,
+                    started.elapsed(),
+                    rows,
+                    chunk.nbytes(),
+                    canonical.as_ref().map_or(0, vortex::array::Array::nbytes),
+                );
+                let canonical = canonical?;
+                let started = Instant::now();
+                let compressed = vortex_zstd::Zstd::from_var_bin_view_without_dict(
+                    &canonical,
+                    VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_ZSTD_FAST_LEVEL,
+                    values_per_frame,
+                    ctx,
+                );
+                (canonical.nbytes(), started, compressed)
+            };
         writer_stage_timing.stages.record(
             Stage::TextZstd,
-            started.elapsed(),
+            zstd_started.elapsed(),
             rows,
-            input_bytes,
+            zstd_input_bytes,
             compressed.as_ref().map_or(0, vortex::array::Array::nbytes),
         );
         let compressed = compressed?;

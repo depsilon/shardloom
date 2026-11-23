@@ -131,7 +131,7 @@ impl ResidentMemorySource {
         // single view schema node. Charge their handle vectors before to_data
         // clones them, retaining credit with every imported buffer/child. Public
         // validated-copy intake keeps its existing schema metadata admission.
-        if ownership == arrow_ownership::ArrowOwnershipPolicy::ControlledParquet {
+        if ownership.allows_zero_copy_transfer() {
             for column in batch.columns() {
                 metadata_bytes = metadata_bytes
                     .checked_add(variadic_metadata_bytes(column.as_ref(), context)?)
@@ -188,7 +188,7 @@ impl ResidentMemorySource {
         // string offsets can allocate rebased offsets in Vortex, so decline that
         // retention receipt instead of using visible nbytes as capacity proof.
         let retained_capacity = (matches!(origin, Origin::LocalFile)
-            && ownership == arrow_ownership::ArrowOwnershipPolicy::ControlledParquet
+            && ownership.allows_zero_copy_transfer()
             && direct_coverage_buffers(&retained))
         .then(|| {
             counts

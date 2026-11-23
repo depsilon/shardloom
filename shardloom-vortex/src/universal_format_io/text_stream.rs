@@ -96,6 +96,7 @@ pub struct TextSource {
     memory: LiveMemoryPool,
     type_policy: Option<TextTypePolicy>,
     metadata: MemoryLease,
+    first_batch_profile: Option<super::first_batch_profile::FirstBatchProfile>,
 }
 
 impl TextSource {
@@ -187,12 +188,15 @@ impl TextSource {
         }
         let mut rows = 0_usize;
         let mut largest_record_bytes = 0;
+        let mut profile_builder =
+            super::first_batch_profile::DynamicFirstBatchProfileBuilder::new();
         while let Some(record) = reader.next_record()? {
             cancellation.check()?;
             largest_record_bytes = largest_record_bytes.max(record.value().len());
             let _scratch = memory.reserve(record_charge(record.value().len(), 32)?)?;
             let raw = std::str::from_utf8(record.value()).map_err(failed)?;
             let decoded = resolve_record_fields(decoder(raw)?);
+            profile_builder.observe_named_row(&decoded);
             rows = rows
                 .checked_add(1)
                 .ok_or_else(|| failed("text row count overflow"))?;
@@ -275,6 +279,7 @@ impl TextSource {
                 })
                 .collect::<Vec<_>>(),
         ));
+        let first_batch_profile = (rows > 0).then(|| profile_builder.finish(schema.as_ref()));
         identity.validate()?;
         cancellation.check()?;
         Ok(Arc::new(Self {
@@ -290,7 +295,13 @@ impl TextSource {
             memory: memory.clone(),
             type_policy,
             metadata,
+            first_batch_profile,
         }))
+    }
+
+    #[must_use]
+    pub fn first_batch_profile(&self) -> Option<&super::first_batch_profile::FirstBatchProfile> {
+        self.first_batch_profile.as_ref()
     }
 
     #[must_use]

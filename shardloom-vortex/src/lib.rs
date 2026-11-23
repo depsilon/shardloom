@@ -709,6 +709,7 @@ pub use vortex_ingest::{
     evaluate_vortex_prepared_state_append_only_refinement, evaluate_vortex_prepared_state_reuse,
     evaluate_vortex_scout_ingress, prepare_native_vortex_artifact,
     prepare_native_vortex_artifact_controlled, publish_vortex_prepared_olap_single_artifact_state,
+    publish_vortex_prepared_olap_single_artifact_state_with_receipt,
     vortex_differential_refinement_manifest_path, vortex_ingest_write_feature_enabled,
     vortex_prepared_state_reuse_manifest_path, write_flat_scalar_vortex_prepared_state,
     write_flat_scalar_vortex_prepared_state_with_receipt,

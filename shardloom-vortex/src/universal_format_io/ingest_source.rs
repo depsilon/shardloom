@@ -71,7 +71,7 @@ impl IngestColumnarStreamSource {
         source.reader = Box::new(SchemaReader(reader.schema()));
         Self {
             source,
-            ownership: ArrowOwnershipPolicy::ValidatedCopy,
+            ownership: ArrowOwnershipPolicy::ControlledOwnedReader,
             reader: Some(reader),
             memory: Some(memory.clone()),
         }

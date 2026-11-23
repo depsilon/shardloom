@@ -723,3 +723,22 @@ fn encoded_numeric_file_serves_exact_public_projection_filter_count_and_sort() {
         serde_json::json!([expected[4], expected[1], expected[2]])
     );
 }
+
+#[test]
+fn numeric_data_strategy_with_concurrency_preserves_roundtrip_values() {
+    use vortex::layout::layouts::{
+        chunked::writer::ChunkedLayoutStrategy, flat::writer::FlatLayoutStrategy,
+    };
+    let runtime = CurrentThreadRuntime::new();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let flat: Arc<dyn LayoutStrategy> = Arc::new(FlatLayoutStrategy::default());
+    let strategy = NumericDataStrategy::with_concurrency(
+        ChunkedLayoutStrategy::new(flat),
+        2,
+        IngestStageTimings::default(),
+        &session,
+    );
+    let array = PrimitiveArray::new(vec![11_i64, -22, 33, 44], Validity::NonNullable).into_array();
+    let file = write(&array, Arc::new(strategy), &session, &runtime);
+    round_trip(&array, &file, &runtime);
+}

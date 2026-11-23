@@ -1,7 +1,7 @@
 {
   "added_files_sha256": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "README.shardloom.md": "9a846a5bcef430ea61c3a644e3a39de47e32d8704f5ed8a708c229a48018e384",
+    "README.shardloom.md": "146f15acc334113e65a4cb819308892d724c52bd6fceb3903d8fb79f2f105003",
     "src/compression_resources.rs": "b5253fa5c635d91414533ff8a7a01f4a76e3a18f701945d28402e5334f3443e8",
     "src/compression_resources_tests.rs": "1c3fcbeaa911bfa115e85f24aaeb694e7ba9b5fa606225a44ccfd58a8a7b1dba",
     "src/decoder_workspace.rs": "a40160fffc924e3759a4c08d2bfbe7d4248caa7e420bef17804a73e099145f3c",
@@ -16,12 +16,12 @@
   "license_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE",
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "9a846a5bcef430ea61c3a644e3a39de47e32d8704f5ed8a708c229a48018e384"
+    "sha256": "146f15acc334113e65a4cb819308892d724c52bd6fceb3903d8fb79f2f105003"
   },
   "migration_status": "retained_local_contract_port",
   "modified_files_sha256": {
     "Cargo.toml": "e7fe0bfa3bbb7a30550719c722bcf04a50093e0b4af3a2a71c34f7cecccd8146",
-    "src/array.rs": "9b61ca494417abf6c882729308748712ea66145660a0b32c52892847269ca041",
+    "src/array.rs": "b2193eeb5b8bcb3a60ad0e39232f872749307ca4cd653d6cf2ea8f3ef84f8a2c",
     "src/compute/cast.rs": "48cf6fd95ad460eacc6eba474619c32f9963bd2dfbc24867e2b620c4ea9d378e",
     "src/lib.rs": "3d9219ecd7e556e38093c72b8f1e6d92aa2b7690e491c38583f887d04f5f84c7",
     "src/test.rs": "bf2833947acf51414e9a9300637a5763a2ce97b3444f1138950ae7592fc4dad3",

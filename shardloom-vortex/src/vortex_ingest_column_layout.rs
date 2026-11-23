@@ -97,6 +97,7 @@ pub(super) fn stream_options(
         &memory.session,
         true,
         dtype,
+        Some(&memory.pool),
     );
     if requested == StreamFooterLayout::ColumnAddressable
         && ColumnAddressableLayout::admits_dtype(dtype, bounds)
@@ -119,10 +120,15 @@ pub(super) fn stream_options(
     // The original writer remains available for statically inadmissible schema.
     // Once an admitted candidate begins writing, a malformed native batch or
     // incompatible child layout is an error, never a mid-stream route change.
+    let max_in_flight = crate::ingest_cpu_lanes::governed_layout_in_flight(
+        decision.writer_runtime_applied_parallelism,
+        Some(&memory.pool),
+    );
     Ok((
         memory.session.write_options().with_strategy(Arc::new(
             bounded_ingest_layout::BoundedIngestLayout::new(child, 0, memory.pool.reserve(0)?)
-                .with_input_prefetch(lookahead),
+                .with_input_prefetch(lookahead)
+                .with_max_in_flight(max_in_flight, memory.pool.clone()),
         )),
         StreamLayoutEvidence {
             status: if requested == StreamFooterLayout::ColumnAddressable {

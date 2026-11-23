@@ -565,6 +565,8 @@ fn layout_writer_provider_uses_batch_presence_for_zero_row_columnar_sources() {
         source_adapter,
         header: vec!["id".to_string()],
         column_arrow_dtypes: vec![Some(DataType::Int64)],
+        #[cfg(feature = "universal-format-io")]
+        first_batch_profile: None,
         read_plan: LocalSourceReadPlan::full("test_zero_row_columnar_source"),
         materialized_columns: vec!["id".to_string()],
         reader_projection_columns: vec!["id".to_string()],
@@ -613,6 +615,8 @@ fn layout_writer_provider_uses_streaming_vortex_provider_for_non_empty_columnar_
         source_adapter,
         header: vec!["URL".to_string()],
         column_arrow_dtypes: vec![Some(DataType::Utf8)],
+        #[cfg(feature = "universal-format-io")]
+        first_batch_profile: None,
         read_plan: LocalSourceReadPlan::full("test_streaming_columnar_source"),
         materialized_columns: vec!["URL".to_string()],
         reader_projection_columns: vec!["URL".to_string()],
@@ -696,6 +700,8 @@ fn layout_writer_compression_candidates_use_source_dtypes_before_name_heuristics
             Some(DataType::Utf8),
             Some(DataType::Utf8),
         ],
+        #[cfg(feature = "universal-format-io")]
+        first_batch_profile: None,
         read_plan: LocalSourceReadPlan::full("test_writer_candidates"),
         materialized_columns: vec!["URL".to_string(), "Title".to_string()],
         reader_projection_columns: vec!["URL".to_string(), "Title".to_string()],
@@ -735,7 +741,6 @@ fn layout_writer_compression_candidates_use_source_dtypes_before_name_heuristics
         vec![
             "URL".to_string(),
             "Title".to_string(),
-            "SearchPhrase".to_string(),
             "BrowserCountry".to_string(),
             "ParamCurrency".to_string(),
             "Params".to_string(),
@@ -786,6 +791,9 @@ fn large_text_domain_columnar_source_does_not_synthesize_full_url_metadata() {
         ],
     )
     .expect("record batch");
+    let first_batch_profile = Some(
+        shardloom_vortex::universal_format_io::first_batch_profile::FirstBatchProfile::from_record_batch(&batch),
+    );
     let source = shardloom_vortex::FlatLocalColumnarStreamSource {
         header: vec!["id".to_string(), "Referer".to_string()],
         column_dtypes: vec![Some(LogicalDType::Int64), Some(LogicalDType::Utf8)],
@@ -813,6 +821,7 @@ fn large_text_domain_columnar_source_does_not_synthesize_full_url_metadata() {
         ingest_runtime: None,
         embedded_derived_build_micros: shardloom_vortex::new_embedded_derived_build_micros_counter(
         ),
+        first_batch_profile,
         reader: Box::new(TestRecordBatchReader {
             schema,
             batches: VecDeque::from([batch]),
@@ -934,16 +943,19 @@ fn large_utf8_parquet_guard_prepared_batch(use_views: bool) -> arrow_array::Reco
                 Some("https://example.com/日本語"),
             ]),
             text_array(vec![Some("rust"), Some("shardloom"), None, Some("日本語")]),
-            text_array(vec![
-                Some("Google title"),
-                Some("Other title"),
-                None,
-                Some("Longer UTF-8 title 日本語"),
-            ]),
-            Arc::new(Int64Array::from(vec![60_i64, 121, 180, 241])) as ArrayRef,
+            text_array(vec![Some("Tag01"), Some("Tag02"), None, Some("Tag03")]),
+            Arc::new(Int64Array::from(vec![
+                1_700_002_860_i64,
+                1_700_002_921,
+                1_700_002_980,
+                1_700_003_041,
+            ])) as ArrayRef,
         ],
     )
     .expect("record batch");
+    let first_batch_profile = Some(
+        shardloom_vortex::universal_format_io::first_batch_profile::FirstBatchProfile::from_record_batch(&batch),
+    );
     let source = shardloom_vortex::FlatLocalColumnarStreamSource {
         header: vec![
             "URL".to_string(),
@@ -998,6 +1010,7 @@ fn large_utf8_parquet_guard_prepared_batch(use_views: bool) -> arrow_array::Reco
         ingest_runtime: None,
         embedded_derived_build_micros: shardloom_vortex::new_embedded_derived_build_micros_counter(
         ),
+        first_batch_profile,
         reader: Box::new(TestRecordBatchReader {
             schema,
             batches: VecDeque::from([batch]),
@@ -1088,13 +1101,16 @@ fn large_dictionary_columnar_source_uses_lean_runtime_metadata_profile() {
             dictionary_array(&[Some("https://www.google.com/a"), Some("https://docs.rs/b")]),
             dictionary_array(&[Some("https://ref.example/a"), Some("https://google.com/r")]),
             dictionary_array(&[Some("rust"), Some("shardloom")]),
-            dictionary_array(&[Some("Google title"), Some("Other title")]),
-            dictionary_array(&[Some("https://original.example/a"), Some("https://origin/b")]),
-            Arc::new(Int64Array::from(vec![60_i64, 121])) as ArrayRef,
+            dictionary_array(&[Some("Tag01"), Some("Tag02")]),
+            dictionary_array(&[Some("home"), Some("page")]),
+            Arc::new(Int64Array::from(vec![1_700_002_860_i64, 1_700_002_921])) as ArrayRef,
             Arc::new(Int64Array::from(vec![300_i64, 360])) as ArrayRef,
         ],
     )
     .expect("record batch");
+    let first_batch_profile = Some(
+        shardloom_vortex::universal_format_io::first_batch_profile::FirstBatchProfile::from_record_batch(&batch),
+    );
     let source = shardloom_vortex::FlatLocalColumnarStreamSource {
         header: vec![
             "URL".to_string(),
@@ -1158,6 +1174,7 @@ fn large_dictionary_columnar_source_uses_lean_runtime_metadata_profile() {
         ingest_runtime: None,
         embedded_derived_build_micros: shardloom_vortex::new_embedded_derived_build_micros_counter(
         ),
+        first_batch_profile,
         reader: Box::new(TestRecordBatchReader {
             schema,
             batches: VecDeque::from([batch]),
@@ -1237,7 +1254,11 @@ fn source_native_time_metadata_does_not_force_full_text_domain_metadata() {
     let batch = RecordBatch::try_new(
         Arc::clone(&schema),
         vec![
-            Arc::new(Int64Array::from(vec![60_i64, 121, 180])),
+            Arc::new(Int64Array::from(vec![
+                1_700_002_860_i64,
+                1_700_002_921,
+                1_700_002_980,
+            ])),
             Arc::new(StringArray::from(vec![
                 Some("https://www.google.com/search"),
                 Some("https://example.com/page"),
@@ -1246,6 +1267,9 @@ fn source_native_time_metadata_does_not_force_full_text_domain_metadata() {
         ],
     )
     .expect("record batch");
+    let first_batch_profile = Some(
+        shardloom_vortex::universal_format_io::first_batch_profile::FirstBatchProfile::from_record_batch(&batch),
+    );
     let source = shardloom_vortex::FlatLocalColumnarStreamSource {
         header: vec!["EventTime".to_string(), "Referer".to_string()],
         column_dtypes: vec![Some(LogicalDType::Int64), Some(LogicalDType::Utf8)],
@@ -1272,6 +1296,7 @@ fn source_native_time_metadata_does_not_force_full_text_domain_metadata() {
         ingest_runtime: None,
         embedded_derived_build_micros: shardloom_vortex::new_embedded_derived_build_micros_counter(
         ),
+        first_batch_profile,
         reader: Box::new(TestRecordBatchReader {
             schema,
             batches: VecDeque::from([batch]),
@@ -1313,9 +1338,9 @@ fn source_native_time_metadata_does_not_force_full_text_domain_metadata() {
         .as_any()
         .downcast_ref::<arrow_array::Int64Array>()
         .expect("minute bucket int64");
-    assert_eq!(event_minute_buckets.value(0), 60);
-    assert_eq!(event_minute_buckets.value(1), 120);
-    assert_eq!(event_minute_buckets.value(2), 180);
+    assert_eq!(event_minute_buckets.value(0), 1_700_002_860);
+    assert_eq!(event_minute_buckets.value(1), 1_700_002_920);
+    assert_eq!(event_minute_buckets.value(2), 1_700_002_980);
 }
 
 #[test]
@@ -1463,6 +1488,8 @@ fn layout_writer_provider_preserves_unknown_streaming_row_count_as_vortex_provid
         source_adapter,
         header: vec!["URL".to_string()],
         column_arrow_dtypes: vec![Some(DataType::Utf8)],
+        #[cfg(feature = "universal-format-io")]
+        first_batch_profile: None,
         read_plan: LocalSourceReadPlan::full("test_unknown_streaming_columnar_source"),
         materialized_columns: vec!["URL".to_string()],
         reader_projection_columns: vec!["URL".to_string()],
@@ -6294,4 +6321,154 @@ fn json_parser_normalizes_nested_values_as_utf8_json_payloads() {
         rows[0].get("payload"),
         Some(&ScalarValue::Utf8("{\"x\":1}".to_string()))
     );
+}
+
+#[cfg(feature = "universal-format-io")]
+#[test]
+fn layout_advisor_classifies_arbitrary_names_from_first_batch_profile_and_rejects_misnamed_clickbench()
+ {
+    use arrow_array::{ArrayRef, Int64Array, RecordBatch, StringArray};
+    use arrow_schema::{DataType, Field, Schema};
+    use shardloom_vortex::universal_format_io::first_batch_profile::FirstBatchProfile;
+    use std::sync::Arc;
+
+    let pos_schema = Arc::new(Schema::new(vec![
+        Field::new("landing_link", DataType::Utf8, true),
+        Field::new("observed_at", DataType::Int64, false),
+        Field::new("req_counter", DataType::Int64, false),
+        Field::new("short_tag", DataType::Utf8, false),
+    ]));
+    let pos_batch = RecordBatch::try_new(
+        Arc::clone(&pos_schema),
+        vec![
+            Arc::new(StringArray::from(vec![
+                Some("https://shardloom.io/docs/vortex"),
+                Some("https://docs.rs/arrow"),
+            ])) as ArrayRef,
+            Arc::new(Int64Array::from(vec![1_700_002_861_i64, 1_700_002_920])) as ArrayRef,
+            Arc::new(Int64Array::from(vec![101_i64, 202])) as ArrayRef,
+            Arc::new(StringArray::from(vec!["aa", "bb"])) as ArrayRef,
+        ],
+    )
+    .expect("positive advisor batch");
+    let pos_profile = FirstBatchProfile::from_record_batch(&pos_batch);
+
+    let source_adapter = LocalInputAdapterSelection::infer_from_path(Path::new("events.parquet"))
+        .expect("infer parquet adapter");
+    let pos_source = VortexIngestSourceData {
+        source_format: source_adapter.source_format,
+        source_adapter: source_adapter.clone(),
+        header: vec![
+            "landing_link".to_string(),
+            "observed_at".to_string(),
+            "req_counter".to_string(),
+            "short_tag".to_string(),
+        ],
+        column_arrow_dtypes: vec![None, None, None, None],
+        first_batch_profile: Some(pos_profile),
+        read_plan: LocalSourceReadPlan::full("test_content_profile_positive"),
+        materialized_columns: vec!["landing_link".to_string()],
+        reader_projection_columns: vec!["landing_link".to_string()],
+        projection_pushdown_status: LocalSourceProjectionPushdownStatus::NotRequestedFullRead,
+        source_bytes: 1024,
+        source_digest: "fnv64:pos".to_string(),
+        source_fingerprint: SourceFingerprintEvidence::metadata_only(),
+        row_count: 100_000_000,
+        row_count_known: true,
+        source_split_row_ranges: vec![(0, 100_000_000)],
+        source_metadata_scout_millis: 0,
+        source_byte_acquisition_millis: 0,
+        source_full_body_millis: 0,
+        read_millis: 0,
+        compatibility_parse_millis: 0,
+        source_to_columnar_millis: 0,
+        record_batch_count: 0,
+        source_stream_batch_size: 262_144,
+        source_stream_unit_count_hint: Some(1),
+        source_stream_unit_hint_kind: "test_units".to_string(),
+        source_stream_policy: "product_columnar_stream_batch_size_262144_rows".to_string(),
+        source_dictionary_preservation_status:
+            "parquet_arrow_reader_requested_dictionary_preservation_for_string_derived_columns"
+                .to_string(),
+        ingest_executor_status: "bounded_capillary_prefetch_active".to_string(),
+        ingest_executor_kind: "source_reader_to_vortex_writer_prefetch_pipeline".to_string(),
+        ingest_executor_requested_parallelism: 2,
+        ingest_executor_applied_parallelism: 2,
+        ingest_executor_unit_count_hint: None,
+        materialization_layout: "streaming_arrow_record_batch_columnar_source_state",
+        parse_normalization: "structured_reader_to_streaming_arrow_record_batches",
+        columnar_source_preserved: true,
+    };
+    assert_eq!(layout_source_profile(&pos_source), "url_time_counter_olap");
+    assert_eq!(
+        layout_prepared_layout_family(&pos_source),
+        "url_time_counter_dictionary_stats_layout"
+    );
+    assert_eq!(
+        layout_writer_compression_candidate_fields(&pos_source),
+        vec!["landing_link".to_string(), "short_tag".to_string()]
+    );
+
+    let mis_schema = Arc::new(Schema::new(vec![
+        Field::new("URL", DataType::Utf8, false),
+        Field::new("EventTime", DataType::Int64, false),
+        Field::new("WatchID", DataType::Int64, false),
+    ]));
+    let mis_batch = RecordBatch::try_new(
+        mis_schema,
+        vec![
+            Arc::new(StringArray::from(vec!["blue", "pink"])) as ArrayRef,
+            Arc::new(Int64Array::from(vec![1_i64, 2])) as ArrayRef,
+            Arc::new(Int64Array::from(vec![10_i64, 20])) as ArrayRef,
+        ],
+    )
+    .expect("misnamed batch");
+    let mis_source = VortexIngestSourceData {
+        source_format: source_adapter.source_format,
+        source_adapter,
+        header: vec![
+            "URL".to_string(),
+            "EventTime".to_string(),
+            "WatchID".to_string(),
+        ],
+        column_arrow_dtypes: vec![
+            Some(DataType::Utf8),
+            Some(DataType::Int64),
+            Some(DataType::Int64),
+        ],
+        first_batch_profile: Some(FirstBatchProfile::from_record_batch(&mis_batch)),
+        read_plan: LocalSourceReadPlan::full("test_content_profile_misnamed"),
+        materialized_columns: vec!["URL".to_string()],
+        reader_projection_columns: vec!["URL".to_string()],
+        projection_pushdown_status: LocalSourceProjectionPushdownStatus::NotRequestedFullRead,
+        source_bytes: 1024,
+        source_digest: "fnv64:mis".to_string(),
+        source_fingerprint: SourceFingerprintEvidence::metadata_only(),
+        row_count: 100,
+        row_count_known: true,
+        source_split_row_ranges: vec![(0, 100)],
+        source_metadata_scout_millis: 0,
+        source_byte_acquisition_millis: 0,
+        source_full_body_millis: 0,
+        read_millis: 0,
+        compatibility_parse_millis: 0,
+        source_to_columnar_millis: 0,
+        record_batch_count: 0,
+        source_stream_batch_size: 262_144,
+        source_stream_unit_count_hint: Some(1),
+        source_stream_unit_hint_kind: "test_units".to_string(),
+        source_stream_policy: "product_columnar_stream_batch_size_262144_rows".to_string(),
+        source_dictionary_preservation_status: "test".to_string(),
+        ingest_executor_status: "serial_pull_reader".to_string(),
+        ingest_executor_kind: "test".to_string(),
+        ingest_executor_requested_parallelism: 1,
+        ingest_executor_applied_parallelism: 1,
+        ingest_executor_unit_count_hint: None,
+        materialization_layout: "streaming_arrow_record_batch_columnar_source_state",
+        parse_normalization: "structured_reader_to_streaming_arrow_record_batches",
+        columnar_source_preserved: true,
+    };
+    assert!(!layout_source_has_text_domain_columns(&mis_source));
+    assert!(!layout_source_has_time_bucket_columns(&mis_source));
+    assert_eq!(layout_source_profile(&mis_source), "counter_olap");
 }

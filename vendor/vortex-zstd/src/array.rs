@@ -17,6 +17,9 @@
 // data-buffer tables while preserving the existing native reconstruction loops.
 // Modified by ShardLoom on 2026-10-17: fuse canonical text reconstruction and
 // validation while retaining the original admitted decompression allocation.
+// Modified by ShardLoom on 2026-11-22: add `from_var_bin_without_dict` and shared
+// `pack_valid_byte_slices` packing to compress `VarBinArray` directly without
+// intermediate `VarBinViewArray` inflation.
 
 use std::fmt;
 use std::fmt::Debug;
@@ -43,7 +46,9 @@ use vortex_array::ExecutionResult;
 use vortex_array::IntoArray;
 use vortex_array::array_slots;
 use vortex_array::arrays::PrimitiveArray;
+use vortex_array::arrays::VarBinArray;
 use vortex_array::arrays::VarBinViewArray;
+use vortex_array::arrays::varbin::VarBinArraySlotsExt as _;
 use vortex_array::arrays::varbinview::VarBinViewBufferBuilder;
 use vortex_array::arrays::varbinview::build_views::BinaryView;
 use vortex_array::arrays::varbinview::build_views::MAX_BUFFER_LEN;
@@ -54,6 +59,7 @@ use vortex_array::builders::VarBinBuilder;
 use vortex_array::builders::VarBinViewBuilder;
 use vortex_array::dtype::DType;
 use vortex_array::dtype::OffsetBuilderPType;
+use vortex_array::match_each_integer_ptype;
 use vortex_array::match_each_varbin_builder;
 use vortex_array::memory::DefaultHostAllocator;
 use vortex_array::memory::HostAllocatorExt;
@@ -497,6 +503,22 @@ impl Zstd {
         )
     }
 
+    /// Compress a [`VarBinArray`] using Zstd without a dictionary, avoiding
+    /// intermediate [`VarBinViewArray`] canonicalization.
+    pub fn from_var_bin_without_dict(
+        varbin: &VarBinArray,
+        level: i32,
+        values_per_frame: usize,
+        ctx: &mut ExecutionCtx,
+    ) -> VortexResult<ZstdArray> {
+        let validity = varbin.as_ref().validity()?;
+        Self::try_new(
+            varbin.dtype().clone(),
+            ZstdData::from_var_bin_without_dict(varbin, level, values_per_frame, ctx)?,
+            validity,
+        )
+    }
+
     /// Compress a [`PrimitiveArray`] using Zstd.
     pub fn from_primitive(
         parray: &PrimitiveArray,
@@ -629,15 +651,13 @@ struct PackedVarBinValues {
     clippy::host_endian_bytes,
     reason = "offsets are native Buffer<usize> storage; serialized value lengths use little endian"
 )]
-fn collect_valid_vbv(
-    vbv: &VarBinViewArray,
+fn pack_valid_byte_slices<'a>(
+    len: usize,
+    mask: &Mask,
     requested_values_per_frame: usize,
-    ctx: &mut ExecutionCtx,
+    allocator: &HostAllocatorRef,
+    value_at: impl Fn(usize) -> VortexResult<&'a [u8]>,
 ) -> VortexResult<PackedVarBinValues> {
-    let mask = vbv
-        .as_ref()
-        .validity()?
-        .execute_mask(vbv.as_ref().len(), ctx)?;
     let count = mask.true_count();
     let values_per_frame = if requested_values_per_frame > 0 {
         requested_values_per_frame.min(count.max(1))
@@ -652,11 +672,10 @@ fn collect_valid_vbv(
             values_per_frame,
         });
     }
-    let views = vbv.views();
     let mut payload_len = 0usize;
-    for (index, view) in views.iter().enumerate() {
+    for index in 0..len {
         if mask.value(index) {
-            let value = compression_value(vbv, view)?;
+            let value = value_at(index)?;
             ViewLen::try_from(value.len())?;
             payload_len = payload_len
                 .checked_add(size_of::<ViewLen>())
@@ -664,7 +683,6 @@ fn collect_valid_vbv(
                 .ok_or_else(|| vortex_err!("Native Zstd input size overflow"))?;
         }
     }
-    let allocator = ctx.host_allocator();
     let mut payload = allocator.allocate(payload_len, Alignment::none())?;
     let frame_count = count.div_ceil(values_per_frame);
     let mut offsets = allocator.allocate_typed::<usize>(frame_count)?;
@@ -682,11 +700,11 @@ fn collect_valid_vbv(
     let mut valid_index = 0usize;
     let mut frame_index = 0usize;
     let mut values_left_in_frame = 0usize;
-    for (index, view) in views.iter().enumerate() {
+    for index in 0..len {
         if !mask.value(index) {
             continue;
         }
-        let value = compression_value(vbv, view)?;
+        let value = value_at(index)?;
         if values_left_in_frame == 0 {
             let index_start = frame_index * size_of::<usize>();
             index_bytes[index_start..index_start + size_of::<usize>()]
@@ -717,6 +735,69 @@ fn collect_valid_vbv(
         frame_byte_starts: offsets,
         n_values: count,
         values_per_frame,
+    })
+}
+
+fn collect_valid_vbv(
+    vbv: &VarBinViewArray,
+    requested_values_per_frame: usize,
+    ctx: &mut ExecutionCtx,
+) -> VortexResult<PackedVarBinValues> {
+    let mask = vbv
+        .as_ref()
+        .validity()?
+        .execute_mask(vbv.as_ref().len(), ctx)?;
+    let views = vbv.views();
+    let allocator = ctx.host_allocator();
+    pack_valid_byte_slices(
+        vbv.as_ref().len(),
+        &mask,
+        requested_values_per_frame,
+        &allocator,
+        |index| compression_value(vbv, &views[index]),
+    )
+}
+
+fn collect_valid_var_bin(
+    varbin: &VarBinArray,
+    requested_values_per_frame: usize,
+    ctx: &mut ExecutionCtx,
+) -> VortexResult<PackedVarBinValues> {
+    let mask = varbin
+        .as_ref()
+        .validity()?
+        .execute_mask(varbin.as_ref().len(), ctx)?;
+    let allocator = ctx.host_allocator();
+    if mask.true_count() == 0 {
+        return pack_valid_byte_slices(
+            varbin.as_ref().len(),
+            &mask,
+            requested_values_per_frame,
+            &allocator,
+            |_| Err(vortex_err!("Native Zstd expected no valid values to read")),
+        );
+    }
+    let offsets = varbin.offsets().clone().execute::<PrimitiveArray>(ctx)?;
+    let bytes = varbin.bytes().as_slice();
+    match_each_integer_ptype!(offsets.dtype().as_ptype(), |O| {
+        let offsets_slice = offsets.as_slice::<O>();
+        vortex_ensure!(
+            offsets_slice.len() > varbin.len(),
+            "Native Zstd VarBin offsets shorter than array length"
+        );
+        pack_valid_byte_slices(
+            varbin.len(),
+            &mask,
+            requested_values_per_frame,
+            &allocator,
+            |index| {
+                let start: usize = offsets_slice[index].as_();
+                let end: usize = offsets_slice[index + 1].as_();
+                bytes
+                    .get(start..end)
+                    .ok_or_else(|| vortex_err!("Native Zstd VarBin offset out of bounds"))
+            },
+        )
     })
 }
 
@@ -1535,6 +1616,18 @@ impl ZstdData {
         Self::from_var_bin_view_impl(vbv, level, values_per_frame, false, ctx)
     }
 
+    /// Creates a ZstdData from a VarBin array without using a dictionary.
+    pub fn from_var_bin_without_dict(
+        varbin: &VarBinArray,
+        level: i32,
+        values_per_frame: usize,
+        ctx: &mut ExecutionCtx,
+    ) -> VortexResult<Self> {
+        let packed = collect_valid_var_bin(varbin, values_per_frame, ctx)?;
+        let allocator = ctx.host_allocator();
+        Self::from_packed_var_bin_values(packed, varbin.len(), level, false, &allocator)
+    }
+
     fn from_var_bin_view_impl(
         vbv: &VarBinViewArray,
         level: i32,
@@ -1550,6 +1643,16 @@ impl ZstdData {
         // We compress only the valid elements.
         let packed = collect_valid_vbv(vbv, values_per_frame, ctx)?;
         let allocator = ctx.host_allocator();
+        Self::from_packed_var_bin_values(packed, vbv.len(), level, use_dictionary, &allocator)
+    }
+
+    fn from_packed_var_bin_values(
+        packed: PackedVarBinValues,
+        len: usize,
+        level: i32,
+        use_dictionary: bool,
+        allocator: &HostAllocatorRef,
+    ) -> VortexResult<Self> {
         let storage = Self::compress_values(
             &packed.payload,
             &packed.frame_byte_starts,
@@ -1557,10 +1660,10 @@ impl ZstdData {
             packed.values_per_frame,
             packed.n_values,
             use_dictionary,
-            &allocator,
+            allocator,
         )?;
 
-        Ok(Self::from_storage(storage, vbv.len()))
+        Ok(Self::from_storage(storage, len))
     }
 
     /// Compress a supported canonical array into zstd data.
@@ -1988,15 +2091,18 @@ mod tests {
     use std::sync::LazyLock;
 
     use rstest::rstest;
+    use vortex_array::IntoArray;
     use vortex_array::VortexSessionExecute;
 
+    use vortex_array::arrays::VarBinArray;
     use vortex_array::arrays::VarBinViewArray;
     use vortex_array::arrays::varbin::VarBinArrayExt as _;
     use vortex_array::builders::VarBinBuilder;
     use vortex_array::dtype::DType;
-    use vortex_array::dtype::Nullability::NonNullable;
+    use vortex_array::dtype::Nullability::{self, NonNullable};
     use vortex_array::memory::DefaultHostAllocator;
     use vortex_array::memory::HostAllocatorRef;
+    use vortex_array::scalar::Scalar;
     use vortex_array::validity::Validity;
     use vortex_buffer::ByteBuffer;
     use vortex_error::VortexResult;
@@ -2011,6 +2117,7 @@ mod tests {
     use super::try_reconstruct_views_in;
     use super::zstd_value_len;
     use super::zstd_value_offset;
+    use crate::Zstd;
     use crate::array::BinaryView;
 
     static SESSION: LazyLock<VortexSession> = LazyLock::new(VortexSession::empty);
@@ -2251,5 +2358,64 @@ mod tests {
         assert!(append_slice_to_varbin(&slice, &Mask::new_true(2), &mut builder).is_err());
         // The builder rejected the values before committing any of them.
         assert_eq!(builder.finish_into_varbin().len(), 0);
+    }
+
+    #[test]
+    fn test_from_var_bin_without_dict_matches_var_bin_view_without_dict() -> VortexResult<()> {
+        let mut ctx = SESSION.create_execution_ctx();
+        let cases: &[Vec<Option<&str>>] = &[
+            vec![],
+            vec![Some("short")],
+            vec![Some("this string exceeds twelve bytes for out-of-line view coverage")],
+            vec![None, None, None],
+            vec![
+                Some(""),
+                None,
+                Some("short"),
+                Some("a much longer utf8 string with 東京 and λ characters exceeding 12 bytes"),
+                Some("mid"),
+                Some("another long string across frame boundaries for zstd validation"),
+            ],
+        ];
+        for values in cases {
+            let dtype = DType::Utf8(Nullability::Nullable);
+            let vb = VarBinArray::from_iter(values.iter().copied(), dtype.clone());
+            let vbv = VarBinViewArray::from_iter(values.iter().copied(), dtype);
+            let z_vb = Zstd::from_var_bin_without_dict(&vb, 1, 2, &mut ctx)?;
+            let z_vbv = Zstd::from_var_bin_view_without_dict(&vbv, 1, 2, &mut ctx)?;
+            assert_eq!(z_vb.len(), z_vbv.len());
+            let out_vb = z_vb.into_array().execute::<VarBinViewArray>(&mut ctx)?;
+            let out_vbv = z_vbv.into_array().execute::<VarBinViewArray>(&mut ctx)?;
+            for row in 0..values.len() {
+                assert_eq!(
+                    out_vb.execute_scalar(row, &mut ctx)?,
+                    out_vbv.execute_scalar(row, &mut ctx)?
+                );
+            }
+        }
+        let mut i64_builder = VarBinBuilder::<i64>::with_capacity_in(
+            DType::Utf8(Nullability::Nullable),
+            3,
+            vortex_buffer::BufferAllocatorRef::static_ref(),
+        );
+        i64_builder.append(Some(b"long offset i64 value one exceeding 12 bytes"));
+        i64_builder.append(None);
+        i64_builder.append(Some(b"ok"));
+        let i64_vb = i64_builder.finish_into_varbin();
+        let z_i64 = Zstd::from_var_bin_without_dict(&i64_vb, 1, 1, &mut ctx)?;
+        let out_i64 = z_i64.into_array().execute::<VarBinViewArray>(&mut ctx)?;
+        assert_eq!(
+            out_i64.execute_scalar(0, &mut ctx)?,
+            Scalar::utf8(
+                "long offset i64 value one exceeding 12 bytes",
+                Nullability::Nullable
+            )
+        );
+        assert!(out_i64.execute_scalar(1, &mut ctx)?.is_null());
+        assert_eq!(
+            out_i64.execute_scalar(2, &mut ctx)?,
+            Scalar::utf8("ok", Nullability::Nullable)
+        );
+        Ok(())
     }
 }

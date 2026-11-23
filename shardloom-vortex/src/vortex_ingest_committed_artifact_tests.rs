@@ -297,3 +297,62 @@ fn streamed_receipt_keeps_source_generation_and_cancellation_through_publication
         );
     }
 }
+
+#[test]
+fn publish_single_artifact_state_with_receipt_avoids_rehash_and_rejects_tampering() {
+    let fixture = Fixture::new("single_artifact_receipt");
+    let (write, receipt) = write_flat_scalar_vortex_prepared_state_with_receipt(
+        fixture.scalar_request("prepared.vortex"),
+    )
+    .unwrap();
+    let calls = LOCAL_FILE_FINGERPRINT_CALLS.with(std::cell::Cell::get);
+    let published = publish_vortex_prepared_olap_single_artifact_state_with_receipt(
+        &fixture.publication(),
+        receipt.unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        LOCAL_FILE_FINGERPRINT_CALLS.with(std::cell::Cell::get),
+        calls
+    );
+    assert_eq!(
+        published.artifact_fingerprint_source,
+        "committed_writer_streaming_sha256"
+    );
+    assert_eq!(published.artifact_fingerprint_payload_bytes_read, Some(0));
+    assert_eq!(published.prepared_artifact_digest, write.artifact_digest);
+    let independent =
+        publish_vortex_prepared_olap_single_artifact_state(&fixture.publication()).unwrap();
+    assert_eq!(
+        published.prepared_artifact_digest,
+        independent.prepared_artifact_digest
+    );
+
+    let fixture_bad = Fixture::new("single_artifact_receipt_tamper");
+    let (_, bad_receipt) = write_flat_scalar_vortex_prepared_state_with_receipt(
+        fixture_bad.scalar_request("prepared.vortex"),
+    )
+    .unwrap();
+    let modified = fs::metadata(fixture_bad.target())
+        .unwrap()
+        .modified()
+        .unwrap();
+    let mut altered = fs::read(fixture_bad.target()).unwrap();
+    altered[0] ^= 0xff;
+    fs::write(fixture_bad.target(), altered).unwrap();
+    fs::File::options()
+        .write(true)
+        .open(fixture_bad.target())
+        .unwrap()
+        .set_times(fs::FileTimes::new().set_modified(modified))
+        .unwrap();
+    let error = publish_vortex_prepared_olap_single_artifact_state_with_receipt(
+        &fixture_bad.publication(),
+        bad_receipt.unwrap(),
+    )
+    .unwrap_err();
+    assert!(
+        error.to_string().contains("checksum reuse refused"),
+        "{error}"
+    );
+}

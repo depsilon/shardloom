@@ -281,3 +281,58 @@ fn nested_shared_children_and_utf8_survive_admission() {
     drop(retained);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
+
+#[test]
+fn controlled_owned_reader_transfers_unique_buffers_and_copies_aliased_without_leaks() {
+    let make_batch = || {
+        let offsets =
+            arrow_buffer::OffsetBuffer::new(arrow_buffer::ScalarBuffer::from(vec![0_i32, 5, 5, 9]));
+        let values = Buffer::from_vec(b"alphabeta".to_vec());
+        let nulls = NullBuffer::from(vec![true, false, true]);
+        let strings = arrow_array::GenericStringArray::<i32>::new(offsets, values, Some(nulls));
+        RecordBatch::try_new(
+            Arc::new(Schema::new(vec![
+                Field::new("id", DataType::Int64, false),
+                Field::new("text", DataType::Utf8, true),
+            ])),
+            vec![
+                Arc::new(Int64Array::from(vec![10, 20, 30])),
+                Arc::new(strings),
+            ],
+        )
+        .unwrap()
+    };
+    let memory = LiveMemoryPool::new(1 << 20).unwrap();
+    let (retained, counts) = admit_batch_profiled(
+        make_batch(),
+        &ReservedHostAllocator::new(memory.clone()),
+        ArrowOwnershipPolicy::ControlledOwnedReader,
+    )
+    .unwrap();
+    assert_eq!(retained, make_batch());
+    assert_eq!(counts.copied_buffer_bytes, 0);
+    assert!(counts.transferred_buffer_bytes > 0);
+    assert!(memory.snapshot().reserved_bytes > 0);
+    drop(retained);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+    // Aliased buffer falls back safely to credited copy under ControlledOwnedReader.
+    let shared: ArrayRef = Arc::new(Int64Array::from(vec![1_i64, 2, 3, 4]));
+    let aliased_batch = RecordBatch::try_new(
+        Arc::new(Schema::new(vec![
+            Field::new("a", DataType::Int64, false),
+            Field::new("b", DataType::Int64, false),
+        ])),
+        vec![Arc::clone(&shared), Arc::clone(&shared)],
+    )
+    .unwrap();
+    let (copied_batch, aliased_counts) = admit_batch_profiled(
+        aliased_batch,
+        &ReservedHostAllocator::new(memory.clone()),
+        ArrowOwnershipPolicy::ControlledOwnedReader,
+    )
+    .unwrap();
+    assert!(aliased_counts.copied_buffer_bytes > 0);
+    drop((copied_batch, shared));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}

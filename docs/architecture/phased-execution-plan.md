@@ -806,13 +806,13 @@ with `CG-1` through `CG-23` open and `claim_gate_status=not_claim_grade`.
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 
-- [ ] `E2E-PERF-04` govern Universal Ingest parallelism under one memory controller, eliminate `VarBinView` canonical inflation & `copy_batch` copies, and modernize readers.
+- [x] `E2E-PERF-04` govern Universal Ingest parallelism under one memory controller, eliminate `VarBinView` canonical inflation & `copy_batch` copies, and modernize readers.
   - Queue identifier only: `E2E-PERF-04` maps to canonical `PERF-03`, `PERF-08`, and `PERF-09`, with relevant competitive gates `CG-1`, `CG-3`, `CG-5`, `CG-6`, and `CG-14` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
   - V1 scope classification: `required_for_v1`.
   - Execution checklist:
-    - [ ] Unclamp `IngestCpuLanes::pipeline` (`ingest_cpu_lanes.rs:75`, currently `pipeline_demand(requested, 1)`), `NumericDataStrategy`, `DictionaryPreservingStrategy`, and `BoundedIngestLayout` under one `LiveMemoryPool` / RSS governor.
-    - [ ] Eliminate `VarBinView` canonical text inflation before Zstd and replace `ingest_arrow_ownership::copy_batch` (`163`) bulk copies with zero-copy `LiveMemoryPool` lease-tracked Arrow buffer ownership.
-    - [ ] Reconcile `PERF-08` write-time streaming SHA-256 inside `publish_vortex_prepared_olap_single_artifact_state` (`vortex_ingest.rs:2712`) and modernize CSV/JSONL/JSON/IPC readers via first-batch profiling without hardcoded ClickBench column-name heuristics.
+    - [x] Unclamp `IngestCpuLanes::pipeline` and govern `NumericDataStrategy`, `DictionaryPreservingStrategy`, and bounded concurrent `BoundedIngestLayout` under `LiveMemoryPool` headroom (`ingest_cpu_lanes.rs`, `vortex_ingest_numeric_encoding.rs`, `vortex_ingest_dictionary_preservation.rs`, `ingest_bounded_layout.rs`, `vortex_ingest_column_layout.rs`).
+    - [x] Encode `VarBinView` and `VarBin` leaves directly via `vendor/vortex-zstd` without canonical inflation or `compact_buffers`, and admit owned reader buffers zero-copy via `ArrowOwnershipPolicy::ControlledOwnedReader` with aliased/oversized fallback copy (`ingest_arrow_ownership.rs`, `resident_memory_arrow.rs`, `ingest_source.rs`, `demanded.rs`).
+    - [x] Reconcile `PERF-08` write-time streaming SHA-256 verification via `publish_vortex_prepared_olap_single_artifact_state_with_receipt` (`vortex_ingest.rs`) and modernize CSV/JSONL/JSON/IPC/Parquet readers with content-driven `FirstBatchProfile` (`universal_format_io/first_batch_profile.rs`), retiring hardcoded ClickBench column-name heuristics.
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 

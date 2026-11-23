@@ -80,6 +80,7 @@ fn source(batches: Vec<RecordBatch>, error: bool) -> FlatLocalColumnarStreamSour
         ingest_runtime: None,
         embedded_derived_build_micros:
             crate::universal_format_io::new_embedded_derived_build_micros_counter(),
+        first_batch_profile: None,
         reader: Box::new(RecordBatchIterator::new(batches, schema)),
     }
 }

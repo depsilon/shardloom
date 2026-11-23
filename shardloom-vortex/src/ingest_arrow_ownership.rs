@@ -22,6 +22,13 @@ pub(crate) enum ArrowOwnershipPolicy {
     #[default]
     ValidatedCopy,
     ControlledParquet,
+    ControlledOwnedReader,
+}
+
+impl ArrowOwnershipPolicy {
+    pub(crate) const fn allows_zero_copy_transfer(self) -> bool {
+        !matches!(self, Self::ValidatedCopy)
+    }
 }
 
 struct CopyObservation {
@@ -182,7 +189,7 @@ pub(crate) fn admit_batch_profiled(
     allocator: &dyn HostAllocator,
     policy: ArrowOwnershipPolicy,
 ) -> Result<(RecordBatch, ArrowOwnershipCounts)> {
-    if policy == ArrowOwnershipPolicy::ValidatedCopy {
+    if !policy.allows_zero_copy_transfer() {
         return copy_batch_profiled(batch, allocator);
     }
     admit_batch_observed(batch, allocator, CopyObservation::default())
@@ -208,13 +215,10 @@ pub(crate) fn admit_batch_data_counted(
     let columns = columns
         .into_iter()
         .map(|data| {
-            match policy {
-                ArrowOwnershipPolicy::ValidatedCopy => {
-                    copy_array_data(data, allocator, Some(&mut observation))
-                }
-                ArrowOwnershipPolicy::ControlledParquet => {
-                    admit_array_data(data, allocator, &mut observation)
-                }
+            if policy.allows_zero_copy_transfer() {
+                admit_array_data(data, allocator, &mut observation)
+            } else {
+                copy_array_data(data, allocator, Some(&mut observation))
             }
             .map(arrow_array::make_array)
         })

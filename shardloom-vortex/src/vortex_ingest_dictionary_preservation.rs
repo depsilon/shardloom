@@ -39,13 +39,25 @@ pub(super) struct DictionaryPreservingStrategy {
 }
 
 impl DictionaryPreservingStrategy {
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(super) fn new(
         retained: impl LayoutStrategy,
         row_block_size: usize,
         timings: IngestStageTimings,
         session: &VortexSession,
     ) -> Self {
+        Self::with_concurrency(retained, row_block_size, 1, timings, session)
+    }
+
+    pub(super) fn with_concurrency(
+        retained: impl LayoutStrategy,
+        row_block_size: usize,
+        concurrency: usize,
+        timings: IngestStageTimings,
+        session: &VortexSession,
+    ) -> Self {
         let retained: Arc<dyn LayoutStrategy> = Arc::new(retained);
+        let concurrency = concurrency.max(1);
         let allowed = session.enabled_component_ids(ComponentKind::Array);
         let dictionary_admitted = allowed.contains(&Dict.id());
         let allowed_values = allowed.clone();
@@ -67,7 +79,7 @@ impl DictionaryPreservingStrategy {
                     timings,
                 },
             )
-            .with_concurrency(1)
+            .with_concurrency(concurrency)
             .with_stats(&[]),
         );
         Self {
@@ -79,6 +91,7 @@ impl DictionaryPreservingStrategy {
                 dictionary_admitted,
                 allowed_values,
                 row_block_size: row_block_size.max(1),
+                concurrency: NonZeroUsize::new(concurrency).expect("positive concurrency"),
             })),
         }
     }
@@ -113,6 +126,7 @@ struct DictionaryChunk {
     dictionary_admitted: bool,
     allowed_values: Vec<ArrayId>,
     row_block_size: usize,
+    concurrency: NonZeroUsize,
 }
 
 impl LayoutStrategy for DictionaryChunk {
@@ -169,7 +183,7 @@ impl LayoutStrategy for DictionaryChunk {
                 Arc::clone(&self.flat),
                 ZonedLayoutOptions {
                     block_size: NonZeroUsize::new(rows).expect("admitted nonempty dictionary"),
-                    concurrency: NonZeroUsize::new(1).expect("positive concurrency"),
+                    concurrency: self.concurrency,
                     ..Default::default()
                 },
             )

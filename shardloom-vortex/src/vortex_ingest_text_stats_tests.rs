@@ -179,3 +179,44 @@ fn selected_text_codec_preserves_values_and_file_pruning_statistics() {
         }
     }
 }
+
+#[test]
+fn text_zstd_leaf_skips_varbin_canonical_inflation_and_buffer_compaction() {
+    let context = LocalVortexWriteContext::open();
+    let values = [
+        Some("https://example.org/one/long-enough-for-out-of-line-view"),
+        None,
+        Some(""),
+        Some("東京-λ-second-long-utf8-value-past-inline-limit"),
+    ];
+    for views in [false, true] {
+        let dtype = DType::Utf8(Nullability::Nullable);
+        let input = if views {
+            VarBinViewArray::from_iter(values, dtype.clone()).into_array()
+        } else {
+            VarBinArray::from_iter(values, dtype.clone()).into_array()
+        };
+        let timing = VortexWriterStageTiming::default();
+        let strategy = large_source_fast_zstd_text_leaf_strategy(3, 1, &timing);
+        let mut bytes = Vec::new();
+        context
+            .session
+            .write_options()
+            .with_strategy(strategy)
+            .blocking(&context.runtime)
+            .write(
+                &mut bytes,
+                ArrayIteratorAdapter::new(dtype.clone(), [Ok(input)].into_iter()),
+            )
+            .unwrap();
+        let fields = timing
+            .stages
+            .snapshot()
+            .evidence_fields()
+            .into_iter()
+            .collect::<std::collections::BTreeMap<_, _>>();
+        assert_eq!(fields["vortex_ingest_text_canonicalize_calls"], "0");
+        assert_eq!(fields["vortex_ingest_text_compact_calls"], "0");
+        assert_eq!(fields["vortex_ingest_text_zstd_calls"], "1");
+    }
+}

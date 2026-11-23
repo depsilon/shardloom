@@ -405,3 +405,197 @@ fn streaming_json_cancel_change_and_decode_errors_release_all_owners() {
     drop(source);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
+
+fn csv_profile_decoder(
+    headers: &'static [&'static str],
+    int_column: &'static str,
+) -> TextRecordDecoder {
+    Arc::new(move |raw| {
+        let fields = raw
+            .trim_end_matches(['\r', '\n'])
+            .split(',')
+            .collect::<Vec<_>>();
+        if fields.len() != headers.len() {
+            return Err(failed("unexpected csv column count"));
+        }
+        headers
+            .iter()
+            .zip(fields)
+            .map(|(&name, val)| {
+                let scalar = if name == int_column {
+                    ScalarValue::Int64(val.parse().map_err(failed)?)
+                } else {
+                    ScalarValue::Utf8(val.to_owned())
+                };
+                Ok((name.to_owned(), scalar))
+            })
+            .collect()
+    })
+}
+
+fn assert_positive_profile_and_specs(label: &str, source: &TextSource) {
+    use crate::universal_format_io::{
+        EmbeddedDerivedColumnKind, EmbeddedDerivedColumnMode,
+        embedded_derived_column_specs_with_profile,
+    };
+
+    let profile = source
+        .first_batch_profile()
+        .unwrap_or_else(|| panic!("{label} must attach first_batch_profile"));
+    assert!(
+        profile.column("landing_link").unwrap().looks_like_url,
+        "{label}"
+    );
+    assert!(
+        profile
+            .column("observed_at")
+            .unwrap()
+            .looks_like_epoch_seconds,
+        "{label}"
+    );
+    assert!(
+        profile.column("iso_ts").unwrap().looks_like_timestamp_text,
+        "{label}"
+    );
+    assert!(
+        profile.column("raw_note").unwrap().has_varied_or_long_utf8,
+        "{label}"
+    );
+    assert!(
+        !profile.column("raw_note").unwrap().looks_like_url,
+        "{label}"
+    );
+    assert!(!profile.column("status").unwrap().looks_like_url, "{label}");
+    assert!(
+        !profile.column("status").unwrap().has_varied_or_long_utf8,
+        "{label}"
+    );
+
+    let specs = embedded_derived_column_specs_with_profile(
+        source.schema().as_ref(),
+        Some(profile),
+        EmbeddedDerivedColumnMode::FullAdapter,
+    );
+    let names = specs
+        .iter()
+        .map(|spec| (spec.source_column.as_str(), spec.kind))
+        .collect::<Vec<_>>();
+    assert!(
+        names.contains(&("landing_link", EmbeddedDerivedColumnKind::Utf8Length)),
+        "{label}"
+    );
+    assert!(
+        names.contains(&("landing_link", EmbeddedDerivedColumnKind::UrlDomain)),
+        "{label}"
+    );
+    assert!(
+        names.contains(&("observed_at", EmbeddedDerivedColumnKind::ExtractMinute)),
+        "{label}"
+    );
+    assert!(
+        names.contains(&("observed_at", EmbeddedDerivedColumnKind::DateTruncMinute)),
+        "{label}"
+    );
+    assert!(
+        names.contains(&("iso_ts", EmbeddedDerivedColumnKind::ExtractMinute)),
+        "{label}"
+    );
+    assert!(
+        names.contains(&("raw_note", EmbeddedDerivedColumnKind::Utf8Length)),
+        "{label}"
+    );
+    assert!(
+        !names.contains(&("raw_note", EmbeddedDerivedColumnKind::UrlDomain)),
+        "{label}"
+    );
+    assert!(!names.iter().any(|(col, _)| *col == "status"), "{label}");
+}
+
+#[test]
+fn first_batch_profile_populates_across_csv_jsonl_and_json_without_clickbench_names() {
+    let positive_csv = "\
+landing_link,observed_at,iso_ts,raw_note,status\n\
+https://shardloom.io/docs/vortex,1700002861,2024-05-01T12:34:56Z,a long unindexed payload message,ok\n\
+https://docs.rs/arrow/index.html,1700002920,2024-05-01T12:35:00Z,tiny,ko\n";
+    let positive_jsonl = concat!(
+        r#"{"landing_link":"https://shardloom.io/docs/vortex","observed_at":1700002861,"iso_ts":"2024-05-01T12:34:56Z","raw_note":"a long unindexed payload message","status":"ok"}"#,
+        "\n",
+        r#"{"landing_link":"https://docs.rs/arrow/index.html","observed_at":1700002920,"iso_ts":"2024-05-01T12:35:00Z","raw_note":"tiny","status":"ko"}"#,
+        "\n"
+    );
+    let positive_json = concat!(
+        r#"[{"landing_link":"https://shardloom.io/docs/vortex","observed_at":1700002861,"iso_ts":"2024-05-01T12:34:56Z","raw_note":"a long unindexed payload message","status":"ok"},"#,
+        r#"{"landing_link":"https://docs.rs/arrow/index.html","observed_at":1700002920,"iso_ts":"2024-05-01T12:35:00Z","raw_note":"tiny","status":"ko"}]"#
+    );
+    let csv_headers: &[&str] = &[
+        "landing_link",
+        "observed_at",
+        "iso_ts",
+        "raw_note",
+        "status",
+    ];
+    let memory = LiveMemoryPool::new(16 << 20).unwrap();
+    let token = CancellationToken::default();
+
+    for (label, framing, skip_first, bytes, dec) in [
+        (
+            "csv",
+            TextFraming::Csv,
+            true,
+            positive_csv.as_bytes(),
+            csv_profile_decoder(csv_headers, "observed_at"),
+        ),
+        (
+            "jsonl",
+            TextFraming::JsonLines,
+            false,
+            positive_jsonl.as_bytes(),
+            decoder(),
+        ),
+        (
+            "json",
+            TextFraming::JsonDocument,
+            false,
+            positive_json.as_bytes(),
+            decoder(),
+        ),
+    ] {
+        let fixture = Fixture::bytes(label, bytes);
+        let source = TextSource::admit(
+            &fixture.0, framing, skip_first, dec, None, None, &memory, &token,
+        )
+        .unwrap();
+        assert_positive_profile_and_specs(label, &source);
+    }
+}
+
+#[test]
+fn first_batch_profile_rejects_misnamed_clickbench_csv_columns() {
+    use crate::universal_format_io::{
+        EmbeddedDerivedColumnMode, embedded_derived_column_specs_with_profile,
+    };
+
+    let misnamed_csv = "URL,Referer,EventTime\nblue,cyan,1\npink,gold,2\n";
+    let misnamed_headers: &[&str] = &["URL", "Referer", "EventTime"];
+    let memory = LiveMemoryPool::new(16 << 20).unwrap();
+    let token = CancellationToken::default();
+    let misnamed_fixture = Fixture::bytes("csv", misnamed_csv.as_bytes());
+    let misnamed_src = TextSource::admit(
+        &misnamed_fixture.0,
+        TextFraming::Csv,
+        true,
+        csv_profile_decoder(misnamed_headers, "EventTime"),
+        None,
+        None,
+        &memory,
+        &token,
+    )
+    .unwrap();
+    let misnamed_profile = misnamed_src.first_batch_profile().unwrap();
+    let misnamed_specs = embedded_derived_column_specs_with_profile(
+        misnamed_src.schema().as_ref(),
+        Some(misnamed_profile),
+        EmbeddedDerivedColumnMode::FullAdapter,
+    );
+    assert!(misnamed_specs.is_empty(), "{misnamed_specs:?}");
+}

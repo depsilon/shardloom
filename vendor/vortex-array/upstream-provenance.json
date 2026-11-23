@@ -957,7 +957,7 @@
     "src/dtype/serde/proto.rs": "c05269720836abbc977cf0503a0d4fac2121a23015a4300482a4e099142fa1dc",
     "src/dtype/struct_.rs": "f2a73ec0d02dafdebcc6c7379d4ef6732eb5a980bd22cab84c3887a503a4634c",
     "src/dtype/union.rs": "2b2d70e3ce28cd4e64572189bc9ab5402e09afaa21facf707b8167547f652dd3",
-    "src/executor.rs": "a2f124ce31b33c6ca9f8c3737006cb48f50f15373b88e9fb27bdcbf66af36d47",
+    "src/executor.rs": "f2e2af6680522cd6cfe3b2ac3591c6fbb6b288b4c79fb4de4270264cbd48fdc6",
     "src/extension/datetime/date.rs": "5726f1c8711b6b7588f41b453408861d884557ff5bce23417d61a1905c22a4c9",
     "src/extension/datetime/time.rs": "d09ce31b25ea291bc4c57bd7ffe777decb9d41d72359659e8c84f846c6571994",
     "src/extension/datetime/timestamp.rs": "c70b6cc2214e98e88749933ca287c6ec7f951a479934ea207b7c57037faa1159",

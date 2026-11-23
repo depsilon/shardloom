@@ -398,7 +398,7 @@ impl ColumnarReader {
                     session,
                     batch,
                     context,
-                    crate::vortex_ingest::arrow_ownership::ArrowOwnershipPolicy::ValidatedCopy,
+                    crate::vortex_ingest::arrow_ownership::ArrowOwnershipPolicy::ControlledOwnedReader,
                 )
                 .map(|source| (source, first_row));
                 drop(owner);

@@ -825,39 +825,58 @@ def validate_command_payload(label: str, payload: Mapping[str, Any]) -> tuple[di
             ),
         )
     if label == "public_native_vortex_resource_route":
+        observed = fields(payload)
+        footer_completed = observed.get("local_primitive_scan_metadata_completed") == "true"
+        required = {
+            "public_workflow_route_id": "native_vortex_aggregate",
+            "public_workflow_resolved_internal_command": "vortex-run",
+            "public_workflow_start_state": "native_vortex_file",
+            "public_workflow_vortex_normalization_point": "native_vortex_boundary",
+            "public_workflow_memory_gb": "1",
+            "public_workflow_max_parallelism": "2",
+            "public_workflow_dynamic_parallelism_floor_applied": "false",
+            "local_primitive_resource_envelope_schema_version": "shardloom.local_vortex_resource_envelope.v1",
+            "local_primitive_resource_memory_gb": "1",
+            "local_primitive_resource_max_parallelism": "2",
+            "local_primitive_state_budget_schema_version": "shardloom.local_vortex_state_budget.v2",
+            "local_primitive_state_budget_status": "bounded_in_memory_low_pressure_spill_not_required",
+            "local_primitive_state_family": (
+                "scalar_aggregate_state"
+                if footer_completed
+                else "scalar_aggregate_state+direct_dictionary_or_typed"
+            ),
+            "local_primitive_budget_scope": "local_vortex_scalar_aggregate",
+            "local_primitive_spill_policy": "fail_closed_before_uncertified_spill",
+            "local_primitive_state_budget_diagnostic_code": "none",
+            "local_primitive_memory_admission_schema_version": "shardloom.memory_admission.v1",
+            "local_primitive_memory_admission_scope": "public_local_vortex_primitive_state_budget",
+            "local_primitive_memory_reservation_owner_class": "aggregate",
+            "local_primitive_memory_reservation_status": "granted",
+            "local_primitive_memory_admission_decision": "granted",
+            "local_primitive_memory_pressure_before": "normal",
+            "local_primitive_memory_pressure_after": "normal",
+            "local_primitive_memory_reserved_before_bytes": "0",
+            "local_primitive_memory_reserved_after_release_bytes": "0",
+            "local_primitive_native_io_certificate_status": "certified",
+            "public_workflow_native_vortex_plan_route_family": "native_vortex_unified_plan",
+        }
+        if footer_completed:
+            required["local_primitive_scan_metadata_completed"] = "true"
+            required["local_primitive_aggregate_update_strategy"] = (
+                "exact_file_footer_scalar_completion"
+            )
+        execution_activity_fields = (
+            "local_primitive_native_io_streaming_capability",
+            "upstream_vortex_scan_called",
+            "data_read",
+            "data_decoded",
+            "data_materialized",
+        )
         return check_fields(
             label,
             payload,
             "run",
-            {
-                "public_workflow_route_id": "native_vortex_aggregate",
-                "public_workflow_resolved_internal_command": "vortex-run",
-                "public_workflow_start_state": "native_vortex_file",
-                "public_workflow_vortex_normalization_point": "native_vortex_boundary",
-                "public_workflow_memory_gb": "1",
-                "public_workflow_max_parallelism": "2",
-                "public_workflow_dynamic_parallelism_floor_applied": "false",
-                "local_primitive_resource_envelope_schema_version": "shardloom.local_vortex_resource_envelope.v1",
-                "local_primitive_resource_memory_gb": "1",
-                "local_primitive_resource_max_parallelism": "2",
-                "local_primitive_state_budget_schema_version": "shardloom.local_vortex_state_budget.v2",
-                "local_primitive_state_budget_status": "bounded_in_memory_low_pressure_spill_not_required",
-                "local_primitive_state_family": "scalar_aggregate_state+direct_dictionary_or_typed",
-                "local_primitive_budget_scope": "local_vortex_scalar_aggregate",
-                "local_primitive_spill_policy": "fail_closed_before_uncertified_spill",
-                "local_primitive_state_budget_diagnostic_code": "none",
-                "local_primitive_memory_admission_schema_version": "shardloom.memory_admission.v1",
-                "local_primitive_memory_admission_scope": "public_local_vortex_primitive_state_budget",
-                "local_primitive_memory_reservation_owner_class": "aggregate",
-                "local_primitive_memory_reservation_status": "granted",
-                "local_primitive_memory_admission_decision": "granted",
-                "local_primitive_memory_pressure_before": "normal",
-                "local_primitive_memory_pressure_after": "normal",
-                "local_primitive_memory_reserved_before_bytes": "0",
-                "local_primitive_memory_reserved_after_release_bytes": "0",
-                "local_primitive_native_io_certificate_status": "certified",
-                "public_workflow_native_vortex_plan_route_family": "native_vortex_unified_plan",
-            },
+            required,
             false_fields=(
                 "public_workflow_fallback_attempted",
                 "public_workflow_external_engine_invoked",
@@ -878,6 +897,7 @@ def validate_command_payload(label: str, payload: Mapping[str, Any]) -> tuple[di
                 "local_primitive_native_io_fallback_execution_allowed",
                 "fallback_attempted",
                 "external_engine_invoked",
+                *(execution_activity_fields if footer_completed else ()),
             ),
             true_fields=(
                 "public_workflow_route_attached",
@@ -889,11 +909,7 @@ def validate_command_payload(label: str, payload: Mapping[str, Any]) -> tuple[di
                 "local_primitive_memory_reservation_release_performed",
                 "local_primitive_native_io_certified",
                 "local_primitive_native_io_encoded_representation_preserved",
-                "local_primitive_native_io_streaming_capability",
-                "upstream_vortex_scan_called",
-                "data_read",
-                "data_decoded",
-                "data_materialized",
+                *(() if footer_completed else execution_activity_fields),
             ),
         )
     return {"status": "failed", "command": label}, [f"{label}: unknown command spec"]

@@ -9,6 +9,11 @@ disabled in ordinary native writing. All 96 provider tests and strict lint pass.
 The hooks do not grant continuation memory or complete deep-workflow support;
 see the [array-provider contract](../vortex-array/README.shardloom.md#november-17-ordered-logical-array-decoding).
 
+The November 22 `VarBin` direct-packing path adds `Zstd::from_var_bin_without_dict`
+and `ZstdData::from_var_bin_without_dict` backed by a shared `pack_valid_byte_slices`
+helper so non-dictionary Zstd compression packs valid slices directly from `VarBinArray`
+offsets without inflating intermediate `VarBinViewArray` canonical buffers.
+
 This is the reviewed Apache-2.0 `vortex-zstd` 0.93.0 published source, with the
 existing ShardLoom resource and text-construction changes ported to its context
 and serialization APIs. `upstream-provenance.json` records the authoritative

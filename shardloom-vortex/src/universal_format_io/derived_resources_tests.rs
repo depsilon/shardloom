@@ -48,7 +48,8 @@ fn source(
         .iter()
         .map(|field| field.name().clone())
         .collect::<Vec<_>>();
-    let source = io::flat_columnar_stream_source_from_reader(
+    let profile = io::first_batch_profile::FirstBatchProfile::from_record_batch(&batch);
+    let mut source = io::flat_columnar_stream_source_from_reader(
         &schema,
         names.clone(),
         names.clone(),
@@ -62,6 +63,7 @@ fn source(
         ),
         Box::new(SchemaReader(Arc::clone(&schema))),
     );
+    source.first_batch_profile = Some(profile);
     IngestColumnarStreamSource::from_owned(
         source,
         Box::new(Reader {
@@ -187,20 +189,24 @@ fn derived_string_layouts_admit_large_values_empty_batches_and_nulls() {
         Arc::new(StringViewArray::from(values)),
     ];
     for array in layouts {
+        let full_schema = Schema::new(vec![Field::new("URL", array.data_type().clone(), true)]);
+        let full_batch =
+            RecordBatch::try_new(Arc::new(full_schema.clone()), vec![Arc::clone(&array)]).unwrap();
+        let profile = io::first_batch_profile::FirstBatchProfile::from_record_batch(&full_batch);
+        drop(full_batch);
         for rows in [0, 3] {
             let array = array.slice(0, rows);
-            let schema = Arc::new(Schema::new(vec![Field::new(
-                "URL",
-                array.data_type().clone(),
-                true,
-            )]));
+            let schema = Arc::new(full_schema.clone());
             let batch = RecordBatch::try_new(Arc::clone(&schema), vec![array]).unwrap();
             let input_bytes = batch.get_array_memory_size() as u64;
             let memory = LiveMemoryPool::new(input_bytes + (1 << 20)).unwrap();
             let input =
                 OwnedBatch::with_owner(batch, Arc::new(memory.reserve(input_bytes).unwrap()));
-            let specs =
-                io::embedded_derived_column_specs(&schema, EmbeddedDerivedColumnMode::FullAdapter);
+            let specs = io::embedded_derived_column_specs_with_profile(
+                &schema,
+                Some(&profile),
+                EmbeddedDerivedColumnMode::FullAdapter,
+            );
             let target = Arc::new(io::embedded_derived_column_schema(&schema, &specs));
             let output = append(input, &target, &specs, Some(&memory), None).unwrap();
             assert_eq!((output.num_rows(), output.num_columns()), (rows, 3));
@@ -244,10 +250,15 @@ fn derived_dictionary_workspace_includes_unreferenced_domain_values() {
         false,
     )]));
     let batch = RecordBatch::try_new(Arc::clone(&schema), vec![Arc::new(dictionary)]).unwrap();
+    let profile = io::first_batch_profile::FirstBatchProfile::from_record_batch(&batch);
     let input_bytes = batch.get_array_memory_size() as u64;
     let memory = LiveMemoryPool::new(input_bytes + (64 << 10)).unwrap();
     let input = OwnedBatch::with_owner(batch, Arc::new(memory.reserve(input_bytes).unwrap()));
-    let specs = io::embedded_derived_column_specs(&schema, EmbeddedDerivedColumnMode::FullAdapter);
+    let specs = io::embedded_derived_column_specs_with_profile(
+        &schema,
+        Some(&profile),
+        EmbeddedDerivedColumnMode::FullAdapter,
+    );
     let target = Arc::new(io::embedded_derived_column_schema(&schema, &specs));
     let error = append(input, &target, &specs, Some(&memory), None).unwrap_err();
     assert!(
@@ -270,10 +281,15 @@ fn derived_dictionary_slice_keeps_shared_keys_without_recharging_the_backing_cap
         false,
     )]));
     let batch = RecordBatch::try_new(Arc::clone(&schema), vec![Arc::new(dictionary)]).unwrap();
+    let profile = io::first_batch_profile::FirstBatchProfile::from_record_batch(&batch);
     let input_bytes = batch.get_array_memory_size() as u64;
     let memory = LiveMemoryPool::new(input_bytes + (128 << 10)).unwrap();
     let input = OwnedBatch::with_owner(batch, Arc::new(memory.reserve(input_bytes).unwrap()));
-    let specs = io::embedded_derived_column_specs(&schema, EmbeddedDerivedColumnMode::FullAdapter);
+    let specs = io::embedded_derived_column_specs_with_profile(
+        &schema,
+        Some(&profile),
+        EmbeddedDerivedColumnMode::FullAdapter,
+    );
     let target = Arc::new(io::embedded_derived_column_schema(&schema, &specs));
     let output = append(input, &target, &specs, Some(&memory), None).unwrap();
     assert_eq!((output.num_rows(), output.num_columns()), (2, 3));
@@ -287,6 +303,9 @@ fn derived_dictionary_slice_keeps_shared_keys_without_recharging_the_backing_cap
 
 #[test]
 fn derived_planning_preserves_modes_existing_names_unicode_and_kind_order() {
+    use crate::universal_format_io::first_batch_profile::FirstBatchProfile;
+    use arrow_array::{LargeStringArray, StringArray, TimestampSecondArray};
+
     let schema = Schema::new(vec![
         Field::new("URL", DataType::Utf8, true),
         Field::new(
@@ -297,8 +316,19 @@ fn derived_planning_preserves_modes_existing_names_unicode_and_kind_order() {
         Field::new("url/λ", DataType::LargeUtf8, true),
         Field::new("__shardloom_derived_utf8_len_URL", DataType::UInt32, true),
     ]);
+    let batch = RecordBatch::try_new(
+        Arc::new(schema.clone()),
+        vec![
+            Arc::new(StringArray::from(vec![Some("https://example.com/path")])) as ArrayRef,
+            Arc::new(TimestampSecondArray::from(vec![Some(1_700_000_040)])) as ArrayRef,
+            Arc::new(LargeStringArray::from(vec![Some("https://docs.rs/arrow")])) as ArrayRef,
+            Arc::new(arrow_array::UInt32Array::from(vec![Some(24)])) as ArrayRef,
+        ],
+    )
+    .unwrap();
+    let profile = FirstBatchProfile::from_record_batch(&batch);
     let names = |mode| {
-        io::embedded_derived_column_specs(&schema, mode)
+        io::embedded_derived_column_specs_with_profile(&schema, Some(&profile), mode)
             .into_iter()
             .map(|spec| spec.output_column)
             .collect::<Vec<_>>()
@@ -326,6 +356,8 @@ fn derived_planning_preserves_modes_existing_names_unicode_and_kind_order() {
             "__shardloom_derived_url_domain_URL",
             "__shardloom_derived_extract_minute_EventTime",
             "__shardloom_derived_date_trunc_minute_EventTime",
+            "__shardloom_derived_utf8_len_url__",
+            "__shardloom_derived_url_domain_url__",
         ]
     );
 }

@@ -2486,6 +2486,7 @@ fn local_flat_columnar_stream_source_writes_without_buffered_batch_source() {
         ingest_runtime: None,
         embedded_derived_build_micros:
             crate::universal_format_io::new_embedded_derived_build_micros_counter(),
+        first_batch_profile: None,
         reader: Box::new(reader),
     };
     let request = VortexPreparedStateColumnarStreamWriteRequest::new(
@@ -2608,6 +2609,10 @@ fn streaming_vortex_array_prefetch_window_is_bounded_by_parallelism() {
         assert!(lanes.prefetch_slots() <= VORTEX_STREAM_ARRAY_PREFETCH_MAX_WINDOW);
         assert_eq!(lanes.configured_cpu_lanes(), requested.max(1));
     }
+    assert!(
+        IngestCpuLanes::pipeline(16, 8).source_workers() > 1,
+        "unclamped pipeline scales source workers with grant and capacity"
+    );
     assert_eq!(
         IngestCpuLanes::pipeline(2, 0).prefetch_slots(),
         1,
@@ -2695,6 +2700,7 @@ fn local_flat_columnar_stream_source_prefetches_vortex_arrays_when_parallelism_a
         ingest_runtime: None,
         embedded_derived_build_micros:
             crate::universal_format_io::new_embedded_derived_build_micros_counter(),
+        first_batch_profile: None,
         reader: Box::new(TestRecordBatchReader {
             schema,
             batches: VecDeque::from([batch_1, batch_2]),
@@ -2792,7 +2798,7 @@ fn streaming_vortex_write_preserves_compact_embedded_derived_columns() {
                 ScalarValue::Utf8("http://www.google.com/search".to_string()),
             ),
             ("SearchPhrase".to_string(), ScalarValue::Utf8(String::new())),
-            ("EventTime".to_string(), ScalarValue::UInt64(61)),
+            ("EventTime".to_string(), ScalarValue::UInt64(1_700_002_861)),
         ],
         vec![
             (
@@ -2807,7 +2813,7 @@ fn streaming_vortex_write_preserves_compact_embedded_derived_columns() {
                 "SearchPhrase".to_string(),
                 ScalarValue::Utf8("rust".to_string()),
             ),
-            ("EventTime".to_string(), ScalarValue::UInt64(120)),
+            ("EventTime".to_string(), ScalarValue::UInt64(1_700_002_920)),
         ],
     ];
     let source = crate::universal_format_io::stream_flat_text_rows_columnar_source(
@@ -2929,8 +2935,8 @@ fn streaming_vortex_write_preserves_compact_embedded_derived_columns() {
         .as_any()
         .downcast_ref::<arrow_array::Int64Array>()
         .expect("event minute bucket int64");
-    assert_eq!(event_minute_buckets.value(0), 60);
-    assert_eq!(event_minute_buckets.value(1), 120);
+    assert_eq!(event_minute_buckets.value(0), 1_700_002_860);
+    assert_eq!(event_minute_buckets.value(1), 1_700_002_920);
     assert!(path.exists());
     std::fs::remove_file(path).expect("remove artifact");
 }
@@ -3015,6 +3021,11 @@ fn streaming_vortex_write_preserves_dictionary_backed_embedded_length_metadata()
         ingest_runtime: None,
         embedded_derived_build_micros:
             crate::universal_format_io::new_embedded_derived_build_micros_counter(),
+        first_batch_profile: Some(
+            crate::universal_format_io::first_batch_profile::FirstBatchProfile::from_record_batch(
+                &batch,
+            ),
+        ),
         reader: Box::new(TestRecordBatchReader {
             schema,
             batches: VecDeque::from([batch]),
@@ -3162,6 +3173,7 @@ fn local_empty_flat_columnar_stream_source_uses_admitted_native_array_provider()
         ingest_runtime: None,
         embedded_derived_build_micros:
             crate::universal_format_io::new_embedded_derived_build_micros_counter(),
+        first_batch_profile: None,
         reader: Box::new(reader),
     };
     let mut advisor_input = layout_advisor_input(true, "none");
@@ -4399,6 +4411,7 @@ fn local_flat_columnar_stream_rejects_non_finite_float_before_provider_path() {
         ingest_runtime: None,
         embedded_derived_build_micros:
             crate::universal_format_io::new_embedded_derived_build_micros_counter(),
+        first_batch_profile: None,
         reader: Box::new(reader),
     };
     let request = VortexPreparedStateColumnarStreamWriteRequest::new(
