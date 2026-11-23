@@ -25,7 +25,7 @@ output-window-observation = ["python-native", "shardloom-vortex/output-window-ob
 python-native = [
     "dep:adbc_core", "dep:adbc_ffi",
     "dep:pyo3", "dep:pyo3-build-config", "dep:arrow-pyarrow", "dep:arrow-array", "dep:arrow-schema",
-    "dep:shardloom-core", "dep:shardloom-exec", "dep:shardloom-vortex",
+    "dep:shardloom-core", "dep:shardloom-exec", "dep:shardloom-plan", "dep:shardloom-vortex",
     "dep:shardloom-runtime", "shardloom-runtime/release-user-surfaces",
 ]
 release-user-surfaces = ["python-native"]
@@ -39,6 +39,7 @@ arrow-array = { workspace = true, features = ["ffi"], optional = true }
 arrow-schema = { workspace = true, optional = true }
 shardloom-core = { workspace = true, optional = true }
 shardloom-exec = { workspace = true, optional = true }
+shardloom-plan = { workspace = true, optional = true }
 shardloom-vortex = { workspace = true, optional = true }
 shardloom-runtime = { workspace = true, optional = true }
 

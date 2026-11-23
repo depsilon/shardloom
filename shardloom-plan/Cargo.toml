@@ -18,3 +18,4 @@ workspace = true
 
 [dependencies]
 shardloom-core = { workspace = true }
+sqlparser = { workspace = true }

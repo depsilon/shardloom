@@ -2504,69 +2504,10 @@ pub(crate) fn parse_vortex_ingest_schema_hints(
 }
 
 // Shared with SQL syntax: commas inside type arguments and quoted zones are
-// part of one declaration. Keep a single checked top-level splitter.
+// part of one declaration. Keep a single checked top-level splitter backed by
+// the canonical SQL tokenizer in `shardloom-plan`.
 fn split_sql_csv(raw: &str) -> Result<Vec<String>, ShardLoomError> {
-    let mut values = Vec::new();
-    let mut current = String::new();
-    let mut chars = raw.chars().peekable();
-    let mut in_quote = false;
-    let mut depth = 0_u32;
-    let mut bracket_depth = 0_u32;
-    while let Some(ch) = chars.next() {
-        match ch {
-            '\'' if in_quote && chars.peek() == Some(&'\'') => {
-                current.push('\'');
-                current.push('\'');
-                let _ = chars.next();
-            }
-            '\'' => {
-                in_quote = !in_quote;
-                current.push(ch);
-            }
-            '(' if !in_quote => {
-                depth += 1;
-                current.push(ch);
-            }
-            ')' if !in_quote => {
-                depth = depth.checked_sub(1).ok_or_else(|| {
-                    unsupported_sql_error("SQL expression parentheses are not balanced")
-                })?;
-                current.push(ch);
-            }
-            '[' if !in_quote => {
-                bracket_depth += 1;
-                current.push(ch);
-            }
-            ']' if !in_quote => {
-                bracket_depth = bracket_depth.checked_sub(1).ok_or_else(|| {
-                    unsupported_sql_error("SQL expression square brackets are not balanced")
-                })?;
-                current.push(ch);
-            }
-            ',' if !in_quote && depth == 0 && bracket_depth == 0 => {
-                values.push(current.trim().to_string());
-                current = String::new();
-            }
-            _ => current.push(ch),
-        }
-    }
-    if in_quote {
-        return Err(unsupported_sql_error("SQL string literal is not closed"));
-    }
-    if depth != 0 {
-        return Err(unsupported_sql_error(
-            "SQL expression parentheses are not balanced",
-        ));
-    }
-    if bracket_depth != 0 {
-        return Err(unsupported_sql_error(
-            "SQL expression square brackets are not balanced",
-        ));
-    }
-    if !current.trim().is_empty() {
-        values.push(current.trim().to_string());
-    }
-    Ok(values)
+    shardloom_plan::sql_binder::split_top_level_csv(raw)
 }
 
 #[cfg(not(all(

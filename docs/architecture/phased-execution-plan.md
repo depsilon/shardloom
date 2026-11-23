@@ -826,12 +826,12 @@ with `CG-1` through `CG-23` open and `claim_gate_status=not_claim_grade`.
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 
-- [ ] `E2E-ARCH-02` approve via RFC and integrate one Apache-2.0 pure-AST SQL parser crate ahead of relational convergence, retiring handwritten SQL splitters.
+- [x] `E2E-ARCH-02` approve via RFC and integrate one Apache-2.0 pure-AST SQL parser crate ahead of relational convergence, retiring handwritten SQL splitters.
   - Queue identifier only: `E2E-ARCH-02` maps to `RFC 0011`, `RFC 0021`, `RFC 0022`, `PERF-02`, and `PERF-10`, positioned right ahead of `E2E-PERF-05A`/`05B`/`05C`, with relevant competitive gates `CG-2`, `CG-5`, `CG-16`, `CG-20`, and `CG-21` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
   - V1 scope classification: `required_for_v1`.
   - Execution checklist:
-    - [ ] Author and approve a parser RFC (`docs/rfcs/`) and Apache-2.0 provenance audit (`Cargo.lock` verified zero DataFusion/DuckDB/Spark/Polars/Velox crates) for one pure-syntax SQL AST parser crate.
-    - [ ] Implement one canonical `SQL AST -> shardloom-plan` logical and expression binder (`RFC 0012` deterministic diagnostics) and retire handwritten splitters across `sql_syntax.rs`, `public_workflow_route.rs`, `sql_local_source_runtime.rs`, and `python/src/shardloom/query.py`.
+    - [x] Author and approve a parser RFC (`docs/rfcs/0049-pure-ast-sql-parser-and-plan-binder.md`, `docs/dependencies/sqlparser-dependency-review.md`, `docs/architecture/rfc-phase-traceability.md`, `python/THIRD_PARTY_LICENSES`) and Apache-2.0 provenance audit (`Cargo.lock` verified `sqlparser = "=0.64.0"` + `log` only, isolated in `shardloom-plan`, zero DataFusion/DuckDB/Spark/Polars/Velox crates) for one pure-syntax SQL AST parser crate.
+    - [x] Implement one canonical `SQL AST -> shardloom-plan` logical and expression binder (`shardloom_plan::sql_binder` with `ShardLoomSqlDialect`, `RFC 0012` deterministic diagnostics, `BoundSqlPlan::to_native_plan_document`, `inspect_sql_json`) and retire handwritten splitters across `sql_syntax.rs`, `sql_relation_scopes.rs`, `sql_native_parameters.rs`, `public_workflow_route.rs`, `sql_local_source_runtime.rs`, `shardloom-python` (`_native.inspect_sql_json`), and `python/src/shardloom/_sql_ast.py` / `query.py`.
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 

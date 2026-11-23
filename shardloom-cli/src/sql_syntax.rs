@@ -36,52 +36,18 @@ use relation_sources::{ParsedRelationLeaf, ParsedRelationSource};
 #[path = "sql_native_relational.rs"]
 pub(crate) mod native_relational;
 
+#[allow(dead_code)] // Canonical SQL AST entrypoint exposed for phased binder adoption.
+pub(crate) fn bind_canonical_plan(
+    raw: &str,
+) -> Result<shardloom_plan::sql_binder::BoundSqlPlan, ShardLoomError> {
+    shardloom_plan::sql_binder::bind_sql(raw)
+}
+
 fn find_top_level_numeric_operator(
     raw: &str,
     operators: &[char],
 ) -> Result<Option<(usize, char)>, ShardLoomError> {
-    let mut chars = raw.char_indices().peekable();
-    let mut in_quote = false;
-    let mut depth = 0_u32;
-    let mut candidate = None;
-    while let Some((index, ch)) = chars.next() {
-        if ch == '\'' {
-            if in_quote && chars.peek().is_some_and(|(_, next)| *next == '\'') {
-                let _ = chars.next();
-            } else {
-                in_quote = !in_quote;
-            }
-            continue;
-        }
-        if in_quote {
-            continue;
-        }
-        match ch {
-            '(' => {
-                depth += 1;
-                continue;
-            }
-            ')' => {
-                depth = depth.checked_sub(1).ok_or_else(|| {
-                    unsupported_sql_error("generic numeric expression parentheses are not balanced")
-                })?;
-                continue;
-            }
-            _ => {}
-        }
-        if depth == 0 && operators.contains(&ch) && !is_unary_numeric_sign(raw, index, ch) {
-            candidate = Some((index, ch));
-        }
-    }
-    if in_quote {
-        return Err(unsupported_sql_error("SQL string literal is not closed"));
-    }
-    if depth != 0 {
-        return Err(unsupported_sql_error(
-            "generic numeric expression parentheses are not balanced",
-        ));
-    }
-    Ok(candidate)
+    shardloom_plan::sql_binder::find_top_level_binary_operator(raw, operators)
 }
 const MAX_IN_LIST_VALUES: usize = 32;
 const OUTER_CORRELATION_ALIAS: &str = "outer";
@@ -2714,90 +2680,7 @@ fn sql_local_source_clause_indexes(
 }
 
 fn find_sql_source_from_clause(raw: &str) -> Result<Option<usize>, ShardLoomError> {
-    let mut chars = raw.char_indices().peekable();
-    let mut in_quote = false;
-    let mut depth = 0_u32;
-    let mut bracket_depth = 0_u32;
-    while let Some((index, ch)) = chars.next() {
-        if ch == '\'' {
-            if in_quote && chars.peek().is_some_and(|(_, next)| *next == '\'') {
-                let _ = chars.next();
-            } else {
-                in_quote = !in_quote;
-            }
-            continue;
-        }
-        if in_quote {
-            continue;
-        }
-        match ch {
-            '(' => {
-                depth += 1;
-                continue;
-            }
-            ')' => {
-                depth = depth.checked_sub(1).ok_or_else(|| {
-                    unsupported_sql_error("WHERE predicate grouping parentheses must be balanced")
-                })?;
-                continue;
-            }
-            '[' => {
-                bracket_depth += 1;
-                continue;
-            }
-            ']' => {
-                bracket_depth = bracket_depth.checked_sub(1).ok_or_else(|| {
-                    unsupported_sql_error("SQL expression square brackets are not balanced")
-                })?;
-                continue;
-            }
-            _ => {}
-        }
-        if depth == 0 && bracket_depth == 0 {
-            let remaining = &raw[index..];
-            if remaining
-                .get(.."from".len())
-                .is_some_and(|prefix| prefix.eq_ignore_ascii_case("from"))
-                && keyword_boundary(raw, index, "from".len())
-                && !from_keyword_belongs_to_null_safe_comparison(raw, index)?
-            {
-                return Ok(Some(index));
-            }
-        }
-    }
-    if in_quote {
-        return Err(unsupported_sql_error("SQL string literal is not closed"));
-    }
-    if depth != 0 {
-        return Err(unsupported_sql_error(
-            "WHERE predicate grouping parentheses must be balanced",
-        ));
-    }
-    if bracket_depth != 0 {
-        return Err(unsupported_sql_error(
-            "SQL expression square brackets are not balanced",
-        ));
-    }
-    Ok(None)
-}
-
-fn from_keyword_belongs_to_null_safe_comparison(
-    raw: &str,
-    from_index: usize,
-) -> Result<bool, ShardLoomError> {
-    let tokens = split_whitespace_outside_quotes(raw[..from_index].trim_end())?;
-    Ok(matches!(
-        tokens.as_slice(),
-        [.., is_keyword, distinct_keyword]
-            if is_keyword.eq_ignore_ascii_case("is")
-                && distinct_keyword.eq_ignore_ascii_case("distinct")
-    ) || matches!(
-        tokens.as_slice(),
-        [.., is_keyword, not_keyword, distinct_keyword]
-            if is_keyword.eq_ignore_ascii_case("is")
-                && not_keyword.eq_ignore_ascii_case("not")
-                && distinct_keyword.eq_ignore_ascii_case("distinct")
-    ))
+    shardloom_plan::sql_binder::find_source_from_clause(raw)
 }
 
 fn validate_sql_local_source_clause_order(
@@ -10565,65 +10448,10 @@ fn parse_comparison_op(raw: &str) -> Result<ComparisonOp, ShardLoomError> {
 fn find_top_level_comparison_operator(
     raw: &str,
 ) -> Result<Option<(usize, &'static str)>, ShardLoomError> {
-    let mut chars = raw.char_indices().peekable();
-    let mut in_quote = false;
-    let mut depth = 0_u32;
-    let mut candidate = None;
-    while let Some((index, ch)) = chars.next() {
-        if ch == '\'' {
-            if in_quote && chars.peek().is_some_and(|(_, next)| *next == '\'') {
-                let _ = chars.next();
-            } else {
-                in_quote = !in_quote;
-            }
-            continue;
-        }
-        if in_quote {
-            continue;
-        }
-        match ch {
-            '(' => {
-                depth += 1;
-                continue;
-            }
-            ')' => {
-                depth = depth.checked_sub(1).ok_or_else(|| {
-                    unsupported_sql_error(
-                        "generic numeric expression predicate parentheses are not balanced",
-                    )
-                })?;
-                continue;
-            }
-            _ => {}
-        }
-        if depth == 0 {
-            let tail = &raw[index..];
-            let Some(op) = ["!=", "<>", ">=", "<=", "=", ">", "<"]
-                .into_iter()
-                .find(|op| tail.starts_with(op))
-            else {
-                continue;
-            };
-            if candidate.is_some() {
-                return Err(unsupported_sql_error(
-                    "generic numeric expression predicates admit exactly one comparison operator",
-                ));
-            }
-            candidate = Some((index, op));
-            for _ in 1..op.chars().count() {
-                let _ = chars.next();
-            }
-        }
-    }
-    if in_quote {
-        return Err(unsupported_sql_error("SQL string literal is not closed"));
-    }
-    if depth != 0 {
-        return Err(unsupported_sql_error(
-            "generic numeric expression predicate parentheses are not balanced",
-        ));
-    }
-    Ok(candidate)
+    Ok(
+        shardloom_plan::sql_binder::find_top_level_comparison_operator(raw)?
+            .map(|(index, op, _)| (index, op)),
+    )
 }
 
 fn parse_limit(raw: &str) -> Result<usize, ShardLoomError> {
@@ -10848,174 +10676,40 @@ fn parse_sql_string_literal(raw: &str) -> Result<String, ShardLoomError> {
 }
 
 fn find_keyword_outside_quotes(raw: &str, keyword: &str) -> Option<usize> {
-    let lower_keyword = keyword.to_ascii_lowercase();
-    let chars = raw.char_indices().peekable();
-    let mut in_quote = false;
-    for (index, ch) in chars {
-        if ch == '\'' {
-            in_quote = !in_quote;
-            continue;
-        }
-        if in_quote {
-            continue;
-        }
-        let remaining = &raw[index..];
-        if remaining
-            .get(..lower_keyword.len())
-            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(&lower_keyword))
-            && keyword_boundary(raw, index, lower_keyword.len())
-        {
-            return Some(index);
-        }
-    }
-    None
+    shardloom_plan::sql_binder::find_keyword_anywhere_outside_quotes(raw, keyword)
 }
 
 fn top_level_sql_union_operators(raw: &str) -> Result<Vec<SqlUnionOperator>, ShardLoomError> {
-    let mut operators = Vec::new();
-    let mut chars = raw.char_indices().peekable();
-    let mut in_quote = false;
-    let mut depth = 0_u32;
-    while let Some((index, ch)) = chars.next() {
-        if ch == '\'' {
-            if in_quote && chars.peek().is_some_and(|(_, next)| *next == '\'') {
-                let _ = chars.next();
-            } else {
-                in_quote = !in_quote;
-            }
-            continue;
-        }
-        if in_quote {
-            continue;
-        }
-        match ch {
-            '(' => {
-                depth += 1;
-                continue;
-            }
-            ')' => {
-                depth = depth.checked_sub(1).ok_or_else(|| {
-                    unsupported_sql_error("WHERE predicate grouping parentheses must be balanced")
-                })?;
-                continue;
-            }
-            _ => {}
-        }
-        if depth != 0 {
-            continue;
-        }
-        let Some((mut len, mode)) = top_level_sql_set_operator_at(raw, index) else {
-            continue;
-        };
-        let tail = &raw[index + len..];
-        let whitespace_len = tail.len() - tail.trim_start().len();
-        let tail_trimmed = &tail[whitespace_len..];
-        let mode = match mode {
-            SqlUnionMode::Distinct => {
-                if starts_with_keyword(tail_trimmed, "all") {
-                    len += whitespace_len + "all".len();
-                    SqlUnionMode::All
-                } else if starts_with_keyword(tail_trimmed, "distinct") {
-                    len += whitespace_len + "distinct".len();
-                    SqlUnionMode::Distinct
-                } else {
-                    SqlUnionMode::Distinct
+    shardloom_plan::sql_binder::find_top_level_set_operators(raw)?
+        .into_iter()
+        .map(|span| {
+            let mode = match span.mode {
+                shardloom_plan::sql_binder::SqlSetOpMode::UnionDistinct => SqlUnionMode::Distinct,
+                shardloom_plan::sql_binder::SqlSetOpMode::UnionAll => SqlUnionMode::All,
+                shardloom_plan::sql_binder::SqlSetOpMode::IntersectDistinct => {
+                    SqlUnionMode::IntersectDistinct
                 }
-            }
-            SqlUnionMode::IntersectDistinct | SqlUnionMode::ExceptDistinct => {
-                if starts_with_keyword(tail_trimmed, "all") {
+                shardloom_plan::sql_binder::SqlSetOpMode::ExceptDistinct => {
+                    SqlUnionMode::ExceptDistinct
+                }
+                shardloom_plan::sql_binder::SqlSetOpMode::IntersectAll
+                | shardloom_plan::sql_binder::SqlSetOpMode::ExceptAll => {
                     return Err(unsupported_sql_error(
                         "INTERSECT ALL and EXCEPT ALL are not admitted in this scoped local-source runtime; use distinct set semantics only",
                     ));
                 }
-                if starts_with_keyword(tail_trimmed, "distinct") {
-                    len += whitespace_len + "distinct".len();
-                }
-                mode
-            }
-            SqlUnionMode::All => SqlUnionMode::All,
-        };
-        operators.push(SqlUnionOperator { index, len, mode });
-    }
-    if in_quote {
-        return Err(unsupported_sql_error("SQL string literal is not closed"));
-    }
-    if depth != 0 {
-        return Err(unsupported_sql_error(
-            "WHERE predicate grouping parentheses must be balanced",
-        ));
-    }
-    Ok(operators)
-}
-
-fn top_level_sql_set_operator_at(raw: &str, index: usize) -> Option<(usize, SqlUnionMode)> {
-    for (keyword, mode) in [
-        ("intersect", SqlUnionMode::IntersectDistinct),
-        ("except", SqlUnionMode::ExceptDistinct),
-        ("union", SqlUnionMode::Distinct),
-    ] {
-        if raw
-            .get(index..index + keyword.len())
-            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(keyword))
-            && keyword_boundary(raw, index, keyword.len())
-        {
-            return Some((keyword.len(), mode));
-        }
-    }
-    None
+            };
+            Ok(SqlUnionOperator {
+                index: span.index,
+                len: span.len,
+                mode,
+            })
+        })
+        .collect()
 }
 
 fn top_level_keyword_indexes(raw: &str, keyword: &str) -> Result<Vec<usize>, ShardLoomError> {
-    let lower_keyword = keyword.to_ascii_lowercase();
-    let mut indexes = Vec::new();
-    let mut chars = raw.char_indices().peekable();
-    let mut in_quote = false;
-    let mut depth = 0_u32;
-    while let Some((index, ch)) = chars.next() {
-        if ch == '\'' {
-            if in_quote && chars.peek().is_some_and(|(_, next)| *next == '\'') {
-                let _ = chars.next();
-            } else {
-                in_quote = !in_quote;
-            }
-            continue;
-        }
-        if in_quote {
-            continue;
-        }
-        match ch {
-            '(' => {
-                depth += 1;
-                continue;
-            }
-            ')' => {
-                depth = depth.checked_sub(1).ok_or_else(|| {
-                    unsupported_sql_error("WHERE predicate grouping parentheses must be balanced")
-                })?;
-                continue;
-            }
-            _ => {}
-        }
-        if depth == 0 {
-            let remaining = &raw[index..];
-            if remaining
-                .get(..lower_keyword.len())
-                .is_some_and(|prefix| prefix.eq_ignore_ascii_case(&lower_keyword))
-                && keyword_boundary(raw, index, lower_keyword.len())
-            {
-                indexes.push(index);
-            }
-        }
-    }
-    if in_quote {
-        return Err(unsupported_sql_error("SQL string literal is not closed"));
-    }
-    if depth != 0 {
-        return Err(unsupported_sql_error(
-            "WHERE predicate grouping parentheses must be balanced",
-        ));
-    }
-    Ok(indexes)
+    shardloom_plan::sql_binder::top_level_keyword_offsets(raw, keyword)
 }
 
 fn starts_with_keyword(raw: &str, keyword: &str) -> bool {
@@ -11028,84 +10722,7 @@ fn find_keyword_outside_quotes_and_parentheses(
     raw: &str,
     keyword: &str,
 ) -> Result<Option<usize>, ShardLoomError> {
-    let lower_keyword = keyword.to_ascii_lowercase();
-    let mut chars = raw.char_indices().peekable();
-    let mut in_quote = false;
-    let mut depth = 0_u32;
-    let mut bracket_depth = 0_u32;
-    let mut skip_next_and_for_between = false;
-    while let Some((index, ch)) = chars.next() {
-        if ch == '\'' {
-            if in_quote && chars.peek().is_some_and(|(_, next)| *next == '\'') {
-                let _ = chars.next();
-            } else {
-                in_quote = !in_quote;
-            }
-            continue;
-        }
-        if in_quote {
-            continue;
-        }
-        match ch {
-            '(' => {
-                depth += 1;
-                continue;
-            }
-            ')' => {
-                depth = depth.checked_sub(1).ok_or_else(|| {
-                    unsupported_sql_error("WHERE predicate grouping parentheses must be balanced")
-                })?;
-                continue;
-            }
-            '[' => {
-                bracket_depth += 1;
-                continue;
-            }
-            ']' => {
-                bracket_depth = bracket_depth.checked_sub(1).ok_or_else(|| {
-                    unsupported_sql_error("SQL expression square brackets are not balanced")
-                })?;
-                continue;
-            }
-            _ => {}
-        }
-        if depth == 0 && bracket_depth == 0 {
-            let remaining = &raw[index..];
-            if lower_keyword == "and"
-                && remaining
-                    .get(.."between".len())
-                    .is_some_and(|prefix| prefix.eq_ignore_ascii_case("between"))
-                && keyword_boundary(raw, index, "between".len())
-            {
-                skip_next_and_for_between = true;
-            }
-            if remaining
-                .get(..lower_keyword.len())
-                .is_some_and(|prefix| prefix.eq_ignore_ascii_case(&lower_keyword))
-                && keyword_boundary(raw, index, lower_keyword.len())
-            {
-                if lower_keyword == "and" && skip_next_and_for_between {
-                    skip_next_and_for_between = false;
-                    continue;
-                }
-                return Ok(Some(index));
-            }
-        }
-    }
-    if in_quote {
-        return Err(unsupported_sql_error("SQL string literal is not closed"));
-    }
-    if depth != 0 {
-        return Err(unsupported_sql_error(
-            "WHERE predicate grouping parentheses must be balanced",
-        ));
-    }
-    if bracket_depth != 0 {
-        return Err(unsupported_sql_error(
-            "SQL expression square brackets are not balanced",
-        ));
-    }
-    Ok(None)
+    shardloom_plan::sql_binder::find_top_level_keyword(raw, keyword)
 }
 
 fn contains_keyword_outside_quotes(raw: &str, keyword: &str) -> bool {
