@@ -264,22 +264,32 @@ mod tests {
 
     fn reference(content: &str) -> Result<RecordBatch, ShardLoomError> {
         let (header, rows) = parse_json_source_content(content)?;
+        let user_column_count = header.len();
         let rows = ordered_source_rows(&header, &rows)?;
         let mut source =
             shardloom_vortex::universal_format_io::stream_flat_text_rows_columnar_source(
                 header.clone(),
-                vec![None; header.len()],
-                vec![None; header.len()],
+                vec![None; user_column_count],
+                vec![None; user_column_count],
                 header.clone(),
                 header,
                 rows,
                 262_144,
                 "JSON",
             )?;
-        source
+        let batch = source
             .reader
             .next()
             .expect("nonempty source")
+            .map_err(|error| unsupported_sql_error(&error.to_string()))?;
+        for field in &batch.schema().fields()[user_column_count..] {
+            assert!(
+                field.name().starts_with("__shardloom_derived_"),
+                "unexpected extra field {field:?}"
+            );
+        }
+        batch
+            .project(&(0..user_column_count).collect::<Vec<_>>())
             .map_err(|error| unsupported_sql_error(&error.to_string()))
     }
 

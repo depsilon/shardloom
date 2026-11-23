@@ -83,7 +83,7 @@ pub mod generalized_encoded_primitive_gate;
 pub mod generalized_encoded_projection_execution;
 pub mod generalized_filter_execution;
 pub mod generalized_projection_execution;
-#[cfg(feature = "universal-format-io")]
+#[cfg(any(feature = "universal-format-io", feature = "vortex-write"))]
 mod ingest_cpu_lanes;
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 mod ingest_runtime;

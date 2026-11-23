@@ -2862,7 +2862,7 @@ fn vortex_ingest_streaming_text_routes_preserve_hidden_derived_columns() {
     let inferred_target = root.join("inferred.vortex");
     fs::write(
         &inferred_source,
-        "id,URL,SearchPhrase\n1,https://www.example.com/a,alpha\n2,https://[2001:db8::1]:8443/b,beta\n",
+        "id,URL,SearchPhrase\n1,https://www.example.com/a,encoded columnar search query\n2,https://[2001:db8::1]:8443/b,beta\n",
     )
     .expect("write inferred csv source");
 
@@ -2900,7 +2900,7 @@ fn vortex_ingest_streaming_text_routes_preserve_hidden_derived_columns() {
     let schema_target = root.join("schema.vortex");
     fs::write(
         &schema_source,
-        "id,URL,SearchPhrase\n1,https://www.example.net/a,alpha\n2,https://www.example.org/b,beta\n",
+        "id,URL,SearchPhrase\n1,https://www.example.net/a,encoded columnar search query\n2,https://www.example.org/b,beta\n",
     )
     .expect("write schema csv source");
     let full_hints = vec![

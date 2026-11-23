@@ -11,6 +11,7 @@ use shardloom_exec::live_memory::LiveMemoryPool;
 
 /// Measured policy inputs, not independent grants. Unused lanes go to the native
 /// writer runtime, which also retains the caller as its mandatory progress lane.
+#[cfg_attr(not(feature = "universal-format-io"), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IngestCpuDemand {
     pub(crate) source_workers: usize,
@@ -18,6 +19,7 @@ pub(crate) struct IngestCpuDemand {
     pub(crate) prefetch_slots: usize,
 }
 
+#[cfg_attr(not(feature = "universal-format-io"), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IngestCpuLanes {
     requested: usize,
@@ -42,7 +44,10 @@ pub(crate) struct IngestCpuActivity {
 
 // A compatibility-reader-only build uses the source grant; remaining accessors
 // are consumed when the optional native writer is enabled.
-#[cfg_attr(not(feature = "vortex-write"), allow(dead_code))]
+#[cfg_attr(
+    not(all(feature = "vortex-write", feature = "universal-format-io")),
+    allow(dead_code)
+)]
 impl IngestCpuLanes {
     pub(crate) const CALLER_LANES: usize = 1;
 
@@ -262,6 +267,7 @@ impl IngestCpuLanes {
 }
 
 #[cfg(any(test, feature = "vortex-write"))]
+#[cfg_attr(not(feature = "universal-format-io"), allow(dead_code))]
 fn lane_error(reason: &str) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
         "ingest CPU lane admission: {reason}; no fallback execution was attempted"
@@ -295,7 +301,10 @@ pub(crate) fn governed_writer_concurrency(
 
 /// Govern concurrent child `write_stream` chunks in [`BoundedIngestLayout`] under
 /// the same [`LiveMemoryPool`] headroom controller (capped at 4 in-flight chunks).
-#[cfg_attr(not(feature = "vortex-write"), allow(dead_code))]
+#[cfg_attr(
+    not(all(feature = "vortex-write", feature = "universal-format-io")),
+    allow(dead_code)
+)]
 pub(crate) fn governed_layout_in_flight(
     requested: usize,
     memory: Option<&LiveMemoryPool>,
