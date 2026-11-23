@@ -64,17 +64,22 @@ pub(super) struct CompatibilityLimits {
     parent_cancellation: Option<CancellationToken>,
 }
 
+pub(super) const DEFAULT_COMPAT_BATCH_ROWS: usize = 8192;
+pub(super) const MAX_COMPAT_BATCH_ROWS: usize = 65_536;
+pub(super) const STREAMING_COMPAT_BATCH_ROWS: usize = 2048;
+pub(super) const STREAMING_COMPAT_ARROW_BATCH_BYTES: u64 = 8 * 1024 * 1024;
+
 impl Default for CompatibilityLimits {
     fn default() -> Self {
         Self {
-            source_rows: 65_536,
-            output_rows: 65_536,
-            columns: 128,
-            batch_rows: 2048,
+            source_rows: 1_048_576,
+            output_rows: 1_048_576,
+            columns: 1024,
+            batch_rows: DEFAULT_COMPAT_BATCH_ROWS,
             batches: 256,
-            string_bytes: 64 * 1024,
-            arrow_batch_bytes: 8 * 1024 * 1024,
-            file_bytes: 128 * 1024 * 1024,
+            string_bytes: 16 * 1024 * 1024,
+            arrow_batch_bytes: 64 * 1024 * 1024,
+            file_bytes: 1024 * 1024 * 1024,
             cancellation: Arc::new(AtomicBool::new(false)),
             streaming: false,
             parent_cancellation: None,
@@ -87,8 +92,10 @@ impl CompatibilityLimits {
         Self {
             source_rows: upper_rows.max(1),
             output_rows: upper_rows.max(1),
+            batch_rows: STREAMING_COMPAT_BATCH_ROWS,
             batches: usize::MAX,
             columns: usize::MAX,
+            arrow_batch_bytes: STREAMING_COMPAT_ARROW_BATCH_BYTES,
             file_bytes: u64::MAX,
             string_bytes: i32::MAX as usize,
             streaming: true,
@@ -116,14 +123,15 @@ impl CompatibilityLimits {
             return Err(error("all admission bounds must be positive"));
         }
         if (!self.streaming
-            && (self.source_rows > 65_536
-                || self.output_rows > 65_536
-                || self.columns > 128
-                || self.batches > 256
-                || self.file_bytes > 128 * 1024 * 1024))
-            || self.batch_rows > 2048
+            && (self.source_rows > 1_048_576
+                || self.output_rows > 1_048_576
+                || self.columns > 1024
+                || self.batches > 4096
+                || self.file_bytes > 1024 * 1024 * 1024))
+            || self.batch_rows > MAX_COMPAT_BATCH_ROWS
             || (!self.streaming
-                && (self.string_bytes > 64 * 1024 || self.arrow_batch_bytes > 8 * 1024 * 1024))
+                && (self.string_bytes > 16 * 1024 * 1024
+                    || self.arrow_batch_bytes > 64 * 1024 * 1024))
         {
             return Err(error(
                 "requested bounds exceed the bounded flat-scalar candidate profile",
@@ -137,7 +145,16 @@ impl CompatibilityLimits {
         // and batch bounds, independently of payload. The work envelope covers
         // admitted contiguous Arrow data, IPC serialization / PLAIN pages and
         // growth overlap, not every upstream allocation or process RSS.
-        Self::metadata_for_batches(columns, if self.streaming { 0 } else { self.batches })
+        let effective_batches = if self.streaming {
+            0
+        } else {
+            let batch_rows =
+                u64::try_from(self.batch_rows).map_err(|_| error("batch rows overflow"))?;
+            let needed =
+                usize::try_from(self.output_rows.div_ceil(batch_rows)).unwrap_or(self.batches);
+            self.batches.min(needed).max(1)
+        };
+        Self::metadata_for_batches(columns, effective_batches)
     }
 
     fn metadata_for_batches(columns: usize, batches: usize) -> Result<u64> {

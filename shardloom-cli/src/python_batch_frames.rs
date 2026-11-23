@@ -106,6 +106,7 @@ impl Drop for Scratch {
 /// Field order keeps every owned byte alive only while its credit is retained.
 pub(super) struct Frame {
     text: String,
+    payload: Option<Vec<u8>>,
     scratch: Scratch,
 }
 
@@ -163,6 +164,12 @@ fn reserve<T>(
     scratch.remove(old_bytes)
 }
 
+#[derive(Deserialize)]
+struct BinaryHeader {
+    kind: Kind,
+    byte_len: Option<usize>,
+}
+
 pub(super) fn read(
     input: &mut impl BufRead,
     owner: &mut Scratch,
@@ -193,12 +200,43 @@ pub(super) fn read(
     }
     cancellation.check()?;
     let text = String::from_utf8(bytes).map_err(failed)?;
-    Ok(Some(Frame { text, scratch }))
+    let mut payload = None;
+    if text.contains("\"rows_ipc\"")
+        && let Ok(header) = serde_json::from_str::<BinaryHeader>(&text)
+        && matches!(header.kind, Kind::RowsIpc)
+    {
+        let Some(byte_len) = header.byte_len.filter(|len| *len > 0 && *len <= MAX_FRAME) else {
+            return Err(failed(
+                "binary input frame requires a 1..=8 MiB byte_len header",
+            ));
+        };
+        let mut raw = Vec::new();
+        while raw.len() < byte_len {
+            cancellation.check()?;
+            let available = input.fill_buf().map_err(failed)?;
+            if available.is_empty() {
+                return Err(failed(
+                    "binary batch payload ended before declared byte_len",
+                ));
+            }
+            let take = available.len().min(byte_len - raw.len());
+            reserve(&mut raw, take, byte_len, &mut scratch)?;
+            raw.extend_from_slice(&available[..take]);
+            input.consume(take);
+        }
+        payload = Some(raw);
+    }
+    Ok(Some(Frame {
+        text,
+        payload,
+        scratch,
+    }))
 }
 
 #[derive(Clone, Copy)]
 enum Kind {
     Rows,
+    RowsIpc,
     End,
     Ack,
     Cancel,
@@ -217,6 +255,7 @@ impl<'de> Deserialize<'de> for Kind {
             fn visit_str<E: de::Error>(self, value: &str) -> std::result::Result<Kind, E> {
                 match value {
                     "rows" => Ok(Kind::Rows),
+                    "rows_ipc" => Ok(Kind::RowsIpc),
                     "end" => Ok(Kind::End),
                     "ack" => Ok(Kind::Ack),
                     "cancel" => Ok(Kind::Cancel),
@@ -280,10 +319,12 @@ impl Frame {
 
     pub(super) fn decode(mut self, width: Option<usize>) -> Result<Decoded> {
         let _parser = self.parser_scratch()?;
+        let payload = self.payload.take();
         let budget = RefCell::new(self.scratch.branch()?);
         let mut deserializer = serde_json::Deserializer::from_str(&self.text);
         let value = MessageSeed {
             width,
+            payload: RefCell::new(payload),
             budget: &budget,
         }
         .deserialize(&mut deserializer)
@@ -461,6 +502,7 @@ impl<'de> Visitor<'de> for RowsSeed<'_> {
 
 struct MessageSeed<'a> {
     width: Option<usize>,
+    payload: RefCell<Option<Vec<u8>>>,
     budget: &'a RefCell<Scratch>,
 }
 impl<'de> DeserializeSeed<'de> for MessageSeed<'_> {
@@ -481,57 +523,28 @@ impl<'de> Visitor<'de> for MessageSeed<'_> {
         Err(E::custom("batch message must be an object"))
     }
     fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> std::result::Result<Incoming, A::Error> {
-        enum Field {
-            Kind,
-            Uri,
-            Index,
-            Rows,
-        }
-        impl<'de> Deserialize<'de> for Field {
-            fn deserialize<D: de::Deserializer<'de>>(
-                deserializer: D,
-            ) -> std::result::Result<Self, D::Error> {
-                struct FieldVisitor;
-                impl Visitor<'_> for FieldVisitor {
-                    type Value = Field;
-                    fn expecting(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
-                        out.write_str("a known native batch field")
-                    }
-                    fn visit_str<E: de::Error>(self, value: &str) -> std::result::Result<Field, E> {
-                        match value {
-                            "kind" => Ok(Field::Kind),
-                            "uri" => Ok(Field::Uri),
-                            "index" => Ok(Field::Index),
-                            "rows" => Ok(Field::Rows),
-                            _ => Err(E::custom("unknown field in native batch message")),
-                        }
-                    }
-                }
-                deserializer.deserialize_identifier(FieldVisitor)
-            }
-        }
-        let (mut kind, mut uri, mut index, mut rows) = (None, None, None, None);
-        while let Some(field) = map.next_key::<Field>()? {
+        let (mut kind, mut uri, mut index, mut rows, mut byte_len) = (None, None, None, None, None);
+        while let Some(field) = map.next_key::<IncomingField>()? {
             match field {
-                Field::Kind => {
+                IncomingField::Kind => {
                     if kind.is_some() {
                         return Err(de::Error::duplicate_field("kind"));
                     }
                     kind = Some(map.next_value::<Kind>()?);
                 }
-                Field::Uri => {
+                IncomingField::Uri => {
                     if uri.is_some() {
                         return Err(de::Error::duplicate_field("uri"));
                     }
                     uri = Some(map.next_value_seed(StringSeed(self.budget))?);
                 }
-                Field::Index => {
+                IncomingField::Index => {
                     if index.is_some() {
                         return Err(de::Error::duplicate_field("index"));
                     }
                     index = Some(map.next_value::<Index>()?.0);
                 }
-                Field::Rows => {
+                IncomingField::Rows => {
                     if rows.is_some() {
                         return Err(de::Error::duplicate_field("rows"));
                     }
@@ -543,19 +556,78 @@ impl<'de> Visitor<'de> for MessageSeed<'_> {
                         budget: self.budget,
                     })?);
                 }
+                IncomingField::ByteLen => {
+                    if byte_len.is_some() {
+                        return Err(de::Error::duplicate_field("byte_len"));
+                    }
+                    let len = map.next_value::<Index>()?.0;
+                    let len = usize::try_from(len)
+                        .ok()
+                        .filter(|value| (1..=MAX_FRAME).contains(value))
+                        .ok_or_else(|| de::Error::custom("byte_len exceeds 1..=8 MiB bound"))?;
+                    byte_len = Some(len);
+                }
             }
         }
-        match (kind, uri, index, rows) {
-            (Some(Kind::Rows), Some(uri), Some(index), Some(rows)) => {
+        let payload = self.payload.borrow_mut().take();
+        match (kind, uri, index, rows, byte_len, payload) {
+            (Some(Kind::Rows), Some(uri), Some(index), Some(rows), None, None) => {
                 Ok(Incoming::Rows { uri, index, rows })
             }
-            (Some(Kind::End), Some(uri), Some(index), None) => Ok(Incoming::End { uri, index }),
-            (Some(Kind::Ack), None, Some(index), None) => Ok(Incoming::Ack { index }),
-            (Some(Kind::Cancel), None, None, None) => Ok(Incoming::Cancel),
+            (Some(Kind::RowsIpc), Some(uri), Some(index), None, Some(byte_len), Some(payload))
+                if payload.len() == byte_len =>
+            {
+                let _ = self
+                    .width
+                    .ok_or_else(|| de::Error::custom("rows_ipc arrived without input demand"))?;
+                Ok(Incoming::RowsIpc {
+                    uri,
+                    index,
+                    payload,
+                })
+            }
+            (Some(Kind::End), Some(uri), Some(index), None, None, None) => {
+                Ok(Incoming::End { uri, index })
+            }
+            (Some(Kind::Ack), None, Some(index), None, None, None) => Ok(Incoming::Ack { index }),
+            (Some(Kind::Cancel), None, None, None, None, None) => Ok(Incoming::Cancel),
             _ => Err(de::Error::custom(
                 "batch fields do not match the declared message kind",
             )),
         }
+    }
+}
+
+enum IncomingField {
+    Kind,
+    Uri,
+    Index,
+    Rows,
+    ByteLen,
+}
+
+impl<'de> Deserialize<'de> for IncomingField {
+    fn deserialize<D: de::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
+        struct FieldVisitor;
+        impl Visitor<'_> for FieldVisitor {
+            type Value = IncomingField;
+            fn expecting(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
+                out.write_str("a known native batch field")
+            }
+            fn visit_str<E: de::Error>(self, value: &str) -> std::result::Result<IncomingField, E> {
+                match value {
+                    "kind" => Ok(IncomingField::Kind),
+                    "uri" => Ok(IncomingField::Uri),
+                    "index" => Ok(IncomingField::Index),
+                    "rows" => Ok(IncomingField::Rows),
+                    "byte_len" => Ok(IncomingField::ByteLen),
+                    _ => Err(E::custom("unknown field in native batch message")),
+                }
+            }
+        }
+        deserializer.deserialize_identifier(FieldVisitor)
     }
 }
 

@@ -189,3 +189,213 @@ fn owned_numeric_exact_distinct_crosses_scan_splits_and_reuses_worker_policy() {
     drop(prepared);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
+
+fn kv_memory_source(
+    session: &ResidentVortexSession,
+    rows: i64,
+    v_fn: impl Fn(i64) -> i64,
+) -> ResidentMemorySource {
+    let keys: Vec<i64> = (0..rows).collect();
+    let vals: Vec<i64> = keys.iter().copied().map(v_fn).collect();
+    ResidentMemorySource::from_columns(
+        session,
+        &[
+            MemoryColumn {
+                name: "k",
+                values: MemoryColumnValues::Int64NonNullable(&keys),
+            },
+            MemoryColumn {
+                name: "v",
+                values: MemoryColumnValues::Int64NonNullable(&vals),
+            },
+        ],
+        MemorySourceBounds::default(),
+    )
+    .unwrap()
+}
+
+fn owned_rel_policy(bytes: u64) -> VortexLocalPrimitiveExecutionPolicy {
+    use shardloom_core::{ExecutionResourceOrigin, ExecutionResources};
+    VortexLocalPrimitiveExecutionPolicy::from_resources(
+        ExecutionResources::from_bytes(bytes, 1, ExecutionResourceOrigin::Context).unwrap(),
+    )
+    .unwrap()
+}
+
+#[test]
+fn owned_array_relational_scan_prunes_splits_with_zone_maps_and_preserves_values() {
+    use crate::{
+        local_primitives::prepared_relational::prepare_relational_with_schema_in_session,
+        relational_query::{VortexRelationalPlan, VortexRelationalScan},
+    };
+    use shardloom_core::{ColumnRef, ComparisonOp, DatasetUri, PredicateExpr, StatValue};
+    use shardloom_plan::ProjectionRequest;
+
+    let bytes = 8 << 20;
+    let session = ResidentVortexSession::new(bytes, 1).unwrap();
+    let memory = session.memory().clone();
+    let input = kv_memory_source(&session, 20_000, |k| k * 10);
+    let batch = input
+        .prepare_projection(&["k", "v"], None, None)
+        .unwrap()
+        .execute_arrays()
+        .unwrap();
+    let source = batch
+        .into_owned_array_source(
+            OwnedArraySourceBounds::default(),
+            &CancellationToken::default(),
+        )
+        .unwrap();
+    assert!(source.has_zone_maps());
+    drop(input);
+
+    let policy = owned_rel_policy(bytes);
+    let uri = DatasetUri::new("memory://owned-pruned-relational").unwrap();
+    let run_with_threshold = |threshold: i64| {
+        let prepared = prepare_relational_with_schema_in_session(policy, &session, |schemas| {
+            schemas.register_owned_array_source(uri.clone(), source.clone())?;
+            Ok(VortexRelationalPlan::Scan(VortexRelationalScan {
+                source_uri: uri.clone(),
+                projection: ProjectionRequest::Columns(vec![
+                    ColumnRef::new("k").unwrap(),
+                    ColumnRef::new("v").unwrap(),
+                ]),
+                predicate: Some(PredicateExpr::Compare {
+                    column: ColumnRef::new("k").unwrap(),
+                    op: ComparisonOp::GtEq,
+                    value: StatValue::Int64(threshold),
+                }),
+            }))
+        })
+        .unwrap();
+        let executed = prepared
+            .execute_native(&CancellationToken::default())
+            .unwrap();
+        (prepared, executed)
+    };
+
+    let (prepared, executed) = run_with_threshold(17_000);
+    assert_eq!(executed.execution.output_rows, 3_000);
+    assert_eq!(source.pruned_splits(), 2);
+    assert_eq!(source.pruned_rows(), 16_384);
+    assert!(executed.execution.native_io_certificate.is_certified());
+    let rendered = executed
+        .result
+        .to_bounded_json(&["k".into(), "v".into()], 512 * 1024)
+        .unwrap();
+    let rows: Vec<Value> = serde_json::from_str(rendered.value()).unwrap();
+    assert_eq!(rows.len(), 3_000);
+    assert_eq!(rows[0], json!({"k": 17_000, "v": 170_000}));
+    assert_eq!(rows[2_999], json!({"k": 19_999, "v": 199_990}));
+
+    let (prepared_empty, executed_empty) = run_with_threshold(25_000);
+    assert_eq!(executed_empty.execution.output_rows, 0);
+    assert_eq!(source.pruned_splits(), 5);
+    assert_eq!(source.pruned_rows(), 36_384);
+    assert!(
+        executed_empty
+            .execution
+            .native_io_certificate
+            .is_certified()
+    );
+
+    drop((
+        executed_empty,
+        prepared_empty,
+        rendered,
+        executed,
+        prepared,
+        source,
+        session,
+    ));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn prepared_collect_owned_array_multi_step_relational_chain_zero_serialization() {
+    use crate::{
+        local_primitives::prepared_relational::prepare_relational_with_schema_in_session,
+        relational_query::{VortexRelationalPlan, VortexRelationalProject, VortexRelationalScan},
+    };
+    use shardloom_core::{
+        ColumnRef, ComparisonOp, DatasetUri, ExprId, Expression, PredicateExpr, StatValue,
+    };
+    use shardloom_plan::ProjectionRequest;
+
+    let bytes = 8 << 20;
+    let session = ResidentVortexSession::new(bytes, 1).unwrap();
+    let memory = session.memory().clone();
+    let input = kv_memory_source(&session, 20_000, |k| k + 1);
+    let policy = owned_rel_policy(bytes);
+    let uri1 = DatasetUri::new("memory://chain-stage-1").unwrap();
+    let prep1 = prepare_relational_with_schema_in_session(policy, &session, |schemas| {
+        schemas.register_memory_source(uri1.clone(), |_| Ok(input))?;
+        Ok(VortexRelationalPlan::Scan(VortexRelationalScan {
+            source_uri: uri1,
+            projection: ProjectionRequest::All,
+            predicate: Some(PredicateExpr::Compare {
+                column: ColumnRef::new("k").unwrap(),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Int64(1_000),
+            }),
+        }))
+    })
+    .unwrap();
+    let stage1 = prep1.execute_native(&CancellationToken::default()).unwrap();
+    assert_eq!(stage1.execution.output_rows, 19_000);
+    drop(prep1);
+
+    let owned_source = stage1
+        .result
+        .into_owned_array_source(
+            OwnedArraySourceBounds::default(),
+            &CancellationToken::default(),
+        )
+        .unwrap();
+    assert!(owned_source.has_zone_maps());
+
+    let uri2 = DatasetUri::new("memory://chain-stage-2").unwrap();
+    let prep2 = prepare_relational_with_schema_in_session(policy, &session, |schemas| {
+        schemas.register_owned_array_source(uri2.clone(), owned_source.clone())?;
+        Ok(VortexRelationalPlan::Project(Box::new(
+            VortexRelationalProject {
+                input: VortexRelationalPlan::Scan(VortexRelationalScan {
+                    source_uri: uri2,
+                    projection: ProjectionRequest::All,
+                    predicate: Some(PredicateExpr::Compare {
+                        column: ColumnRef::new("k").unwrap(),
+                        op: ComparisonOp::GtEq,
+                        value: StatValue::Int64(18_000),
+                    }),
+                }),
+                expressions: vec![(
+                    "k".into(),
+                    Expression::column(ExprId::new("k").unwrap(), ColumnRef::new("k").unwrap()),
+                )],
+            },
+        )))
+    })
+    .unwrap();
+    let stage2 = prep2.execute_native(&CancellationToken::default()).unwrap();
+    assert_eq!(stage2.execution.output_rows, 2_000);
+    assert!(owned_source.pruned_splits() >= 2);
+    assert!(stage2.execution.native_io_certificate.is_certified());
+    let rendered = stage2
+        .result
+        .to_bounded_json(&["k".into()], 256 * 1024)
+        .unwrap();
+    let rows: Vec<Value> = serde_json::from_str(rendered.value()).unwrap();
+    assert_eq!(rows.len(), 2_000);
+    assert_eq!(rows[0], json!({"k": 18_000}));
+    assert_eq!(rows[1_999], json!({"k": 19_999}));
+
+    drop((
+        rendered,
+        stage2,
+        prep2,
+        owned_source,
+        stage1.execution,
+        session,
+    ));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}

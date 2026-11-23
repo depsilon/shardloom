@@ -102,14 +102,119 @@ class BatchInput:
             rows.append(values)
         return rows
 
+    def encode_arrow_ipc(self, batch: object) -> bytes:
+        import pyarrow
 
-@dataclass(frozen=True)
+        from ._result_schema import _arrow_field, _contains_uuid, arrow_table
+
+        expected_names = tuple(name for name, _ in self.schema)
+        if isinstance(batch, pyarrow.RecordBatch):
+            if batch.num_rows > 2048 or tuple(batch.schema.names) != expected_names:
+                raise ValueError("input RecordBatch schema or row count differs from declaration")
+            record_batch = batch
+        elif isinstance(batch, pyarrow.Table):
+            if batch.num_rows > 2048 or tuple(batch.schema.names) != expected_names:
+                raise ValueError("input Table schema or row count differs from declaration")
+            combined = batch.combine_chunks()
+            batches = combined.to_batches()
+            if not batches:
+                record_batch = pyarrow.RecordBatch.from_pylist([], schema=combined.schema)
+            elif len(batches) == 1:
+                record_batch = batches[0]
+            else:
+                raise ValueError("input Table exceeds single RecordBatch framing")
+        elif isinstance(batch, Sequence) and not isinstance(batch, (str, bytes, bytearray)):
+            if len(batch) > 2048:
+                raise ValueError("each input batch must contain at most 2,048 rows")
+            name_set = set(expected_names)
+            for row in batch:
+                if not isinstance(row, Mapping) or set(row) != name_set:
+                    raise ValueError("batch rows must match the complete declared schema")
+            if any(_contains_uuid(dtype) for _, dtype in self._types):
+                table = arrow_table(batch, self._types, pyarrow)
+                batches = table.combine_chunks().to_batches()
+                record_batch = batches[0] if batches else pyarrow.RecordBatch.from_pylist([], schema=table.schema)
+            else:
+                pa_schema = pyarrow.schema([_arrow_field(name, dtype, pyarrow) for name, dtype in self._types])
+                record_batch = pyarrow.RecordBatch.from_pylist(list(batch), schema=pa_schema)
+        else:
+            raise TypeError("each input batch must be a RecordBatch, Table, or sequence of row mappings")
+
+        sink = pyarrow.BufferOutputStream()
+        with pyarrow.ipc.new_stream(sink, record_batch.schema) as writer:
+            writer.write_batch(record_batch)
+        payload = bytes(sink.getvalue())
+        if not 0 < len(payload) <= _MAX_INPUT_FRAME:
+            raise ValueError("Arrow IPC input batch exceeds 8 MiB frame bound")
+        return payload
+
+
 class ResultBatch:
     """One provisional batch; success is established by the iterator's final report."""
 
-    index: int
-    result_rows: tuple[Mapping[str, Any], ...]
-    result_schema: tuple[tuple[str, ResultType], ...]
+    __slots__ = ("_index", "_result_rows", "_result_schema", "_arrow_table")
+
+    def __init__(
+        self,
+        index: int,
+        result_rows: tuple[Mapping[str, Any], ...],
+        result_schema: tuple[tuple[str, ResultType], ...],
+    ):
+        object.__setattr__(self, "_index", index)
+        object.__setattr__(self, "_result_rows", result_rows)
+        object.__setattr__(self, "_result_schema", result_schema)
+        object.__setattr__(self, "_arrow_table", None)
+
+    @classmethod
+    def _from_arrow_table(
+        cls,
+        index: int,
+        table: Any,
+        result_schema: tuple[tuple[str, ResultType], ...],
+    ) -> "ResultBatch":
+        instance = cls.__new__(cls)
+        object.__setattr__(instance, "_index", index)
+        object.__setattr__(instance, "_result_rows", None)
+        object.__setattr__(instance, "_result_schema", result_schema)
+        object.__setattr__(instance, "_arrow_table", table)
+        return instance
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        raise AttributeError("ResultBatch is immutable")
+
+    def __delattr__(self, name: str) -> None:
+        raise AttributeError("ResultBatch is immutable")
+
+    @property
+    def index(self) -> int:
+        return self._index
+
+    @property
+    def result_schema(self) -> tuple[tuple[str, ResultType], ...]:
+        return self._result_schema
+
+    @property
+    def result_rows(self) -> tuple[Mapping[str, Any], ...]:
+        rows = self._result_rows
+        if rows is None:
+            rows = tuple(self._arrow_table.to_pylist())
+            object.__setattr__(self, "_result_rows", rows)
+        return rows
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ResultBatch):
+            return NotImplemented
+        return (self.index, self.result_rows, self.result_schema) == (
+            other.index,
+            other.result_rows,
+            other.result_schema,
+        )
+
+    def __repr__(self) -> str:
+        return (
+            f"ResultBatch(index={self.index!r}, result_rows={self.result_rows!r}, "
+            f"result_schema={self.result_schema!r})"
+        )
 
     @property
     def schema(self):
@@ -125,14 +230,20 @@ class ResultBatch:
 
     @property
     def python_objects(self) -> tuple[Mapping[str, Any], ...]:
+        if self._arrow_table is not None:
+            return self.result_rows
         return tuple(python_rows(self.result_rows, self.result_schema))
 
     def to_pandas(self):
+        if self._arrow_table is not None:
+            return self._arrow_table.to_pandas()
         from .query import _result_to_pandas
         import pandas
         return _result_to_pandas(self, pandas)
 
     def to_arrow(self):
+        if self._arrow_table is not None:
+            return self._arrow_table
         from .query import _result_to_arrow_table
         import pyarrow
         return _result_to_arrow_table(self, pyarrow)
@@ -153,10 +264,13 @@ class ResultBatchIterator:
     cannot be confirmed. An active producer/consumer error is preserved.
     """
 
-    def __init__(self, client, args, *, inputs=None, batch_rows=2048, stream_results=True, check=True):
+    def __init__(self, client, args, *, inputs=None, batch_rows=2048, stream_results=True, check=True,
+                 wire_format="json"):
         client._ensure_open()
         if type(batch_rows) is not int or not 1 <= batch_rows <= 2048:
             raise ValueError("batch_rows must be an integer in 1..=2048")
+        if wire_format not in ("json", "arrow_ipc"):
+            raise ValueError("wire_format must be 'json' or 'arrow_ipc'")
         if os.name != "posix":
             raise ValueError("native batch transport currently requires a Unix runtime")
         from .client import _redact_command_for_error
@@ -169,6 +283,7 @@ class ResultBatchIterator:
         self._batch_rows = batch_rows
         self._stream_results = stream_results
         self._check = check
+        self._wire_format = wire_format
         self._process = None
         self._buffer = bytearray()
         self._ack = None
@@ -205,6 +320,8 @@ class ResultBatchIterator:
     def _start(self, deadline):
         if self._process is not None:
             return
+        if self._wire_format == "arrow_ipc":
+            import pyarrow  # noqa: F401
         self._client._ensure_open()
         self._process = subprocess.Popen(
             [*self._client._binary_parts(), "python-worker", "--batch-stream"],
@@ -214,8 +331,14 @@ class ResultBatchIterator:
         )
         os.set_blocking(self._process.stdin.fileno(), False)
         os.set_blocking(self._process.stdout.fileno(), False)
-        self._write({"args": self._args, "stream_results": self._stream_results,
-                     "batch_rows": self._batch_rows}, deadline, 16 << 20)
+        request = {
+            "args": self._args,
+            "stream_results": self._stream_results,
+            "batch_rows": self._batch_rows,
+        }
+        if self._wire_format != "json":
+            request["wire_format"] = self._wire_format
+        self._write(request, deadline, 16 << 20)
 
     def _ready(self, stream, event, deadline):
         with selectors.DefaultSelector() as selector:
@@ -238,6 +361,9 @@ class ResultBatchIterator:
                 raise ValueError(f"native batch frame exceeds {maximum} bytes")
             payload.extend(encoded)
         payload.append(10)
+        self._write_raw(payload, deadline)
+
+    def _write_raw(self, payload, deadline):
         remaining = memoryview(payload)
         while remaining:
             self._ready(self._process.stdin, selectors.EVENT_WRITE, deadline)
@@ -248,6 +374,20 @@ class ResultBatchIterator:
             if written == 0:
                 raise ShardLoomProtocolError("native batch input pipe closed")
             remaining = remaining[written:]
+
+    def _read_exact(self, length, deadline):
+        while len(self._buffer) < length:
+            self._ready(self._process.stdout, selectors.EVENT_READ, deadline)
+            try:
+                chunk = os.read(self._process.stdout.fileno(), max(65536, length - len(self._buffer)))
+            except BlockingIOError:
+                continue
+            if not chunk:
+                raise ShardLoomProtocolError("native batch process closed before a complete binary payload")
+            self._buffer.extend(chunk)
+        payload = bytes(self._buffer[:length])
+        del self._buffer[:length]
+        return payload
 
     def _read(self, deadline):
         while True:
@@ -293,8 +433,13 @@ class ResultBatchIterator:
             self._ended_inputs.add(uri)
             self._write({"kind": "end", "uri": uri, "index": index}, deadline)
         else:
-            self._write({"kind": "rows", "uri": uri, "index": index,
-                         "rows": source.encode(batch)}, deadline)
+            if self._wire_format == "arrow_ipc":
+                payload = source.encode_arrow_ipc(batch)
+                self._write({"kind": "rows_ipc", "uri": uri, "index": index, "byte_len": len(payload)}, deadline)
+                self._write_raw(payload, deadline)
+            else:
+                self._write({"kind": "rows", "uri": uri, "index": index,
+                             "rows": source.encode(batch)}, deadline)
             self._input_indices[uri] = index + 1
 
     def __next__(self):
@@ -328,7 +473,8 @@ class ResultBatchIterator:
                     self._provide_input(value, deadline)
                     continue
                 if value.get("kind") == "batch":
-                    if (not self._stream_results or type(value.get("index")) is not int
+                    if (self._wire_format != "json" or not self._stream_results
+                            or type(value.get("index")) is not int
                             or value["index"] != self._next_index):
                         raise ShardLoomProtocolError("native result batch sequence is invalid")
                     rows = value.get("rows")
@@ -347,18 +493,51 @@ class ResultBatchIterator:
                     self._next_index += 1
                     self._rows += len(rows)
                     return ResultBatch(self._ack, tuple(rows), schema)
+                if value.get("kind") == "batch_ipc":
+                    import pyarrow
+
+                    if (self._wire_format != "arrow_ipc" or not self._stream_results
+                            or type(value.get("index")) is not int
+                            or value["index"] != self._next_index):
+                        raise ShardLoomProtocolError("native result batch sequence is invalid")
+                    row_count = value.get("row_count")
+                    byte_len = value.get("byte_len")
+                    if (type(row_count) is not int or not 0 <= row_count <= self._batch_rows
+                            or type(byte_len) is not int or not 1 <= byte_len <= _MAX_RESPONSE_FRAME):
+                        raise ShardLoomProtocolError("native Arrow IPC result batch header is invalid")
+                    schema = schema_fields(json.dumps(value.get("schema")), "vortex.dtype.serde.v1")
+                    if self._schema is not None and schema != self._schema:
+                        raise ShardLoomProtocolError("native result schema changed between batches")
+                    payload = self._read_exact(byte_len, deadline)
+                    try:
+                        table = pyarrow.ipc.open_stream(pyarrow.py_buffer(payload)).read_all()
+                    except (pyarrow.ArrowException, OSError, ValueError) as error:
+                        raise ShardLoomProtocolError("native Arrow IPC result payload is invalid") from error
+                    expected_names = tuple(name for name, _ in schema)
+                    if table.num_rows != row_count or tuple(table.schema.names) != expected_names:
+                        raise ShardLoomProtocolError("native Arrow IPC batch differs from its declared schema")
+                    self._schema = schema
+                    self._ack = self._next_index
+                    self._next_index += 1
+                    self._rows += row_count
+                    return ResultBatch._from_arrow_table(self._ack, table, schema)
                 envelope = self._client._parse_stdout(text, self._command)
                 if len({field.key for field in envelope.fields}) != len(envelope.fields):
                     raise ShardLoomProtocolError("native batch final report has duplicate fields")
                 remaining = None if deadline is None else max(0.001, deadline - time.monotonic())
                 code = self._process.wait(timeout=remaining)
                 self._raise_if_cancelled()
+                expected_protocol = (
+                    "shardloom.native_batches.arrow_ipc.v1"
+                    if self._wire_format == "arrow_ipc"
+                    else "shardloom.native_batches.v1"
+                )
                 if code != 0 or envelope.status != "success":
                     if self._check or self._stream_results:
                         raise ShardLoomCommandError(command=self._command, returncode=code or 2,
                                                     envelope=envelope, stderr="")
                 elif (envelope.command != "run"
-                      or envelope.field("native_batch_protocol") != "shardloom.native_batches.v1"
+                      or envelope.field("native_batch_protocol") != expected_protocol
                       or self._ended_inputs != set(self._inputs)
                       or (self._stream_results and (
                           envelope.field_bool("result_payload_complete") is not True
@@ -429,7 +608,11 @@ class ResultBatchIterator:
                 deadline = time.monotonic() + 3
                 while self._process.poll() is None:
                     try:
-                        self._read(deadline)
+                        _, header = self._read(deadline)
+                        if header.get("kind") == "batch_ipc":
+                            byte_len = header.get("byte_len")
+                            if type(byte_len) is int and 0 < byte_len <= _MAX_RESPONSE_FRAME:
+                                self._read_exact(byte_len, deadline)
                     except ShardLoomProtocolError:
                         self._process.wait(timeout=max(0.001, deadline - time.monotonic()))
                         break

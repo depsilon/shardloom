@@ -8,9 +8,13 @@ use crate::{
     resident_session::{NativeExecutionContext, OwnedVortexResultBatch, ResidentVortexSession},
 };
 use shardloom_core::{DatasetUri, NativeIoCertificate, Result, ShardLoomError};
-use shardloom_exec::{compute_pool::CancellationToken, live_memory::Budgeted};
+use shardloom_exec::{
+    compute_pool::CancellationToken,
+    live_memory::{Budgeted, MemoryLease},
+};
 use std::{
     any::Any,
+    collections::HashMap,
     fmt::Write as _,
     ops::Range,
     sync::{
@@ -21,9 +25,20 @@ use std::{
 use vortex::{
     array::{
         ArrayRef, MaskFuture, VortexSessionExecute as _,
+        aggregate_fn::{
+            AggregateFnVTableExt as _, EmptyOptions, NumericalAggregateOpts,
+            fns::{max::Max, min::Min, nan_count::NanCount, null_count::NullCount},
+        },
+        arrays::{StructArray, struct_::StructArrayExt as _},
         builtins::ArrayBuiltins as _,
-        dtype::{DType, FieldMask},
+        dtype::{DType, FieldMask, FieldName, Nullability, PType},
+        scalar::Scalar,
+        scalar_fn::fns::{
+            binary::Binary, get_item::GetItem, is_not_null::IsNotNull, is_null::IsNull,
+            literal::Literal, not::Not, operators::Operator,
+        },
     },
+    buffer::BitBufferMut,
     error::{VortexResult, vortex_err},
     expr::BoundExpression,
     layout::{ArrayFuture, LayoutReader, RowSplits, SplitRange, scan::scan_builder::ScanBuilder},
@@ -54,10 +69,192 @@ impl Default for OwnedArraySourceBounds {
     }
 }
 
+#[derive(Clone, Debug)]
+struct SplitZoneStats {
+    row_count: u64,
+    null_count: u64,
+    nan_count: u64,
+    min: Option<Scalar>,
+    max: Option<Scalar>,
+}
+
+#[derive(Default)]
+struct ZoneIndex {
+    columns: HashMap<FieldName, Vec<SplitZoneStats>>,
+    split_count: usize,
+}
+
+impl ZoneIndex {
+    fn build(
+        array: &ArrayRef,
+        row_count: u64,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<(Self, MemoryLease)> {
+        let mut lease = context.memory().reserve(256)?;
+        if row_count == 0 || !matches!(array.dtype(), DType::Struct(_, Nullability::NonNullable)) {
+            return Ok((Self::default(), lease));
+        }
+        let DType::Struct(fields, Nullability::NonNullable) = array.dtype() else {
+            unreachable!();
+        };
+        if fields.nfields() == 0 {
+            return Ok((Self::default(), lease));
+        }
+        let total_rows =
+            usize::try_from(row_count).map_err(|_| failed("owned row count overflow"))?;
+        let split_rows = usize::try_from(SPLIT_ROWS).map_err(|_| failed("split size overflow"))?;
+        let split_count = total_rows.div_ceil(split_rows);
+        let estimated_bytes = u64::try_from(split_count)
+            .ok()
+            .and_then(|s| s.checked_mul(u64::try_from(fields.nfields()).ok()?))
+            .and_then(|n| n.checked_mul(128))
+            .and_then(|b| b.checked_add(256))
+            .ok_or_else(|| failed("zone index metadata size overflow"))?;
+        lease.resize(estimated_bytes)?;
+
+        let mut columns: HashMap<FieldName, Vec<SplitZoneStats>> = HashMap::new();
+        for (name, dtype) in fields.names().iter().zip(fields.fields()) {
+            if !is_prunable_zone_dtype(&dtype) {
+                continue;
+            }
+            columns.insert(name.clone(), Vec::with_capacity(split_count));
+        }
+        if columns.is_empty() {
+            return Ok((Self::default(), lease));
+        }
+
+        let null_fn = NullCount.bind(EmptyOptions);
+        let nan_fn = NanCount.bind(EmptyOptions);
+        let min_fn = Min.bind(NumericalAggregateOpts::skip_nans());
+        let max_fn = Max.bind(NumericalAggregateOpts::skip_nans());
+        let mut exec_ctx = context.native_session().create_execution_ctx();
+        let mut scalar_bytes = estimated_bytes;
+
+        for split_idx in 0..split_count {
+            context.check_cancelled()?;
+            let start = split_idx * split_rows;
+            let end = (start + split_rows).min(total_rows);
+            let slice_len =
+                u64::try_from(end - start).map_err(|_| failed("split length overflow"))?;
+            let chunk = array
+                .slice(start..end)
+                .map_err(|err| failed(&err.to_string()))?
+                .execute::<StructArray>(&mut exec_ctx)
+                .map_err(|err| failed(&err.to_string()))?;
+
+            for ((name, dtype), col) in fields
+                .names()
+                .iter()
+                .zip(fields.fields())
+                .zip(chunk.iter_unmasked_fields())
+            {
+                let Some(entry) = columns.get_mut(name) else {
+                    continue;
+                };
+                let null_count = aggregate_u64(col, &null_fn, &mut exec_ctx).unwrap_or(0);
+                let nan_count = if matches!(
+                    dtype,
+                    DType::Primitive(PType::F16 | PType::F32 | PType::F64, _)
+                ) {
+                    aggregate_u64(col, &nan_fn, &mut exec_ctx).unwrap_or(0)
+                } else {
+                    0
+                };
+                let (min, min_bytes) = if null_count == slice_len {
+                    (None, 0)
+                } else {
+                    bounded_stat_scalar(col, &min_fn, &mut exec_ctx)
+                };
+                let (max, max_bytes) = if null_count == slice_len {
+                    (None, 0)
+                } else {
+                    bounded_stat_scalar(col, &max_fn, &mut exec_ctx)
+                };
+                scalar_bytes = scalar_bytes
+                    .saturating_add(min_bytes)
+                    .saturating_add(max_bytes);
+                entry.push(SplitZoneStats {
+                    row_count: slice_len,
+                    null_count,
+                    nan_count,
+                    min,
+                    max,
+                });
+            }
+        }
+        lease.resize(scalar_bytes)?;
+        Ok((
+            Self {
+                columns,
+                split_count,
+            },
+            lease,
+        ))
+    }
+}
+
+fn is_prunable_zone_dtype(dtype: &DType) -> bool {
+    !matches!(
+        dtype,
+        DType::Struct(..)
+            | DType::List(..)
+            | DType::FixedSizeList(..)
+            | DType::Variant(..)
+            | DType::Null
+    )
+}
+
+fn aggregate_u64(
+    array: &ArrayRef,
+    aggregate_fn: &vortex::array::aggregate_fn::AggregateFnRef,
+    ctx: &mut vortex::array::ExecutionCtx,
+) -> Option<u64> {
+    let mut acc = aggregate_fn.accumulator(array.dtype()).ok()?;
+    acc.accumulate(array, ctx).ok()?;
+    let scalar = acc.partial_scalar().ok()?;
+    scalar.as_primitive_opt().and_then(|p| p.as_::<u64>())
+}
+
+fn bounded_stat_scalar(
+    array: &ArrayRef,
+    aggregate_fn: &vortex::array::aggregate_fn::AggregateFnRef,
+    ctx: &mut vortex::array::ExecutionCtx,
+) -> (Option<Scalar>, u64) {
+    let Ok(mut acc) = aggregate_fn.accumulator(array.dtype()) else {
+        return (None, 0);
+    };
+    if acc.accumulate(array, ctx).is_err() {
+        return (None, 0);
+    }
+    let Ok(scalar) = acc.partial_scalar() else {
+        return (None, 0);
+    };
+    if scalar.is_null() {
+        return (None, 0);
+    }
+    if let Some(len) = scalar.as_utf8_opt().and_then(|s| s.len()) {
+        if len > 256 {
+            return (None, 0);
+        }
+        return (Some(scalar), len as u64);
+    }
+    if let Some(len) = scalar.as_binary_opt().and_then(|b| b.len()) {
+        if len > 256 {
+            return (None, 0);
+        }
+        return (Some(scalar), len as u64);
+    }
+    (Some(scalar), 0)
+}
+
 struct Owner {
     array: Budgeted<ArrayRef>,
     result: OwnedVortexResultBatch,
     uri: DatasetUri,
+    zone_index: ZoneIndex,
+    _zone_lease: MemoryLease,
+    pruned_splits: AtomicU64,
+    pruned_rows: AtomicU64,
 }
 
 /// A source retaining completed native arrays and their session. Clones and
@@ -116,8 +313,33 @@ impl OwnedArraySource {
             "memory://shardloom/{}/owned-array/{id}.vortex",
             std::process::id()
         ))?;
+        let (zone_index, zone_lease) =
+            ZoneIndex::build(array.value(), result.row_count(), context)?;
         context.check_cancelled()?;
-        Ok(Self(Arc::new(Owner { array, result, uri })))
+        Ok(Self(Arc::new(Owner {
+            array,
+            result,
+            uri,
+            zone_index,
+            _zone_lease: zone_lease,
+            pruned_splits: AtomicU64::new(0),
+            pruned_rows: AtomicU64::new(0),
+        })))
+    }
+
+    #[must_use]
+    pub fn pruned_splits(&self) -> u64 {
+        self.0.pruned_splits.load(Ordering::Relaxed)
+    }
+
+    #[must_use]
+    pub fn pruned_rows(&self) -> u64 {
+        self.0.pruned_rows.load(Ordering::Relaxed)
+    }
+
+    #[must_use]
+    pub fn has_zone_maps(&self) -> bool {
+        !self.0.zone_index.columns.is_empty() && self.0.zone_index.split_count > 0
     }
 
     #[must_use]
@@ -164,10 +386,18 @@ impl OwnedArraySource {
         source.source_kind = "owned_vortex_arrays".into();
         source.adapter_id = "shardloom.resident_vortex.owned_array.v1".into();
         source.schema_discovery_status = "validated_owned_native_arrays".into();
-        source.statistics_availability = "exact_owned_row_count;file_statistics_absent".into();
-        write!(certificate.source_pushdown_report.proof_basis,
-            ";owned_array_source_uri={};immutable_array_owner_retained=true;source_specific_file_opens=0;construction_array_serializer_calls=0;construction_segment_assembly_bytes_copied=0;construction_footer_serializer_calls=0;no_query_answer_cache=true",
-            self.source_uri().as_str()).map_err(|error| failed(&error.to_string()))?;
+        source.statistics_availability = if self.has_zone_maps() {
+            "exact_owned_row_count;owned_zone_maps_per_8192_row_split".into()
+        } else {
+            "exact_owned_row_count;file_statistics_absent".into()
+        };
+        write!(
+            certificate.source_pushdown_report.proof_basis,
+            ";owned_array_source_uri={};immutable_array_owner_retained=true;source_specific_file_opens=0;construction_array_serializer_calls=0;construction_segment_assembly_bytes_copied=0;construction_footer_serializer_calls=0;no_query_answer_cache=true;owned_zone_maps_built={}",
+            self.source_uri().as_str(),
+            self.has_zone_maps(),
+        )
+        .map_err(|error| failed(&error.to_string()))?;
         Ok(())
     }
 }
@@ -219,11 +449,42 @@ impl LayoutReader for Reader {
     }
     fn pruning_evaluation(
         &self,
-        _range: &Range<u64>,
-        _expr: &BoundExpression,
+        range: &Range<u64>,
+        expr: &BoundExpression,
         mask: Mask,
     ) -> VortexResult<MaskFuture> {
-        Ok(MaskFuture::ready(mask))
+        if self.owner.dtype().is_nullable()
+            || range.is_empty()
+            || mask.all_false()
+            || !self.owner.has_zone_maps()
+        {
+            return Ok(MaskFuture::ready(mask));
+        }
+        let zones = &self.owner.0.zone_index;
+        let zone_start =
+            usize::try_from(range.start / SPLIT_ROWS).map_err(|e| vortex_err!("{e}"))?;
+        let zone_end =
+            usize::try_from(range.end.div_ceil(SPLIT_ROWS)).map_err(|e| vortex_err!("{e}"))?;
+        if zone_end > zones.split_count {
+            return Ok(MaskFuture::ready(mask));
+        }
+        let mut builder = BitBufferMut::with_capacity(mask.len());
+        for zone_idx in zone_start..zone_end {
+            let z_start = ((zone_idx as u64) * SPLIT_ROWS).max(range.start);
+            let z_end = (((zone_idx as u64) + 1) * SPLIT_ROWS).min(range.end);
+            let z_len = z_end.saturating_sub(z_start);
+            let z_len_usize = usize::try_from(z_len).map_err(|e| vortex_err!("{e}"))?;
+            let pruned = can_prune_split(expr, zone_idx, zones);
+            builder.append_n(!pruned, z_len_usize);
+            if pruned {
+                self.owner.0.pruned_splits.fetch_add(1, Ordering::Relaxed);
+                self.owner.0.pruned_rows.fetch_add(z_len, Ordering::Relaxed);
+            }
+        }
+        let zone_mask = Mask::from(builder.freeze());
+        Ok(MaskFuture::ready(std::ops::BitAnd::bitand(
+            mask, &zone_mask,
+        )))
     }
 
     fn filter_evaluation(
@@ -269,6 +530,142 @@ impl LayoutReader for Reader {
             drop(owner);
             Ok(projected)
         }))
+    }
+}
+
+fn root_item_name(expr: &BoundExpression) -> Option<&FieldName> {
+    let field = expr.as_opt::<GetItem>()?;
+    expr.children()
+        .first()
+        .is_some_and(BoundExpression::is_root)
+        .then_some(field)
+}
+
+fn flip_cmp(op: Operator) -> Operator {
+    match op {
+        Operator::Gt => Operator::Lt,
+        Operator::Gte => Operator::Lte,
+        Operator::Lt => Operator::Gt,
+        Operator::Lte => Operator::Gte,
+        other => other,
+    }
+}
+
+fn can_prune_split(expr: &BoundExpression, split_idx: usize, zones: &ZoneIndex) -> bool {
+    if let Some(scalar) = expr.as_opt::<Literal>() {
+        return !scalar
+            .as_bool_opt()
+            .and_then(|value| value.value())
+            .unwrap_or(false);
+    }
+    if let Some(&operator) = expr.as_opt::<Binary>() {
+        let children = expr.children();
+        if children.len() != 2 {
+            return false;
+        }
+        match operator {
+            Operator::And => {
+                return can_prune_split(&children[0], split_idx, zones)
+                    || can_prune_split(&children[1], split_idx, zones);
+            }
+            Operator::Or => {
+                return can_prune_split(&children[0], split_idx, zones)
+                    && can_prune_split(&children[1], split_idx, zones);
+            }
+            Operator::Eq
+            | Operator::NotEq
+            | Operator::Gt
+            | Operator::Gte
+            | Operator::Lt
+            | Operator::Lte => {
+                return can_prune_comparison(
+                    operator,
+                    &children[0],
+                    &children[1],
+                    split_idx,
+                    zones,
+                );
+            }
+            _ => return false,
+        }
+    }
+    if expr.as_opt::<IsNull>().is_some()
+        && let Some(col) = expr.children().first().and_then(root_item_name)
+    {
+        return zones
+            .columns
+            .get(col)
+            .and_then(|splits| splits.get(split_idx))
+            .is_some_and(|stats| stats.null_count == 0);
+    }
+    if expr.as_opt::<IsNotNull>().is_some()
+        && let Some(col) = expr.children().first().and_then(root_item_name)
+    {
+        return zones
+            .columns
+            .get(col)
+            .and_then(|splits| splits.get(split_idx))
+            .is_some_and(|stats| stats.null_count == stats.row_count);
+    }
+    if expr.as_opt::<Not>().is_some()
+        && let Some(inner) = expr.children().first()
+        && inner.as_opt::<IsNull>().is_some()
+        && let Some(col) = inner.children().first().and_then(root_item_name)
+    {
+        return zones
+            .columns
+            .get(col)
+            .and_then(|splits| splits.get(split_idx))
+            .is_some_and(|stats| stats.null_count == stats.row_count);
+    }
+    false
+}
+
+fn can_prune_comparison(
+    operator: Operator,
+    left: &BoundExpression,
+    right: &BoundExpression,
+    split_idx: usize,
+    zones: &ZoneIndex,
+) -> bool {
+    let (col, cmp, lit) =
+        if let (Some(col), Some(lit)) = (root_item_name(left), right.as_opt::<Literal>()) {
+            (col, operator, lit)
+        } else if let (Some(lit), Some(col)) = (left.as_opt::<Literal>(), root_item_name(right)) {
+            (col, flip_cmp(operator), lit)
+        } else {
+            return false;
+        };
+    if lit.is_null() {
+        return true;
+    }
+    let Some(stats) = zones
+        .columns
+        .get(col)
+        .and_then(|splits| splits.get(split_idx))
+    else {
+        return false;
+    };
+    if stats.null_count == stats.row_count {
+        return true;
+    }
+    if lit.as_primitive_opt().is_some_and(|p| p.is_nan()) || stats.nan_count > 0 {
+        return false;
+    }
+    let (Some(min), Some(max)) = (&stats.min, &stats.max) else {
+        return false;
+    };
+    let (Some(min_cmp), Some(max_cmp)) = (min.partial_cmp(lit), max.partial_cmp(lit)) else {
+        return false;
+    };
+    match cmp {
+        Operator::Eq => min_cmp.is_gt() || max_cmp.is_lt(),
+        Operator::NotEq => min_cmp.is_eq() && max_cmp.is_eq(),
+        Operator::Gt => max_cmp.is_le(),
+        Operator::Gte => max_cmp.is_lt(),
+        Operator::Lt => min_cmp.is_ge(),
+        Operator::Lte => min_cmp.is_gt(),
+        _ => false,
     }
 }
 

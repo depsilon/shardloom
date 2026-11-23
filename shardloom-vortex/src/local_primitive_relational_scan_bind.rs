@@ -408,15 +408,13 @@ impl Binder<'_> {
         // fallible computations. Only narrow its input; do not remove or move
         // the computation across a predicate or range.
         let demanded = self.scan_accepts_source_demand(input);
-        if !demanded
-            && !matches!(
-                input.kind,
-                NodeKind::Scan {
-                    source: ScanSource::File(_) | ScanSource::Batch { .. },
-                    ..
-                } | NodeKind::Join { .. }
-            )
-        {
+        let pushdown_capable = matches!(
+            &input.kind,
+            NodeKind::Scan { source, .. }
+                if matches!(source, ScanSource::File(_) | ScanSource::Batch { .. })
+                    || is_owned_array_scan(source)
+        ) || matches!(input.kind, NodeKind::Join { .. });
+        if !demanded && !pushdown_capable {
             return Ok(());
         }
         // Prepared files and caller batches keep their existing validation
@@ -661,6 +659,10 @@ impl Binder<'_> {
             ScanSource::Batch { index, .. } => {
                 Some(self.batch_sources.values[*index].schema.dtype())
             }
+            #[cfg(feature = "vortex-write")]
+            ScanSource::OwnedArray { index, .. } => {
+                Some(self.owned_array_sources.values[*index].1.dtype())
+            }
             ScanSource::Memory(_) => None,
         }
     }
@@ -768,12 +770,30 @@ fn alias_scan_width(mut node: &Node) -> Option<usize> {
                 input
             }
             NodeKind::Scan {
-                source: ScanSource::File(_) | ScanSource::Batch { .. },
+                source,
                 plan,
                 residual,
                 ..
-            } if residual.is_none() && plan.source_order_limit.is_none() => return Some(width),
+            } if residual.is_none()
+                && plan.source_order_limit.is_none()
+                && (matches!(source, ScanSource::File(_) | ScanSource::Batch { .. })
+                    || is_owned_array_scan(source)) =>
+            {
+                return Some(width);
+            }
             _ => return None,
         };
+    }
+}
+
+const fn is_owned_array_scan(source: &ScanSource) -> bool {
+    #[cfg(feature = "vortex-write")]
+    {
+        matches!(source, ScanSource::OwnedArray { .. })
+    }
+    #[cfg(not(feature = "vortex-write"))]
+    {
+        let _ = source;
+        false
     }
 }

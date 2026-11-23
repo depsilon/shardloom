@@ -762,21 +762,8 @@ pub(super) fn write(
     overwrite: bool,
     policy: super::VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<super::VortexLocalPrimitiveRowExportReport> {
-    let plan = super::native_sink::NativeSinkPlan::completed(result)?;
-    write_plan(plan, request, path, format, overwrite, policy)
-}
-
-#[cfg(all(feature = "vortex-write", unix))]
-pub(super) fn write_plan(
-    plan: super::native_sink::NativeSinkPlan,
-    request: &VortexQueryPrimitiveRequest,
-    path: &std::path::Path,
-    format: super::VortexLocalPrimitiveRowExportFormat,
-    overwrite: bool,
-    policy: super::VortexLocalPrimitiveExecutionPolicy,
-) -> Result<super::VortexLocalPrimitiveRowExportReport> {
-    write_plan_controlled(
-        plan,
+    write_completed_controlled(
+        result,
         request,
         path,
         format,
@@ -784,6 +771,20 @@ pub(super) fn write_plan(
         policy,
         &CancellationToken::default(),
     )
+}
+
+#[cfg(all(feature = "vortex-write", unix))]
+pub(crate) fn write_completed_controlled(
+    result: crate::resident_session::OwnedVortexResultBatch,
+    request: &VortexQueryPrimitiveRequest,
+    path: &std::path::Path,
+    format: super::VortexLocalPrimitiveRowExportFormat,
+    overwrite: bool,
+    policy: super::VortexLocalPrimitiveExecutionPolicy,
+    cancellation: &CancellationToken,
+) -> Result<super::VortexLocalPrimitiveRowExportReport> {
+    let plan = super::native_sink::NativeSinkPlan::completed(result)?;
+    write_plan_controlled(plan, request, path, format, overwrite, policy, cancellation)
 }
 
 #[cfg(all(feature = "vortex-write", unix))]
@@ -820,7 +821,11 @@ pub(super) fn write_plan_controlled(
     }
     #[cfg(feature = "universal-format-io")]
     {
-        let limits = if plan.source.is_source() {
+        let limits = if plan.source.is_source()
+            || matches!(
+                plan.source,
+                super::native_sink::NativeSinkInput::Completed(_)
+            ) {
             super::columnar_compat_sink::CompatibilityLimits::streaming(
                 plan.row_count,
                 cancellation,

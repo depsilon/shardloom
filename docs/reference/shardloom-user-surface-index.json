@@ -1467,14 +1467,14 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "3a0ec87bc617f672e0b3dfbda23137d5ba23a61aeeff43b2e6075585633bb3b1",
+    "source_identity": "d658ac58fdd3dd0bf654ceae51c78b5f4b5da177614c325f3f76b9164139de51",
     "source_inputs": {
       "Cargo.lock": "c4a058c647813300978d6e316ecf8c52e4dd40f1137cfd9d2c7c478b456f1476",
       "Cargo.toml": "3db8fee2fe573d1cb73d5031427f13d37377aff9428c37b056709888f420c808",
       "docs/release/channel-proofs/pypi-v1.1.0-provenance.json": "56e349f401a1a35fbbbf53c1c916d615b3b894d23d42a05e77d7ca1f65bc1282",
       "docs/release/package-channel-readiness-matrix.json": "dfff6eeb5014ea635c52f8efc7419bcda66fa11012b15507486ca18903fc7785",
       "python/src/shardloom/_batch_function.py": "7664382a8750f196c2ee30f414e92b0c66cd15733e1561d9d1d2c5e0c2ee5cd3",
-      "python/src/shardloom/_batches.py": "21777bdff8bc866a4931592d204687e00a11ee1379ab2d4869132582eb20551a",
+      "python/src/shardloom/_batches.py": "d4b019ebf7b32dc499334319bcb2b559c87548042169559be522651776decefd",
       "python/src/shardloom/_exports.py": "c0998197db5310d3e629372b81a0f3976131d389d190616945857b83efc6d0bd",
       "python/src/shardloom/_result_schema.py": "aa26d4dd761b850934c408e8f8bafef4b58be7c686f280605cfb0ae1706c156a",
       "python/src/shardloom/_version.py": "597d4c348df09fd4bb9deb24b6592ebe5c93f992aec32b348c39eda9ea57ed17",
@@ -2322,7 +2322,7 @@
         "audience": "application",
         "kind": "class",
         "source": "python/src/shardloom/_batches.py",
-        "signature": "(index: 'int', result_rows: 'tuple[Mapping[str, Any], ...]', result_schema: 'tuple[tuple[str, ResultType], ...]') -> None",
+        "signature": "(index: 'int', result_rows: 'tuple[Mapping[str, Any], ...]', result_schema: 'tuple[tuple[str, ResultType], ...]')",
         "summary": "One provisional batch; success is established by the iterator's final report."
       },
       {
@@ -2331,7 +2331,7 @@
         "audience": "application",
         "kind": "class",
         "source": "python/src/shardloom/_batches.py",
-        "signature": "(client, args, *, inputs=None, batch_rows=2048, stream_results=True, check=True)",
+        "signature": "(client, args, *, inputs=None, batch_rows=2048, stream_results=True, check=True, wire_format='json')",
         "summary": "One native transaction with explicit backpressure and deterministic close."
       },
       {

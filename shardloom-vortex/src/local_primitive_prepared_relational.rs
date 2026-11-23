@@ -316,6 +316,11 @@ pub struct PreparedVortexRelational {
     session: ResidentVortexSession,
     sources: Vec<PreparedVortexSource>,
     memory_sources: Vec<(shardloom_core::DatasetUri, ResidentMemorySource)>,
+    #[cfg(feature = "vortex-write")]
+    owned_array_sources: Vec<(
+        shardloom_core::DatasetUri,
+        crate::owned_array_source::OwnedArraySource,
+    )>,
     batch_sources: Vec<batch_input::Source>,
     #[cfg_attr(not(feature = "vortex-write"), allow(dead_code))]
     source_paths: Vec<PathBuf>,
@@ -417,6 +422,8 @@ impl Node {
             NodeKind::Scan { source, .. } => match source {
                 ScanSource::File(index) => Some(sources[*index].file().row_count()),
                 ScanSource::Memory(projection) => Some(projection.source_rows() as u64),
+                #[cfg(feature = "vortex-write")]
+                ScanSource::OwnedArray { rows, .. } => Some(*rows),
                 ScanSource::Batch { .. } => None,
             },
             NodeKind::Project { input, .. }
@@ -497,6 +504,11 @@ impl Node {
 enum ScanSource {
     File(usize),
     Memory(Box<PreparedMemoryProjection>),
+    #[cfg(feature = "vortex-write")]
+    OwnedArray {
+        index: usize,
+        rows: u64,
+    },
     Batch {
         index: usize,
         projection: Box<PreparedMemoryProjection>,
@@ -702,6 +714,20 @@ impl VortexRelationalPreparation<'_> {
         self.binding.register_memory_source(uri, build)
     }
 
+    /// Bind an already-materialized in-session `OwnedArraySource` for zero-serialization
+    /// relational queries.
+    ///
+    /// # Errors
+    /// Rejects foreign, duplicate, or out-of-policy sources or exceeding source count bounds.
+    #[cfg(feature = "vortex-write")]
+    pub fn register_owned_array_source(
+        &mut self,
+        uri: shardloom_core::DatasetUri,
+        source: crate::owned_array_source::OwnedArraySource,
+    ) -> Result<()> {
+        self.binding.register_owned_array_source(uri, source)
+    }
+
     /// Declare a streaming source without opening its producer. Build a
     /// typed empty owner with `ResidentMemorySource::from_batch_columns`.
     /// The complete lowered plan admits Scan/Filter/Project/Sort/Aggregate and
@@ -863,10 +889,17 @@ fn prepare_relational_with_owner(
         sources,
         source_paths,
         memory_sources,
+        #[cfg(feature = "vortex-write")]
+        owned_array_sources,
         batch_sources,
         metadata,
     } = preparation.binding.finish()?;
-    if sources.is_empty() && batch_sources.is_empty() && memory_sources.len() == 1 {
+    #[cfg(feature = "vortex-write")]
+    let owned_is_empty = owned_array_sources.is_empty();
+    #[cfg(not(feature = "vortex-write"))]
+    let owned_is_empty = true;
+    if sources.is_empty() && batch_sources.is_empty() && owned_is_empty && memory_sources.len() == 1
+    {
         root.admit_sampling_preparation(session.memory())?;
     }
     native_pipeline::compile(&mut root, &sources, &session, policy, true, cancellation)?;
@@ -874,6 +907,8 @@ fn prepare_relational_with_owner(
         session,
         sources,
         memory_sources,
+        #[cfg(feature = "vortex-write")]
+        owned_array_sources,
         batch_sources,
         source_paths,
         root: PreparedRoot::Bound(Box::new(root)),
@@ -907,10 +942,17 @@ pub fn prepare_relational_in_session(
         sources,
         source_paths,
         memory_sources,
+        #[cfg(feature = "vortex-write")]
+        owned_array_sources,
         batch_sources,
         metadata,
     } = binding.finish()?;
-    if sources.is_empty() && batch_sources.is_empty() && memory_sources.len() == 1 {
+    #[cfg(feature = "vortex-write")]
+    let owned_is_empty = owned_array_sources.is_empty();
+    #[cfg(not(feature = "vortex-write"))]
+    let owned_is_empty = true;
+    if sources.is_empty() && batch_sources.is_empty() && owned_is_empty && memory_sources.len() == 1
+    {
         root.admit_sampling_preparation(session.memory())?;
     }
     native_pipeline::compile(
@@ -925,6 +967,8 @@ pub fn prepare_relational_in_session(
         session: session.clone(),
         sources,
         memory_sources,
+        #[cfg(feature = "vortex-write")]
+        owned_array_sources,
         batch_sources,
         source_paths,
         root: PreparedRoot::Bound(Box::new(root)),
@@ -1590,6 +1634,10 @@ impl PreparedVortexRelational {
         let (primitive_execution, certificate) = provider.map_or((None, None), |provider| {
             (provider.report, provider.certificate)
         });
+        #[cfg(feature = "vortex-write")]
+        let owned_array_sources = self.owned_array_sources.len();
+        #[cfg(not(feature = "vortex-write"))]
+        let owned_array_sources = 0;
         let mut certificate = match certificate {
             Some(certificate) => certificate,
             None => report::certificate(
@@ -1597,7 +1645,7 @@ impl PreparedVortexRelational {
                 rows,
                 batch_rows,
                 self.sources.len(),
-                self.memory_sources.len(),
+                self.memory_sources.len() + owned_array_sources,
                 input.as_ref(),
                 spill.as_ref(),
             )?,
@@ -1649,7 +1697,8 @@ impl PreparedVortexRelational {
                 scan_batches: metrics.scan_batches.get(),
                 prepared_sources: self.sources.len()
                     + self.memory_sources.len()
-                    + self.batch_sources.len(),
+                    + self.batch_sources.len()
+                    + owned_array_sources,
                 prepared_file_sources: self.sources.len(),
                 schema_binding_deferred: matches!(self.root, PreparedRoot::Dynamic(_)),
                 dynamic_schema_stages: metrics.schema_discovery_stages.get(),
@@ -1941,6 +1990,8 @@ impl PreparedVortexRelational {
                 scan::run(
                     source,
                     &self.sources,
+                    #[cfg(feature = "vortex-write")]
+                    &self.owned_array_sources,
                     plan,
                     columns,
                     residual.as_ref(),

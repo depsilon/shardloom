@@ -52,6 +52,11 @@ pub(super) struct Binder<'a> {
     sources: ReservedVec<PreparedVortexSource>,
     paths: ReservedVec<PathBuf>,
     memory_sources: ReservedVec<(shardloom_core::DatasetUri, ResidentMemorySource)>,
+    #[cfg(feature = "vortex-write")]
+    owned_array_sources: ReservedVec<(
+        shardloom_core::DatasetUri,
+        crate::owned_array_source::OwnedArraySource,
+    )>,
     batch_sources: ReservedVec<super::batch_input::Source>,
     metadata: MemoryLease,
     outer_fields: Option<Vec<(String, DType)>>,
@@ -71,6 +76,11 @@ pub(super) struct BoundSources {
     pub(super) sources: Vec<PreparedVortexSource>,
     pub(super) source_paths: Vec<PathBuf>,
     pub(super) memory_sources: Vec<(shardloom_core::DatasetUri, ResidentMemorySource)>,
+    #[cfg(feature = "vortex-write")]
+    pub(super) owned_array_sources: Vec<(
+        shardloom_core::DatasetUri,
+        crate::owned_array_source::OwnedArraySource,
+    )>,
     pub(super) batch_sources: Vec<super::batch_input::Source>,
     pub(super) metadata: MemoryLease,
 }
@@ -79,6 +89,8 @@ pub(super) struct BoundSources {
 pub(super) enum SourceIndex {
     File(usize),
     Memory(usize),
+    #[cfg(feature = "vortex-write")]
+    OwnedArray(usize),
     Batch(usize),
 }
 
@@ -128,6 +140,8 @@ impl<'a> Binder<'a> {
             sources: ReservedVec::new(session.memory())?,
             paths: ReservedVec::new(session.memory())?,
             memory_sources: ReservedVec::new(session.memory())?,
+            #[cfg(feature = "vortex-write")]
+            owned_array_sources: ReservedVec::new(session.memory())?,
             batch_sources: ReservedVec::new(session.memory())?,
             metadata: session.memory().reserve(4096)?,
             outer_fields: None,
@@ -194,18 +208,55 @@ impl<'a> Binder<'a> {
         let (sources, mut source_credit) = self.sources.into_parts();
         let (paths, mut path_credit) = self.paths.into_parts();
         let (memory_sources, mut memory_credit) = self.memory_sources.into_parts();
+        #[cfg(feature = "vortex-write")]
+        let (owned_array_sources, mut owned_credit) = self.owned_array_sources.into_parts();
         let (batch_sources, mut batch_credit) = self.batch_sources.into_parts();
         self.metadata.absorb(&mut source_credit)?;
         self.metadata.absorb(&mut path_credit)?;
         self.metadata.absorb(&mut memory_credit)?;
+        #[cfg(feature = "vortex-write")]
+        self.metadata.absorb(&mut owned_credit)?;
         self.metadata.absorb(&mut batch_credit)?;
         Ok(BoundSources {
             sources,
             source_paths: paths,
             memory_sources,
+            #[cfg(feature = "vortex-write")]
+            owned_array_sources,
             batch_sources,
             metadata: self.metadata,
         })
+    }
+
+    fn has_owned_array_source(&self, uri: &shardloom_core::DatasetUri) -> bool {
+        #[cfg(feature = "vortex-write")]
+        {
+            self.owned_array_sources
+                .values
+                .iter()
+                .any(|(prior, _)| prior == uri)
+        }
+        #[cfg(not(feature = "vortex-write"))]
+        {
+            let _ = uri;
+            false
+        }
+    }
+
+    fn find_owned_array_source(&self, uri: &shardloom_core::DatasetUri) -> Option<SourceIndex> {
+        #[cfg(feature = "vortex-write")]
+        {
+            self.owned_array_sources
+                .values
+                .iter()
+                .position(|(prior, _)| prior == uri)
+                .map(SourceIndex::OwnedArray)
+        }
+        #[cfg(not(feature = "vortex-write"))]
+        {
+            let _ = uri;
+            None
+        }
     }
 
     pub(super) fn register_memory_source(
@@ -227,6 +278,7 @@ impl<'a> Binder<'a> {
                 .values
                 .iter()
                 .any(|(prior, _)| *prior == uri)
+            || self.has_owned_array_source(&uri)
             || self.source_count() >= 128
         {
             return Err(failed(
@@ -240,6 +292,44 @@ impl<'a> Binder<'a> {
             return Err(failed("memory source belongs to another resource owner"));
         }
         self.memory_sources.values.push((uri, source));
+        Ok(())
+    }
+
+    #[cfg(feature = "vortex-write")]
+    pub(super) fn register_owned_array_source(
+        &mut self,
+        uri: shardloom_core::DatasetUri,
+        source: crate::owned_array_source::OwnedArraySource,
+    ) -> Result<()> {
+        if self.execution.is_some()
+            || self
+                .batch_sources
+                .values
+                .iter()
+                .any(|source| source.uri == uri)
+            || !uri.as_str().starts_with("memory://")
+            || uri.as_str().len() <= "memory://".len()
+            || uri.as_str().len() > 16_384
+            || self
+                .memory_sources
+                .values
+                .iter()
+                .any(|(prior, _)| *prior == uri)
+            || self.has_owned_array_source(&uri)
+            || self.source_count() >= 128
+        {
+            return Err(failed(
+                "owned array source requires a unique bounded memory URI before execution",
+            ));
+        }
+        if !source.session().same_owner(self.session) {
+            return Err(failed(
+                "owned array source belongs to another resource owner",
+            ));
+        }
+        self.charge(uri.as_str().len() * 8 + 4096)?;
+        self.owned_array_sources.reserve_one()?;
+        self.owned_array_sources.values.push((uri, source));
         Ok(())
     }
 
@@ -259,6 +349,7 @@ impl<'a> Binder<'a> {
                 .values
                 .iter()
                 .any(|(prior, _)| *prior == uri)
+            || self.has_owned_array_source(&uri)
             || self.source_count() >= 128
             || !uri.as_str().starts_with("memory://")
             || uri.as_str().len() <= "memory://".len()
@@ -309,6 +400,7 @@ impl<'a> Binder<'a> {
                 .values
                 .iter()
                 .any(|(prior, _)| *prior == uri)
+            || self.has_owned_array_source(&uri)
         {
             return Err(failed(
                 "local source requires a unique bounded file URI before execution",
@@ -343,9 +435,14 @@ impl<'a> Binder<'a> {
     }
 
     fn source_count(&self) -> usize {
+        #[cfg(feature = "vortex-write")]
+        let owned = self.owned_array_sources.values.len();
+        #[cfg(not(feature = "vortex-write"))]
+        let owned = 0;
         self.sources.values.len()
             + self.memory_sources.values.len()
             + self.batch_sources.values.len()
+            + owned
     }
 
     fn input(&mut self, uri: &shardloom_core::DatasetUri) -> Result<SourceIndex> {
@@ -363,6 +460,8 @@ impl<'a> Binder<'a> {
             .position(|(prior, _)| prior == uri)
         {
             SourceIndex::Memory(index)
+        } else if let Some(source) = self.find_owned_array_source(uri) {
+            source
         } else {
             SourceIndex::File(self.source(uri)?)
         };
@@ -382,6 +481,8 @@ impl<'a> Binder<'a> {
         match source {
             SourceIndex::File(index) => self.sources.values[index].dtype(),
             SourceIndex::Memory(index) => self.memory_sources.values[index].1.dtype(),
+            #[cfg(feature = "vortex-write")]
+            SourceIndex::OwnedArray(index) => self.owned_array_sources.values[index].1.dtype(),
             SourceIndex::Batch(index) => self.batch_sources.values[index].schema.dtype(),
         }
     }
@@ -676,6 +777,11 @@ impl<'a> Binder<'a> {
                     None,
                 )?,
             )),
+            #[cfg(feature = "vortex-write")]
+            SourceIndex::OwnedArray(index) => ScanSource::OwnedArray {
+                index,
+                rows: self.owned_array_sources.values[index].1.row_count(),
+            },
             SourceIndex::Batch(index) => ScanSource::Batch {
                 index,
                 projection: Box::new(self.batch_sources.values[index].schema.prepare_projection(

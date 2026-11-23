@@ -77,7 +77,7 @@ mod numeric_encoding;
 
 #[cfg(feature = "vortex-write")]
 #[path = "vortex_ingest_nested_layout.rs"]
-mod nested_layout;
+pub(crate) mod nested_layout;
 
 #[cfg(all(test, feature = "vortex-write"))]
 #[path = "vortex_ingest_text_stats_tests.rs"]

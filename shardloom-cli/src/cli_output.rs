@@ -106,21 +106,59 @@ fn append_admitted_observation(fields: &mut Vec<(String, String)>, diagnostics: 
     });
 }
 
+fn is_unobserved_placeholder(value: &str) -> bool {
+    matches!(value, "unavailable" | "not_observed" | "not_instrumented")
+}
+
 /// A handler's measured or explicitly scoped evidence is more specific than
 /// the enclosing command owner. Supply only observations it has not reported.
 fn fill_unobserved_fields(fields: &mut Vec<(String, String)>, observed: Vec<(String, String)>) {
+    if observed.is_empty() {
+        return;
+    }
+    if fields.len() <= 16 {
+        for (key, value) in observed {
+            if let Some((_, existing)) = fields.iter_mut().find(|(name, _)| name == &key) {
+                if is_unobserved_placeholder(existing.as_str()) {
+                    *existing = value;
+                }
+            } else {
+                fields.push((key, value));
+            }
+        }
+        return;
+    }
+    let mut positions =
+        std::collections::HashMap::<&str, (usize, bool)>::with_capacity(fields.len());
+    for (index, (name, existing)) in fields.iter().enumerate() {
+        positions
+            .entry(name.as_str())
+            .or_insert_with(|| (index, is_unobserved_placeholder(existing.as_str())));
+    }
+    let mut updates = Vec::<(usize, String)>::new();
+    let mut additions = Vec::<(String, String)>::new();
+    let mut added_positions = std::collections::HashMap::<String, usize>::new();
     for (key, value) in observed {
-        if let Some((_, existing)) = fields.iter_mut().find(|(name, _)| name == &key) {
-            if matches!(
-                existing.as_str(),
-                "unavailable" | "not_observed" | "not_instrumented"
-            ) {
-                *existing = value;
+        if let Some((pos, replaceable)) = positions.get_mut(key.as_str()) {
+            if *replaceable {
+                *replaceable = is_unobserved_placeholder(value.as_str());
+                updates.push((*pos, value));
+            }
+        } else if let Some(&add_pos) = added_positions.get(&key) {
+            if is_unobserved_placeholder(additions[add_pos].1.as_str()) {
+                additions[add_pos].1 = value;
             }
         } else {
-            fields.push((key, value));
+            let add_pos = additions.len();
+            added_positions.insert(key.clone(), add_pos);
+            additions.push((key, value));
         }
     }
+    drop(positions);
+    for (pos, value) in updates {
+        fields[pos].1 = value;
+    }
+    fields.extend(additions);
 }
 
 struct PendingOutput {
@@ -542,5 +580,43 @@ mod tests {
                 .to_text()
                 .ends_with("result_rows: [{\"value\":3},{\"value\":5}]")
         );
+    }
+
+    #[test]
+    fn fill_unobserved_fields_wide_path_preserves_measured_values_and_handles_duplicates() {
+        let mut wide: Vec<(String, String)> = (0..20)
+            .map(|i| (format!("field_{i}"), format!("measured_{i}")))
+            .collect();
+        wide.push(("slot_a".into(), "unavailable".into()));
+        wide.push(("slot_b".into(), "not_observed".into()));
+        wide.push(("slot_c".into(), "already_measured".into()));
+
+        let mut linear = wide.clone();
+        let observed = vec![
+            ("slot_a".into(), "not_instrumented".into()),
+            ("slot_a".into(), "final_a".into()),
+            ("slot_b".into(), "observed_b".into()),
+            ("slot_b".into(), "ignored_second_b".into()),
+            ("slot_c".into(), "should_not_overwrite".into()),
+            ("new_key".into(), "unavailable".into()),
+            ("new_key".into(), "resolved_new".into()),
+        ];
+
+        super::fill_unobserved_fields(&mut wide, observed.clone());
+        // Simulate original linear loop for exact semantic parity verification.
+        for (key, value) in observed {
+            if let Some((_, existing)) = linear.iter_mut().find(|(name, _)| name == &key) {
+                if matches!(
+                    existing.as_str(),
+                    "unavailable" | "not_observed" | "not_instrumented"
+                ) {
+                    *existing = value;
+                }
+            } else {
+                linear.push((key, value));
+            }
+        }
+
+        assert_eq!(wide, linear);
     }
 }

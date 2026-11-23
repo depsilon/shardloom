@@ -816,13 +816,13 @@ with `CG-1` through `CG-23` open and `claim_gate_status=not_claim_grade`.
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 
-- [ ] `E2E-PERF-06` complete universal `OwnedVortexResultBatch` sinks, zero-serialization composition, binary Python Arrow IPC worker, and lean hot-path envelopes.
+- [x] `E2E-PERF-06` complete universal `OwnedVortexResultBatch` sinks, zero-serialization composition, binary Python Arrow IPC worker, and lean hot-path envelopes.
   - Queue identifier only: `E2E-PERF-06` maps to canonical `PERF-02`, `PERF-07`, `PERF-11`, `PERF-12`, and `CLICKBENCH-PRODUCTION-COLUMNAR-RESULT-DATAPLANE-1`, with relevant competitive gates `CG-3`, `CG-4`, `CG-5`, `CG-6`, `CG-20`, `CG-21`, and `CG-23` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
   - V1 scope classification: `required_for_v1`.
   - Execution checklist:
     - [x] Remove `cli_output::emit_timed` and enable Snappy compression in `local_primitive_columnar_compat_sink.rs` (`v1.1.0`).
-    - [ ] Extend `ArrayRef`-backed `OwnedVortexResultBatch` across all operators, upgrade `PreparedVortexNativeSink` (`local_primitive_native_sink.rs:748`) to BtrBlocks + `ZonedLayout` + stats (preserving `output_payload.rs` `real_vortex_payload=false` separation), and lift `batch_rows: 2048` / `65,536`-row caps in `local_primitive_columnar_compat_sink.rs:73,124`.
-    - [ ] Route multi-step chains through zero-serialization `OwnedArraySource` with real min/max/null pruning, move persistent pure-Python worker transfers onto binary Arrow IPC framing, and keep `hot_runtime` envelopes lean without breaking `typed_envelope_compatibility_lock.rs`.
+    - [x] Extended `OwnedVortexResultBatch` direct sinks (`write_to_path`, `write_arrow_ipc_stream`, `into_owned_array_source`, `PreparedVortexCollect::execute_native_result`, streaming `completed_result::write_completed_controlled`), upgraded `PreparedVortexNativeSink` to BtrBlocks + `ZonedStrategy` + `RepartitionStrategy` + stats (preserving `output_payload.rs` `real_vortex_payload=false`), and lifted default/ceiling limits in `local_primitive_columnar_compat_sink.rs` (`DEFAULT_COMPAT_BATCH_ROWS=8192`, `MAX_COMPAT_BATCH_ROWS=65_536`, `CompatibilityLimits::default()` 1M rows / 1 GiB).
+    - [x] Wired `OwnedArraySource` per-split zone-map pruning and relational routing (`ScanSource::OwnedArray` / `VortexRelationalPreparation::register_owned_array_source`), added length-prefixed binary `arrow_ipc` worker framing (`rows_ipc` / `batch_ipc`, `with_arrow_ipc_batch_inputs`, lazy-`pyarrow` `ResultBatchIterator(..., wire_format="arrow_ipc")`) alongside backward-compatible JSON framing, and eliminated per-field `.to_ascii_lowercase()` / `format!` allocations and O(N) scans in `typed_envelope.rs` (`FieldIndex`, `needs_inline_artifact_pass` `hot_runtime` fast path) and `cli_output.rs` (`fill_unobserved_fields`).
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 

@@ -113,6 +113,13 @@ type ArrowProvider<'a> = dyn FnMut() -> Result<Option<arrow_array::RecordBatch>>
 type ArrowSources<'a> =
     dyn FnMut(&shardloom_core::DatasetUri, u64) -> Result<Option<arrow_array::RecordBatch>> + 'a;
 
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+type ArrowIpcSources<'a> =
+    dyn FnMut(&shardloom_core::DatasetUri, u64) -> Result<Option<Vec<u8>>> + 'a;
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+type ArrowIpcRowObserver<'a> = dyn FnMut(usize) -> Result<()> + 'a;
+
 pub(super) enum Provider<'a> {
     Columns(&'a mut ColumnProvider<'a>),
     ColumnsBySource(&'a mut ColumnsBySource<'a>),
@@ -120,6 +127,11 @@ pub(super) enum Provider<'a> {
     Arrow(&'a mut ArrowProvider<'a>),
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     ArrowSources(&'a mut ArrowSources<'a>),
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    ArrowIpcSources {
+        input: &'a mut ArrowIpcSources<'a>,
+        on_rows: &'a mut ArrowIpcRowObserver<'a>,
+    },
 }
 
 impl Provider<'_> {
@@ -146,10 +158,24 @@ impl Provider<'_> {
                     ResidentMemorySource::from_arrow_in_context(session, batch, context, true)
                 })
                 .transpose(),
+            #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+            Self::ArrowIpcSources { input, on_rows } => input(uri, ordinal)?
+                .map(|bytes| {
+                    let source = ResidentMemorySource::from_arrow_ipc_stream_in_context(
+                        session, &bytes, context, true,
+                    )?;
+                    on_rows(source.row_count())?;
+                    Ok(source)
+                })
+                .transpose(),
         }
     }
 
     fn has_transport_bounds(&self) -> bool {
+        #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+        if matches!(self, Self::ArrowIpcSources { .. }) {
+            return true;
+        }
         matches!(self, Self::Columns(_) | Self::ColumnsBySource(_))
     }
 }
@@ -457,6 +483,23 @@ impl PreparedVortexRelational {
         Ok(VortexRelationalBatchInput {
             prepared: self,
             input: Provider::ArrowSources(input),
+        })
+    }
+
+    /// Import bounded binary Arrow IPC streams by source URI and zero-based
+    /// ordinal while reusing the active native execution context.
+    /// # Errors
+    /// Rejects a provider when the plan has no streaming source declarations.
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub fn with_arrow_ipc_batch_inputs<'p, 'i>(
+        &'p self,
+        input: &'i mut ArrowIpcSources<'i>,
+        on_rows: &'i mut ArrowIpcRowObserver<'i>,
+    ) -> Result<VortexRelationalBatchInput<'p, 'i>> {
+        self.validate_batch_provider(true)?;
+        Ok(VortexRelationalBatchInput {
+            prepared: self,
+            input: Provider::ArrowIpcSources { input, on_rows },
         })
     }
 
@@ -1239,6 +1282,26 @@ impl VortexRelationalBatchInput<'_, '_> {
         consume: impl FnMut(super::super::collect::SerializedVortexResultBatch) -> Result<()>,
     ) -> Result<ExecutedVortexRelational> {
         self.prepared.for_each_json_batch_with_input(
+            cancellation,
+            batch_rows,
+            max_batch_bytes,
+            Some(self.input),
+            consume,
+        )
+    }
+
+    /// Materialize bounded binary Arrow IPC stream batches through the same native operation.
+    /// # Errors
+    /// Rejects invalid delivery bounds, unsupported Arrow schemas, cancellation, and failures.
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub fn for_each_arrow_ipc_batch(
+        self,
+        cancellation: &CancellationToken,
+        batch_rows: usize,
+        max_batch_bytes: usize,
+        consume: impl FnMut(crate::resident_session::SerializedArrowIpcBatch) -> Result<()>,
+    ) -> Result<ExecutedVortexRelational> {
+        self.prepared.for_each_arrow_ipc_batch_with_input(
             cancellation,
             batch_rows,
             max_batch_bytes,

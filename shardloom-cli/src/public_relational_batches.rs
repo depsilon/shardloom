@@ -97,10 +97,31 @@ fn execute(
     if !transport.stream_results {
         return execute_collect(OutputFormat::Json, &operation, fields, false, &cancellation);
     }
-    let result =
-        operation.for_each_json_batch(&cancellation, transport.batch_rows, 8 << 20, |batch| {
-            transport.consume(&batch)
-        })?;
+    let result = match transport.wire_format {
+        crate::python_batch_protocol::WireFormat::Json => operation.for_each_json_batch(
+            &cancellation,
+            transport.batch_rows,
+            8 << 20,
+            |batch| transport.consume(&batch),
+        )?,
+        crate::python_batch_protocol::WireFormat::ArrowIpc => {
+            #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+            {
+                operation.for_each_arrow_ipc_batch(
+                    &cancellation,
+                    transport.batch_rows,
+                    8 << 20,
+                    |batch| transport.consume_arrow_ipc(&batch),
+                )?
+            }
+            #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
+            {
+                return Err(ShardLoomError::InvalidOperation(
+                    "SL-NATIVE-BATCH: arrow_ipc wire format requires vortex-write and universal-format-io; no fallback execution was attempted".into(),
+                ));
+            }
+        }
+    };
     emit_batches(fields, &result, transport);
     Ok(())
 }
@@ -116,21 +137,96 @@ fn execute_streaming(
     cancellation.check()?;
     let batch_rows = transport.batch_rows;
     let stream_results = transport.stream_results;
+    let wire_format = transport.wire_format;
     let transport = std::cell::RefCell::new(transport);
-    let mut input =
-        |uri: &shardloom_core::DatasetUri,
-         ordinal: u64,
-         session: &shardloom_vortex::resident_session::ResidentVortexSession| {
-            let declaration = request.source_bindings.get(uri.as_str())
-            .and_then(|binding| binding.memory_input.as_ref())
-            .ok_or_else(|| ShardLoomError::InvalidOperation(
+    match wire_format {
+        crate::python_batch_protocol::WireFormat::Json => {
+            let mut input =
+                |uri: &shardloom_core::DatasetUri,
+                 ordinal: u64,
+                 session: &shardloom_vortex::resident_session::ResidentVortexSession| {
+                    let declaration = streaming_declaration(request, uri)?;
+                    transport
+                        .borrow_mut()
+                        .next_source_batch(uri.as_str(), ordinal, declaration, session)
+                };
+            let execution = operation.with_batch_inputs(&mut input)?;
+            finish_streaming_execution(
+                request,
+                plan,
+                normalized,
+                execution,
+                &transport,
+                batch_rows,
+                stream_results,
+                wire_format,
+                &cancellation,
+            )
+        }
+        crate::python_batch_protocol::WireFormat::ArrowIpc => {
+            #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+            {
+                let mut ipc_input = |uri: &shardloom_core::DatasetUri, ordinal: u64| {
+                    let declaration = streaming_declaration(request, uri)?;
+                    transport
+                        .borrow_mut()
+                        .next_source_batch_ipc(uri.as_str(), ordinal, declaration)
+                };
+                let mut on_rows = |rows: usize| transport.borrow_mut().record_input_rows(rows);
+                let execution =
+                    operation.with_arrow_ipc_batch_inputs(&mut ipc_input, &mut on_rows)?;
+                finish_streaming_execution(
+                    request,
+                    plan,
+                    normalized,
+                    execution,
+                    &transport,
+                    batch_rows,
+                    stream_results,
+                    wire_format,
+                    &cancellation,
+                )
+            }
+            #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
+            {
+                Err(ShardLoomError::InvalidOperation(
+                    "SL-NATIVE-BATCH: arrow_ipc wire format requires vortex-write and universal-format-io; no fallback execution was attempted".into(),
+                ))
+            }
+        }
+    }
+}
+
+fn streaming_declaration<'a>(
+    request: &'a PublicWorkflowRouteRequest,
+    uri: &shardloom_core::DatasetUri,
+) -> Result<&'a crate::native_memory_input::MemoryInput, ShardLoomError> {
+    request
+        .source_bindings
+        .get(uri.as_str())
+        .and_then(|binding| binding.memory_input.as_ref())
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
                 "SL-NATIVE-BATCH: demanded streaming source is undeclared; no fallback execution was attempted".into(),
-            ))?;
-            transport
-                .borrow_mut()
-                .next_source_batch(uri.as_str(), ordinal, declaration, session)
-        };
-    let execution = operation.with_batch_inputs(&mut input)?;
+            )
+        })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn finish_streaming_execution(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+    normalized: usize,
+    execution: shardloom_vortex::local_primitives::prepared_relational::VortexRelationalBatchInput<
+        '_,
+        '_,
+    >,
+    transport: &std::cell::RefCell<&mut Transport>,
+    batch_rows: usize,
+    stream_results: bool,
+    wire_format: crate::python_batch_protocol::WireFormat,
+    cancellation: &shardloom_exec::compute_pool::CancellationToken,
+) -> Result<(), ShardLoomError> {
     let completed_fields = || {
         let mut fields = execution_attachment_fields("run", request, plan);
         fields.extend(adapter_fields(&transport.borrow(), normalized));
@@ -146,7 +242,7 @@ fn execute_streaming(
                     .map(|target| (target.path.clone(), target.format))
                     .collect::<Vec<_>>(),
                 request.allow_overwrite,
-                &cancellation,
+                cancellation,
             )?;
             let mut fields = completed_fields();
             let primary = super::append_written_fanout(&mut fields, &targets, result, false);
@@ -170,13 +266,31 @@ fn execute_streaming(
         ));
     }
     if !stream_results {
-        let result = execution.collect_jsonl(&cancellation)?;
+        let result = execution.collect_jsonl(cancellation)?;
         super::emit_collected(OutputFormat::Json, result, completed_fields(), false);
         return Ok(());
     }
-    let result = execution.for_each_json_batch(&cancellation, batch_rows, 8 << 20, |batch| {
-        transport.borrow_mut().consume(&batch)
-    })?;
+    let result = match wire_format {
+        crate::python_batch_protocol::WireFormat::Json => {
+            execution.for_each_json_batch(cancellation, batch_rows, 8 << 20, |batch| {
+                transport.borrow_mut().consume(&batch)
+            })?
+        }
+        crate::python_batch_protocol::WireFormat::ArrowIpc => {
+            #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+            {
+                execution.for_each_arrow_ipc_batch(cancellation, batch_rows, 8 << 20, |batch| {
+                    transport.borrow_mut().consume_arrow_ipc(&batch)
+                })?
+            }
+            #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
+            {
+                return Err(ShardLoomError::InvalidOperation(
+                    "SL-NATIVE-BATCH: arrow_ipc wire format requires vortex-write and universal-format-io; no fallback execution was attempted".into(),
+                ));
+            }
+        }
+    };
     emit_batches(completed_fields(), &result, &transport.borrow());
     Ok(())
 }
@@ -198,13 +312,18 @@ fn emit_batches(
     result: &super::ExecutedVortexRelational,
     transport: &Transport,
 ) {
+    let boundary = match transport.wire_format {
+        crate::python_batch_protocol::WireFormat::Json => {
+            "bounded_native_batches_to_incremental_json"
+        }
+        crate::python_batch_protocol::WireFormat::ArrowIpc => {
+            "bounded_native_batches_to_incremental_arrow_ipc"
+        }
+    };
     append_execution(&mut fields, result, false);
     fields.extend([
         ("result_payload_complete".into(), "true".into()),
-        (
-            "result_materialization_boundary".into(),
-            "bounded_native_batches_to_incremental_json".into(),
-        ),
+        ("result_materialization_boundary".into(), boundary.into()),
         (
             "native_result_batches_acknowledged".into(),
             transport.output_batches.to_string(),
@@ -223,6 +342,12 @@ fn emit_batches(
 }
 
 fn adapter_fields(transport: &Transport, normalized: usize) -> [(String, String); 10] {
+    let protocol = match transport.wire_format {
+        crate::python_batch_protocol::WireFormat::Json => "shardloom.native_batches.v1",
+        crate::python_batch_protocol::WireFormat::ArrowIpc => {
+            "shardloom.native_batches.arrow_ipc.v1"
+        }
+    };
     [
         (
             "relational_normalized_source_count".into(),
@@ -232,10 +357,7 @@ fn adapter_fields(transport: &Transport, normalized: usize) -> [(String, String)
             "relational_source_normalization".into(),
             "all_source_leaves_resolved_during_native_binding".into(),
         ),
-        (
-            "native_batch_protocol".into(),
-            "shardloom.native_batches.v1".into(),
-        ),
+        ("native_batch_protocol".into(), protocol.into()),
         (
             "native_input_batches".into(),
             transport.input_batches.to_string(),

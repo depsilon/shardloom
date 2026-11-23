@@ -849,13 +849,38 @@ const INPUT_ADAPTER_CAPABILITY_SNAPSHOT_KEYS: &[&str] = &[
     "fallback_execution_allowed",
 ];
 
+fn contains_ascii_icase(haystack: &str, needle: &str) -> bool {
+    let haystack = haystack.as_bytes();
+    let needle = needle.as_bytes();
+    needle.is_empty()
+        || haystack
+            .windows(needle.len())
+            .any(|window| window.eq_ignore_ascii_case(needle))
+}
+
+fn starts_with_ascii_icase(haystack: &str, prefix: &str) -> bool {
+    let haystack = haystack.as_bytes();
+    let prefix = prefix.as_bytes();
+    haystack.len() >= prefix.len() && haystack[..prefix.len()].eq_ignore_ascii_case(prefix)
+}
+
+fn ends_with_ascii_icase(haystack: &str, suffix: &str) -> bool {
+    let haystack = haystack.as_bytes();
+    let suffix = suffix.as_bytes();
+    haystack.len() >= suffix.len()
+        && haystack[haystack.len() - suffix.len()..].eq_ignore_ascii_case(suffix)
+}
+
+fn strip_suffix_ascii_icase<'a>(haystack: &'a str, suffix: &str) -> Option<&'a str> {
+    ends_with_ascii_icase(haystack, suffix).then(|| &haystack[..haystack.len() - suffix.len()])
+}
+
 fn typed_envelope_field_slot(key: &str) -> TypedEnvelopeFieldSlot {
-    let normalized = key.to_ascii_lowercase();
-    if is_policy_envelope_field(&normalized) {
+    if is_policy_envelope_field(key) {
         TypedEnvelopeFieldSlot::Policy
-    } else if is_capability_envelope_field(&normalized) {
+    } else if is_capability_envelope_field(key) {
         TypedEnvelopeFieldSlot::CapabilitySnapshot
-    } else if is_lifecycle_envelope_field(&normalized) {
+    } else if is_lifecycle_envelope_field(key) {
         TypedEnvelopeFieldSlot::Lifecycle
     } else {
         TypedEnvelopeFieldSlot::Result
@@ -863,53 +888,56 @@ fn typed_envelope_field_slot(key: &str) -> TypedEnvelopeFieldSlot {
 }
 
 fn is_policy_envelope_field(key: &str) -> bool {
-    key.contains("fallback")
-        || key.contains("side_effect")
-        || key.contains("external_engine")
-        || key.contains("external_runtime")
-        || key.contains("network_effect")
-        || key.contains("network_probe")
-        || key.contains("filesystem_probe")
-        || key.contains("catalog_probe")
-        || key.contains("adapter_probe")
-        || key.contains("dataset_probe")
-        || key.contains("write_effect")
-        || key.contains("write_io")
-        || key.contains("unsafe_effect")
-        || key.contains("destructive")
-        || key.contains("policy")
-        || key.ends_with("_allowed")
-        || key.ends_with("_prohibited")
+    contains_ascii_icase(key, "fallback")
+        || contains_ascii_icase(key, "side_effect")
+        || contains_ascii_icase(key, "external_engine")
+        || contains_ascii_icase(key, "external_runtime")
+        || contains_ascii_icase(key, "network_effect")
+        || contains_ascii_icase(key, "network_probe")
+        || contains_ascii_icase(key, "filesystem_probe")
+        || contains_ascii_icase(key, "catalog_probe")
+        || contains_ascii_icase(key, "adapter_probe")
+        || contains_ascii_icase(key, "dataset_probe")
+        || contains_ascii_icase(key, "write_effect")
+        || contains_ascii_icase(key, "write_io")
+        || contains_ascii_icase(key, "unsafe_effect")
+        || contains_ascii_icase(key, "destructive")
+        || contains_ascii_icase(key, "policy")
+        || ends_with_ascii_icase(key, "_allowed")
+        || ends_with_ascii_icase(key, "_prohibited")
 }
 
 fn is_lifecycle_envelope_field(key: &str) -> bool {
-    matches!(
-        key,
-        "mode"
-            | "schema_version"
-            | "protocol_id"
-            | "protocol_stability"
-            | "output_envelope_schema_version"
-            | "transport_protocol_id"
-            | "invocation_model"
-            | "command_status_values"
-            | "output_formats"
-    ) || key.ends_with("_mode")
-        || key.ends_with("_version")
-        || key.ends_with("_status")
-        || key.ends_with("_phase")
-        || key.ends_with("_protocol")
+    const EXACT_KEYS: &[&str] = &[
+        "mode",
+        "schema_version",
+        "protocol_id",
+        "protocol_stability",
+        "output_envelope_schema_version",
+        "transport_protocol_id",
+        "invocation_model",
+        "command_status_values",
+        "output_formats",
+    ];
+    EXACT_KEYS
+        .iter()
+        .any(|candidate| key.eq_ignore_ascii_case(candidate))
+        || ends_with_ascii_icase(key, "_mode")
+        || ends_with_ascii_icase(key, "_version")
+        || ends_with_ascii_icase(key, "_status")
+        || ends_with_ascii_icase(key, "_phase")
+        || ends_with_ascii_icase(key, "_protocol")
 }
 
 fn is_capability_envelope_field(key: &str) -> bool {
-    key.contains("capability")
-        || key.contains("certification")
-        || key.contains("feature_gate")
-        || key.contains("supported")
-        || key.contains("unsupported")
-        || key.contains("readiness")
-        || key.contains("coverage")
-        || key.ends_with("_ready")
+    contains_ascii_icase(key, "capability")
+        || contains_ascii_icase(key, "certification")
+        || contains_ascii_icase(key, "feature_gate")
+        || contains_ascii_icase(key, "supported")
+        || contains_ascii_icase(key, "unsupported")
+        || contains_ascii_icase(key, "readiness")
+        || contains_ascii_icase(key, "coverage")
+        || ends_with_ascii_icase(key, "_ready")
 }
 
 fn inline_report_payload_spec(command: &str) -> Option<InlineReportPayloadSpec> {
@@ -1008,33 +1036,42 @@ pub(crate) fn typed_envelope_artifact_payload_keys(
     }
 }
 
-fn field_value<'a>(fields: &'a [(String, String)], key: &str) -> Option<&'a str> {
-    fields
-        .iter()
-        .find_map(|(field_key, value)| (field_key == key).then_some(value.as_str()))
+struct FieldIndex<'a> {
+    by_key: std::collections::HashMap<&'a str, &'a str>,
+}
+
+impl<'a> FieldIndex<'a> {
+    fn build(fields: &'a [(String, String)]) -> Self {
+        let mut by_key = std::collections::HashMap::with_capacity(fields.len());
+        for (key, value) in fields {
+            by_key.entry(key.as_str()).or_insert(value.as_str());
+        }
+        Self { by_key }
+    }
+
+    fn get(&self, key: &str) -> Option<&'a str> {
+        self.by_key.get(key).copied()
+    }
 }
 
 fn inline_report_artifact(
     spec: InlineReportPayloadSpec,
-    fields: &[(String, String)],
+    index: &FieldIndex<'_>,
 ) -> OutputTypedArtifact {
-    let artifact_id = field_value(fields, "report_id").unwrap_or(spec.artifact_id_fallback);
-    let status = field_value(fields, spec.status_key).unwrap_or("available");
+    let artifact_id = index.get("report_id").unwrap_or(spec.artifact_id_fallback);
+    let status = index.get(spec.status_key).unwrap_or("available");
     let mut artifact = OutputTypedArtifact::new(artifact_id, spec.artifact_kind, status);
     for key in spec.payload_keys {
-        if let Some(value) = field_value(fields, key) {
+        if let Some(value) = index.get(key) {
             artifact = artifact.with_field(*key, value);
         }
     }
     artifact
 }
 
-fn inline_report_payload(
-    command: &str,
-    fields: &[(String, String)],
-) -> Option<OutputTypedArtifact> {
+fn inline_report_payload(command: &str, index: &FieldIndex<'_>) -> Option<OutputTypedArtifact> {
     let spec = inline_report_payload_spec(command)?;
-    let artifact = inline_report_artifact(spec, fields);
+    let artifact = inline_report_artifact(spec, index);
     if artifact.payload.fields.is_empty() {
         None
     } else {
@@ -1058,17 +1095,15 @@ fn inline_payload_artifact_id(
 fn inline_prefixed_payload(
     command: &str,
     spec: InlinePrefixedPayloadSpec,
+    index: &FieldIndex<'_>,
     fields: &[(String, String)],
 ) -> Option<OutputTypedArtifact> {
-    if field_value(fields, spec.emitted_key) != Some("true") {
+    if index.get(spec.emitted_key) != Some("true") {
         return None;
     }
-    let artifact_id = inline_payload_artifact_id(
-        command,
-        spec.artifact_kind,
-        field_value(fields, spec.id_key),
-    );
-    let status = field_value(fields, spec.status_key).unwrap_or("available");
+    let artifact_id =
+        inline_payload_artifact_id(command, spec.artifact_kind, index.get(spec.id_key));
+    let status = index.get(spec.status_key).unwrap_or("available");
     let mut artifact = OutputTypedArtifact::new(artifact_id, spec.artifact_kind, status);
     for (key, value) in fields
         .iter()
@@ -1085,31 +1120,29 @@ fn inline_prefixed_payload(
 
 fn inline_prefixed_payloads(
     command: &str,
+    index: &FieldIndex<'_>,
     fields: &[(String, String)],
 ) -> Vec<OutputTypedArtifact> {
     INLINE_PREFIXED_PAYLOAD_SPECS
         .iter()
-        .filter_map(|spec| inline_prefixed_payload(command, *spec, fields))
+        .filter_map(|spec| inline_prefixed_payload(command, *spec, index, fields))
         .collect()
 }
 
 fn inline_field_subset_payload(
     command: &str,
     spec: InlineFieldSubsetPayloadSpec,
-    fields: &[(String, String)],
+    index: &FieldIndex<'_>,
 ) -> Option<OutputTypedArtifact> {
-    if field_value(fields, spec.emitted_key) != Some("true") {
+    if index.get(spec.emitted_key) != Some("true") {
         return None;
     }
-    let artifact_id = inline_payload_artifact_id(
-        command,
-        spec.artifact_kind,
-        field_value(fields, spec.id_key),
-    );
-    let status = field_value(fields, spec.status_key).unwrap_or("available");
+    let artifact_id =
+        inline_payload_artifact_id(command, spec.artifact_kind, index.get(spec.id_key));
+    let status = index.get(spec.status_key).unwrap_or("available");
     let mut artifact = OutputTypedArtifact::new(artifact_id, spec.artifact_kind, status);
     for key in spec.payload_keys {
-        if let Some(value) = field_value(fields, key) {
+        if let Some(value) = index.get(key) {
             artifact = artifact.with_field(*key, value);
         }
     }
@@ -1120,27 +1153,24 @@ fn inline_field_subset_payload(
     }
 }
 
-fn inline_field_subset_payloads(
-    command: &str,
-    fields: &[(String, String)],
-) -> Vec<OutputTypedArtifact> {
+fn inline_field_subset_payloads(command: &str, index: &FieldIndex<'_>) -> Vec<OutputTypedArtifact> {
     INLINE_FIELD_SUBSET_PAYLOAD_SPECS
         .iter()
-        .filter_map(|spec| inline_field_subset_payload(command, *spec, fields))
+        .filter_map(|spec| inline_field_subset_payload(command, *spec, index))
         .collect()
 }
 
 fn inline_execution_mode_selection_payload(
     command: &str,
-    fields: &[(String, String)],
+    index: &FieldIndex<'_>,
 ) -> Option<OutputTypedArtifact> {
-    field_value(fields, "selected_execution_mode")?;
+    index.get("selected_execution_mode")?;
     let artifact_id = inline_payload_artifact_id(
         command,
         "execution_mode_selection_report",
-        field_value(fields, "execution_mode_selection_report_id"),
+        index.get("execution_mode_selection_report_id"),
     );
-    let status = match field_value(fields, "mode_supported") {
+    let status = match index.get("mode_supported") {
         Some("false") => "unsupported",
         Some("true") => "available",
         _ => "evidence_incomplete",
@@ -1148,7 +1178,7 @@ fn inline_execution_mode_selection_payload(
     let mut artifact =
         OutputTypedArtifact::new(artifact_id, "execution_mode_selection_report", status);
     for key in EXECUTION_MODE_SELECTION_REPORT_PAYLOAD_KEYS {
-        if let Some(value) = field_value(fields, key) {
+        if let Some(value) = index.get(key) {
             artifact = artifact.with_field(*key, value);
         } else {
             artifact = artifact.with_field(*key, "evidence_incomplete");
@@ -1159,20 +1189,24 @@ fn inline_execution_mode_selection_payload(
 
 fn inline_compute_flow_evidence_payload(
     command: &str,
-    fields: &[(String, String)],
+    index: &FieldIndex<'_>,
 ) -> Option<OutputTypedArtifact> {
-    field_value(fields, "selected_execution_mode")?;
+    index.get("selected_execution_mode")?;
     let artifact_id = inline_payload_artifact_id(
         command,
         "compute_flow_evidence",
-        field_value(fields, "compute_flow_evidence_report_id"),
+        index.get("compute_flow_evidence_report_id"),
     );
-    let status = field_value(fields, "claim_gate_status").unwrap_or("evidence_incomplete");
+    let status = index
+        .get("claim_gate_status")
+        .unwrap_or("evidence_incomplete");
     let mut artifact = OutputTypedArtifact::new(artifact_id, "compute_flow_evidence", status);
     for key in COMPUTE_FLOW_EVIDENCE_PAYLOAD_KEYS {
         artifact = artifact.with_field(
             *key,
-            field_value(fields, key).unwrap_or_else(|| compute_flow_missing_default(key)),
+            index
+                .get(key)
+                .unwrap_or_else(|| compute_flow_missing_default(key)),
         );
     }
     Some(artifact)
@@ -1198,9 +1232,9 @@ fn command_capability_snapshot_keys(command: &str) -> Option<&'static [&'static 
 
 fn command_capability_snapshot_scope_keys(
     command: &str,
-    fields: &[(String, String)],
+    index: &FieldIndex<'_>,
 ) -> Option<&'static [&'static str]> {
-    match (command, field_value(fields, "scope")) {
+    match (command, index.get("scope")) {
         ("capabilities", Some("api_surfaces")) => Some(CAPABILITIES_API_SURFACE_SNAPSHOT_KEYS),
         _ => command_capability_snapshot_keys(command),
     }
@@ -1208,32 +1242,34 @@ fn command_capability_snapshot_scope_keys(
 
 fn command_capability_snapshot_fields(
     command: &str,
-    fields: &[(String, String)],
+    index: &FieldIndex<'_>,
 ) -> Vec<(String, String)> {
-    let Some(keys) = command_capability_snapshot_scope_keys(command, fields) else {
+    let Some(keys) = command_capability_snapshot_scope_keys(command, index) else {
         return Vec::new();
     };
     keys.iter()
         .filter_map(|key| {
-            field_value(fields, key).map(|value| ((*key).to_string(), value.to_string()))
+            index
+                .get(key)
+                .map(|value| ((*key).to_string(), value.to_string()))
         })
         .collect()
 }
 
 fn scoped_capability_report_payload(
     command: &str,
-    fields: &[(String, String)],
+    index: &FieldIndex<'_>,
 ) -> Option<OutputTypedArtifact> {
-    if command != "capabilities" || field_value(fields, "scope") != Some("api_surfaces") {
+    if command != "capabilities" || index.get("scope") != Some("api_surfaces") {
         return None;
     }
     let mut artifact = OutputTypedArtifact::new(
         "capabilities.api_surfaces",
         "api_surface_capability_report",
-        field_value(fields, "dimension_status").unwrap_or("report_only"),
+        index.get("dimension_status").unwrap_or("report_only"),
     );
     for key in API_SURFACE_CAPABILITY_REPORT_PAYLOAD_KEYS {
-        if let Some(value) = field_value(fields, key) {
+        if let Some(value) = index.get(key) {
             artifact = artifact.with_field(*key, value);
         }
     }
@@ -1263,41 +1299,40 @@ fn apply_command_capability_snapshot_fields(
 }
 
 fn typed_envelope_ref_slot(key: &str) -> Option<(TypedEnvelopeRefSlot, &'static str)> {
-    let normalized = key.to_ascii_lowercase();
-    if !is_reference_field_key(&normalized) {
+    if !is_reference_field_key(key) {
         return None;
     }
 
-    if normalized.contains("native_io_certificate") {
+    if contains_ascii_icase(key, "native_io_certificate") {
         Some((TypedEnvelopeRefSlot::Certificate, "native_io_certificate"))
-    } else if is_execution_certificate_ref_key(&normalized) {
+    } else if is_execution_certificate_ref_key(key) {
         Some((TypedEnvelopeRefSlot::Certificate, "execution_certificate"))
-    } else if normalized.contains("execution_certificate") {
+    } else if contains_ascii_icase(key, "execution_certificate") {
         None
-    } else if normalized.contains("certificate") {
+    } else if contains_ascii_icase(key, "certificate") {
         Some((TypedEnvelopeRefSlot::Certificate, "certificate"))
-    } else if normalized.contains("evidence_artifact") {
+    } else if contains_ascii_icase(key, "evidence_artifact") {
         Some((TypedEnvelopeRefSlot::ArtifactRef, "evidence_artifact"))
-    } else if normalized.contains("materialization_boundary") {
+    } else if contains_ascii_icase(key, "materialization_boundary") {
         Some((
             TypedEnvelopeRefSlot::ArtifactRef,
             "materialization_boundary_report",
         ))
-    } else if normalized.contains("benchmark_row") {
+    } else if contains_ascii_icase(key, "benchmark_row") {
         Some((TypedEnvelopeRefSlot::ArtifactRef, "benchmark_row"))
-    } else if normalized.contains("foundry") && normalized.contains("report") {
+    } else if contains_ascii_icase(key, "foundry") && contains_ascii_icase(key, "report") {
         Some((TypedEnvelopeRefSlot::ArtifactRef, "foundry_boundary_report"))
-    } else if normalized.contains("source_pushdown") && normalized.contains("report") {
+    } else if contains_ascii_icase(key, "source_pushdown") && contains_ascii_icase(key, "report") {
         Some((TypedEnvelopeRefSlot::ArtifactRef, "source_pushdown_report"))
-    } else if normalized.contains("adapter_fidelity") && normalized.contains("report") {
+    } else if contains_ascii_icase(key, "adapter_fidelity") && contains_ascii_icase(key, "report") {
         Some((TypedEnvelopeRefSlot::ArtifactRef, "adapter_fidelity_report"))
-    } else if normalized.contains("source") && normalized.contains("report") {
+    } else if contains_ascii_icase(key, "source") && contains_ascii_icase(key, "report") {
         Some((TypedEnvelopeRefSlot::ArtifactRef, "source_report"))
-    } else if normalized.contains("sink") && normalized.contains("report") {
+    } else if contains_ascii_icase(key, "sink") && contains_ascii_icase(key, "report") {
         Some((TypedEnvelopeRefSlot::ArtifactRef, "sink_report"))
-    } else if normalized.contains("artifact") {
+    } else if contains_ascii_icase(key, "artifact") {
         Some((TypedEnvelopeRefSlot::ArtifactRef, "artifact"))
-    } else if normalized.contains("result") {
+    } else if contains_ascii_icase(key, "result") {
         Some((TypedEnvelopeRefSlot::ResultRef, "result"))
     } else {
         None
@@ -1314,56 +1349,60 @@ fn is_execution_certificate_ref_key(key: &str) -> bool {
 }
 
 fn key_matches_certificate_ref_stem(key: &str, stem: &str) -> bool {
-    let Some(prefix) = key.strip_suffix("_ref").or_else(|| key.strip_suffix("_id")) else {
+    let Some(prefix) =
+        strip_suffix_ascii_icase(key, "_ref").or_else(|| strip_suffix_ascii_icase(key, "_id"))
+    else {
         return false;
     };
-    prefix == stem || prefix.ends_with(&format!("_{stem}"))
+    prefix.eq_ignore_ascii_case(stem)
+        || strip_suffix_ascii_icase(prefix, stem).is_some_and(|before| before.ends_with('_'))
 }
 
 fn is_reference_field_key(key: &str) -> bool {
-    key.ends_with("_ref")
-        || key.ends_with("_refs")
-        || key.ends_with("_id")
-        || key.ends_with("_uri")
-        || key.ends_with("_path")
+    ends_with_ascii_icase(key, "_ref")
+        || ends_with_ascii_icase(key, "_refs")
+        || ends_with_ascii_icase(key, "_id")
+        || ends_with_ascii_icase(key, "_uri")
+        || ends_with_ascii_icase(key, "_path")
 }
 
 fn field_value_is_reference(value: &str) -> bool {
-    let normalized = value.trim().to_ascii_lowercase();
-    if !field_value_is_nonempty_reference_candidate(&normalized) {
+    let trimmed = value.trim();
+    if !field_value_is_nonempty_reference_candidate(trimmed) {
         return false;
     }
-    !normalized.starts_with("not_applicable_")
-        && !normalized.starts_with("not_available_")
-        && !normalized.starts_with("not_requested_")
+    !starts_with_ascii_icase(trimmed, "not_applicable_")
+        && !starts_with_ascii_icase(trimmed, "not_available_")
+        && !starts_with_ascii_icase(trimmed, "not_requested_")
 }
 
-fn field_value_is_nonempty_reference_candidate(normalized: &str) -> bool {
-    !normalized.is_empty()
-        && !matches!(
-            normalized,
-            "false"
-                | "true"
-                | "0"
-                | "none"
-                | "null"
-                | "not_performed"
-                | "not_available"
-                | "not_applicable"
-                | "not_requested"
-                | "not_applicable_inline_result"
-        )
+fn field_value_is_nonempty_reference_candidate(value: &str) -> bool {
+    const NON_REFERENCE_LITERALS: &[&str] = &[
+        "false",
+        "true",
+        "0",
+        "none",
+        "null",
+        "not_performed",
+        "not_available",
+        "not_applicable",
+        "not_requested",
+        "not_applicable_inline_result",
+    ];
+    !value.is_empty()
+        && !NON_REFERENCE_LITERALS
+            .iter()
+            .any(|candidate| value.eq_ignore_ascii_case(candidate))
 }
 
 fn sink_artifact_value_is_reference(value: &str) -> bool {
-    field_value_is_nonempty_reference_candidate(&value.trim().to_ascii_lowercase())
+    field_value_is_nonempty_reference_candidate(value.trim())
 }
 
 fn typed_ref_status(value: &str) -> &'static str {
-    let normalized = value.to_ascii_lowercase();
-    if normalized.contains("blocked") {
+    if contains_ascii_icase(value, "blocked") {
         "blocked"
-    } else if normalized.contains("missing") || normalized.contains("incomplete") {
+    } else if contains_ascii_icase(value, "missing") || contains_ascii_icase(value, "incomplete") {
         "incomplete"
     } else {
         "available"
@@ -1400,11 +1439,13 @@ fn typed_ref_uri(value: &str) -> Option<String> {
 }
 
 fn add_typed_ref_if_present(envelope: OutputEnvelope, key: &str, value: &str) -> OutputEnvelope {
-    let normalized_key = key.to_ascii_lowercase();
-    if normalized_key == "sink_artifact_ref" {
+    if !is_reference_field_key(key) {
         return envelope;
     }
-    if normalized_key == "sink_artifact_refs" {
+    if key.eq_ignore_ascii_case("sink_artifact_ref") {
+        return envelope;
+    }
+    if key.eq_ignore_ascii_case("sink_artifact_refs") {
         return add_sink_artifact_refs(envelope, value);
     }
 
@@ -1479,18 +1520,44 @@ pub(crate) fn apply_typed_envelope_field(
     }
 }
 
+fn is_inline_emitted_trigger_key(key: &str) -> bool {
+    INLINE_PREFIXED_PAYLOAD_SPECS
+        .iter()
+        .any(|spec| spec.emitted_key == key)
+        || INLINE_FIELD_SUBSET_PAYLOAD_SPECS
+            .iter()
+            .any(|spec| spec.emitted_key == key)
+}
+
+fn needs_inline_artifact_pass(command: &str, fields: &[(String, String)]) -> bool {
+    inline_report_payload_spec(command).is_some()
+        || matches!(command, "input-adapters" | "capabilities")
+        || fields.iter().any(|(key, value)| {
+            key == "selected_execution_mode"
+                || (value == "true" && is_inline_emitted_trigger_key(key))
+        })
+}
+
 pub(crate) fn apply_typed_envelope_fields(
     envelope: OutputEnvelope,
     command: &str,
     fields: Vec<(String, String)>,
 ) -> OutputEnvelope {
-    let inline_report = inline_report_payload(command, &fields);
-    let inline_prefixed_payloads = inline_prefixed_payloads(command, &fields);
-    let inline_field_subset_payloads = inline_field_subset_payloads(command, &fields);
-    let inline_execution_mode_selection = inline_execution_mode_selection_payload(command, &fields);
-    let inline_compute_flow_evidence = inline_compute_flow_evidence_payload(command, &fields);
-    let inline_scoped_capability_report = scoped_capability_report_payload(command, &fields);
-    let command_capability_snapshot_fields = command_capability_snapshot_fields(command, &fields);
+    if !needs_inline_artifact_pass(command, &fields) {
+        let mut envelope = envelope;
+        for (key, value) in fields {
+            envelope = apply_typed_envelope_field(envelope, key, value);
+        }
+        return envelope;
+    }
+    let index = FieldIndex::build(&fields);
+    let inline_report = inline_report_payload(command, &index);
+    let inline_prefixed_payloads = inline_prefixed_payloads(command, &index, &fields);
+    let inline_field_subset_payloads = inline_field_subset_payloads(command, &index);
+    let inline_execution_mode_selection = inline_execution_mode_selection_payload(command, &index);
+    let inline_compute_flow_evidence = inline_compute_flow_evidence_payload(command, &index);
+    let inline_scoped_capability_report = scoped_capability_report_payload(command, &index);
+    let command_capability_snapshot_fields = command_capability_snapshot_fields(command, &index);
     let mut envelope = envelope;
     for (key, value) in fields {
         envelope = apply_typed_envelope_field(envelope, key, value);
@@ -2343,5 +2410,154 @@ mod tests {
         let pw_ev = pw_report.typed_evidence();
         assert_eq!(pw_ev.to_fields(), pw_report.fields());
         assert_json_round_trip(&pw_ev);
+    }
+
+    #[test]
+    fn zero_alloc_ascii_icase_classification_matches_all_slot_and_ref_rules() {
+        for (key, expected_slot) in [
+            ("fallback_allowed", TypedEnvelopeFieldSlot::Policy),
+            ("FALLBACK_ALLOWED", TypedEnvelopeFieldSlot::Policy),
+            (
+                "Some_Capability_Flag",
+                TypedEnvelopeFieldSlot::CapabilitySnapshot,
+            ),
+            ("SCHEMA_VERSION", TypedEnvelopeFieldSlot::Lifecycle),
+            ("query_Phase", TypedEnvelopeFieldSlot::Lifecycle),
+            ("output_row_count", TypedEnvelopeFieldSlot::Result),
+        ] {
+            assert_eq!(typed_envelope_field_slot(key), expected_slot, "{key}");
+        }
+
+        for (key, expected) in [
+            (
+                "NATIVE_IO_CERTIFICATE_ID",
+                Some((TypedEnvelopeRefSlot::Certificate, "native_io_certificate")),
+            ),
+            (
+                "LOCAL_PRIMITIVE_EXECUTION_CERTIFICATE_REF",
+                Some((TypedEnvelopeRefSlot::Certificate, "execution_certificate")),
+            ),
+            (
+                "custom_execution_certificate_id",
+                Some((TypedEnvelopeRefSlot::Certificate, "execution_certificate")),
+            ),
+            ("badexecution_certificate_ref", None),
+            (
+                "Foundry_Source_REPORT_URI",
+                Some((TypedEnvelopeRefSlot::ArtifactRef, "foundry_boundary_report")),
+            ),
+            (
+                "output_result_path",
+                Some((TypedEnvelopeRefSlot::ResultRef, "result")),
+            ),
+            ("plain_field", None),
+        ] {
+            assert_eq!(typed_envelope_ref_slot(key), expected, "{key}");
+        }
+
+        assert!(key_matches_certificate_ref_stem(
+            "foo_Execution_Certificate_ID",
+            "execution_certificate"
+        ));
+        assert!(!key_matches_certificate_ref_stem(
+            "fooExecution_Certificate_ID",
+            "execution_certificate"
+        ));
+        assert!(!field_value_is_reference("  NOT_APPLICABLE_inline "));
+        assert!(!field_value_is_reference("FALSE"));
+        assert!(field_value_is_reference("artifact://run/1"));
+        assert_eq!(typed_ref_status("BLOCKED_by_policy"), "blocked");
+        assert_eq!(typed_ref_status("evidence_INCOMPLETE"), "incomplete");
+        assert_eq!(typed_ref_status("certified"), "available");
+    }
+
+    #[test]
+    fn hot_runtime_fast_path_and_triggered_inline_envelope_paths_keep_exact_structure() {
+        let base =
+            || OutputEnvelope::new("run", shardloom_core::CommandStatus::Success, "ok", "ok");
+        let hot_fields = vec![
+            ("output_row_count".into(), "42".into()),
+            ("fallback_attempted".into(), "false".into()),
+            ("result_vortex_path".into(), "/tmp/out.vortex".into()),
+            ("sink_artifact_ref".into(), "/tmp/skip.vortex".into()),
+            (
+                "sink_artifact_refs".into(),
+                "primary:/tmp/out.vortex,secondary:not_applicable".into(),
+            ),
+            ("mode".into(), "vortex_middle".into()),
+            ("native_vortex_supported".into(), "true".into()),
+        ];
+        assert!(!needs_inline_artifact_pass("run", &hot_fields));
+        let hot = apply_typed_envelope_fields(base(), "run", hot_fields.clone());
+        assert_eq!(hot.artifacts, [] as [OutputTypedArtifact; 0]);
+        assert_eq!(hot.result.fields.len(), 4);
+        assert_eq!(hot.result_refs.len(), 1);
+        assert_eq!(hot.artifact_refs.len(), 1);
+        assert_eq!(hot.policy.fields.len(), 1);
+        assert_eq!(hot.lifecycle.fields.len(), 1);
+        assert_eq!(hot.capability_snapshot.fields.len(), 1);
+
+        let triggered_fields = vec![
+            ("output_row_count".into(), "42".into()),
+            (
+                "local_primitive_native_io_certificate_emitted".into(),
+                "true".into(),
+            ),
+            (
+                "local_primitive_native_io_certificate_emitted".into(),
+                "false".into(),
+            ),
+            (
+                "local_primitive_native_io_certificate_id".into(),
+                "cert-1".into(),
+            ),
+            (
+                "local_primitive_native_io_certificate_status".into(),
+                "certified".into(),
+            ),
+            ("selected_execution_mode".into(), "native_vortex".into()),
+            ("mode_supported".into(), "true".into()),
+        ];
+        assert!(needs_inline_artifact_pass("run", &triggered_fields));
+        let triggered = apply_typed_envelope_fields(base(), "run", triggered_fields);
+        assert!(
+            triggered
+                .artifacts
+                .iter()
+                .any(|a| a.artifact_kind == "native_io_certificate")
+        );
+        assert!(
+            triggered
+                .artifacts
+                .iter()
+                .any(|a| a.artifact_kind == "execution_mode_selection_report")
+        );
+        assert!(
+            triggered
+                .artifacts
+                .iter()
+                .any(|a| a.artifact_kind == "compute_flow_evidence")
+        );
+
+        let caps_env = apply_typed_envelope_fields(
+            OutputEnvelope::new(
+                "capabilities",
+                shardloom_core::CommandStatus::Success,
+                "ok",
+                "ok",
+            ),
+            "capabilities",
+            vec![
+                ("scope".into(), "api_surfaces".into()),
+                ("dimension_status".into(), "report_only".into()),
+                ("api_surface_count".into(), "3".into()),
+            ],
+        );
+        assert!(
+            caps_env
+                .artifacts
+                .iter()
+                .any(|a| a.artifact_kind == "api_surface_capability_report")
+        );
     }
 }

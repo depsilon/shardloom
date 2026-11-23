@@ -97,7 +97,17 @@ mod result_arrow;
     feature = "universal-format-io",
     unix
 ))]
-pub use result_arrow::{NativeArrowBatchDelivery, NativeArrowBatchStream, NativeArrowExportReport};
+pub(crate) use result_arrow::serialize_array_arrow_ipc;
+#[cfg(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+))]
+pub use result_arrow::{
+    NativeArrowBatchDelivery, NativeArrowBatchStream, NativeArrowExportReport,
+    SerializedArrowIpcBatch,
+};
 
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "resident_segment_reuse.rs"]
@@ -1790,6 +1800,60 @@ impl OwnedVortexResultBatch {
     #[must_use]
     pub const fn logical_buffer_bytes(&self) -> u64 {
         self.logical_buffer_bytes
+    }
+
+    /// Promote these retained native arrays into an in-memory multi-split scan
+    /// source without writing an intermediate file.
+    ///
+    /// # Errors
+    /// Rejects schema/row mismatches, bounds violations, memory pressure, or
+    /// cancellation.
+    #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+    pub fn into_owned_array_source(
+        self,
+        bounds: crate::owned_array_source::OwnedArraySourceBounds,
+        cancellation: &CancellationToken,
+    ) -> Result<crate::owned_array_source::OwnedArraySource> {
+        crate::owned_array_source::OwnedArraySource::from_owned(self, bounds, cancellation)
+    }
+
+    /// Persist this completed native array batch directly to `path` in `format`
+    /// without JSON or row materialization.
+    ///
+    /// # Errors
+    /// Rejects cancellation, unsupported schemas or formats, existing targets
+    /// when `overwrite` is false, memory exhaustion, or write errors.
+    #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+    pub fn write_to_path(
+        self,
+        path: impl AsRef<Path>,
+        format: crate::local_primitives::VortexLocalPrimitiveRowExportFormat,
+        overwrite: bool,
+        cancellation: &CancellationToken,
+    ) -> Result<crate::local_primitives::VortexLocalPrimitiveRowExportReport> {
+        let session = self.retained_session();
+        let resources = shardloom_core::ExecutionResources::from_bytes(
+            session.memory().snapshot().limit_bytes,
+            session.parallelism(),
+            shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+        )?;
+        let policy = crate::local_primitives::VortexLocalPrimitiveExecutionPolicy::from_resources(
+            resources,
+        )?;
+        let uri = shardloom_core::DatasetUri::new("memory://owned-vortex-result-batch")?;
+        let request = crate::VortexQueryPrimitiveRequest::project(
+            uri,
+            shardloom_plan::ProjectionRequest::All,
+        );
+        crate::local_primitives::completed_result::write_completed_controlled(
+            self,
+            &request,
+            path.as_ref(),
+            format,
+            overwrite,
+            policy,
+            cancellation,
+        )
     }
 }
 

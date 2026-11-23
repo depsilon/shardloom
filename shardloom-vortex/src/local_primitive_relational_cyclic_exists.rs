@@ -302,6 +302,8 @@ fn pure_native_scan(node: &Node, prepared: &PreparedVortexRelational) -> bool {
     };
     let admitted_source = match source {
         ScanSource::Memory(source) => source.source_rows() >= 128,
+        #[cfg(feature = "vortex-write")]
+        ScanSource::OwnedArray { rows, .. } => *rows >= 128,
         ScanSource::File(index) => prepared
             .sources
             .get(*index)

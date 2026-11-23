@@ -39,6 +39,83 @@ impl ResidentMemorySource {
         })
     }
 
+    /// Decode a bounded Arrow IPC stream directly into admitted native buffers.
+    ///
+    /// # Errors
+    /// Rejects malformed IPC streams, unsupported schemas, nonfinite floats under
+    /// strict policy, > 2,048 rows, cancellation, or shared-memory denial.
+    pub fn from_arrow_ipc_stream(
+        session: &ResidentVortexSession,
+        bytes: &[u8],
+        cancellation: &CancellationToken,
+    ) -> Result<Self> {
+        Self::from_arrow_ipc_stream_with_mode(session, bytes, cancellation, false)
+    }
+
+    /// Decode a bounded Arrow IPC stream as a single streaming batch owner.
+    ///
+    /// # Errors
+    /// Rejects malformed IPC streams, unsupported schemas, > 2,048 rows,
+    /// cancellation, or shared-memory denial.
+    pub fn from_arrow_ipc_stream_batch(
+        session: &ResidentVortexSession,
+        bytes: &[u8],
+        cancellation: &CancellationToken,
+    ) -> Result<Self> {
+        Self::from_arrow_ipc_stream_with_mode(session, bytes, cancellation, true)
+    }
+
+    fn from_arrow_ipc_stream_with_mode(
+        session: &ResidentVortexSession,
+        bytes: &[u8],
+        cancellation: &CancellationToken,
+        is_batch: bool,
+    ) -> Result<Self> {
+        session.with_native_execution_context(cancellation, |context| {
+            Self::from_arrow_ipc_stream_in_context(session, bytes, context, is_batch)
+        })
+    }
+
+    /// Decode a bounded Arrow IPC stream using the caller's already-admitted
+    /// native execution context so streaming providers do not re-enter the lock.
+    pub(crate) fn from_arrow_ipc_stream_in_context(
+        session: &ResidentVortexSession,
+        bytes: &[u8],
+        context: &NativeExecutionContext<'_>,
+        is_batch: bool,
+    ) -> Result<Self> {
+        context.check_cancelled()?;
+        let reader = arrow_ipc::reader::StreamReader::try_new(std::io::Cursor::new(bytes), None)
+            .map_err(native_error)?;
+        let schema = reader.schema();
+        let mut total_rows = 0usize;
+        let mut batches = Vec::new();
+        for batch in reader {
+            context.check_cancelled()?;
+            let batch = batch.map_err(native_error)?;
+            total_rows = total_rows
+                .checked_add(batch.num_rows())
+                .filter(|rows| *rows <= super::batches::MAX_BATCH_ROWS)
+                .ok_or_else(|| {
+                    memory_error("Arrow IPC input stream exceeds 2,048 rows per batch")
+                })?;
+            batches.push(batch);
+        }
+        if batches.len() <= 1 {
+            let batch = batches
+                .pop()
+                .unwrap_or_else(|| RecordBatch::new_empty(schema));
+            return Self::from_arrow_in_context(session, batch, context, is_batch);
+        }
+        let mut builder =
+            super::batches::MemoryBatchSourceBuilder::new(session, context.cancellation().clone())?;
+        builder.set_is_batch(is_batch);
+        for batch in batches {
+            builder.push_arrow_in_context(batch, context)?;
+        }
+        builder.finish()
+    }
+
     /// Reuse the source consumer's already admitted execution context. A private
     /// streaming batch releases its credits before another producer demand.
     pub(crate) fn from_arrow_in_context(

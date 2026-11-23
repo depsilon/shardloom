@@ -16,6 +16,10 @@ const SCAN_ROWS: usize = 8192;
 pub(super) fn run(
     source: &ScanSource,
     files: &[PreparedVortexSource],
+    #[cfg(feature = "vortex-write")] owned_array_sources: &[(
+        shardloom_core::DatasetUri,
+        crate::owned_array_source::OwnedArraySource,
+    )],
     plan: &LocalVortexScanPlan,
     columns: &[String],
     residual: Option<&MaterializedPredicateEvaluator>,
@@ -81,6 +85,18 @@ pub(super) fn run(
             }
             Ok(())
         }
+        #[cfg(feature = "vortex-write")]
+        ScanSource::OwnedArray { index, .. } => run_owned_array(
+            &owned_array_sources[*index].1,
+            plan,
+            context,
+            metrics,
+            match metrics.file_scan_batching.get() {
+                super::FileScanBatching::Native => SCAN_ROWS,
+                super::FileScanBatching::Output => batch_rows.min(SCAN_ROWS),
+            },
+            &mut accept,
+        ),
         ScanSource::Batch { index, projection } => {
             let input = metrics.input.ok_or_else(|| {
                 super::batch_input::failed("streaming scan has no input provider")
@@ -207,4 +223,84 @@ fn run_file(
         }
         observation.complete(source, context, delivered, 1, pruning_checks, 0)
     })
+}
+
+#[cfg(feature = "vortex-write")]
+fn run_owned_array(
+    source: &crate::owned_array_source::OwnedArraySource,
+    plan: &LocalVortexScanPlan,
+    context: &NativeExecutionContext<'_>,
+    metrics: &Metrics<'_>,
+    scan_rows: usize,
+    accept: &mut dyn FnMut(ArrayRef) -> Result<()>,
+) -> Result<()> {
+    use vortex::layout::scan::split_by::SplitBy;
+
+    add(&metrics.scans_started, 1)?;
+    if source.row_count() == 0 {
+        return Ok(());
+    }
+    let mut scan = source
+        .scan(context.native_session())
+        .with_ordered(true)
+        .with_concurrency(1)
+        .with_split_by(SplitBy::RowCount(scan_rows.max(1)));
+    if let Some(filter) = &plan.filter {
+        let bound = filter
+            .bind(source.dtype())
+            .and_then(|expr| expr.optimize_recursive())
+            .map_err(vortex_error)?;
+        scan = scan.with_filter(bound);
+    }
+    if let Some(projection) = &plan.projection {
+        let bound = projection
+            .bind(source.dtype())
+            .and_then(|expr| expr.optimize_recursive())
+            .map_err(vortex_error)?;
+        scan = scan.with_projection(bound);
+    }
+    let pruned_before = source.pruned_splits();
+    let mut delivered = 0_u64;
+    let iter = scan
+        .into_array_iter(context.runtime())
+        .map_err(vortex_error)?;
+    for chunk in iter {
+        context.check_cancelled()?;
+        let array = chunk.map_err(vortex_error)?;
+        if !array.is_empty() {
+            delivered = delivered
+                .checked_add(array.len() as u64)
+                .ok_or_else(|| failed("owned array scan delivered row count overflow"))?;
+            accept(array)?;
+        }
+    }
+    let pruned_splits = source.pruned_splits().saturating_sub(pruned_before);
+    if plan.filter.is_some() && source.has_zone_maps() {
+        let regions = source.row_count().div_ceil(8192);
+        context.record_capability_decision(
+            NativeIoCapability::RegionExclusion,
+            if pruned_splits > 0 {
+                NativeIoDecisionOutcome::Executed
+            } else {
+                NativeIoDecisionOutcome::Declined
+            },
+            if pruned_splits > 0 {
+                NativeIoDecisionReason::ExclusionProved
+            } else {
+                NativeIoDecisionReason::ExclusionNotProved
+            },
+            NativeIoObservedWork {
+                regions: Some(regions),
+                excluded_regions: Some(pruned_splits),
+                ..NativeIoObservedWork::default()
+            },
+        )?;
+    }
+    if pruned_splits > 0 {
+        add(&metrics.scans_pruned, pruned_splits)?;
+    }
+    if delivered > 0 || pruned_splits == 0 {
+        add(&metrics.data_scans, 1)?;
+    }
+    Ok(())
 }

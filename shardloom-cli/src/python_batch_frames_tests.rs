@@ -216,3 +216,105 @@ fn cancellation_framing_and_message_order_are_explicit() {
     assert!(error.contains("without input demand"), "{error}");
     assert_eq!(pool.snapshot().reserved_bytes, 0);
 }
+
+#[test]
+fn rows_ipc_binary_framing_tracks_credit_and_rejects_truncation_and_bad_headers() {
+    let (pool, _, mut scratch) = owner(4 << 20);
+    let payload = b"\xff\x00\xfe\x01ARROW_IPC_BYTES".to_vec();
+    let mut wire = format!(
+        "{{\"kind\":\"rows_ipc\",\"uri\":\"memory://ipc\",\"index\":3,\"byte_len\":{}}}\n",
+        payload.len()
+    )
+    .into_bytes();
+    wire.extend_from_slice(&payload);
+    wire.extend_from_slice(b"{\"kind\":\"end\",\"uri\":\"memory://ipc\",\"index\":4}\n");
+
+    let mut cursor = BufReader::with_capacity(7, Cursor::new(wire));
+    let first = read(&mut cursor, &mut scratch, &CancellationToken::default())
+        .unwrap()
+        .unwrap();
+    assert!(pool.snapshot().reserved_bytes >= payload.len() as u64);
+    let decoded = first.decode(Some(1)).unwrap();
+    match &decoded.value {
+        Incoming::RowsIpc {
+            uri,
+            index,
+            payload: got,
+        } => {
+            assert_eq!(uri, "memory://ipc");
+            assert_eq!(*index, 3);
+            assert_eq!(got, &payload);
+        }
+        _ => panic!("expected Incoming::RowsIpc"),
+    }
+    drop(decoded);
+    assert_eq!(pool.snapshot().reserved_bytes, 0);
+
+    let second = read(&mut cursor, &mut scratch, &CancellationToken::default())
+        .unwrap()
+        .unwrap();
+    assert!(matches!(
+        second.decode(None).unwrap().value,
+        Incoming::End { index: 4, .. }
+    ));
+    assert_eq!(pool.snapshot().reserved_bytes, 0);
+
+    // Truncated binary payload after header fails cleanly and releases credit.
+    let truncated =
+        b"{\"kind\":\"rows_ipc\",\"uri\":\"memory://ipc\",\"index\":0,\"byte_len\":16}\nshort"
+            .to_vec();
+    assert!(
+        read(
+            &mut Cursor::new(truncated),
+            &mut scratch,
+            &CancellationToken::default()
+        )
+        .is_err()
+    );
+    assert_eq!(pool.snapshot().reserved_bytes, 0);
+
+    // Zero or oversized byte_len, unknown fields, and unsolicited rows_ipc are rejected.
+    for bad in [
+        b"{\"kind\":\"rows_ipc\",\"uri\":\"memory://ipc\",\"index\":0,\"byte_len\":0}\n".as_slice(),
+        &format!(
+            "{{\"kind\":\"rows_ipc\",\"uri\":\"memory://ipc\",\"index\":0,\"byte_len\":{}}}\n",
+            MAX_FRAME + 1
+        )
+        .into_bytes(),
+    ] {
+        assert!(
+            read(
+                &mut Cursor::new(bad),
+                &mut scratch,
+                &CancellationToken::default()
+            )
+            .is_err()
+        );
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+    }
+
+    let mut with_extra = b"{\"kind\":\"rows_ipc\",\"uri\":\"memory://ipc\",\"index\":0,\"byte_len\":2,\"extra\":1}\nab".to_vec();
+    let parsed_extra = read(
+        &mut Cursor::new(with_extra.as_slice()),
+        &mut scratch,
+        &CancellationToken::default(),
+    )
+    .unwrap()
+    .unwrap();
+    assert!(parsed_extra.decode(Some(1)).is_err());
+    assert_eq!(pool.snapshot().reserved_bytes, 0);
+
+    with_extra.clear();
+    with_extra.extend_from_slice(
+        b"{\"kind\":\"rows_ipc\",\"uri\":\"memory://ipc\",\"index\":0,\"byte_len\":2}\nab",
+    );
+    let unsolicited_ipc = read(
+        &mut Cursor::new(with_extra),
+        &mut scratch,
+        &CancellationToken::default(),
+    )
+    .unwrap()
+    .unwrap();
+    assert!(unsolicited_ipc.decode(None).is_err());
+    assert_eq!(pool.snapshot().reserved_bytes, 0);
+}

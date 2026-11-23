@@ -374,7 +374,7 @@ mod aggregate_owned;
 mod aggregate_result_values;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitive_completed_result.rs"]
-mod completed_result;
+pub(crate) mod completed_result;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitive_json_sink.rs"]
 mod json_sink;

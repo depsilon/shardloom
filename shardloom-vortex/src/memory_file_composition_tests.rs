@@ -177,9 +177,18 @@ fn assert_owned_provenance(executed: &ExecutedVortexAggregate, uri: &DatasetUri)
         certificate.source_capability_report.schema_discovery_status,
         "validated_owned_native_arrays"
     );
+    let expected_stats = if certificate
+        .source_pushdown_report
+        .proof_basis
+        .contains("owned_zone_maps_built=true")
+    {
+        "exact_owned_row_count;owned_zone_maps_per_8192_row_split"
+    } else {
+        "exact_owned_row_count;file_statistics_absent"
+    };
     assert_eq!(
         certificate.source_capability_report.statistics_availability,
-        "exact_owned_row_count;file_statistics_absent"
+        expected_stats
     );
     assert_eq!(
         executed.report.embedded_layout.status,
@@ -249,6 +258,13 @@ fn owned_array_source_reuses_exact_native_aggregate_and_retains_owner() {
             ])
         );
         assert_owned_provenance(&executed, &uri);
+        assert!(
+            executed
+                .native_io_certificate
+                .source_pushdown_report
+                .proof_basis
+                .contains("owned_zone_maps_built=true")
+        );
         assert_eq!(executed.runtime.completed_executions, completed);
     }
     let completed = prepared.execute_owned().unwrap();
@@ -443,6 +459,13 @@ fn owned_array_source_rejections_cancellation_and_borrowed_context_release_credi
                 ])
             );
             assert_owned_provenance(&executed, &uri);
+            assert!(
+                executed
+                    .native_io_certificate
+                    .source_pushdown_report
+                    .proof_basis
+                    .contains("owned_zone_maps_built=true")
+            );
             assert_eq!(executed.runtime.completed_executions, 0);
             Ok(())
         })
