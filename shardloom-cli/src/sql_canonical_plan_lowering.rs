@@ -2645,9 +2645,16 @@ impl CanonicalLowering<'_, '_, '_> {
             LogicalExpr::Function {
                 name,
                 args,
+                distinct,
+                filter,
+                order_by,
                 over: None,
-                ..
             } => {
+                if *distinct || filter.is_some() || !order_by.is_empty() {
+                    return Err(unsupported_sql_error(
+                        "scalar function DISTINCT, FILTER, and ORDER BY modifiers are not admitted",
+                    ));
+                }
                 let lower_name = name.to_ascii_lowercase();
                 let mut lowered_args = args
                     .iter()

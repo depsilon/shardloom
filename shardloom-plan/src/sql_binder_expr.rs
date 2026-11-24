@@ -966,11 +966,24 @@ fn bind_substring(
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Result<LogicalExpr> {
     let mut args = vec![bind_ast_expr(expr, diagnostics)?];
-    if let Some(from) = from {
-        args.push(bind_ast_expr(from, diagnostics)?);
-    }
-    if let Some(len) = len {
-        args.push(bind_ast_expr(len, diagnostics)?);
+    match (from, len) {
+        (Some(from), Some(len)) => {
+            args.push(bind_ast_expr(from, diagnostics)?);
+            args.push(bind_ast_expr(len, diagnostics)?);
+        }
+        (Some(from), None) => {
+            args.push(bind_ast_expr(from, diagnostics)?);
+        }
+        (None, Some(len)) => {
+            // SQL `SUBSTRING(str FOR len)` omits `FROM`, so default start is 1-based offset 1.
+            args.push(LogicalExpr::Literal(ScalarValue::Int64(1)));
+            args.push(bind_ast_expr(len, diagnostics)?);
+        }
+        (None, None) => {
+            return Err(unsupported_sql_error(
+                "SUBSTRING requires at least a FROM or FOR argument",
+            ));
+        }
     }
     Ok(LogicalExpr::Function {
         name: "substring".to_string(),

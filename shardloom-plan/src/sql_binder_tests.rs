@@ -479,3 +479,51 @@ fn resolves_named_windows_in_query_order_by_and_rejects_unknown_or_conflicting_r
         assert!(bind_sql(bad_sql).is_err(), "{bad_sql}");
     }
 }
+
+#[test]
+fn binds_substring_for_only_with_default_start() {
+    let plan_for = bind_sql("SELECT SUBSTRING('abcdef' FOR 2) FROM 'in.parquet'").expect("binds");
+    let LogicalRelation::Project { items, .. } = &plan_for.root else {
+        panic!("expected Project root");
+    };
+    let LogicalProjectionItem::Expr { expr, .. } = &items[0] else {
+        panic!("expected expression item");
+    };
+    assert_eq!(
+        expr.as_ref(),
+        &LogicalExpr::Function {
+            name: "substring".to_string(),
+            args: vec![
+                LogicalExpr::Literal(ScalarValue::Utf8("abcdef".to_string())),
+                LogicalExpr::Literal(ScalarValue::Int64(1)),
+                LogicalExpr::Literal(ScalarValue::Int64(2)),
+            ],
+            distinct: false,
+            filter: None,
+            order_by: Vec::new(),
+            over: None,
+        }
+    );
+
+    let plan_from = bind_sql("SELECT SUBSTRING('abcdef' FROM 2) FROM 'in.parquet'").expect("binds");
+    let LogicalRelation::Project { items, .. } = &plan_from.root else {
+        panic!("expected Project root");
+    };
+    let LogicalProjectionItem::Expr { expr, .. } = &items[0] else {
+        panic!("expected expression item");
+    };
+    assert_eq!(
+        expr.as_ref(),
+        &LogicalExpr::Function {
+            name: "substring".to_string(),
+            args: vec![
+                LogicalExpr::Literal(ScalarValue::Utf8("abcdef".to_string())),
+                LogicalExpr::Literal(ScalarValue::Int64(2)),
+            ],
+            distinct: false,
+            filter: None,
+            order_by: Vec::new(),
+            over: None,
+        }
+    );
+}

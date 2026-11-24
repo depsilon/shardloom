@@ -1061,6 +1061,17 @@ fn canonical_order_by_ordinals_and_guarded_case_subqueries() {
         err.to_string().contains("scalar subquery cardinality"),
         "{err}"
     );
+}
+
+#[test]
+fn canonical_order_by_named_windows_and_substring_for() {
+    let dir = CanonicalTempDir::new("win_substr");
+    let flags_path = dir.path().join("flags.parquet");
+    let flags_batch = batch_i64_str(
+        &[("id", vec![Some(1), Some(2), Some(3)])],
+        &[("grp", vec![Some("a"), Some("a"), Some("b")])],
+    );
+    write_parquet_rows(&flags_path, &flags_batch, 3);
 
     let order_named_win_sql = format!(
         "SELECT id FROM '{}' WINDOW w AS (ORDER BY id DESC) ORDER BY ROW_NUMBER() OVER w LIMIT 1",
@@ -1076,4 +1087,19 @@ fn canonical_order_by_ordinals_and_guarded_case_subqueries() {
         flags_path.display()
     );
     assert!(try_prepare_file_sql(&unknown_order_named_win_sql).is_err());
+
+    let substring_sql = format!(
+        "SELECT id, SUBSTRING('abcdef' FOR 2) AS s_for, SUBSTRING('abcdef' FROM 2) AS s_from, SUBSTRING('abcdef' FROM 2 FOR 3) AS s_both, ROW_NUMBER() OVER (ORDER BY id) AS rn FROM '{}' ORDER BY id LIMIT 1",
+        flags_path.display()
+    );
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&substring_sql)),
+        vec![json!({
+            "id": 1,
+            "s_for": "ab",
+            "s_from": "bcdef",
+            "s_both": "bcd",
+            "rn": 1
+        })]
+    );
 }
