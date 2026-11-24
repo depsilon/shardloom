@@ -416,7 +416,7 @@ fn canonical_grouping_having_only_agg_distinct_unprojected_sort_cte_and_expressi
          JOIN '{vx}' AS v ON g.id = v.value \
          JOIN '{}' AS m ON v.value = m.id \
          WHERE v.value BETWEEN 1 AND 4 \
-           AND g.dept ILIKE 'ENG%' \
+           AND g.dept LIKE 'eng%' \
            AND g.id IS DISTINCT FROM 99 \
          ORDER BY v.metric DESC \
          LIMIT 1 OFFSET 1",
@@ -822,5 +822,78 @@ fn canonical_decorrelated_subqueries_exists_in_q17_and_correlated_scalar() {
             json!({"p_partkey": 3, "sum_price": null}),
             json!({"p_partkey": null, "sum_price": null}),
         ]
+    );
+}
+
+#[test]
+fn canonical_fetch_qualify_is_true_and_having_in_subquery() {
+    let dir = CanonicalTempDir::new("truth_having");
+    let flags_path = dir.path().join("flags.parquet");
+    let allowed_path = dir.path().join("allowed.parquet");
+    let bool_schema = Arc::new(Schema::new(vec![
+        Field::new("id", DataType::Int64, false),
+        Field::new("grp", DataType::Utf8, false),
+        Field::new("flag", DataType::Boolean, true),
+    ]));
+    let bool_batch = RecordBatch::try_new(
+        bool_schema,
+        vec![
+            Arc::new(Int64Array::from(vec![1, 2, 3])),
+            Arc::new(StringArray::from(vec!["a", "a", "b"])),
+            Arc::new(arrow_array::BooleanArray::from(vec![
+                Some(true),
+                Some(false),
+                None,
+            ])),
+        ],
+    )
+    .unwrap();
+    write_parquet_rows(&flags_path, &bool_batch, 3);
+    write_parquet_rows(
+        &allowed_path,
+        &batch_i64(&[("cnt", vec![Some(2), Some(99)])]),
+        2,
+    );
+
+    let truth_sql = format!(
+        "SELECT id, flag IS TRUE AS is_t, flag IS FALSE AS is_f, NOT (flag IS TRUE) AS not_t \
+         FROM '{}' ORDER BY id FETCH FIRST 3 ROWS ONLY",
+        flags_path.display()
+    );
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&truth_sql)),
+        vec![
+            json!({"id": 1, "is_t": true, "is_f": false, "not_t": false}),
+            json!({"id": 2, "is_t": false, "is_f": true, "not_t": true}),
+            json!({"id": 3, "is_t": false, "is_f": false, "not_t": true}),
+        ]
+    );
+
+    let qualify_sql = format!(
+        "SELECT id, ROW_NUMBER() OVER (ORDER BY id) AS rn FROM '{}' QUALIFY rn = 1",
+        flags_path.display()
+    );
+    assert!(try_prepare_file_sql(&qualify_sql).is_err());
+
+    let having_in_sql = format!(
+        "SELECT grp, COUNT(*) AS rows FROM '{}' GROUP BY grp \
+         HAVING rows IN (SELECT cnt FROM '{}') ORDER BY grp",
+        flags_path.display(),
+        allowed_path.display()
+    );
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&having_in_sql)),
+        vec![json!({"grp": "a", "rows": 2})]
+    );
+
+    let having_not_in_sql = format!(
+        "SELECT grp, COUNT(*) AS rows FROM '{}' GROUP BY grp \
+         HAVING rows NOT IN (SELECT cnt FROM '{}') ORDER BY grp",
+        flags_path.display(),
+        allowed_path.display()
+    );
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&having_not_in_sql)),
+        vec![json!({"grp": "b", "rows": 1})]
     );
 }

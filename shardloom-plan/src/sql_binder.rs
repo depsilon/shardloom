@@ -11,7 +11,7 @@ pub mod expr;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 
-use shardloom_core::{ComparisonOp, Diagnostic, Result, ShardLoomError};
+use shardloom_core::{ComparisonOp, Diagnostic, Result, ScalarValue, ShardLoomError};
 use sqlparser::ast::{
     self, Expr as SqlExpr, GroupByExpr, GroupByWithModifier, InTarget, Join, JoinConstraint,
     JoinOperator, LimitClause, ObjectNamePart, OrderByKind, Query, Select, SelectItem, SetExpr,
@@ -1468,9 +1468,26 @@ fn expr_is_relational(expr: &SqlExpr) -> bool {
         }
         SqlExpr::Subquery(_) | SqlExpr::Exists { .. } => true,
         SqlExpr::In { expr, target, .. } => {
-            expr_is_relational(expr) || matches!(target, InTarget::Subquery(_))
+            expr_is_relational(expr)
+                || match target {
+                    InTarget::Subquery(_) => true,
+                    InTarget::List(items) => items.iter().any(expr_is_relational),
+                    _ => false,
+                }
         }
         SqlExpr::BinaryOp { left, right, .. }
+        | SqlExpr::AnyOp { left, right, .. }
+        | SqlExpr::AllOp { left, right, .. }
+        | SqlExpr::Like {
+            expr: left,
+            pattern: right,
+            ..
+        }
+        | SqlExpr::ILike {
+            expr: left,
+            pattern: right,
+            ..
+        }
         | SqlExpr::IsDistinctFrom(left, right)
         | SqlExpr::IsNotDistinctFrom(left, right) => {
             expr_is_relational(left) || expr_is_relational(right)
@@ -1482,7 +1499,11 @@ fn expr_is_relational(expr: &SqlExpr) -> bool {
         | SqlExpr::Nested(expr)
         | SqlExpr::Cast { expr, .. }
         | SqlExpr::IsNull(expr)
-        | SqlExpr::IsNotNull(expr) => expr_is_relational(expr),
+        | SqlExpr::IsNotNull(expr)
+        | SqlExpr::IsTrue(expr)
+        | SqlExpr::IsNotTrue(expr)
+        | SqlExpr::IsFalse(expr)
+        | SqlExpr::IsNotFalse(expr) => expr_is_relational(expr),
         SqlExpr::Case {
             operand,
             conditions,
@@ -2569,6 +2590,16 @@ pub(crate) fn bind_ast_query(
     query: &Query,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Result<LogicalRelation> {
+    if !query.locks.is_empty()
+        || query.for_clause.is_some()
+        || query.settings.is_some()
+        || query.format_clause.is_some()
+        || !query.pipe_operators.is_empty()
+    {
+        return Err(unsupported_sql_error(
+            "unsupported query-level modifier clause (FOR/LOCKS/SETTINGS/FORMAT/PIPE)",
+        ));
+    }
     let mut plan = bind_set_expr(&query.body, diagnostics)?;
     if let Some(order_by) = &query.order_by {
         let keys = match &order_by.kind {
@@ -2589,30 +2620,12 @@ pub(crate) fn bind_ast_query(
             };
         }
     }
-    if let Some(limit_clause) = &query.limit_clause {
-        let (limit_expr, offset_expr) = match limit_clause {
-            LimitClause::LimitOffset { limit, offset, .. } => (
-                limit
-                    .as_ref()
-                    .map(|e| expr::bind_ast_expr(e, diagnostics))
-                    .transpose()?,
-                offset
-                    .as_ref()
-                    .map(|o| expr::bind_ast_expr(&o.value, diagnostics))
-                    .transpose()?,
-            ),
-            LimitClause::OffsetCommaLimit { offset, limit } => (
-                Some(expr::bind_ast_expr(limit, diagnostics)?),
-                Some(expr::bind_ast_expr(offset, diagnostics)?),
-            ),
+    if let Some((limit, offset)) = bind_limit_and_fetch(query, diagnostics)? {
+        plan = LogicalRelation::Limit {
+            input: Box::new(plan),
+            limit,
+            offset,
         };
-        if limit_expr.is_some() || offset_expr.is_some() {
-            plan = LogicalRelation::Limit {
-                input: Box::new(plan),
-                limit: limit_expr,
-                offset: offset_expr,
-            };
-        }
     }
     if let Some(with) = &query.with {
         let mut ctes = Vec::with_capacity(with.cte_tables.len());
@@ -2641,6 +2654,47 @@ pub(crate) fn bind_ast_query(
         };
     }
     Ok(plan)
+}
+
+fn bind_limit_and_fetch(
+    query: &Query,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<Option<(Option<LogicalExpr>, Option<LogicalExpr>)>> {
+    let (mut limit_expr, offset_expr) = match &query.limit_clause {
+        Some(LimitClause::LimitOffset { limit, offset, .. }) => (
+            limit
+                .as_ref()
+                .map(|e| expr::bind_ast_expr(e, diagnostics))
+                .transpose()?,
+            offset
+                .as_ref()
+                .map(|o| expr::bind_ast_expr(&o.value, diagnostics))
+                .transpose()?,
+        ),
+        Some(LimitClause::OffsetCommaLimit { offset, limit }) => (
+            Some(expr::bind_ast_expr(limit, diagnostics)?),
+            Some(expr::bind_ast_expr(offset, diagnostics)?),
+        ),
+        None => (None, None),
+    };
+    if let Some(fetch) = &query.fetch {
+        if fetch.with_ties || fetch.percent {
+            let msg = "FETCH WITH TIES and FETCH PERCENT are not admitted; use FETCH FIRST <n> ROWS ONLY or LIMIT";
+            diagnostics.push(expr::unsupported_diag("sql.fetch", msg));
+            return Err(unsupported_sql_error(msg));
+        }
+        if limit_expr.is_some() {
+            return Err(unsupported_sql_error(
+                "cannot combine LIMIT and FETCH in the same query block",
+            ));
+        }
+        let fetch_limit = match &fetch.quantity {
+            Some(qty) => expr::bind_ast_expr(qty, diagnostics)?,
+            None => LogicalExpr::Literal(ScalarValue::Int64(1)),
+        };
+        limit_expr = Some(fetch_limit);
+    }
+    Ok((limit_expr.is_some() || offset_expr.is_some()).then_some((limit_expr, offset_expr)))
 }
 
 fn bind_set_expr(body: &SetExpr, diagnostics: &mut Vec<Diagnostic>) -> Result<LogicalRelation> {
@@ -2693,7 +2747,33 @@ fn bind_set_expr(body: &SetExpr, diagnostics: &mut Vec<Diagnostic>) -> Result<Lo
     }
 }
 
+fn validate_select_modifiers(select: &Select, diagnostics: &mut Vec<Diagnostic>) -> Result<()> {
+    if select.qualify.is_some() {
+        let msg = "SQL QUALIFY predicates are not admitted; filter window outputs with an enclosing subquery or CTE WHERE clause";
+        diagnostics.push(expr::unsupported_diag("sql.qualify", msg));
+        return Err(unsupported_sql_error(msg));
+    }
+    if matches!(select.distinct, Some(ast::Distinct::On(_))) {
+        return Err(unsupported_sql_error("SELECT DISTINCT ON is not admitted"));
+    }
+    if select.top.is_some()
+        || select.into.is_some()
+        || select.prewhere.is_some()
+        || !select.lateral_views.is_empty()
+        || !select.cluster_by.is_empty()
+        || !select.distribute_by.is_empty()
+        || !select.sort_by.is_empty()
+        || !select.connect_by.is_empty()
+    {
+        return Err(unsupported_sql_error(
+            "unsupported SELECT modifier clause (TOP/INTO/PREWHERE/LATERAL/CLUSTER/DISTRIBUTE/SORT BY/CONNECT BY)",
+        ));
+    }
+    Ok(())
+}
+
 fn bind_select(select: &Select, diagnostics: &mut Vec<Diagnostic>) -> Result<LogicalRelation> {
+    validate_select_modifiers(select, diagnostics)?;
     let mut input = if select.from.is_empty() {
         LogicalRelation::Unit
     } else {

@@ -313,3 +313,74 @@ fn binds_window_over_grouped_aggregate_named_window_and_exclude_frame() {
         Some("CURRENT ROW")
     );
 }
+
+#[test]
+fn handles_qualify_fetch_quantified_candidate_and_null_safe_is_truth() {
+    assert!(is_relational_sql_candidate(
+        "SELECT id FROM 'in.csv' WHERE amount > ALL (SELECT threshold FROM 't.csv')"
+    ));
+    assert!(is_relational_sql_candidate(
+        "SELECT id FROM 'in.csv' WHERE amount = ANY (SELECT threshold FROM 't.csv')"
+    ));
+
+    let qualify_err = bind_sql(
+        "SELECT id, ROW_NUMBER() OVER (ORDER BY id) AS rn FROM 'in.parquet' QUALIFY rn = 1",
+    )
+    .expect_err("QUALIFY must fail explicitly");
+    assert!(qualify_err.to_string().contains("QUALIFY"), "{qualify_err}");
+
+    let fetch_plan =
+        bind_sql("SELECT id FROM 'in.parquet' ORDER BY id OFFSET 2 ROWS FETCH NEXT 3 ROWS ONLY")
+            .expect("FETCH FIRST/NEXT should lower to Limit");
+    assert!(matches!(
+        &fetch_plan.root,
+        LogicalRelation::Limit {
+            limit: Some(LogicalExpr::Literal(ScalarValue::Int64(3))),
+            offset: Some(LogicalExpr::Literal(ScalarValue::Int64(2))),
+            ..
+        }
+    ));
+    for bad_fetch in [
+        "SELECT id FROM 'in.parquet' ORDER BY id FETCH FIRST 1 ROW WITH TIES",
+        "SELECT id FROM 'in.parquet' ORDER BY id FETCH FIRST 10 PERCENT ROWS ONLY",
+        "SELECT id FROM 'in.parquet' ORDER BY id LIMIT 1 FETCH FIRST 2 ROWS ONLY",
+    ] {
+        assert!(bind_sql(bad_fetch).is_err(), "{bad_fetch}");
+    }
+
+    let truth_plan = bind_sql("SELECT flag IS TRUE AS t, flag IS FALSE AS f FROM 'in.parquet'")
+        .expect("IS TRUE / IS FALSE must bind null-safely");
+    let LogicalRelation::Project { items, .. } = &truth_plan.root else {
+        panic!("expected Project");
+    };
+    assert!(matches!(
+        &items[0],
+        LogicalProjectionItem::Expr {
+            expr,
+            alias: Some(a),
+        } if a == "t"
+            && matches!(
+                expr.as_ref(),
+                LogicalExpr::IsDistinctFrom {
+                    right,
+                    negated: true,
+                    ..
+                } if matches!(right.as_ref(), LogicalExpr::Literal(ScalarValue::Boolean(true)))
+            )
+    ));
+    assert!(matches!(
+        &items[1],
+        LogicalProjectionItem::Expr {
+            expr,
+            alias: Some(a),
+        } if a == "f"
+            && matches!(
+                expr.as_ref(),
+                LogicalExpr::IsDistinctFrom {
+                    right,
+                    negated: true,
+                    ..
+                } if matches!(right.as_ref(), LogicalExpr::Literal(ScalarValue::Boolean(false)))
+            )
+    ));
+}

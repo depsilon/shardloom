@@ -143,6 +143,7 @@ pub(super) fn parse_canonical_plan(raw: &str) -> Option<Box<BoundSqlPlan>> {
 /// Checks whether a canonical `BoundSqlPlan` lies within the canonical native lowering slice.
 pub(super) fn can_lower_canonically(bound: &BoundSqlPlan) -> bool {
     rel_supported(&bound.root, &BTreeSet::new())
+        && !has_unresolved_outer_qualifier(&bound.root, &BTreeSet::new())
 }
 
 /// Returns whether a canonical plan should take precedence over the legacy SQL parser.
@@ -706,9 +707,10 @@ fn join_supported(
             | LogicalJoinType::Anti
     ) && rel_supported(left, forbidden_sources)
         && rel_supported(right, forbidden_sources)
-        && on
-            .as_ref()
-            .is_none_or(|expr| expr_supported_with_sources(expr, forbidden_sources))
+        && on.as_ref().is_none_or(|expr| {
+            !expr_contains_complex_constructor(expr)
+                && expr_supported_with_sources(expr, forbidden_sources)
+        })
 }
 
 fn with_cte_supported(
@@ -786,6 +788,71 @@ fn agg_spec_supported(spec: &LogicalAggregateSpec, forbidden_sources: &BTreeSet<
             .all(|k| expr_supported_with_sources(&k.expr, forbidden_sources))
 }
 
+fn expr_contains_complex_constructor(expr: &LogicalExpr) -> bool {
+    match expr {
+        LogicalExpr::Array(_) | LogicalExpr::Tuple(_) => true,
+        LogicalExpr::Unary { expr, .. } | LogicalExpr::Cast { expr, .. } => {
+            expr_contains_complex_constructor(expr)
+        }
+        LogicalExpr::Binary { left, right, .. }
+        | LogicalExpr::Compare { left, right, .. }
+        | LogicalExpr::IsDistinctFrom { left, right, .. }
+        | LogicalExpr::Like {
+            expr: left,
+            pattern: right,
+            ..
+        } => expr_contains_complex_constructor(left) || expr_contains_complex_constructor(right),
+        LogicalExpr::Between {
+            expr, low, high, ..
+        } => {
+            expr_contains_complex_constructor(expr)
+                || expr_contains_complex_constructor(low)
+                || expr_contains_complex_constructor(high)
+        }
+        LogicalExpr::InList { expr, list, .. } => {
+            expr_contains_complex_constructor(expr)
+                || list.iter().any(expr_contains_complex_constructor)
+        }
+        _ => false,
+    }
+}
+
+fn in_subquery_projection_admitted(subquery: &LogicalRelation) -> bool {
+    let mut cur = subquery;
+    loop {
+        match cur {
+            LogicalRelation::Subquery { input, .. }
+            | LogicalRelation::Sort { input, .. }
+            | LogicalRelation::Limit { input, .. } => cur = input,
+            LogicalRelation::WithCte { body, .. } => cur = body,
+            LogicalRelation::Project { items, .. } => {
+                if items.len() != 1 {
+                    return false;
+                }
+                return match &items[0] {
+                    LogicalProjectionItem::Wildcard { .. } => false,
+                    LogicalProjectionItem::Expr { expr, .. } => {
+                        !matches!(expr.as_ref(), LogicalExpr::Array(_) | LogicalExpr::Tuple(_))
+                    }
+                };
+            }
+            _ => return true,
+        }
+    }
+}
+
+fn canonical_scalar_fn_admitted(name: &str) -> bool {
+    let lower_name = name.to_ascii_lowercase();
+    let mapped = match lower_name.as_str() {
+        "substring" | "substr" => "substr",
+        "char_length" | "character_length" => "length",
+        "lcase" => "lower",
+        "ucase" => "upper",
+        other => other,
+    };
+    shardloom_core::expression::builtins::scalar(mapped).is_some()
+}
+
 pub(super) fn expr_supported_with_sources(
     expr: &LogicalExpr,
     forbidden_sources: &BTreeSet<String>,
@@ -795,19 +862,28 @@ pub(super) fn expr_supported_with_sources(
         | LogicalExpr::Column { .. }
         | LogicalExpr::Parameter(_)
         | LogicalExpr::Wildcard { .. } => true,
-        LogicalExpr::Unary { expr, .. } | LogicalExpr::Cast { expr, .. } => {
-            expr_supported_with_sources(expr, forbidden_sources)
+        LogicalExpr::Unary { expr, .. } => expr_supported_with_sources(expr, forbidden_sources),
+        LogicalExpr::Cast {
+            expr, target_dtype, ..
+        } => {
+            parse_core_dtype_label(target_dtype).is_ok()
+                && expr_supported_with_sources(expr, forbidden_sources)
         }
         LogicalExpr::Binary { left, right, .. }
         | LogicalExpr::Compare { left, right, .. }
-        | LogicalExpr::IsDistinctFrom { left, right, .. }
-        | LogicalExpr::Like {
-            expr: left,
-            pattern: right,
-            ..
-        } => {
+        | LogicalExpr::IsDistinctFrom { left, right, .. } => {
             expr_supported_with_sources(left, forbidden_sources)
                 && expr_supported_with_sources(right, forbidden_sources)
+        }
+        LogicalExpr::Like {
+            expr,
+            pattern,
+            case_insensitive,
+            ..
+        } => {
+            !*case_insensitive
+                && expr_supported_with_sources(expr, forbidden_sources)
+                && expr_supported_with_sources(pattern, forbidden_sources)
         }
         LogicalExpr::Between {
             expr, low, high, ..
@@ -824,6 +900,7 @@ pub(super) fn expr_supported_with_sources(
         }
         LogicalExpr::InSubquery { expr, subquery, .. } => {
             !matches!(expr.as_ref(), LogicalExpr::Tuple(_))
+                && in_subquery_projection_admitted(subquery)
                 && expr_supported_with_sources(expr, forbidden_sources)
                 && rel_supported(subquery, forbidden_sources)
         }
@@ -834,18 +911,12 @@ pub(super) fn expr_supported_with_sources(
             operand,
             when_then,
             else_expr,
-        } => {
-            operand
-                .as_deref()
-                .is_none_or(|op| expr_supported_with_sources(op, forbidden_sources))
-                && when_then.iter().all(|(w, t)| {
-                    expr_supported_with_sources(w, forbidden_sources)
-                        && expr_supported_with_sources(t, forbidden_sources)
-                })
-                && else_expr
-                    .as_deref()
-                    .is_none_or(|el| expr_supported_with_sources(el, forbidden_sources))
-        }
+        } => case_expr_supported(
+            operand.as_deref(),
+            when_then,
+            else_expr.as_deref(),
+            forbidden_sources,
+        ),
         LogicalExpr::Function {
             name,
             args,
@@ -869,23 +940,56 @@ pub(super) fn expr_supported_with_sources(
             filter,
             order_by,
             over: None,
-        } => {
-            (!is_agg_name(name) || agg_call_admitted(name, args, *distinct))
-                && args
-                    .iter()
-                    .all(|arg| expr_supported_with_sources(arg, forbidden_sources))
-                && filter
-                    .as_deref()
-                    .is_none_or(|f| expr_supported_with_sources(f, forbidden_sources))
-                && order_by
-                    .iter()
-                    .all(|k| expr_supported_with_sources(&k.expr, forbidden_sources))
-        }
+        } => function_expr_supported(
+            name,
+            args,
+            *distinct,
+            filter.as_deref(),
+            order_by,
+            forbidden_sources,
+        ),
         LogicalExpr::Array(items) => items
             .iter()
             .all(|item| expr_supported_with_sources(item, forbidden_sources)),
         LogicalExpr::Interval { .. } | LogicalExpr::Tuple(_) => false,
     }
+}
+
+fn case_expr_supported(
+    operand: Option<&LogicalExpr>,
+    when_then: &[(LogicalExpr, LogicalExpr)],
+    else_expr: Option<&LogicalExpr>,
+    forbidden_sources: &BTreeSet<String>,
+) -> bool {
+    operand.is_none_or(|op| expr_supported_with_sources(op, forbidden_sources))
+        && when_then.iter().all(|(w, t)| {
+            expr_supported_with_sources(w, forbidden_sources)
+                && expr_supported_with_sources(t, forbidden_sources)
+        })
+        && else_expr.is_none_or(|el| expr_supported_with_sources(el, forbidden_sources))
+}
+
+fn function_expr_supported(
+    name: &str,
+    args: &[LogicalExpr],
+    distinct: bool,
+    filter: Option<&LogicalExpr>,
+    order_by: &[LogicalSortKey],
+    forbidden_sources: &BTreeSet<String>,
+) -> bool {
+    let admitted = if is_agg_name(name) {
+        agg_call_admitted(name, args, distinct)
+    } else {
+        !distinct && filter.is_none() && order_by.is_empty() && canonical_scalar_fn_admitted(name)
+    };
+    admitted
+        && args
+            .iter()
+            .all(|arg| expr_supported_with_sources(arg, forbidden_sources))
+        && filter.is_none_or(|f| expr_supported_with_sources(f, forbidden_sources))
+        && order_by
+            .iter()
+            .all(|k| expr_supported_with_sources(&k.expr, forbidden_sources))
 }
 
 /// Inspects source declarations, bound input usage, nesting depth, and metadata size.
@@ -2815,24 +2919,9 @@ fn collect_expr_aggregates(expr: &LogicalExpr, out: &mut Vec<CollectedAgg>) {
             order_by,
             over,
             ..
-        } => {
-            for arg in args {
-                collect_expr_aggregates(arg, out);
-            }
-            if let Some(f) = filter {
-                collect_expr_aggregates(f, out);
-            }
-            for k in order_by {
-                collect_expr_aggregates(&k.expr, out);
-            }
-            if let Some(spec) = over {
-                for p in &spec.partition_by {
-                    collect_expr_aggregates(p, out);
-                }
-                for k in &spec.order_by {
-                    collect_expr_aggregates(&k.expr, out);
-                }
-            }
+        } => collect_fn_aggregates(args, filter.as_deref(), order_by, over.as_ref(), out),
+        LogicalExpr::InSubquery { expr, .. } => {
+            collect_expr_aggregates(expr, out);
         }
         LogicalExpr::Unary { expr: inner, .. } | LogicalExpr::Cast { expr: inner, .. } => {
             collect_expr_aggregates(inner, out);
@@ -2883,6 +2972,32 @@ fn collect_expr_aggregates(expr: &LogicalExpr, out: &mut Vec<CollectedAgg>) {
             }
         }
         _ => {}
+    }
+}
+
+fn collect_fn_aggregates(
+    args: &[LogicalExpr],
+    filter: Option<&LogicalExpr>,
+    order_by: &[LogicalSortKey],
+    over: Option<&LogicalWindowSpec>,
+    out: &mut Vec<CollectedAgg>,
+) {
+    for arg in args {
+        collect_expr_aggregates(arg, out);
+    }
+    if let Some(f) = filter {
+        collect_expr_aggregates(f, out);
+    }
+    for k in order_by {
+        collect_expr_aggregates(&k.expr, out);
+    }
+    if let Some(spec) = over {
+        for p in &spec.partition_by {
+            collect_expr_aggregates(p, out);
+        }
+        for k in &spec.order_by {
+            collect_expr_aggregates(&k.expr, out);
+        }
     }
 }
 
@@ -3067,19 +3182,16 @@ fn map_logical_children(
             list: list.iter().map(f).collect(),
             negated: *negated,
         },
-        LogicalExpr::Like {
+        LogicalExpr::InSubquery {
             expr,
-            pattern,
-            escape,
+            subquery,
             negated,
-            case_insensitive,
-        } => LogicalExpr::Like {
+        } => LogicalExpr::InSubquery {
             expr: Box::new(f(expr)),
-            pattern: Box::new(f(pattern)),
-            escape: escape.clone(),
+            subquery: subquery.clone(),
             negated: *negated,
-            case_insensitive: *case_insensitive,
         },
+        expr @ LogicalExpr::Like { .. } => map_logical_like(expr, f),
         LogicalExpr::Cast {
             expr,
             target_dtype,
@@ -3089,15 +3201,7 @@ fn map_logical_children(
             target_dtype: target_dtype.clone(),
             try_cast: *try_cast,
         },
-        LogicalExpr::Case {
-            operand,
-            when_then,
-            else_expr,
-        } => LogicalExpr::Case {
-            operand: operand.as_deref().map(f).map(Box::new),
-            when_then: when_then.iter().map(|(w, t)| (f(w), f(t))).collect(),
-            else_expr: else_expr.as_deref().map(f).map(Box::new),
-        },
+        expr @ LogicalExpr::Case { .. } => map_logical_case(expr, f),
         LogicalExpr::Function {
             name,
             args,
@@ -3117,6 +3221,42 @@ fn map_logical_children(
         LogicalExpr::Array(items) => LogicalExpr::Array(items.iter().map(f).collect()),
         LogicalExpr::Tuple(items) => LogicalExpr::Tuple(items.iter().map(f).collect()),
         other => other.clone(),
+    }
+}
+
+fn map_logical_like(expr: &LogicalExpr, f: &dyn Fn(&LogicalExpr) -> LogicalExpr) -> LogicalExpr {
+    let LogicalExpr::Like {
+        expr,
+        pattern,
+        escape,
+        negated,
+        case_insensitive,
+    } = expr
+    else {
+        return expr.clone();
+    };
+    LogicalExpr::Like {
+        expr: Box::new(f(expr)),
+        pattern: Box::new(f(pattern)),
+        escape: escape.clone(),
+        negated: *negated,
+        case_insensitive: *case_insensitive,
+    }
+}
+
+fn map_logical_case(expr: &LogicalExpr, f: &dyn Fn(&LogicalExpr) -> LogicalExpr) -> LogicalExpr {
+    let LogicalExpr::Case {
+        operand,
+        when_then,
+        else_expr,
+    } = expr
+    else {
+        return expr.clone();
+    };
+    LogicalExpr::Case {
+        operand: operand.as_deref().map(f).map(Box::new),
+        when_then: when_then.iter().map(|(w, t)| (f(w), f(t))).collect(),
+        else_expr: else_expr.as_deref().map(f).map(Box::new),
     }
 }
 

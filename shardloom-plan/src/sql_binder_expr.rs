@@ -258,20 +258,20 @@ fn bind_predicate_expr(expr: &SqlExpr, diagnostics: &mut Vec<Diagnostic>) -> Res
             op: UnaryOp::IsNotNull,
             expr: Box::new(bind_ast_expr(inner, diagnostics)?),
         }),
-        SqlExpr::IsTrue(inner) => Ok(LogicalExpr::Compare {
+        SqlExpr::IsTrue(inner) => Ok(LogicalExpr::IsDistinctFrom {
             left: Box::new(bind_ast_expr(inner, diagnostics)?),
-            op: ComparisonOp::Eq,
             right: Box::new(LogicalExpr::Literal(ScalarValue::Boolean(true))),
+            negated: true,
         }),
         SqlExpr::IsNotTrue(inner) => Ok(LogicalExpr::IsDistinctFrom {
             left: Box::new(bind_ast_expr(inner, diagnostics)?),
             right: Box::new(LogicalExpr::Literal(ScalarValue::Boolean(true))),
             negated: false,
         }),
-        SqlExpr::IsFalse(inner) => Ok(LogicalExpr::Compare {
+        SqlExpr::IsFalse(inner) => Ok(LogicalExpr::IsDistinctFrom {
             left: Box::new(bind_ast_expr(inner, diagnostics)?),
-            op: ComparisonOp::Eq,
             right: Box::new(LogicalExpr::Literal(ScalarValue::Boolean(false))),
+            negated: true,
         }),
         SqlExpr::IsNotFalse(inner) => Ok(LogicalExpr::IsDistinctFrom {
             left: Box::new(bind_ast_expr(inner, diagnostics)?),
