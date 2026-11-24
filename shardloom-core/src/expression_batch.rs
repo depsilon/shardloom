@@ -6,9 +6,11 @@
 
 use super::{
     EvalFailure, Expression, ExpressionEvaluationStatus, ExpressionInputRow, ExpressionKind,
-    ScalarValue, cast_eval_value, eval_expression, eval_numeric_binary, i64_to_exact_f64,
-    try_cast_eval_value, u64_to_exact_f64,
+    ScalarValue, cast_eval_value_with_policy, compare_f64_with_policy, eval_compare_with_policy,
+    eval_expression_with_policy, eval_numeric_binary_with_policy, eval_unary_with_policy,
+    i64_to_exact_f64, try_cast_eval_value_with_policy, u64_to_exact_f64,
 };
+use crate::float_policy::canonicalize_f64_result;
 use crate::{BinaryOp, ComparisonOp, FloatPolicy, LogicalDType, Result, ShardLoomError, UnaryOp};
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
@@ -330,7 +332,7 @@ fn eval_batch_inner(
         ExpressionKind::Compare { left, op, right } => {
             let left_col = eval_batch_inner(left, batch, float_policy)?;
             let right_col = eval_batch_inner(right, batch, float_policy)?;
-            eval_compare_batch(&left_col, *op, &right_col)
+            eval_compare_batch(&left_col, *op, &right_col, float_policy)
         }
         ExpressionKind::Cast { expr, target_dtype } => {
             let child = eval_batch_inner(expr, batch, float_policy)?;
@@ -340,19 +342,20 @@ fn eval_batch_inner(
             let child = eval_batch_inner(expr, batch, float_policy)?;
             eval_cast_batch(&child, target_dtype, true, float_policy)
         }
-        _ => eval_scalar_fallback(expression, batch),
+        _ => eval_scalar_fallback(expression, batch, float_policy),
     }
 }
 
 fn eval_scalar_fallback(
     expression: &Expression,
     batch: &ColumnarBatch,
+    float_policy: FloatPolicy,
 ) -> super::EvalResult<ColumnarColumn> {
     let input_rows = batch.to_rows();
     let mut out = Vec::with_capacity(input_rows.len());
     let mut out_dtype = expression.dtype.clone().unwrap_or(LogicalDType::Unknown);
     for row in &input_rows {
-        let evaluated = eval_expression(expression, row)?;
+        let evaluated = eval_expression_with_policy(expression, row, float_policy)?;
         if out_dtype == LogicalDType::Unknown && evaluated.dtype != LogicalDType::Unknown {
             out_dtype = evaluated.dtype;
         }
@@ -492,7 +495,7 @@ fn eval_negate_batch(
                             ),
                         ));
                     }
-                    out.push(-v);
+                    out.push(canonicalize_f64_result(-v));
                 } else {
                     out.push(0.0);
                 }
@@ -518,13 +521,14 @@ fn eval_negate_batch(
             let mut out = Vec::with_capacity(rows);
             let mut out_dtype = LogicalDType::Unknown;
             for row in 0..rows {
-                let evaluated = super::eval_unary(
+                let evaluated = eval_unary_with_policy(
                     UnaryOp::Negate,
                     super::EvalValue::new(
                         other.get(row),
                         other.dtype(),
                         super::NullBehavior::NullAware,
                     ),
+                    float_policy,
                 )?;
                 out_dtype = evaluated.dtype;
                 out.push(evaluated.value);
@@ -724,7 +728,7 @@ fn eval_mixed_or_fallback_binary_batch(
             })?;
             Ok(ColumnarColumn::Float64 { values, valid })
         }
-        _ => eval_binary_fallback(left, op, right),
+        _ => eval_binary_fallback(left, op, right, float_policy),
     }
 }
 
@@ -732,6 +736,7 @@ fn eval_binary_fallback(
     left: &ColumnarColumn,
     op: BinaryOp,
     right: &ColumnarColumn,
+    float_policy: FloatPolicy,
 ) -> super::EvalResult<ColumnarColumn> {
     let rows = left.len();
     let ldtype = left.dtype();
@@ -745,7 +750,7 @@ fn eval_binary_fallback(
         let res = match op {
             BinaryOp::And => super::eval_boolean_and(lv.value, rv.value)?,
             BinaryOp::Or => super::eval_boolean_or(lv.value, rv.value)?,
-            _ => eval_numeric_binary(lv, op, rv)?,
+            _ => eval_numeric_binary_with_policy(lv, op, rv, float_policy)?,
         };
         if out_dtype == LogicalDType::Unknown {
             out_dtype = res.dtype;
@@ -782,6 +787,7 @@ fn eval_compare_batch(
     left: &ColumnarColumn,
     op: ComparisonOp,
     right: &ColumnarColumn,
+    float_policy: FloatPolicy,
 ) -> super::EvalResult<ColumnarColumn> {
     let rows = left.len();
     match (left, right) {
@@ -849,7 +855,7 @@ fn eval_compare_batch(
             let mut valid = Vec::with_capacity(rows);
             for i in 0..rows {
                 if lvalid[i] && rvalid[i] {
-                    values.push(super::compare_f64(lv[i], rv[i], op)?);
+                    values.push(compare_f64_with_policy(lv[i], rv[i], op, float_policy)?);
                     valid.push(true);
                 } else {
                     values.push(false);
@@ -858,7 +864,7 @@ fn eval_compare_batch(
             }
             Ok(ColumnarColumn::Bool { values, valid })
         }
-        _ => eval_compare_fallback(left, op, right),
+        _ => eval_compare_fallback(left, op, right, float_policy),
     }
 }
 
@@ -866,6 +872,7 @@ fn eval_compare_fallback(
     left: &ColumnarColumn,
     op: ComparisonOp,
     right: &ColumnarColumn,
+    float_policy: FloatPolicy,
 ) -> super::EvalResult<ColumnarColumn> {
     let rows = left.len();
     let ldtype = left.dtype();
@@ -876,7 +883,7 @@ fn eval_compare_fallback(
         let lv = super::EvalValue::new(left.get(i), ldtype.clone(), super::NullBehavior::NullAware);
         let rv =
             super::EvalValue::new(right.get(i), rdtype.clone(), super::NullBehavior::NullAware);
-        let res = super::eval_compare(&lv, op, &rv)?;
+        let res = eval_compare_with_policy(&lv, op, &rv, float_policy)?;
         match res.value {
             ScalarValue::Boolean(b) => {
                 values.push(b);
@@ -924,6 +931,16 @@ fn map_checked_slice<I: Copy, O: Default>(
     Ok((out, out_valid))
 }
 
+fn check_float64_cast_operand(value: f64, float_policy: FloatPolicy) -> super::EvalResult<()> {
+    if !float_policy.admits(value) {
+        return Err(EvalFailure::unsupported(
+            "cast",
+            "nonfinite scalar values are not admitted",
+        ));
+    }
+    Ok(())
+}
+
 #[allow(
     clippy::cast_precision_loss,
     clippy::cast_possible_truncation,
@@ -937,6 +954,14 @@ fn eval_cast_batch(
 ) -> super::EvalResult<ColumnarColumn> {
     super::reference_types::cast_type(&child.dtype(), target_dtype)?;
     match (child, target_dtype) {
+        (ColumnarColumn::Float64 { values, valid }, LogicalDType::Float64) => {
+            for (&v, &ok) in values.iter().zip(valid) {
+                if ok {
+                    check_float64_cast_operand(v, float_policy)?;
+                }
+            }
+            Ok(child.clone())
+        }
         (ColumnarColumn::Int64 { values, valid }, LogicalDType::Float64) => {
             Ok(ColumnarColumn::Float64 {
                 values: values.iter().map(|&v| v as f64).collect(),
@@ -951,13 +976,9 @@ fn eval_cast_batch(
         }
         (ColumnarColumn::Float64 { values, valid }, LogicalDType::Int64) => {
             let (out, out_valid) = map_checked_slice(values, valid, tolerant, |v| {
-                if !v.is_finite() {
-                    return Err(EvalFailure::unsupported(
-                        "cast",
-                        "nonfinite scalar values are not admitted",
-                    ));
-                }
-                if v.fract() != 0.0
+                check_float64_cast_operand(v, float_policy)?;
+                if !v.is_finite()
+                    || v.fract() != 0.0
                     || !(-9_223_372_036_854_775_808.0..9_223_372_036_854_775_808.0).contains(&v)
                 {
                     return Err(EvalFailure::invalid(
@@ -974,13 +995,11 @@ fn eval_cast_batch(
         }
         (ColumnarColumn::Float64 { values, valid }, LogicalDType::UInt64) => {
             let (out, out_valid) = map_checked_slice(values, valid, tolerant, |v| {
-                if !v.is_finite() {
-                    return Err(EvalFailure::unsupported(
-                        "cast",
-                        "nonfinite scalar values are not admitted",
-                    ));
-                }
-                if v.fract() != 0.0 || !(0.0..18_446_744_073_709_551_616.0).contains(&v) {
+                check_float64_cast_operand(v, float_policy)?;
+                if !v.is_finite()
+                    || v.fract() != 0.0
+                    || !(0.0..18_446_744_073_709_551_616.0).contains(&v)
+                {
                     return Err(EvalFailure::invalid(
                         "cast",
                         "float64 value is not an integral uint64 in range",
@@ -1033,18 +1052,12 @@ fn eval_cast_fallback(
             super::NullBehavior::NullAware,
         );
         let converted = if tolerant {
-            try_cast_eval_value(&eval_val, target_dtype)?
+            try_cast_eval_value_with_policy(&eval_val, target_dtype, float_policy)?
         } else {
-            cast_eval_value(&eval_val, target_dtype)?
+            cast_eval_value_with_policy(&eval_val, target_dtype, float_policy)?
         };
-        if float_policy == FloatPolicy::Strict
-            && let ScalarValue::Float64(f) = converted.value
-            && !f.is_finite()
-        {
-            return Err(EvalFailure::unsupported(
-                "cast",
-                "nonfinite scalar values are not admitted",
-            ));
+        if let ScalarValue::Float64(f) = converted.value {
+            check_float64_cast_operand(f, float_policy)?;
         }
         out.push(converted.value);
     }
@@ -1094,13 +1107,16 @@ fn eval_f64_scalar(
     right: f64,
     float_policy: FloatPolicy,
 ) -> super::EvalResult<f64> {
-    if !left.is_finite() || !right.is_finite() {
+    if !float_policy.admits(left) || !float_policy.admits(right) {
         return Err(EvalFailure::unsupported(
             "numeric_binary",
             "non-finite float semantics are not admitted by this slice",
         ));
     }
-    if matches!(op, BinaryOp::Divide | BinaryOp::Remainder) && right == 0.0 {
+    if float_policy == FloatPolicy::Strict
+        && matches!(op, BinaryOp::Divide | BinaryOp::Remainder)
+        && right == 0.0
+    {
         return Err(EvalFailure::invalid("divide", "division by zero"));
     }
     let output = match op {
@@ -1117,7 +1133,7 @@ fn eval_f64_scalar(
             "float arithmetic produced a non-finite value",
         ));
     }
-    Ok(output)
+    Ok(canonicalize_f64_result(output))
 }
 
 const fn compare_order_matches(ordering: Ordering, op: ComparisonOp) -> bool {
@@ -1271,5 +1287,364 @@ mod tests {
             },
         );
         assert_parity(&div0, &[r_div0]);
+    }
+
+    fn bin(left: Expression, op: BinaryOp, right: Expression) -> Expression {
+        Expression::new(
+            id("bin"),
+            ExpressionKind::Binary {
+                left: Box::new(left),
+                op,
+                right: Box::new(right),
+            },
+        )
+    }
+
+    fn float_bits(column: &ColumnarColumn) -> Vec<Option<u64>> {
+        column
+            .to_scalars()
+            .into_iter()
+            .map(|value| match value {
+                ScalarValue::Null => None,
+                ScalarValue::Float64(v) => Some(v.to_bits()),
+                other => panic!("expected Float64 or Null, got {other:?}"),
+            })
+            .collect()
+    }
+
+    fn extended_rows() -> Vec<ExpressionInputRow> {
+        let payload_nan = f64::from_bits(0xfff8_0000_0000_1234);
+        let samples = [
+            (Some(f64::INFINITY), Some(2_i64), Some(3_u64), 0.0),
+            (Some(f64::NEG_INFINITY), Some(0), Some(1), -0.0),
+            (Some(payload_nan), Some(4), Some(2), -0.0),
+            (Some(-0.0), Some(5), Some(4), 0.0),
+            (None, Some(1), None, 0.0),
+        ];
+        samples
+            .into_iter()
+            .map(|(f, i, u, zero)| {
+                let mut row = ExpressionInputRow::new();
+                row.insert(
+                    "f".into(),
+                    f.map_or(ScalarValue::Null, ScalarValue::Float64),
+                );
+                row.insert("i".into(), i.map_or(ScalarValue::Null, ScalarValue::Int64));
+                row.insert("u".into(), u.map_or(ScalarValue::Null, ScalarValue::UInt64));
+                row.insert("zero".into(), ScalarValue::Float64(zero));
+                row
+            })
+            .collect()
+    }
+
+    #[test]
+    fn extended_policy_admits_nonfinite_arithmetic_and_canonicalizes_nan() {
+        let canon_nan = crate::float_policy::CANONICAL_F64_NAN_BITS;
+        let batch = ColumnarBatch::from_rows(&extended_rows()).unwrap();
+
+        let add_one = bin(col("f"), BinaryOp::Add, lit(ScalarValue::Float64(1.0)));
+        assert!(matches!(
+            evaluate_expression_batch_with_policy(&add_one, &batch, FloatPolicy::Strict),
+            Err(ShardLoomError::NotImplemented(_))
+        ));
+        let out =
+            evaluate_expression_batch_with_policy(&add_one, &batch, FloatPolicy::Extended).unwrap();
+        assert_eq!(
+            float_bits(&out),
+            vec![
+                Some(f64::INFINITY.to_bits()),
+                Some(f64::NEG_INFINITY.to_bits()),
+                Some(canon_nan),
+                Some(1.0_f64.to_bits()),
+                None,
+            ]
+        );
+
+        let sub_self = bin(col("f"), BinaryOp::Subtract, col("f"));
+        let sub_out =
+            evaluate_expression_batch_with_policy(&sub_self, &batch, FloatPolicy::Extended)
+                .unwrap();
+        assert_eq!(
+            float_bits(&sub_out),
+            vec![
+                Some(canon_nan),
+                Some(canon_nan),
+                Some(canon_nan),
+                Some(0.0_f64.to_bits()),
+                None,
+            ]
+        );
+
+        let div_zero = bin(col("i"), BinaryOp::Divide, col("zero"));
+        assert!(
+            evaluate_expression_batch_with_policy(&div_zero, &batch, FloatPolicy::Strict).is_err()
+        );
+        let div_out =
+            evaluate_expression_batch_with_policy(&div_zero, &batch, FloatPolicy::Extended)
+                .unwrap();
+        assert_eq!(
+            float_bits(&div_out),
+            vec![
+                Some(f64::INFINITY.to_bits()),
+                Some(canon_nan),
+                Some(f64::NEG_INFINITY.to_bits()),
+                Some(f64::INFINITY.to_bits()),
+                Some(f64::INFINITY.to_bits()),
+            ]
+        );
+
+        let mixed_mul = bin(col("u"), BinaryOp::Multiply, col("f"));
+        let mixed_out =
+            evaluate_expression_batch_with_policy(&mixed_mul, &batch, FloatPolicy::Extended)
+                .unwrap();
+        assert_eq!(
+            float_bits(&mixed_out),
+            vec![
+                Some(f64::INFINITY.to_bits()),
+                Some(f64::NEG_INFINITY.to_bits()),
+                Some(canon_nan),
+                Some((-0.0_f64).to_bits()),
+                None,
+            ]
+        );
+    }
+
+    #[test]
+    fn extended_policy_handles_negate_and_comparisons() {
+        let payload_nan_bits = 0xfff8_0000_0000_1234_u64;
+        let canon_nan = crate::float_policy::CANONICAL_F64_NAN_BITS;
+        let batch = ColumnarBatch::from_rows(&extended_rows()).unwrap();
+
+        let neg = Expression::new(
+            id("neg"),
+            ExpressionKind::Unary {
+                op: UnaryOp::Negate,
+                expr: Box::new(col("f")),
+            },
+        );
+        assert!(matches!(
+            evaluate_expression_batch_with_policy(&neg, &batch, FloatPolicy::Strict),
+            Err(ShardLoomError::NotImplemented(_))
+        ));
+        let neg_out =
+            evaluate_expression_batch_with_policy(&neg, &batch, FloatPolicy::Extended).unwrap();
+        assert_eq!(
+            float_bits(&neg_out),
+            vec![
+                Some(f64::NEG_INFINITY.to_bits()),
+                Some(f64::INFINITY.to_bits()),
+                Some(canon_nan),
+                Some((0.0_f64).to_bits()),
+                None,
+            ]
+        );
+
+        let id_cast = Expression::cast(id("id_cast"), col("f"), LogicalDType::Float64);
+        assert!(matches!(
+            evaluate_expression_batch_with_policy(&id_cast, &batch, FloatPolicy::Strict),
+            Err(ShardLoomError::NotImplemented(_))
+        ));
+        let id_out =
+            evaluate_expression_batch_with_policy(&id_cast, &batch, FloatPolicy::Extended).unwrap();
+        assert_eq!(
+            float_bits(&id_out),
+            vec![
+                Some(f64::INFINITY.to_bits()),
+                Some(f64::NEG_INFINITY.to_bits()),
+                Some(payload_nan_bits),
+                Some((-0.0_f64).to_bits()),
+                None,
+            ]
+        );
+
+        let eq_self = Expression::new(
+            id("eq"),
+            ExpressionKind::Compare {
+                left: Box::new(col("f")),
+                op: ComparisonOp::Eq,
+                right: Box::new(col("f")),
+            },
+        );
+        assert!(matches!(
+            evaluate_expression_batch_with_policy(&eq_self, &batch, FloatPolicy::Strict),
+            Err(ShardLoomError::NotImplemented(_))
+        ));
+        assert_eq!(
+            evaluate_expression_batch_with_policy(&eq_self, &batch, FloatPolicy::Extended)
+                .unwrap()
+                .to_scalars(),
+            vec![
+                ScalarValue::Boolean(true),
+                ScalarValue::Boolean(true),
+                ScalarValue::Boolean(true),
+                ScalarValue::Boolean(true),
+                ScalarValue::Null,
+            ]
+        );
+
+        let mixed_lt = Expression::new(
+            id("lt"),
+            ExpressionKind::Compare {
+                left: Box::new(col("i")),
+                op: ComparisonOp::Lt,
+                right: Box::new(col("f")),
+            },
+        );
+        assert_eq!(
+            evaluate_expression_batch_with_policy(&mixed_lt, &batch, FloatPolicy::Extended)
+                .unwrap()
+                .to_scalars(),
+            vec![
+                ScalarValue::Boolean(true),
+                ScalarValue::Boolean(false),
+                ScalarValue::Boolean(true),
+                ScalarValue::Boolean(false),
+                ScalarValue::Null,
+            ]
+        );
+    }
+
+    #[test]
+    fn extended_policy_handles_casts() {
+        let batch = ColumnarBatch::from_rows(&extended_rows()).unwrap();
+
+        let try_int = Expression::try_cast(id("ti"), col("f"), LogicalDType::Int64);
+        assert!(matches!(
+            evaluate_expression_batch_with_policy(&try_int, &batch, FloatPolicy::Strict),
+            Err(ShardLoomError::NotImplemented(_))
+        ));
+        assert_eq!(
+            evaluate_expression_batch_with_policy(&try_int, &batch, FloatPolicy::Extended)
+                .unwrap()
+                .to_scalars(),
+            vec![
+                ScalarValue::Null,
+                ScalarValue::Null,
+                ScalarValue::Null,
+                ScalarValue::Int64(0),
+                ScalarValue::Null,
+            ]
+        );
+        let strict_int = Expression::cast(id("si"), col("f"), LogicalDType::Int64);
+        assert!(matches!(
+            evaluate_expression_batch_with_policy(&strict_int, &batch, FloatPolicy::Extended),
+            Err(ShardLoomError::InvalidOperation(_))
+        ));
+
+        let to_utf8 = Expression::cast(id("u8"), col("f"), LogicalDType::Utf8);
+        assert_eq!(
+            evaluate_expression_batch_with_policy(&to_utf8, &batch, FloatPolicy::Extended)
+                .unwrap()
+                .to_scalars(),
+            vec![
+                ScalarValue::Utf8("inf".to_string()),
+                ScalarValue::Utf8("-inf".to_string()),
+                ScalarValue::Utf8("NaN".to_string()),
+                ScalarValue::Utf8("-0".to_string()),
+                ScalarValue::Null,
+            ]
+        );
+
+        let parse_inf = Expression::cast(
+            id("pinf"),
+            lit(ScalarValue::Utf8("inf".into())),
+            LogicalDType::Float64,
+        );
+        assert!(
+            evaluate_expression_batch_with_policy(&parse_inf, &batch, FloatPolicy::Strict).is_err()
+        );
+        assert_eq!(
+            float_bits(
+                &evaluate_expression_batch_with_policy(&parse_inf, &batch, FloatPolicy::Extended)
+                    .unwrap()
+            ),
+            vec![Some(f64::INFINITY.to_bits()); 5]
+        );
+    }
+
+    #[test]
+    fn extended_policy_handles_scalar_fallbacks() {
+        let payload_nan_bits = 0xfff8_0000_0000_1234_u64;
+        let canon_nan = crate::float_policy::CANONICAL_F64_NAN_BITS;
+        let batch = ColumnarBatch::from_rows(&extended_rows()).unwrap();
+        let fn_call = |name: &str, args: Vec<Expression>| {
+            Expression::new(
+                id(name),
+                ExpressionKind::FunctionCall {
+                    name: name.to_string(),
+                    args,
+                },
+            )
+        };
+        assert_eq!(
+            float_bits(
+                &evaluate_expression_batch_with_policy(
+                    &fn_call("abs", vec![col("f")]),
+                    &batch,
+                    FloatPolicy::Extended
+                )
+                .unwrap()
+            ),
+            vec![
+                Some(f64::INFINITY.to_bits()),
+                Some(f64::INFINITY.to_bits()),
+                Some(canon_nan),
+                Some(0.0_f64.to_bits()),
+                None,
+            ]
+        );
+        assert_eq!(
+            evaluate_expression_batch_with_policy(
+                &fn_call("signbit", vec![col("f")]),
+                &batch,
+                FloatPolicy::Extended
+            )
+            .unwrap()
+            .to_scalars(),
+            vec![
+                ScalarValue::Boolean(false),
+                ScalarValue::Boolean(true),
+                ScalarValue::Boolean(true),
+                ScalarValue::Boolean(true),
+                ScalarValue::Null,
+            ]
+        );
+        assert_eq!(
+            float_bits(
+                &evaluate_expression_batch_with_policy(
+                    &fn_call(
+                        "nullif",
+                        vec![col("f"), lit(ScalarValue::Float64(f64::NAN))]
+                    ),
+                    &batch,
+                    FloatPolicy::Extended,
+                )
+                .unwrap()
+            ),
+            vec![
+                Some(f64::INFINITY.to_bits()),
+                Some(f64::NEG_INFINITY.to_bits()),
+                None,
+                Some((-0.0_f64).to_bits()),
+                None,
+            ]
+        );
+        let coal = fn_call(
+            "coalesce",
+            vec![col("f"), lit(ScalarValue::Float64(f64::INFINITY))],
+        );
+        assert_eq!(
+            float_bits(
+                &evaluate_expression_batch_with_policy(&coal, &batch, FloatPolicy::Extended)
+                    .unwrap()
+            ),
+            vec![
+                Some(f64::INFINITY.to_bits()),
+                Some(f64::NEG_INFINITY.to_bits()),
+                Some(payload_nan_bits),
+                Some((-0.0_f64).to_bits()),
+                Some(f64::INFINITY.to_bits()),
+            ]
+        );
     }
 }

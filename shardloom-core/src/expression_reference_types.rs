@@ -11,9 +11,11 @@ pub(super) fn conditional(
     name: &str,
     expressions: &[Expression],
     row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
 ) -> EvalResult<LogicalDType> {
     let mut resolver = Resolver {
         row,
+        float_policy,
         remaining: 4095,
     };
     resolver.function(name, expressions, 0)
@@ -80,6 +82,7 @@ pub(super) fn cast_type(source: &LogicalDType, target: &LogicalDType) -> EvalRes
 
 struct Resolver<'a> {
     row: &'a ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
     remaining: usize,
 }
 
@@ -102,7 +105,7 @@ impl Resolver<'_> {
                     } => {
                         decimal128_checked_operand(*value, *precision, *scale)?;
                     }
-                    ScalarValue::Float64(value) if !value.is_finite() => {
+                    ScalarValue::Float64(value) if !self.float_policy.admits(*value) => {
                         return Err(EvalFailure::unsupported(
                             "literal",
                             "nonfinite scalar values are not admitted",

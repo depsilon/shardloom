@@ -758,6 +758,14 @@ pub fn evaluate_limit(input_row_count: usize, limit: usize) -> LimitEvaluationRe
 }
 
 fn eval_expression(expression: &Expression, row: &ExpressionInputRow) -> EvalResult<EvalValue> {
+    eval_expression_with_policy(expression, row, crate::FloatPolicy::Strict)
+}
+
+fn eval_expression_with_policy(
+    expression: &Expression,
+    row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
+) -> EvalResult<EvalValue> {
     match &expression.kind {
         ExpressionKind::Literal(value) => Ok(EvalValue::new(
             value.clone(),
@@ -785,32 +793,34 @@ fn eval_expression(expression: &Expression, row: &ExpressionInputRow) -> EvalRes
                     ),
                 )
             }),
-        ExpressionKind::List { values } => eval_list(values, row),
-        ExpressionKind::Struct { fields } => eval_struct(fields, row),
-        ExpressionKind::Alias { expr, .. } => eval_expression(expr, row),
+        ExpressionKind::List { values } => eval_list(values, row, float_policy),
+        ExpressionKind::Struct { fields } => eval_struct(fields, row, float_policy),
+        ExpressionKind::Alias { expr, .. } => eval_expression_with_policy(expr, row, float_policy),
         ExpressionKind::Cast { expr, target_dtype } => {
-            let value = eval_expression(expr, row)?;
-            cast_eval_value(&value, target_dtype)
+            let value = eval_expression_with_policy(expr, row, float_policy)?;
+            cast_eval_value_with_policy(&value, target_dtype, float_policy)
         }
         ExpressionKind::TryCast { expr, target_dtype } => {
-            let value = eval_expression(expr, row)?;
-            try_cast_eval_value(&value, target_dtype)
+            let value = eval_expression_with_policy(expr, row, float_policy)?;
+            try_cast_eval_value_with_policy(&value, target_dtype, float_policy)
         }
         ExpressionKind::Unary { op, expr } => {
-            let value = eval_expression(expr, row)?;
-            eval_unary(*op, value)
+            let value = eval_expression_with_policy(expr, row, float_policy)?;
+            eval_unary_with_policy(*op, value, float_policy)
         }
         ExpressionKind::Binary { left, op, right } => {
-            let left = eval_expression(left, row)?;
-            let right = eval_expression(right, row)?;
-            eval_binary(left, *op, right)
+            let left = eval_expression_with_policy(left, row, float_policy)?;
+            let right = eval_expression_with_policy(right, row, float_policy)?;
+            eval_binary_with_policy(left, *op, right, float_policy)
         }
         ExpressionKind::Compare { left, op, right } => {
-            let left = eval_expression(left, row)?;
-            let right = eval_expression(right, row)?;
-            eval_compare(&left, *op, &right)
+            let left = eval_expression_with_policy(left, row, float_policy)?;
+            let right = eval_expression_with_policy(right, row, float_policy)?;
+            eval_compare_with_policy(&left, *op, &right, float_policy)
         }
-        ExpressionKind::FunctionCall { name, args } => eval_function_call(name, args, row),
+        ExpressionKind::FunctionCall { name, args } => {
+            eval_function_call(name, args, row, float_policy)
+        }
         ExpressionKind::RelationalValue { .. } => Err(EvalFailure::unsupported(
             "relational_value",
             "relational value requires native query binding before expression evaluation",
@@ -821,11 +831,15 @@ fn eval_expression(expression: &Expression, row: &ExpressionInputRow) -> EvalRes
     }
 }
 
-fn eval_list(values: &[Expression], row: &ExpressionInputRow) -> EvalResult<EvalValue> {
+fn eval_list(
+    values: &[Expression],
+    row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
+) -> EvalResult<EvalValue> {
     let mut evaluated = Vec::with_capacity(values.len());
     let mut data_materialized = false;
     for value in values {
-        let value = eval_expression(value, row)?;
+        let value = eval_expression_with_policy(value, row, float_policy)?;
         data_materialized |= value.data_materialized;
         evaluated.push(value.value);
     }
@@ -837,11 +851,15 @@ fn eval_list(values: &[Expression], row: &ExpressionInputRow) -> EvalResult<Eval
     .carry_materialization(data_materialized))
 }
 
-fn eval_struct(fields: &[(String, Expression)], row: &ExpressionInputRow) -> EvalResult<EvalValue> {
+fn eval_struct(
+    fields: &[(String, Expression)],
+    row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
+) -> EvalResult<EvalValue> {
     let mut evaluated = Vec::with_capacity(fields.len());
     let mut data_materialized = false;
     for (name, expression) in fields {
-        let value = eval_expression(expression, row)?;
+        let value = eval_expression_with_policy(expression, row, float_policy)?;
         data_materialized |= value.data_materialized;
         evaluated.push((name.clone(), value.value));
     }
@@ -853,7 +871,11 @@ fn eval_struct(fields: &[(String, Expression)], row: &ExpressionInputRow) -> Eva
     .carry_materialization(data_materialized))
 }
 
-fn eval_unary(op: UnaryOp, value: EvalValue) -> EvalResult<EvalValue> {
+fn eval_unary_with_policy(
+    op: UnaryOp,
+    value: EvalValue,
+    float_policy: crate::FloatPolicy,
+) -> EvalResult<EvalValue> {
     let data_materialized = value.data_materialized;
     let result = match op {
         UnaryOp::IsNull => Ok(EvalValue::new(
@@ -913,8 +935,8 @@ fn eval_unary(op: UnaryOp, value: EvalValue) -> EvalResult<EvalValue> {
                 LogicalDType::Int64,
                 NullBehavior::NullPropagating,
             )),
-            ScalarValue::Float64(v) if v.is_finite() => Ok(EvalValue::new(
-                ScalarValue::Float64(-v),
+            ScalarValue::Float64(v) if float_policy.admits(v) => Ok(EvalValue::new(
+                ScalarValue::Float64(crate::float_policy::canonicalize_f64_result(-v)),
                 LogicalDType::Float64,
                 NullBehavior::NullPropagating,
             )),
@@ -937,7 +959,12 @@ fn eval_unary(op: UnaryOp, value: EvalValue) -> EvalResult<EvalValue> {
     Ok(result.carry_materialization(data_materialized))
 }
 
-fn eval_binary(left: EvalValue, op: BinaryOp, right: EvalValue) -> EvalResult<EvalValue> {
+fn eval_binary_with_policy(
+    left: EvalValue,
+    op: BinaryOp,
+    right: EvalValue,
+    float_policy: crate::FloatPolicy,
+) -> EvalResult<EvalValue> {
     let data_materialized = left.data_materialized || right.data_materialized;
     match op {
         BinaryOp::And => eval_boolean_and(left.value, right.value),
@@ -946,7 +973,7 @@ fn eval_binary(left: EvalValue, op: BinaryOp, right: EvalValue) -> EvalResult<Ev
         | BinaryOp::Subtract
         | BinaryOp::Multiply
         | BinaryOp::Divide
-        | BinaryOp::Remainder => eval_numeric_binary(left, op, right),
+        | BinaryOp::Remainder => eval_numeric_binary_with_policy(left, op, right, float_policy),
     }
     .map(|value| value.carry_materialization(data_materialized))
 }
@@ -955,6 +982,7 @@ fn eval_function_call(
     name: &str,
     args: &[Expression],
     row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
 ) -> EvalResult<EvalValue> {
     let definition = builtins::scalar(name)
         .filter(|definition| definition.reference_supported)
@@ -978,69 +1006,69 @@ fn eval_function_call(
     match definition.name {
         "decimal_rescale" | "decimal_add" | "decimal_subtract" | "decimal_multiply"
         | "decimal_divide" => explicit_decimal::evaluate(definition.name, args, row),
-        "starts_with" => {
-            eval_string_predicate(name, args, row, |value, needle| value.starts_with(needle))
-        }
-        "contains" => {
-            eval_string_predicate(name, args, row, |value, needle| value.contains(needle))
-        }
-        "ends_with" => {
-            eval_string_predicate(name, args, row, |value, needle| value.ends_with(needle))
-        }
-        "regex_match" => eval_string_regex_predicate(name, args, row),
-        "lower" => eval_string_transform(name, args, row, str::to_lowercase),
-        "upper" => eval_string_transform(name, args, row, str::to_uppercase),
-        "trim" => eval_string_transform(name, args, row, |value| value.trim().to_string()),
-        "length" => eval_string_length(name, args, row),
-        "byte_length" => eval_binary_byte_length(name, args, row),
-        "concat" => eval_string_concat(name, args, row),
-        "substr" => eval_string_substr(name, args, row),
-        "left" => eval_string_left_right(name, args, row, false),
-        "right" => eval_string_left_right(name, args, row, true),
-        "replace" => eval_string_replace(name, args, row),
-        "unhex" => eval_binary_unhex(name, args, row),
-        "from_base64" => eval_binary_from_base64(name, args, row),
-        "abs" => eval_numeric_abs(name, args, row),
+        "starts_with" => eval_string_predicate(name, args, row, float_policy, |value, needle| {
+            value.starts_with(needle)
+        }),
+        "contains" => eval_string_predicate(name, args, row, float_policy, |value, needle| {
+            value.contains(needle)
+        }),
+        "ends_with" => eval_string_predicate(name, args, row, float_policy, |value, needle| {
+            value.ends_with(needle)
+        }),
+        "regex_match" => eval_string_regex_predicate(name, args, row, float_policy),
+        "lower" => eval_string_transform(name, args, row, float_policy, str::to_lowercase),
+        "upper" => eval_string_transform(name, args, row, float_policy, str::to_uppercase),
+        "trim" => eval_string_transform(name, args, row, float_policy, |v| v.trim().to_string()),
+        "length" => eval_string_length(name, args, row, float_policy),
+        "byte_length" => eval_binary_byte_length(name, args, row, float_policy),
+        "concat" => eval_string_concat(name, args, row, float_policy),
+        "substr" => eval_string_substr(name, args, row, float_policy),
+        "left" => eval_string_left_right(name, args, row, float_policy, false),
+        "right" => eval_string_left_right(name, args, row, float_policy, true),
+        "replace" => eval_string_replace(name, args, row, float_policy),
+        "unhex" => eval_binary_unhex(name, args, row, float_policy),
+        "from_base64" => eval_binary_from_base64(name, args, row, float_policy),
+        "abs" => eval_numeric_abs(name, args, row, float_policy),
         "is_nan" | "is_infinite" | "is_finite" | "signbit" => {
-            eval_float_classification(definition.name, args, row)
+            eval_float_classification(definition.name, args, row, float_policy)
         }
-        "floor" => eval_numeric_rounding(name, args, row, f64::floor),
-        "ceil" => eval_numeric_rounding(name, args, row, f64::ceil),
-        "round" => eval_numeric_rounding(name, args, row, f64::round),
-        "date_year" => eval_date_extract(name, args, row, date32_year),
-        "date_month" => eval_date_extract(name, args, row, |days| {
+        "floor" => eval_numeric_rounding(name, args, row, float_policy, f64::floor),
+        "ceil" => eval_numeric_rounding(name, args, row, float_policy, f64::ceil),
+        "round" => eval_numeric_rounding(name, args, row, float_policy, f64::round),
+        "date_year" => eval_date_extract(name, args, row, float_policy, date32_year),
+        "date_month" => eval_date_extract(name, args, row, float_policy, |days| {
             i32::try_from(date32_month(days)).expect("month fits i32")
         }),
-        "date_day" => eval_date_extract(name, args, row, |days| {
+        "date_day" => eval_date_extract(name, args, row, float_policy, |days| {
             i32::try_from(date32_day(days)).expect("day fits i32")
         }),
-        "timestamp_year" => eval_timestamp_extract(name, args, row, |micros| {
-            i64::from(timestamp_micros_year(micros))
+        "timestamp_year" => eval_timestamp_extract(name, args, row, float_policy, |m| {
+            i64::from(timestamp_micros_year(m))
         }),
-        "timestamp_month" => eval_timestamp_extract(name, args, row, |micros| {
-            timestamp_micros_month(micros).into()
+        "timestamp_month" => eval_timestamp_extract(name, args, row, float_policy, |m| {
+            timestamp_micros_month(m).into()
         }),
-        "timestamp_day" => eval_timestamp_extract(name, args, row, |micros| {
-            timestamp_micros_day(micros).into()
+        "timestamp_day" => eval_timestamp_extract(name, args, row, float_policy, |m| {
+            timestamp_micros_day(m).into()
         }),
-        "timestamp_hour" => eval_timestamp_extract(name, args, row, |micros| {
-            timestamp_micros_hour(micros).into()
+        "timestamp_hour" => eval_timestamp_extract(name, args, row, float_policy, |m| {
+            timestamp_micros_hour(m).into()
         }),
-        "timestamp_minute" => eval_timestamp_extract(name, args, row, |micros| {
-            timestamp_micros_minute(micros).into()
+        "timestamp_minute" => eval_timestamp_extract(name, args, row, float_policy, |m| {
+            timestamp_micros_minute(m).into()
         }),
-        "timestamp_second" => eval_timestamp_extract(name, args, row, |micros| {
-            timestamp_micros_second(micros).into()
+        "timestamp_second" => eval_timestamp_extract(name, args, row, float_policy, |m| {
+            timestamp_micros_second(m).into()
         }),
-        "date_add_days" => eval_date_add_days(name, args, row, 1),
-        "date_sub_days" => eval_date_add_days(name, args, row, -1),
-        "timestamp_add_seconds" => eval_timestamp_add_seconds(name, args, row, 1),
-        "timestamp_sub_seconds" => eval_timestamp_add_seconds(name, args, row, -1),
-        "date_diff_days" => eval_date_diff_days(name, args, row),
-        "timestamp_diff_seconds" => eval_timestamp_diff_seconds(name, args, row),
-        "coalesce" => eval_coalesce(name, args, row),
-        "nullif" => eval_nullif(name, args, row),
-        "case_when" => eval_case_when(name, args, row),
+        "date_add_days" => eval_date_add_days(name, args, row, float_policy, 1),
+        "date_sub_days" => eval_date_add_days(name, args, row, float_policy, -1),
+        "timestamp_add_seconds" => eval_timestamp_add_seconds(name, args, row, float_policy, 1),
+        "timestamp_sub_seconds" => eval_timestamp_add_seconds(name, args, row, float_policy, -1),
+        "date_diff_days" => eval_date_diff_days(name, args, row, float_policy),
+        "timestamp_diff_seconds" => eval_timestamp_diff_seconds(name, args, row, float_policy),
+        "coalesce" => eval_coalesce(name, args, row, float_policy),
+        "nullif" => eval_nullif(name, args, row, float_policy),
+        "case_when" => eval_case_when(name, args, row, float_policy),
         _ => Err(EvalFailure::unsupported(
             "function_call",
             format!("function {name:?} is not admitted by the current native semantics baseline"),
@@ -1052,6 +1080,7 @@ fn eval_coalesce(
     name: &str,
     args: &[Expression],
     row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
 ) -> EvalResult<EvalValue> {
     if !(1..=128).contains(&args.len()) {
         return Err(EvalFailure::invalid(
@@ -1059,41 +1088,48 @@ fn eval_coalesce(
             format!("function {name:?} requires 1 through 128 arguments"),
         ));
     }
-    let dtype = reference_types::conditional(name, args, row)?;
+    let dtype = reference_types::conditional(name, args, row, float_policy)?;
     let mut data_materialized = false;
     for arg in args {
-        let value = eval_expression(arg, row)?;
+        let value = eval_expression_with_policy(arg, row, float_policy)?;
         data_materialized |= value.data_materialized;
         if !value.value.is_null() {
-            return Ok(cast_eval_value(&value, &dtype)?.carry_materialization(data_materialized));
+            return Ok(cast_eval_value_with_policy(&value, &dtype, float_policy)?
+                .carry_materialization(data_materialized));
         }
     }
     Ok(EvalValue::null(dtype, NullBehavior::NullAware).carry_materialization(data_materialized))
 }
 
-fn eval_nullif(name: &str, args: &[Expression], row: &ExpressionInputRow) -> EvalResult<EvalValue> {
+fn eval_nullif(
+    name: &str,
+    args: &[Expression],
+    row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
+) -> EvalResult<EvalValue> {
     if args.len() != 2 {
         return Err(EvalFailure::invalid(
             "nullif_projection",
             format!("function {name:?} requires exactly two arguments"),
         ));
     }
-    let value = eval_expression(&args[0], row)?;
-    let sentinel = eval_expression(&args[1], row)?;
+    let value = eval_expression_with_policy(&args[0], row, float_policy)?;
+    let sentinel = eval_expression_with_policy(&args[1], row, float_policy)?;
     let data_materialized = value.data_materialized || sentinel.data_materialized;
     if value.value.is_null() || sentinel.value.is_null() {
         return Ok(value.carry_materialization(data_materialized));
     }
-    let equals = match eval_compare(&value, ComparisonOp::Eq, &sentinel)?.value {
-        ScalarValue::Boolean(result) => result,
-        ScalarValue::Null => false,
-        other => {
-            return Err(EvalFailure::unsupported(
-                "nullif_projection",
-                format!("function {name:?} equality comparison returned {other:?}"),
-            ));
-        }
-    };
+    let equals =
+        match eval_compare_with_policy(&value, ComparisonOp::Eq, &sentinel, float_policy)?.value {
+            ScalarValue::Boolean(result) => result,
+            ScalarValue::Null => false,
+            other => {
+                return Err(EvalFailure::unsupported(
+                    "nullif_projection",
+                    format!("function {name:?} equality comparison returned {other:?}"),
+                ));
+            }
+        };
     if equals {
         Ok(EvalValue::null(value.dtype, NullBehavior::NullAware)
             .carry_materialization(data_materialized))
@@ -1106,6 +1142,7 @@ fn eval_case_when(
     name: &str,
     args: &[Expression],
     row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
 ) -> EvalResult<EvalValue> {
     if args.len() != 3 {
         return Err(EvalFailure::invalid(
@@ -1113,12 +1150,14 @@ fn eval_case_when(
             format!("function {name:?} requires exactly three arguments"),
         ));
     }
-    let dtype = reference_types::conditional(name, args, row)?;
-    let predicate = eval_expression(&args[0], row)?;
+    let dtype = reference_types::conditional(name, args, row, float_policy)?;
+    let predicate = eval_expression_with_policy(&args[0], row, float_policy)?;
     let predicate_materialized = predicate.data_materialized;
     let selected = match predicate.value {
-        ScalarValue::Boolean(true) => eval_expression(&args[1], row)?,
-        ScalarValue::Boolean(false) | ScalarValue::Null => eval_expression(&args[2], row)?,
+        ScalarValue::Boolean(true) => eval_expression_with_policy(&args[1], row, float_policy)?,
+        ScalarValue::Boolean(false) | ScalarValue::Null => {
+            eval_expression_with_policy(&args[2], row, float_policy)?
+        }
         other => {
             return Err(EvalFailure::unsupported(
                 "conditional_projection",
@@ -1133,13 +1172,17 @@ fn eval_case_when(
     if dtype == LogicalDType::Unknown {
         return Ok(selected.carry_materialization(data_materialized));
     }
-    Ok(cast_eval_value(&selected, &dtype)?.carry_materialization(data_materialized))
+    Ok(
+        cast_eval_value_with_policy(&selected, &dtype, float_policy)?
+            .carry_materialization(data_materialized),
+    )
 }
 
 fn eval_timestamp_extract(
     name: &str,
     args: &[Expression],
     row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
     extract: impl FnOnce(i64) -> i64,
 ) -> EvalResult<EvalValue> {
     if args.len() != 1 {
@@ -1148,7 +1191,7 @@ fn eval_timestamp_extract(
             format!("function {name:?} requires exactly one TimestampMicros argument"),
         ));
     }
-    let value = eval_expression(&args[0], row)?;
+    let value = eval_expression_with_policy(&args[0], row, float_policy)?;
     let data_materialized = value.data_materialized;
     match value.value {
         ScalarValue::Null => Ok(EvalValue::null(
@@ -1176,6 +1219,7 @@ fn eval_date_add_days(
     name: &str,
     args: &[Expression],
     row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
     multiplier: i32,
 ) -> EvalResult<EvalValue> {
     if args.len() != 2 {
@@ -1184,8 +1228,8 @@ fn eval_date_add_days(
             format!("function {name:?} requires Date32 and integer day-count arguments"),
         ));
     }
-    let value = eval_expression(&args[0], row)?;
-    let days = eval_expression(&args[1], row)?;
+    let value = eval_expression_with_policy(&args[0], row, float_policy)?;
+    let days = eval_expression_with_policy(&args[1], row, float_policy)?;
     let data_materialized = value.data_materialized || days.data_materialized;
     if value.value.is_null() || days.value.is_null() {
         return Ok(
@@ -1219,6 +1263,7 @@ fn eval_timestamp_add_seconds(
     name: &str,
     args: &[Expression],
     row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
     multiplier: i64,
 ) -> EvalResult<EvalValue> {
     if args.len() != 2 {
@@ -1229,8 +1274,8 @@ fn eval_timestamp_add_seconds(
             ),
         ));
     }
-    let value = eval_expression(&args[0], row)?;
-    let seconds = eval_expression(&args[1], row)?;
+    let value = eval_expression_with_policy(&args[0], row, float_policy)?;
+    let seconds = eval_expression_with_policy(&args[1], row, float_policy)?;
     let data_materialized = value.data_materialized || seconds.data_materialized;
     if value.value.is_null() || seconds.value.is_null() {
         return Ok(
@@ -1275,6 +1320,7 @@ fn eval_date_diff_days(
     name: &str,
     args: &[Expression],
     row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
 ) -> EvalResult<EvalValue> {
     if args.len() != 2 {
         return Err(EvalFailure::invalid(
@@ -1282,8 +1328,8 @@ fn eval_date_diff_days(
             format!("function {name:?} requires exactly two Date32 arguments"),
         ));
     }
-    let left = eval_expression(&args[0], row)?;
-    let right = eval_expression(&args[1], row)?;
+    let left = eval_expression_with_policy(&args[0], row, float_policy)?;
+    let right = eval_expression_with_policy(&args[1], row, float_policy)?;
     let data_materialized = left.data_materialized || right.data_materialized;
     if left.value.is_null() || right.value.is_null() {
         return Ok(
@@ -1316,6 +1362,7 @@ fn eval_timestamp_diff_seconds(
     name: &str,
     args: &[Expression],
     row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
 ) -> EvalResult<EvalValue> {
     if args.len() != 2 {
         return Err(EvalFailure::invalid(
@@ -1323,8 +1370,8 @@ fn eval_timestamp_diff_seconds(
             format!("function {name:?} requires exactly two TimestampMicros arguments"),
         ));
     }
-    let left = eval_expression(&args[0], row)?;
-    let right = eval_expression(&args[1], row)?;
+    let left = eval_expression_with_policy(&args[0], row, float_policy)?;
+    let right = eval_expression_with_policy(&args[1], row, float_policy)?;
     let data_materialized = left.data_materialized || right.data_materialized;
     if left.value.is_null() || right.value.is_null() {
         return Ok(
@@ -1356,6 +1403,7 @@ fn eval_date_extract(
     name: &str,
     args: &[Expression],
     row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
     extract: impl FnOnce(i32) -> i32,
 ) -> EvalResult<EvalValue> {
     if args.len() != 1 {
@@ -1364,7 +1412,7 @@ fn eval_date_extract(
             format!("function {name:?} requires exactly one Date32 argument"),
         ));
     }
-    let value = eval_expression(&args[0], row)?;
+    let value = eval_expression_with_policy(&args[0], row, float_policy)?;
     let data_materialized = value.data_materialized;
     match value.value {
         ScalarValue::Null => Ok(EvalValue::null(
@@ -1392,6 +1440,7 @@ fn eval_string_transform(
     name: &str,
     args: &[Expression],
     row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
     transform: impl FnOnce(&str) -> String,
 ) -> EvalResult<EvalValue> {
     if args.len() != 1 {
@@ -1400,7 +1449,7 @@ fn eval_string_transform(
             format!("function {name:?} requires exactly one UTF-8 argument"),
         ));
     }
-    let value = eval_expression(&args[0], row)?;
+    let value = eval_expression_with_policy(&args[0], row, float_policy)?;
     let data_materialized = value.data_materialized;
     match value.value {
         ScalarValue::Null => Ok(
@@ -1427,6 +1476,7 @@ fn eval_string_length(
     name: &str,
     args: &[Expression],
     row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
 ) -> EvalResult<EvalValue> {
     if args.len() != 1 {
         return Err(EvalFailure::invalid(
@@ -1434,7 +1484,7 @@ fn eval_string_length(
             format!("function {name:?} requires exactly one UTF-8 argument"),
         ));
     }
-    let value = eval_expression(&args[0], row)?;
+    let value = eval_expression_with_policy(&args[0], row, float_policy)?;
     let data_materialized = value.data_materialized;
     match value.value {
         ScalarValue::Null => Ok(EvalValue::null(
@@ -1470,6 +1520,7 @@ fn eval_binary_byte_length(
     name: &str,
     args: &[Expression],
     row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
 ) -> EvalResult<EvalValue> {
     if args.len() != 1 {
         return Err(EvalFailure::invalid(
@@ -1477,7 +1528,7 @@ fn eval_binary_byte_length(
             format!("function {name:?} requires exactly one binary or UTF-8 argument"),
         ));
     }
-    let value = eval_expression(&args[0], row)?;
+    let value = eval_expression_with_policy(&args[0], row, float_policy)?;
     let data_materialized = value.data_materialized;
     let length = match value.value {
         ScalarValue::Null => {
@@ -1516,6 +1567,7 @@ fn eval_string_concat(
     name: &str,
     args: &[Expression],
     row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
 ) -> EvalResult<EvalValue> {
     if args.len() < 2 {
         return Err(EvalFailure::invalid(
@@ -1523,7 +1575,7 @@ fn eval_string_concat(
             format!("function {name:?} requires at least two UTF-8 arguments"),
         ));
     }
-    let (values, data_materialized) = eval_function_args(args, row)?;
+    let (values, data_materialized) = eval_function_args_with_policy(args, row, float_policy)?;
     if let Some(other) = values
         .iter()
         .find(|value| !matches!(value, ScalarValue::Utf8(_) | ScalarValue::Null))
@@ -1569,6 +1621,7 @@ fn eval_string_substr(
     name: &str,
     args: &[Expression],
     row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
 ) -> EvalResult<EvalValue> {
     if args.len() != 3 {
         return Err(EvalFailure::invalid(
@@ -1578,7 +1631,7 @@ fn eval_string_substr(
             ),
         ));
     }
-    let (values, data_materialized) = eval_function_args(args, row)?;
+    let (values, data_materialized) = eval_function_args_with_policy(args, row, float_policy)?;
     if !matches!(values[0], ScalarValue::Utf8(_) | ScalarValue::Null)
         || !matches!(
             values[1],
@@ -1655,6 +1708,7 @@ fn eval_string_left_right(
     name: &str,
     args: &[Expression],
     row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
     from_right: bool,
 ) -> EvalResult<EvalValue> {
     if args.len() != 2 {
@@ -1663,7 +1717,7 @@ fn eval_string_left_right(
             format!("function {name:?} requires UTF-8 and integer count arguments"),
         ));
     }
-    let (values, data_materialized) = eval_function_args(args, row)?;
+    let (values, data_materialized) = eval_function_args_with_policy(args, row, float_policy)?;
     if !matches!(values[0], ScalarValue::Utf8(_) | ScalarValue::Null)
         || !matches!(
             values[1],
@@ -1727,6 +1781,7 @@ fn eval_string_replace(
     name: &str,
     args: &[Expression],
     row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
 ) -> EvalResult<EvalValue> {
     if args.len() != 3 {
         return Err(EvalFailure::invalid(
@@ -1734,7 +1789,7 @@ fn eval_string_replace(
             format!("function {name:?} requires exactly three UTF-8 arguments"),
         ));
     }
-    let (values, data_materialized) = eval_function_args(args, row)?;
+    let (values, data_materialized) = eval_function_args_with_policy(args, row, float_policy)?;
     if !values
         .iter()
         .all(|value| matches!(value, ScalarValue::Utf8(_) | ScalarValue::Null))
@@ -1788,19 +1843,29 @@ fn eval_binary_unhex(
     name: &str,
     args: &[Expression],
     row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
 ) -> EvalResult<EvalValue> {
-    eval_binary_utf8_decode(name, args, row, "binary_unhex", decode_hex_bytes)
+    eval_binary_utf8_decode(
+        name,
+        args,
+        row,
+        float_policy,
+        "binary_unhex",
+        decode_hex_bytes,
+    )
 }
 
 fn eval_binary_from_base64(
     name: &str,
     args: &[Expression],
     row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
 ) -> EvalResult<EvalValue> {
     eval_binary_utf8_decode(
         name,
         args,
         row,
+        float_policy,
         "binary_from_base64",
         decode_standard_base64,
     )
@@ -1810,6 +1875,7 @@ fn eval_binary_utf8_decode(
     name: &str,
     args: &[Expression],
     row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
     feature: &'static str,
     decode: fn(&str) -> std::result::Result<Vec<u8>, &'static str>,
 ) -> EvalResult<EvalValue> {
@@ -1819,7 +1885,7 @@ fn eval_binary_utf8_decode(
             format!("function {name:?} requires exactly one UTF-8 argument"),
         ));
     }
-    let value = eval_expression(&args[0], row)?;
+    let value = eval_expression_with_policy(&args[0], row, float_policy)?;
     let data_materialized = value.data_materialized;
     match value.value {
         ScalarValue::Null => Ok(EvalValue::null(
@@ -1943,10 +2009,18 @@ fn eval_function_args(
     args: &[Expression],
     row: &ExpressionInputRow,
 ) -> EvalResult<(Vec<ScalarValue>, bool)> {
+    eval_function_args_with_policy(args, row, crate::FloatPolicy::Strict)
+}
+
+fn eval_function_args_with_policy(
+    args: &[Expression],
+    row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
+) -> EvalResult<(Vec<ScalarValue>, bool)> {
     let mut data_materialized = false;
     let mut values = Vec::with_capacity(args.len());
     for arg in args {
-        let value = eval_expression(arg, row)?;
+        let value = eval_expression_with_policy(arg, row, float_policy)?;
         data_materialized |= value.data_materialized;
         values.push(value.value);
     }
@@ -1957,8 +2031,9 @@ fn eval_float_classification(
     name: &str,
     args: &[Expression],
     row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
 ) -> EvalResult<EvalValue> {
-    let input = eval_expression(&args[0], row)?;
+    let input = eval_expression_with_policy(&args[0], row, float_policy)?;
     let value = match input.value {
         ScalarValue::Null => ScalarValue::Null,
         ScalarValue::Float64(value) => ScalarValue::Boolean(match name {
@@ -1985,6 +2060,7 @@ fn eval_numeric_abs(
     name: &str,
     args: &[Expression],
     row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
 ) -> EvalResult<EvalValue> {
     if args.len() != 1 {
         return Err(EvalFailure::invalid(
@@ -1992,7 +2068,7 @@ fn eval_numeric_abs(
             format!("function {name:?} requires exactly one numeric argument"),
         ));
     }
-    let value = eval_expression(&args[0], row)?;
+    let value = eval_expression_with_policy(&args[0], row, float_policy)?;
     let data_materialized = value.data_materialized;
     match value.value {
         ScalarValue::Null => Ok(EvalValue::null(
@@ -2017,8 +2093,8 @@ fn eval_numeric_abs(
             NullBehavior::NullPropagating,
         )
         .carry_materialization(data_materialized)),
-        ScalarValue::Float64(value) if value.is_finite() => Ok(EvalValue::new(
-            ScalarValue::Float64(value.abs()),
+        ScalarValue::Float64(value) if float_policy.admits(value) => Ok(EvalValue::new(
+            ScalarValue::Float64(crate::float_policy::canonicalize_f64_result(value.abs())),
             LogicalDType::Float64,
             NullBehavior::NullPropagating,
         )
@@ -2045,6 +2121,7 @@ fn eval_numeric_rounding(
     name: &str,
     args: &[Expression],
     row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
     op: impl FnOnce(f64) -> f64,
 ) -> EvalResult<EvalValue> {
     if args.len() != 1 {
@@ -2053,7 +2130,7 @@ fn eval_numeric_rounding(
             format!("function {name:?} requires exactly one numeric argument"),
         ));
     }
-    let value = eval_expression(&args[0], row)?;
+    let value = eval_expression_with_policy(&args[0], row, float_policy)?;
     let data_materialized = value.data_materialized;
     match value.value {
         ScalarValue::Null => {
@@ -2073,8 +2150,8 @@ fn eval_numeric_rounding(
             NullBehavior::NullPropagating,
         )
         .carry_materialization(data_materialized)),
-        ScalarValue::Float64(value) if value.is_finite() => Ok(EvalValue::new(
-            ScalarValue::Float64(op(value)),
+        ScalarValue::Float64(value) if float_policy.admits(value) => Ok(EvalValue::new(
+            ScalarValue::Float64(crate::float_policy::canonicalize_f64_result(op(value))),
             LogicalDType::Float64,
             NullBehavior::NullPropagating,
         )
@@ -2106,6 +2183,7 @@ fn eval_string_predicate(
     name: &str,
     args: &[Expression],
     row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
     predicate: impl FnOnce(&str, &str) -> bool,
 ) -> EvalResult<EvalValue> {
     if args.len() != 2 {
@@ -2114,8 +2192,8 @@ fn eval_string_predicate(
             format!("function {name:?} requires exactly two UTF-8 arguments"),
         ));
     }
-    let value = eval_expression(&args[0], row)?;
-    let needle = eval_expression(&args[1], row)?;
+    let value = eval_expression_with_policy(&args[0], row, float_policy)?;
+    let needle = eval_expression_with_policy(&args[1], row, float_policy)?;
     let data_materialized = value.data_materialized || needle.data_materialized;
     if !matches!(value.value, ScalarValue::Utf8(_) | ScalarValue::Null)
         || !matches!(needle.value, ScalarValue::Utf8(_) | ScalarValue::Null)
@@ -2157,6 +2235,7 @@ fn eval_string_regex_predicate(
     name: &str,
     args: &[Expression],
     row: &ExpressionInputRow,
+    float_policy: crate::FloatPolicy,
 ) -> EvalResult<EvalValue> {
     if args.len() != 2 {
         return Err(EvalFailure::invalid(
@@ -2164,8 +2243,8 @@ fn eval_string_regex_predicate(
             format!("function {name:?} requires exactly two UTF-8 arguments"),
         ));
     }
-    let value = eval_expression(&args[0], row)?;
-    let pattern = eval_expression(&args[1], row)?;
+    let value = eval_expression_with_policy(&args[0], row, float_policy)?;
+    let pattern = eval_expression_with_policy(&args[1], row, float_policy)?;
     let data_materialized = value.data_materialized || pattern.data_materialized;
     if !matches!(value.value, ScalarValue::Utf8(_) | ScalarValue::Null)
         || !matches!(pattern.value, ScalarValue::Utf8(_) | ScalarValue::Null)
@@ -2263,7 +2342,12 @@ fn eval_boolean_or(left: ScalarValue, right: ScalarValue) -> EvalResult<EvalValu
     ))
 }
 
-fn eval_numeric_binary(left: EvalValue, op: BinaryOp, right: EvalValue) -> EvalResult<EvalValue> {
+fn eval_numeric_binary_with_policy(
+    left: EvalValue,
+    op: BinaryOp,
+    right: EvalValue,
+    float_policy: crate::FloatPolicy,
+) -> EvalResult<EvalValue> {
     if left.value.is_null() || right.value.is_null() {
         return Ok(EvalValue::null(
             numeric_output_dtype(&left, op, &right)?,
@@ -2277,19 +2361,19 @@ fn eval_numeric_binary(left: EvalValue, op: BinaryOp, right: EvalValue) -> EvalR
         (ScalarValue::Int64(left), ScalarValue::Int64(right)) => eval_i64_binary(left, op, right),
         (ScalarValue::UInt64(left), ScalarValue::UInt64(right)) => eval_u64_binary(left, op, right),
         (ScalarValue::Float64(left), ScalarValue::Float64(right)) => {
-            eval_f64_binary(left, op, right)
+            eval_f64_binary_with_policy(left, op, right, float_policy)
         }
         (ScalarValue::Int64(left), ScalarValue::Float64(right)) => {
-            eval_f64_binary(i64_to_exact_f64(left)?, op, right)
+            eval_f64_binary_with_policy(i64_to_exact_f64(left)?, op, right, float_policy)
         }
         (ScalarValue::Float64(left), ScalarValue::Int64(right)) => {
-            eval_f64_binary(left, op, i64_to_exact_f64(right)?)
+            eval_f64_binary_with_policy(left, op, i64_to_exact_f64(right)?, float_policy)
         }
         (ScalarValue::UInt64(left), ScalarValue::Float64(right)) => {
-            eval_f64_binary(u64_to_exact_f64(left)?, op, right)
+            eval_f64_binary_with_policy(u64_to_exact_f64(left)?, op, right, float_policy)
         }
         (ScalarValue::Float64(left), ScalarValue::UInt64(right)) => {
-            eval_f64_binary(left, op, u64_to_exact_f64(right)?)
+            eval_f64_binary_with_policy(left, op, u64_to_exact_f64(right)?, float_policy)
         }
         (left, right) => Err(EvalFailure::unsupported(
             "numeric_binary",
@@ -2717,14 +2801,22 @@ fn eval_u64_binary(left: u64, op: BinaryOp, right: u64) -> EvalResult<EvalValue>
     ))
 }
 
-fn eval_f64_binary(left: f64, op: BinaryOp, right: f64) -> EvalResult<EvalValue> {
-    if !left.is_finite() || !right.is_finite() {
+fn eval_f64_binary_with_policy(
+    left: f64,
+    op: BinaryOp,
+    right: f64,
+    float_policy: crate::FloatPolicy,
+) -> EvalResult<EvalValue> {
+    if !float_policy.admits(left) || !float_policy.admits(right) {
         return Err(EvalFailure::unsupported(
             "numeric_binary",
             "non-finite float semantics are not admitted by this slice",
         ));
     }
-    if matches!(op, BinaryOp::Divide | BinaryOp::Remainder) && right == 0.0 {
+    if float_policy == crate::FloatPolicy::Strict
+        && matches!(op, BinaryOp::Divide | BinaryOp::Remainder)
+        && right == 0.0
+    {
         return Err(EvalFailure::invalid("divide", "division by zero"));
     }
     let output = match op {
@@ -2735,14 +2827,14 @@ fn eval_f64_binary(left: f64, op: BinaryOp, right: f64) -> EvalResult<EvalValue>
         BinaryOp::Remainder => left % right,
         BinaryOp::And | BinaryOp::Or => unreachable!("boolean ops handled before numeric binary"),
     };
-    if !output.is_finite() {
+    if !float_policy.admits(output) {
         return Err(EvalFailure::invalid(
             "numeric_binary",
             "float arithmetic produced a non-finite value",
         ));
     }
     Ok(EvalValue::new(
-        ScalarValue::Float64(output),
+        ScalarValue::Float64(crate::float_policy::canonicalize_f64_result(output)),
         LogicalDType::Float64,
         NullBehavior::NullPropagating,
     ))
@@ -2828,7 +2920,12 @@ fn decimal128_operand_from_eval_value(value: &EvalValue) -> EvalResult<Option<De
 }
 
 #[allow(clippy::match_same_arms)]
-fn eval_compare(left: &EvalValue, op: ComparisonOp, right: &EvalValue) -> EvalResult<EvalValue> {
+fn eval_compare_with_policy(
+    left: &EvalValue,
+    op: ComparisonOp,
+    right: &EvalValue,
+    float_policy: crate::FloatPolicy,
+) -> EvalResult<EvalValue> {
     let data_materialized = left.data_materialized || right.data_materialized;
     if left.value.is_null() || right.value.is_null() {
         return Ok(
@@ -2855,13 +2952,13 @@ fn eval_compare(left: &EvalValue, op: ComparisonOp, right: &EvalValue) -> EvalRe
             compare_ordering(i128::from(*left).cmp(&i128::from(*right)), op, "")?
         }
         (ScalarValue::Float64(left), ScalarValue::Float64(right)) => {
-            compare_f64(*left, *right, op)?
+            compare_f64_with_policy(*left, *right, op, float_policy)?
         }
         (ScalarValue::Int64(left), ScalarValue::Float64(right)) => {
-            compare_f64(i64_to_exact_f64(*left)?, *right, op)?
+            compare_f64_with_policy(i64_to_exact_f64(*left)?, *right, op, float_policy)?
         }
         (ScalarValue::Float64(left), ScalarValue::Int64(right)) => {
-            compare_f64(*left, i64_to_exact_f64(*right)?, op)?
+            compare_f64_with_policy(*left, i64_to_exact_f64(*right)?, op, float_policy)?
         }
         (ScalarValue::Utf8(left), ScalarValue::Utf8(right)) => {
             compare_ordering(left.cmp(right), op, "")?
@@ -2895,20 +2992,21 @@ fn eval_compare(left: &EvalValue, op: ComparisonOp, right: &EvalValue) -> EvalRe
     .carry_materialization(data_materialized))
 }
 
-fn compare_f64(left: f64, right: f64, op: ComparisonOp) -> EvalResult<bool> {
-    if !left.is_finite() || !right.is_finite() {
+fn compare_f64_with_policy(
+    left: f64,
+    right: f64,
+    op: ComparisonOp,
+    float_policy: crate::FloatPolicy,
+) -> EvalResult<bool> {
+    if !float_policy.admits(left) || !float_policy.admits(right) {
         return Err(EvalFailure::unsupported(
             "float_comparison",
             "non-finite float comparison semantics are not admitted by this slice",
         ));
     }
-    let Some(ordering) = left.partial_cmp(&right) else {
-        return Err(EvalFailure::unsupported(
-            "float_comparison",
-            "unordered float comparison is not admitted by this slice",
-        ));
-    };
-    compare_ordering(ordering, op, "")
+    let normalized_left = f64::from_bits(crate::float_policy::float_key_bits(left));
+    let normalized_right = f64::from_bits(crate::float_policy::float_key_bits(right));
+    compare_ordering(normalized_left.total_cmp(&normalized_right), op, "")
 }
 
 fn scalar_pair_has_decimal128(left: &ScalarValue, right: &ScalarValue) -> bool {
@@ -3016,11 +3114,16 @@ fn bool_ordering(left: bool, right: bool) -> std::cmp::Ordering {
     left.cmp(&right)
 }
 
-fn scalar_binary_cast(value: &ScalarValue) -> Option<ScalarValue> {
+fn scalar_binary_cast(
+    value: &ScalarValue,
+    float_policy: crate::FloatPolicy,
+) -> Option<ScalarValue> {
     let bytes = match value {
         ScalarValue::Int64(value) => value.to_string().into_bytes(),
         ScalarValue::UInt64(value) => value.to_string().into_bytes(),
-        ScalarValue::Float64(value) if value.is_finite() => value.to_string().into_bytes(),
+        ScalarValue::Float64(value) if float_policy.admits(*value) => {
+            value.to_string().into_bytes()
+        }
         ScalarValue::Boolean(value) => value.to_string().into_bytes(),
         ScalarValue::Utf8(value) => value.as_bytes().to_vec(),
         ScalarValue::Decimal128 { value, scale, .. } => {
@@ -3274,6 +3377,7 @@ fn decimal128_from_scalar(
     source: &ScalarValue,
     precision: u8,
     scale: u8,
+    float_policy: crate::FloatPolicy,
 ) -> EvalResult<ScalarValue> {
     if let ScalarValue::Decimal128 {
         value,
@@ -3294,7 +3398,7 @@ fn decimal128_from_scalar(
         ScalarValue::Utf8(value) => value.clone(),
         ScalarValue::Int64(value) => value.to_string(),
         ScalarValue::UInt64(value) => value.to_string(),
-        ScalarValue::Float64(value) if value.is_finite() => value.to_string(),
+        ScalarValue::Float64(value) if float_policy.admits(*value) => value.to_string(),
         other => {
             return Err(EvalFailure::unsupported(
                 "cast",
@@ -3342,10 +3446,14 @@ pub fn format_decimal128_value(value: i128, scale: u8) -> String {
     clippy::cast_sign_loss,
     clippy::too_many_lines
 )]
-fn cast_eval_value(value: &EvalValue, target_dtype: &LogicalDType) -> EvalResult<EvalValue> {
+fn cast_eval_value_with_policy(
+    value: &EvalValue,
+    target_dtype: &LogicalDType,
+    float_policy: crate::FloatPolicy,
+) -> EvalResult<EvalValue> {
     let data_materialized = value.data_materialized;
     reference_types::cast_type(&value.dtype, target_dtype)?;
-    if matches!(value.value, ScalarValue::Float64(value) if !value.is_finite()) {
+    if matches!(value.value, ScalarValue::Float64(value) if !float_policy.admits(value)) {
         return Err(EvalFailure::unsupported(
             "cast",
             "nonfinite scalar values are not admitted",
@@ -3358,7 +3466,7 @@ fn cast_eval_value(value: &EvalValue, target_dtype: &LogicalDType) -> EvalResult
         );
     }
     if let Some((precision, scale)) = decimal128_dtype_parts(target_dtype) {
-        let casted = decimal128_from_scalar(&value.value, precision, scale)?;
+        let casted = decimal128_from_scalar(&value.value, precision, scale, float_policy)?;
         return Ok(
             EvalValue::new(casted, target_dtype.clone(), NullBehavior::NullPropagating)
                 .carry_materialization(data_materialized),
@@ -3378,7 +3486,8 @@ fn cast_eval_value(value: &EvalValue, target_dtype: &LogicalDType) -> EvalResult
         ),
         (ScalarValue::Float64(value), LogicalDType::Int64) => {
             // i64::MAX as f64 rounds up to 2^63, so the upper bound is exclusive.
-            if value.fract() != 0.0
+            if !value.is_finite()
+                || value.fract() != 0.0
                 || !(-9_223_372_036_854_775_808.0..9_223_372_036_854_775_808.0).contains(value)
             {
                 return Err(EvalFailure::invalid(
@@ -3389,7 +3498,10 @@ fn cast_eval_value(value: &EvalValue, target_dtype: &LogicalDType) -> EvalResult
             ScalarValue::Int64(*value as i64)
         }
         (ScalarValue::Float64(value), LogicalDType::UInt64) => {
-            if value.fract() != 0.0 || !(0.0..18_446_744_073_709_551_616.0).contains(value) {
+            if !value.is_finite()
+                || value.fract() != 0.0
+                || !(0.0..18_446_744_073_709_551_616.0).contains(value)
+            {
                 return Err(EvalFailure::invalid(
                     "cast",
                     "float64 value is not an integral uint64 in range",
@@ -3431,7 +3543,7 @@ fn cast_eval_value(value: &EvalValue, target_dtype: &LogicalDType) -> EvalResult
         (ScalarValue::Decimal128 { value, scale, .. }, LogicalDType::Float64) => {
             ScalarValue::Float64(*value as f64 / 10f64.powi(i32::from(*scale)))
         }
-        (ScalarValue::Float64(value), LogicalDType::Utf8) if value.is_finite() => {
+        (ScalarValue::Float64(value), LogicalDType::Utf8) if float_policy.admits(*value) => {
             ScalarValue::Utf8(value.to_string())
         }
         (ScalarValue::Boolean(value), LogicalDType::Utf8) => ScalarValue::Utf8(value.to_string()),
@@ -3441,16 +3553,18 @@ fn cast_eval_value(value: &EvalValue, target_dtype: &LogicalDType) -> EvalResult
         (ScalarValue::TimestampMicros(value), LogicalDType::Utf8) => {
             ScalarValue::Utf8(format_iso_timestamp_micros(*value))
         }
-        (source, LogicalDType::Binary) => scalar_binary_cast(source).ok_or_else(|| {
-            EvalFailure::unsupported(
-                "cast",
-                format!(
-                    "cast from {} to {} is not admitted by this slice",
-                    source.dtype().as_str(),
-                    target_dtype.as_str()
-                ),
-            )
-        })?,
+        (source, LogicalDType::Binary) => {
+            scalar_binary_cast(source, float_policy).ok_or_else(|| {
+                EvalFailure::unsupported(
+                    "cast",
+                    format!(
+                        "cast from {} to {} is not admitted by this slice",
+                        source.dtype().as_str(),
+                        target_dtype.as_str()
+                    ),
+                )
+            })?
+        }
         (ScalarValue::Date32(value), LogicalDType::TimestampMicros) => {
             ScalarValue::TimestampMicros(
                 date32_timestamp_micros(*value)
@@ -3487,7 +3601,8 @@ fn cast_eval_value(value: &EvalValue, target_dtype: &LogicalDType) -> EvalResult
             let parsed = value.parse::<f64>().map_err(|_| {
                 EvalFailure::invalid("cast", "utf8 value cannot be parsed as float64")
             })?;
-            if !parsed.is_finite() {
+            let parsed = crate::float_policy::canonicalize_f64_result(parsed);
+            if !float_policy.admits(parsed) {
                 return Err(EvalFailure::invalid(
                     "cast",
                     "utf8 value parsed as non-finite float64",
@@ -3524,9 +3639,13 @@ fn cast_eval_value(value: &EvalValue, target_dtype: &LogicalDType) -> EvalResult
     )
 }
 
-fn try_cast_eval_value(value: &EvalValue, target_dtype: &LogicalDType) -> EvalResult<EvalValue> {
+fn try_cast_eval_value_with_policy(
+    value: &EvalValue,
+    target_dtype: &LogicalDType,
+    float_policy: crate::FloatPolicy,
+) -> EvalResult<EvalValue> {
     let data_materialized = value.data_materialized;
-    match cast_eval_value(value, target_dtype) {
+    match cast_eval_value_with_policy(value, target_dtype, float_policy) {
         Ok(mut casted) => {
             casted.null_behavior = NullBehavior::NullAware;
             Ok(casted)
