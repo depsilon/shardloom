@@ -282,3 +282,34 @@ fn relational_candidate_detects_table_functions_and_nested_subqueries() {
         "SELECT id, amount FROM 'in.vortex' WHERE amount > 0 LIMIT 5"
     ));
 }
+
+#[test]
+fn binds_window_over_grouped_aggregate_named_window_and_exclude_frame() {
+    let plan = bind_sql(
+        "SELECT grp, SUM(amount) AS total, RANK() OVER (ORDER BY SUM(amount) DESC) AS rk, SUM(SUM(amount)) OVER w AS running FROM 'sales.vortex' GROUP BY grp WINDOW w AS (ORDER BY SUM(amount) DESC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW EXCLUDE CURRENT ROW)",
+    )
+    .expect("window over aggregate + named window + exclude binds");
+
+    let LogicalRelation::Project { input, .. } = &plan.root else {
+        panic!("expected Project root");
+    };
+    let LogicalRelation::Window {
+        input: win_in,
+        windows,
+    } = input.as_ref()
+    else {
+        panic!("expected Window wrapping Aggregate");
+    };
+    assert!(
+        matches!(win_in.as_ref(), LogicalRelation::Aggregate { aggregates, .. } if !aggregates.is_empty())
+    );
+    assert_eq!(windows.len(), 2);
+    assert_eq!(
+        windows[1]
+            .1
+            .frame
+            .as_ref()
+            .and_then(|f| f.exclusion.as_deref()),
+        Some("CURRENT ROW")
+    );
+}

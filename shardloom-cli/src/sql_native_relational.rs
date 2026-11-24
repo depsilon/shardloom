@@ -172,10 +172,26 @@ fn prepare_with_owner(
             .map_err(|_| unsupported_sql_error("SQL parser metadata size overflow"))?,
     )?;
     parameters::validate(raw, &BTreeMap::<String, Expression>::new())?;
+    let canonical_candidate = canonical::parse_canonical_plan(raw);
+    if let Some(bound) = canonical_candidate
+        .as_ref()
+        .filter(|bound| canonical::prefers_canonical_lowering(bound, &[]))
+    {
+        return prepare_canonical_with_owner(
+            bound,
+            policy,
+            session,
+            parser_bytes,
+            &mut metadata,
+            inputs,
+            &mut resolve_source,
+            cancellation,
+        );
+    }
     let parsed = match parsed_native_query(raw) {
         Ok(parsed) => parsed,
         Err(legacy_err) => {
-            let Some(bound) = canonical::parse_canonical_plan(raw) else {
+            let Some(bound) = canonical_candidate else {
                 return Err(legacy_err);
             };
             return prepare_canonical_with_owner(

@@ -496,3 +496,331 @@ fn canonical_bound_parameters_and_inputs_execute_through_declaration() {
         .collect();
     assert_eq!(rows, vec![json!({"k": 1, "total": 115})]);
 }
+
+struct CanonicalTempDir(PathBuf);
+
+impl CanonicalTempDir {
+    fn new(prefix: &str) -> Self {
+        let dir = std::env::temp_dir().join(format!(
+            "shardloom-canon-{prefix}-{}-{}",
+            std::process::id(),
+            std::thread::current().name().unwrap_or("test")
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        Self(dir)
+    }
+
+    fn path(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for CanonicalTempDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+#[test]
+fn canonical_ast_bound_windows_frames_named_exclude_and_over_group_by() {
+    let dir = CanonicalTempDir::new("win");
+    let path = dir.path().join("events.parquet");
+    let batch = batch_i64_str(
+        &[
+            ("id", vec![Some(1), Some(2), Some(3), Some(4)]),
+            ("val", vec![Some(10), Some(20), Some(15), Some(30)]),
+        ],
+        &[("grp", vec![Some("a"), Some("a"), Some("b"), Some("b")])],
+    );
+    write_parquet_rows(&path, &batch, 4);
+
+    let win_sql = format!(
+        "SELECT id, grp, \
+         ROW_NUMBER() OVER w AS rn, \
+         RANK() OVER w AS rnk, \
+         DENSE_RANK() OVER w AS drnk, \
+         NTILE(2) OVER w AS nt, \
+         LAG(val, 1) OVER w AS prev_val, \
+         LEAD(val, 1) OVER w AS next_val, \
+         FIRST_VALUE(val) OVER (PARTITION BY grp ORDER BY id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS fv, \
+         LAST_VALUE(val) OVER (PARTITION BY grp ORDER BY id ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) AS lv, \
+         NTH_VALUE(val, 2) OVER (PARTITION BY grp ORDER BY id ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS nv, \
+         SUM(val) OVER (PARTITION BY grp ORDER BY id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING EXCLUDE CURRENT ROW) AS excl_sum, \
+         COUNT(*) OVER (PARTITION BY grp ORDER BY val RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS rng_cnt, \
+         SUM(val) OVER (PARTITION BY grp ORDER BY id GROUPS BETWEEN 1 PRECEDING AND CURRENT ROW) AS grp_sum \
+         FROM '{}' \
+         WINDOW w AS (PARTITION BY grp ORDER BY id) \
+         ORDER BY id",
+        path.display()
+    );
+    assert!(canonical::parse_canonical_plan(&win_sql).is_some());
+    let rows = collect_rows(&prepare_file_sql(&win_sql));
+    assert_eq!(rows.len(), 4);
+    assert_eq!(rows[0]["rn"], json!(1));
+    assert_eq!(rows[0]["nt"], json!(1));
+    assert_eq!(rows[0]["prev_val"], Value::Null);
+    assert_eq!(rows[0]["next_val"], json!(20));
+    assert_eq!(rows[0]["excl_sum"], json!(20.0));
+    assert_eq!(rows[1]["rn"], json!(2));
+    assert_eq!(rows[1]["prev_val"], json!(10));
+    assert_eq!(rows[1]["next_val"], Value::Null);
+    assert_eq!(rows[1]["excl_sum"], json!(10.0));
+    assert_eq!(rows[1]["nv"], json!(20));
+    assert_eq!(rows[1]["grp_sum"], json!(30.0));
+
+    let group_win_sql = format!(
+        "SELECT grp, SUM(val) AS total, RANK() OVER (ORDER BY SUM(val) DESC) AS total_rank \
+         FROM '{}' GROUP BY grp ORDER BY total_rank, grp",
+        path.display()
+    );
+    assert!(canonical::parse_canonical_plan(&group_win_sql).is_some());
+    let group_rows = collect_rows(&prepare_file_sql(&group_win_sql));
+    assert_eq!(
+        group_rows,
+        vec![
+            json!({"grp": "b", "total": 45.0, "total_rank": 1}),
+            json!({"grp": "a", "total": 30.0, "total_rank": 2}),
+        ]
+    );
+}
+
+#[test]
+fn canonical_uncapped_set_operations_above_10k_rows_and_distinct_ops() {
+    let dir = CanonicalTempDir::new("setops");
+    let a_path = dir.path().join("set_a.parquet");
+    let b_path = dir.path().join("set_b.parquet");
+    let a_ids: Vec<Option<i64>> = (0..6000).map(Some).collect();
+    let b_ids: Vec<Option<i64>> = (5000..11000).map(Some).collect();
+    write_parquet_rows(&a_path, &batch_i64(&[("id", a_ids)]), 2048);
+    write_parquet_rows(&b_path, &batch_i64(&[("id", b_ids)]), 2048);
+
+    let union_all_sql = format!(
+        "SELECT id FROM '{}' UNION ALL SELECT id FROM '{}'",
+        a_path.display(),
+        b_path.display()
+    );
+    assert!(canonical::parse_canonical_plan(&union_all_sql).is_some());
+    let all_rows = collect_rows(&prepare_file_sql(&union_all_sql));
+    assert_eq!(all_rows.len(), 12_000);
+
+    let s1_path = dir.path().join("s1.parquet");
+    let s2_path = dir.path().join("s2.parquet");
+    write_parquet_rows(
+        &s1_path,
+        &batch_i64(&[("id", vec![Some(1), Some(2), Some(2), Some(3)])]),
+        4,
+    );
+    write_parquet_rows(
+        &s2_path,
+        &batch_i64(&[("id", vec![Some(2), Some(3), Some(3), Some(4)])]),
+        4,
+    );
+    for (op, expected) in [
+        ("UNION", vec![json!(1), json!(2), json!(3), json!(4)]),
+        ("INTERSECT", vec![json!(2), json!(3)]),
+        ("EXCEPT", vec![json!(1)]),
+    ] {
+        let sql = format!(
+            "SELECT id FROM '{}' {op} SELECT id FROM '{}'",
+            s1_path.display(),
+            s2_path.display()
+        );
+        assert!(canonical::parse_canonical_plan(&sql).is_some());
+        let mut vals: Vec<i64> = collect_rows(&prepare_file_sql(&sql))
+            .into_iter()
+            .map(|r| r["id"].as_i64().unwrap())
+            .collect();
+        vals.sort_unstable();
+        let expected_ints: Vec<i64> = expected.iter().map(|v| v.as_i64().unwrap()).collect();
+        assert_eq!(vals, expected_ints, "failed for {op}");
+    }
+}
+
+#[test]
+fn canonical_multi_ref_cte_materializes_shared_plan_and_respects_not_materialized() {
+    let dir = CanonicalTempDir::new("cte");
+    let path = dir.path().join("cte_src.parquet");
+    write_parquet_rows(
+        &path,
+        &batch_i64(&[
+            ("k", vec![Some(1), Some(2), Some(3), Some(4)]),
+            ("v", vec![Some(10), Some(20), Some(30), Some(40)]),
+        ]),
+        4,
+    );
+    let token = CancellationToken::default();
+
+    let mat_sql = format!(
+        "WITH c AS (SELECT k, v FROM '{}' WHERE v >= 20) \
+         SELECT a.k AS k, a.v + b.v AS paired \
+         FROM c AS a INNER JOIN c AS b ON a.k = b.k ORDER BY a.k",
+        path.display()
+    );
+    assert!(canonical::prefers_canonical_lowering(
+        canonical::parse_canonical_plan(&mat_sql)
+            .as_deref()
+            .unwrap(),
+        &[]
+    ));
+    let (_session_m, prep_m) = prepare_file_sql(&mat_sql);
+    let res_m = prep_m.collect_jsonl(&token).unwrap();
+    let rows_m: Vec<Value> = res_m
+        .result_jsonl
+        .value()
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    assert_eq!(
+        rows_m,
+        vec![
+            json!({"k": 2, "paired": 40}),
+            json!({"k": 3, "paired": 60}),
+            json!({"k": 4, "paired": 80}),
+        ]
+    );
+    assert_eq!(res_m.execution.composition.materialized_relations, 1);
+    assert_eq!(res_m.execution.composition.materialized_reuses, 1);
+    assert!(res_m.execution.scan_rows_delivered > 0);
+
+    let unmat_sql = format!(
+        "WITH c AS NOT MATERIALIZED (SELECT k, v FROM '{}' WHERE v >= 20) \
+         SELECT a.k, a.v + b.v AS paired \
+         FROM c AS a INNER JOIN c AS b ON a.k = b.k ORDER BY a.k",
+        path.display()
+    );
+    let (_session_u, prep_u) = prepare_file_sql(&unmat_sql);
+    let res_u = prep_u.collect_jsonl(&token).unwrap();
+    assert_eq!(res_u.execution.composition.materialized_relations, 0);
+    assert_eq!(
+        res_m.execution.scan_rows_delivered * 2,
+        res_u.execution.scan_rows_delivered
+    );
+}
+
+fn write_part_lineitem_subquery_fixtures(dir: &CanonicalTempDir) -> (PathBuf, PathBuf) {
+    let parts_path = dir.path().join("part.parquet");
+    let lines_path = dir.path().join("lineitem.parquet");
+    write_parquet_rows(
+        &parts_path,
+        &batch_i64(&[
+            ("p_partkey", vec![Some(1), Some(2), Some(3), None]),
+            ("p_tag", vec![Some(10), Some(20), Some(30), Some(40)]),
+        ]),
+        4,
+    );
+    write_parquet_rows(
+        &lines_path,
+        &batch_i64(&[
+            (
+                "l_partkey",
+                vec![Some(1), Some(1), Some(1), Some(2), Some(2), None],
+            ),
+            (
+                "l_quantity",
+                vec![Some(2), Some(10), Some(18), Some(5), Some(35), Some(100)],
+            ),
+            (
+                "l_extendedprice",
+                vec![
+                    Some(20),
+                    Some(100),
+                    Some(180),
+                    Some(50),
+                    Some(350),
+                    Some(999),
+                ],
+            ),
+        ]),
+        6,
+    );
+    (parts_path, lines_path)
+}
+
+#[test]
+fn canonical_decorrelated_subqueries_exists_in_q17_and_correlated_scalar() {
+    let dir = CanonicalTempDir::new("subquery");
+    let (parts_path, lines_path) = write_part_lineitem_subquery_fixtures(&dir);
+
+    // 1. Decorrelated TPC-H Q17-style correlated scalar aggregate comparison.
+    let q17_sql = format!(
+        "SELECT p_partkey, SUM(l_extendedprice) AS total_price \
+         FROM '{}' AS p INNER JOIN '{}' AS l ON p.p_partkey = l.l_partkey \
+         WHERE l.l_quantity < (SELECT 1 * AVG(l2.l_quantity) FROM '{}' AS l2 WHERE l2.l_partkey = p.p_partkey) \
+         GROUP BY p_partkey ORDER BY p_partkey",
+        parts_path.display(),
+        lines_path.display(),
+        lines_path.display()
+    );
+    assert!(canonical::parse_canonical_plan(&q17_sql).is_some());
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&q17_sql)),
+        vec![
+            json!({"p_partkey": 1, "total_price": 20.0}),
+            json!({"p_partkey": 2, "total_price": 50.0}),
+        ]
+    );
+
+    // 2. Correlated EXISTS and NOT EXISTS (including inequality correlation like Q21).
+    let exists_sql = format!(
+        "SELECT p_partkey FROM '{}' AS p \
+         WHERE EXISTS (SELECT 1 FROM '{}' AS l WHERE l.l_partkey = p.p_partkey AND l.l_quantity > 10) \
+         ORDER BY p_partkey",
+        parts_path.display(),
+        lines_path.display()
+    );
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&exists_sql)),
+        vec![json!({"p_partkey": 1}), json!({"p_partkey": 2})]
+    );
+
+    let not_exists_sql = format!(
+        "SELECT p_partkey FROM '{}' AS p \
+         WHERE NOT EXISTS (SELECT 1 FROM '{}' AS l WHERE l.l_partkey = p.p_partkey) \
+         ORDER BY p_partkey NULLS LAST",
+        parts_path.display(),
+        lines_path.display()
+    );
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&not_exists_sql)),
+        vec![json!({"p_partkey": 3}), json!({"p_partkey": null})]
+    );
+
+    // 3. IN and NOT IN with 3-valued NULL semantics (NULL in subquery blocks NOT IN true result).
+    let in_sql = format!(
+        "SELECT p_partkey FROM '{}' WHERE p_partkey IN (SELECT l_partkey FROM '{}') ORDER BY p_partkey",
+        parts_path.display(),
+        lines_path.display()
+    );
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&in_sql)),
+        vec![json!({"p_partkey": 1}), json!({"p_partkey": 2})]
+    );
+    let not_in_with_null_sql = format!(
+        "SELECT p_partkey FROM '{}' WHERE p_partkey NOT IN (SELECT l_partkey FROM '{}')",
+        parts_path.display(),
+        lines_path.display()
+    );
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&not_in_with_null_sql)),
+        Vec::<Value>::new()
+    );
+
+    // 4. Correlated scalar subquery inside SELECT (covering zero-match -> NULL).
+    let select_scalar_sql = format!(
+        "SELECT p.p_partkey, \
+         (SELECT SUM(l.l_extendedprice) FROM '{}' AS l WHERE l.l_partkey = p.p_partkey) AS sum_price \
+         FROM '{}' AS p ORDER BY p.p_partkey NULLS LAST",
+        lines_path.display(),
+        parts_path.display()
+    );
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&select_scalar_sql)),
+        vec![
+            json!({"p_partkey": 1, "sum_price": 300.0}),
+            json!({"p_partkey": 2, "sum_price": 400.0}),
+            json!({"p_partkey": 3, "sum_price": null}),
+            json!({"p_partkey": null, "sum_price": null}),
+        ]
+    );
+}

@@ -8,7 +8,7 @@
 #[path = "sql_binder_expr.rs"]
 pub mod expr;
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 
 use shardloom_core::{ComparisonOp, Diagnostic, Result, ShardLoomError};
@@ -228,6 +228,7 @@ pub struct LogicalWindowFrame {
     pub units: LogicalWindowUnits,
     pub start: String,
     pub end: Option<String>,
+    pub exclusion: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1813,6 +1814,8 @@ fn validate_simple_ident(name: &str) -> Result<()> {
 struct AsofModifiers {
     left_join_indexes: Vec<usize>,
     tolerances: Vec<Option<u64>>,
+    over_exclusions: Vec<Option<String>>,
+    named_window_exclusions: BTreeMap<String, String>,
 }
 
 fn parse_single_ast_statement_with_asof(raw: &str) -> Result<(Statement, AsofModifiers)> {
@@ -1934,6 +1937,9 @@ fn adapt_shardloom_tokens(tokens: Vec<ByteToken>) -> Result<(Vec<ByteToken>, Aso
         s += 1;
     }
 
+    let (over_exclusions, named_window_exclusions) =
+        extract_window_exclusions(&tokens, &sig_indices, &mut drop_mask);
+
     let kept = tokens
         .into_iter()
         .enumerate()
@@ -1944,8 +1950,102 @@ fn adapt_shardloom_tokens(tokens: Vec<ByteToken>) -> Result<(Vec<ByteToken>, Aso
         AsofModifiers {
             left_join_indexes,
             tolerances,
+            over_exclusions,
+            named_window_exclusions,
         },
     ))
+}
+
+fn match_exclude_clause(
+    tokens: &[ByteToken],
+    sig: &[usize],
+    pos: usize,
+) -> Option<(usize, String)> {
+    let idx = *sig.get(pos)?;
+    if !word_eq(&tokens[idx], "exclude") {
+        return None;
+    }
+    let next1 = *sig.get(pos + 1)?;
+    if word_eq(&tokens[next1], "group") {
+        return Some((2, "GROUP".to_string()));
+    }
+    if word_eq(&tokens[next1], "ties") {
+        return Some((2, "TIES".to_string()));
+    }
+    let next2 = *sig.get(pos + 2)?;
+    if word_eq(&tokens[next1], "current") && word_eq(&tokens[next2], "row") {
+        return Some((3, "CURRENT ROW".to_string()));
+    }
+    if word_eq(&tokens[next1], "no") && word_eq(&tokens[next2], "others") {
+        return Some((3, "NO OTHERS".to_string()));
+    }
+    None
+}
+
+fn extract_trailing_exclude(
+    tokens: &[ByteToken],
+    sig: &[usize],
+    open_sig: usize,
+    drop_mask: &mut [bool],
+) -> Option<String> {
+    let mut depth = 0usize;
+    let mut k = open_sig;
+    while k < sig.len() {
+        match tokens[sig[k]].token {
+            Token::LParen => depth += 1,
+            Token::RParen => {
+                depth -= 1;
+                if depth == 0 {
+                    for start in [k.saturating_sub(3), k.saturating_sub(2)] {
+                        if start > open_sig
+                            && let Some((count, label)) = match_exclude_clause(tokens, sig, start)
+                            && start + count == k
+                        {
+                            for offset in 0..count {
+                                drop_mask[sig[start + offset]] = true;
+                            }
+                            return Some(label);
+                        }
+                    }
+                    return None;
+                }
+            }
+            _ => {}
+        }
+        k += 1;
+    }
+    None
+}
+
+fn extract_window_exclusions(
+    tokens: &[ByteToken],
+    sig: &[usize],
+    drop_mask: &mut [bool],
+) -> (Vec<Option<String>>, BTreeMap<String, String>) {
+    let mut over_exclusions = Vec::new();
+    let mut named = BTreeMap::new();
+    for s in 0..sig.len() {
+        let ti = sig[s];
+        if word_eq(&tokens[ti], "over") {
+            if let Some(&next) = sig.get(s + 1)
+                && matches!(tokens[next].token, Token::LParen)
+            {
+                over_exclusions.push(extract_trailing_exclude(tokens, sig, s + 1, drop_mask));
+            } else {
+                over_exclusions.push(None);
+            }
+        } else if word_eq(&tokens[ti], "window")
+            && let (Some(&name_idx), Some(&as_idx), Some(&lparen_idx)) =
+                (sig.get(s + 1), sig.get(s + 2), sig.get(s + 3))
+            && word_eq(&tokens[as_idx], "as")
+            && matches!(tokens[lparen_idx].token, Token::LParen)
+            && let Token::Word(w) = &tokens[name_idx].token
+            && let Some(label) = extract_trailing_exclude(tokens, sig, s + 3, drop_mask)
+        {
+            named.insert(w.value.to_ascii_lowercase(), label);
+        }
+    }
+    (over_exclusions, named)
 }
 
 /// Parses and binds a SQL statement into a canonical [`BoundSqlPlan`].
@@ -1971,6 +2071,11 @@ pub fn bind_sql(raw: &str) -> Result<BoundSqlPlan> {
     };
     let mut root = bind_ast_query(&query, &mut diagnostics)?;
     apply_asof_modifiers(&mut root, &modifiers, &mut 0);
+    if modifiers.over_exclusions.iter().any(Option::is_some)
+        || !modifiers.named_window_exclusions.is_empty()
+    {
+        apply_window_exclusions_rel(&mut root, &modifiers, &mut 0);
+    }
     let mut source_refs = Vec::new();
     collect_bound_sources(&root, &mut source_refs);
     Ok(BoundSqlPlan {
@@ -2028,6 +2133,216 @@ fn apply_asof_modifiers(rel: &mut LogicalRelation, mods: &AsofModifiers, cursor:
             for arg in args {
                 if let LogicalTableArg::Subquery(sub) = arg {
                     apply_asof_modifiers(sub, mods, cursor);
+                }
+            }
+        }
+        LogicalRelation::Source { .. } | LogicalRelation::Values { .. } | LogicalRelation::Unit => {
+        }
+    }
+}
+
+fn apply_window_exclusions_fn(
+    args: &mut [LogicalExpr],
+    filter: Option<&mut LogicalExpr>,
+    order_by: &mut [LogicalSortKey],
+    over: Option<&mut LogicalWindowSpec>,
+    mods: &AsofModifiers,
+    cursor: &mut usize,
+) {
+    for arg in args {
+        apply_window_exclusions_expr(arg, mods, cursor);
+    }
+    if let Some(f) = filter {
+        apply_window_exclusions_expr(f, mods, cursor);
+    }
+    for key in order_by {
+        apply_window_exclusions_expr(&mut key.expr, mods, cursor);
+    }
+    let Some(spec) = over else {
+        return;
+    };
+    for p in &mut spec.partition_by {
+        apply_window_exclusions_expr(p, mods, cursor);
+    }
+    for key in &mut spec.order_by {
+        apply_window_exclusions_expr(&mut key.expr, mods, cursor);
+    }
+    let idx = *cursor;
+    *cursor += 1;
+    let excl = mods
+        .over_exclusions
+        .get(idx)
+        .and_then(Clone::clone)
+        .or_else(|| {
+            spec.name.as_ref().and_then(|n| {
+                mods.named_window_exclusions
+                    .get(&n.to_ascii_lowercase())
+                    .cloned()
+            })
+        });
+    if let (Some(frame), Some(label)) = (&mut spec.frame, excl)
+        && frame.exclusion.is_none()
+    {
+        frame.exclusion = Some(label);
+    }
+}
+
+fn apply_window_exclusions_expr(expr: &mut LogicalExpr, mods: &AsofModifiers, cursor: &mut usize) {
+    match expr {
+        LogicalExpr::Function {
+            args,
+            filter,
+            order_by,
+            over,
+            ..
+        } => apply_window_exclusions_fn(
+            args,
+            filter.as_deref_mut(),
+            order_by,
+            over.as_mut(),
+            mods,
+            cursor,
+        ),
+        LogicalExpr::Unary { expr: inner, .. } | LogicalExpr::Cast { expr: inner, .. } => {
+            apply_window_exclusions_expr(inner, mods, cursor);
+        }
+        LogicalExpr::Binary { left, right, .. }
+        | LogicalExpr::Compare { left, right, .. }
+        | LogicalExpr::IsDistinctFrom { left, right, .. }
+        | LogicalExpr::Like {
+            expr: left,
+            pattern: right,
+            ..
+        } => {
+            apply_window_exclusions_expr(left, mods, cursor);
+            apply_window_exclusions_expr(right, mods, cursor);
+        }
+        LogicalExpr::Between {
+            expr, low, high, ..
+        } => {
+            apply_window_exclusions_expr(expr, mods, cursor);
+            apply_window_exclusions_expr(low, mods, cursor);
+            apply_window_exclusions_expr(high, mods, cursor);
+        }
+        LogicalExpr::InList { expr, list, .. } => {
+            apply_window_exclusions_expr(expr, mods, cursor);
+            for item in list {
+                apply_window_exclusions_expr(item, mods, cursor);
+            }
+        }
+        LogicalExpr::Case {
+            operand,
+            when_then,
+            else_expr,
+        } => {
+            if let Some(op) = operand {
+                apply_window_exclusions_expr(op, mods, cursor);
+            }
+            for (w, t) in when_then {
+                apply_window_exclusions_expr(w, mods, cursor);
+                apply_window_exclusions_expr(t, mods, cursor);
+            }
+            if let Some(e) = else_expr {
+                apply_window_exclusions_expr(e, mods, cursor);
+            }
+        }
+        LogicalExpr::InSubquery { expr, subquery, .. } => {
+            apply_window_exclusions_expr(expr, mods, cursor);
+            apply_window_exclusions_rel(subquery, mods, cursor);
+        }
+        LogicalExpr::Exists { subquery, .. } | LogicalExpr::ScalarSubquery(subquery) => {
+            apply_window_exclusions_rel(subquery, mods, cursor);
+        }
+        LogicalExpr::Array(items) | LogicalExpr::Tuple(items) => {
+            for item in items {
+                apply_window_exclusions_expr(item, mods, cursor);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn apply_window_exclusions_rel(
+    rel: &mut LogicalRelation,
+    mods: &AsofModifiers,
+    cursor: &mut usize,
+) {
+    match rel {
+        LogicalRelation::WithCte { ctes, body, .. } => {
+            for cte in ctes {
+                apply_window_exclusions_rel(&mut cte.query, mods, cursor);
+            }
+            apply_window_exclusions_rel(body, mods, cursor);
+        }
+        LogicalRelation::Project { input, items, .. } => {
+            for item in items.iter_mut() {
+                if let LogicalProjectionItem::Expr { expr, .. } = item {
+                    apply_window_exclusions_expr(expr, mods, cursor);
+                }
+            }
+            apply_window_exclusions_rel(input, mods, cursor);
+            if let LogicalRelation::Window { windows, .. } = input.as_mut() {
+                windows.clear();
+                for item in items.iter() {
+                    if let LogicalProjectionItem::Expr { expr, .. } = item {
+                        collect_windows(expr, windows);
+                    }
+                }
+            }
+        }
+        LogicalRelation::Window { input, windows } => {
+            apply_window_exclusions_rel(input, mods, cursor);
+            let _ = windows;
+        }
+        LogicalRelation::Filter { input, predicate } => {
+            apply_window_exclusions_rel(input, mods, cursor);
+            apply_window_exclusions_expr(predicate, mods, cursor);
+        }
+        LogicalRelation::Aggregate {
+            input,
+            group_by,
+            having,
+            ..
+        } => {
+            apply_window_exclusions_rel(input, mods, cursor);
+            for expr in group_by {
+                apply_window_exclusions_expr(expr, mods, cursor);
+            }
+            if let Some(expr) = having {
+                apply_window_exclusions_expr(expr, mods, cursor);
+            }
+        }
+        LogicalRelation::Join {
+            left, right, on, ..
+        } => {
+            apply_window_exclusions_rel(left, mods, cursor);
+            apply_window_exclusions_rel(right, mods, cursor);
+            if let Some(expr) = on {
+                apply_window_exclusions_expr(expr, mods, cursor);
+            }
+        }
+        LogicalRelation::SetOperation { left, right, .. } => {
+            apply_window_exclusions_rel(left, mods, cursor);
+            apply_window_exclusions_rel(right, mods, cursor);
+        }
+        LogicalRelation::Sort { input, keys } => {
+            apply_window_exclusions_rel(input, mods, cursor);
+            for k in keys {
+                apply_window_exclusions_expr(&mut k.expr, mods, cursor);
+            }
+        }
+        LogicalRelation::Subquery { input, .. } | LogicalRelation::Limit { input, .. } => {
+            apply_window_exclusions_rel(input, mods, cursor);
+        }
+        LogicalRelation::TableFunction { args, .. } => {
+            for arg in args {
+                match arg {
+                    LogicalTableArg::Subquery(sub) => {
+                        apply_window_exclusions_rel(sub, mods, cursor);
+                    }
+                    LogicalTableArg::Expr(e) => {
+                        apply_window_exclusions_expr(e, mods, cursor);
+                    }
                 }
             }
         }
@@ -2391,12 +2706,31 @@ fn bind_select(select: &Select, diagnostics: &mut Vec<Diagnostic>) -> Result<Log
         };
     }
 
+    let mut named_windows = BTreeMap::new();
+    for ast::NamedWindowDefinition(ident, def) in &select.named_window {
+        let mut resolved = match def {
+            ast::NamedWindowExpr::WindowSpec(spec) => {
+                expr::bind_window_spec_ast(spec, diagnostics)?
+            }
+            ast::NamedWindowExpr::NamedWindow(parent) => LogicalWindowSpec {
+                name: Some(parent.value.clone()),
+                partition_by: Vec::new(),
+                order_by: Vec::new(),
+                frame: None,
+            },
+        };
+        resolve_spec_named_window(&mut resolved, &named_windows);
+        resolved.name = Some(ident.value.clone());
+        named_windows.insert(ident.value.to_ascii_lowercase(), resolved);
+    }
+
     let mut items = Vec::with_capacity(select.projection.len());
     let mut windows = Vec::new();
     for item in &select.projection {
         match item {
             SelectItem::UnnamedExpr(e) => {
-                let bound = expr::bind_ast_expr(e, diagnostics)?;
+                let mut bound = expr::bind_ast_expr(e, diagnostics)?;
+                resolve_expr_named_windows(&mut bound, &named_windows);
                 collect_windows(&bound, &mut windows);
                 items.push(LogicalProjectionItem::Expr {
                     expr: Box::new(bound),
@@ -2404,7 +2738,8 @@ fn bind_select(select: &Select, diagnostics: &mut Vec<Diagnostic>) -> Result<Log
                 });
             }
             SelectItem::ExprWithAlias { expr: e, alias } => {
-                let bound = expr::bind_ast_expr(e, diagnostics)?;
+                let mut bound = expr::bind_ast_expr(e, diagnostics)?;
+                resolve_expr_named_windows(&mut bound, &named_windows);
                 collect_windows(&bound, &mut windows);
                 items.push(LogicalProjectionItem::Expr {
                     expr: Box::new(bound),
@@ -2427,13 +2762,6 @@ fn bind_select(select: &Select, diagnostics: &mut Vec<Diagnostic>) -> Result<Log
         }
     }
 
-    if !windows.is_empty() {
-        input = LogicalRelation::Window {
-            input: Box::new(input),
-            windows,
-        };
-    }
-
     let (group_by, grouping_sets) = bind_group_by(&select.group_by, diagnostics)?;
     let having = select
         .having
@@ -2454,6 +2782,13 @@ fn bind_select(select: &Select, diagnostics: &mut Vec<Diagnostic>) -> Result<Log
             grouping_sets,
             aggregates,
             having,
+        };
+    }
+
+    if !windows.is_empty() {
+        input = LogicalRelation::Window {
+            input: Box::new(input),
+            windows,
         };
     }
 
@@ -2673,11 +3008,109 @@ fn bind_group_by(
     }
 }
 
+fn resolve_spec_named_window(
+    spec: &mut LogicalWindowSpec,
+    named: &BTreeMap<String, LogicalWindowSpec>,
+) {
+    if let Some(ref win_name) = spec.name
+        && let Some(base) = named.get(&win_name.to_ascii_lowercase())
+    {
+        if spec.partition_by.is_empty() {
+            spec.partition_by.clone_from(&base.partition_by);
+        }
+        if spec.order_by.is_empty() {
+            spec.order_by.clone_from(&base.order_by);
+        }
+        if spec.frame.is_none() {
+            spec.frame.clone_from(&base.frame);
+        }
+    }
+}
+
+fn resolve_expr_named_windows(expr: &mut LogicalExpr, named: &BTreeMap<String, LogicalWindowSpec>) {
+    if named.is_empty() {
+        return;
+    }
+    match expr {
+        LogicalExpr::Function {
+            args,
+            filter,
+            order_by,
+            over,
+            ..
+        } => {
+            for arg in args {
+                resolve_expr_named_windows(arg, named);
+            }
+            if let Some(f) = filter {
+                resolve_expr_named_windows(f, named);
+            }
+            for k in order_by {
+                resolve_expr_named_windows(&mut k.expr, named);
+            }
+            if let Some(spec) = over {
+                resolve_spec_named_window(spec, named);
+            }
+        }
+        LogicalExpr::Unary { expr: inner, .. } | LogicalExpr::Cast { expr: inner, .. } => {
+            resolve_expr_named_windows(inner, named);
+        }
+        LogicalExpr::Binary { left, right, .. }
+        | LogicalExpr::Compare { left, right, .. }
+        | LogicalExpr::IsDistinctFrom { left, right, .. }
+        | LogicalExpr::Like {
+            expr: left,
+            pattern: right,
+            ..
+        } => {
+            resolve_expr_named_windows(left, named);
+            resolve_expr_named_windows(right, named);
+        }
+        LogicalExpr::Between {
+            expr, low, high, ..
+        } => {
+            resolve_expr_named_windows(expr, named);
+            resolve_expr_named_windows(low, named);
+            resolve_expr_named_windows(high, named);
+        }
+        LogicalExpr::InList { expr, list, .. } => {
+            resolve_expr_named_windows(expr, named);
+            for item in list {
+                resolve_expr_named_windows(item, named);
+            }
+        }
+        LogicalExpr::Case {
+            operand,
+            when_then,
+            else_expr,
+        } => {
+            if let Some(op) = operand {
+                resolve_expr_named_windows(op, named);
+            }
+            for (w, t) in when_then {
+                resolve_expr_named_windows(w, named);
+                resolve_expr_named_windows(t, named);
+            }
+            if let Some(e) = else_expr {
+                resolve_expr_named_windows(e, named);
+            }
+        }
+        LogicalExpr::Array(items) | LogicalExpr::Tuple(items) => {
+            for item in items {
+                resolve_expr_named_windows(item, named);
+            }
+        }
+        _ => {}
+    }
+}
+
 fn collect_windows(expr: &LogicalExpr, out: &mut Vec<(String, LogicalWindowSpec)>) {
     match expr {
         LogicalExpr::Function {
             name,
             args,
+            filter,
+            order_by,
             over: Some(spec),
             ..
         } => {
@@ -2685,13 +3118,33 @@ fn collect_windows(expr: &LogicalExpr, out: &mut Vec<(String, LogicalWindowSpec)
             for arg in args {
                 collect_windows(arg, out);
             }
+            if let Some(f) = filter {
+                collect_windows(f, out);
+            }
+            for k in order_by {
+                collect_windows(&k.expr, out);
+            }
+            for p in &spec.partition_by {
+                collect_windows(p, out);
+            }
+            for k in &spec.order_by {
+                collect_windows(&k.expr, out);
+            }
         }
-        LogicalExpr::Function { args, filter, .. } => {
+        LogicalExpr::Function {
+            args,
+            filter,
+            order_by,
+            ..
+        } => {
             for arg in args {
                 collect_windows(arg, out);
             }
             if let Some(f) = filter {
                 collect_windows(f, out);
+            }
+            for k in order_by {
+                collect_windows(&k.expr, out);
             }
         }
         LogicalExpr::Unary { expr: inner, .. } | LogicalExpr::Cast { expr: inner, .. } => {
@@ -2699,12 +3152,77 @@ fn collect_windows(expr: &LogicalExpr, out: &mut Vec<(String, LogicalWindowSpec)
         }
         LogicalExpr::Binary { left, right, .. }
         | LogicalExpr::Compare { left, right, .. }
-        | LogicalExpr::IsDistinctFrom { left, right, .. } => {
+        | LogicalExpr::IsDistinctFrom { left, right, .. }
+        | LogicalExpr::Like {
+            expr: left,
+            pattern: right,
+            ..
+        } => {
             collect_windows(left, out);
             collect_windows(right, out);
         }
+        LogicalExpr::Between {
+            expr, low, high, ..
+        } => {
+            collect_windows(expr, out);
+            collect_windows(low, out);
+            collect_windows(high, out);
+        }
+        LogicalExpr::InList { expr, list, .. } => {
+            collect_windows(expr, out);
+            for item in list {
+                collect_windows(item, out);
+            }
+        }
+        LogicalExpr::Case {
+            operand,
+            when_then,
+            else_expr,
+        } => {
+            if let Some(op) = operand {
+                collect_windows(op, out);
+            }
+            for (w, t) in when_then {
+                collect_windows(w, out);
+                collect_windows(t, out);
+            }
+            if let Some(e) = else_expr {
+                collect_windows(e, out);
+            }
+        }
+        LogicalExpr::Array(items) | LogicalExpr::Tuple(items) => {
+            for item in items {
+                collect_windows(item, out);
+            }
+        }
         _ => {}
     }
+}
+
+fn is_sql_agg_name(name: &str) -> bool {
+    matches!(
+        name.to_ascii_lowercase().as_str(),
+        "count"
+            | "sum"
+            | "avg"
+            | "min"
+            | "max"
+            | "stddev"
+            | "stddev_samp"
+            | "stddev_pop"
+            | "var_samp"
+            | "var_pop"
+            | "variance"
+            | "median"
+            | "percentile_cont"
+            | "percentile_disc"
+            | "approx_quantile"
+            | "approx_count_distinct"
+            | "group_concat"
+            | "string_agg"
+            | "any_value"
+            | "count_distinct"
+    )
 }
 
 fn collect_aggregates(
@@ -2712,31 +3230,6 @@ fn collect_aggregates(
     alias: Option<String>,
     out: &mut Vec<LogicalAggregateSpec>,
 ) {
-    let is_agg = |name: &str| {
-        matches!(
-            name.to_ascii_lowercase().as_str(),
-            "count"
-                | "sum"
-                | "avg"
-                | "min"
-                | "max"
-                | "stddev"
-                | "stddev_samp"
-                | "stddev_pop"
-                | "var_samp"
-                | "var_pop"
-                | "variance"
-                | "median"
-                | "percentile_cont"
-                | "percentile_disc"
-                | "approx_quantile"
-                | "approx_count_distinct"
-                | "group_concat"
-                | "string_agg"
-                | "any_value"
-                | "count_distinct"
-        )
-    };
     match expr {
         LogicalExpr::Function {
             name,
@@ -2745,7 +3238,7 @@ fn collect_aggregates(
             filter,
             order_by,
             over: None,
-        } if is_agg(name) => {
+        } if is_sql_agg_name(name) => {
             out.push(LogicalAggregateSpec {
                 name: name.to_ascii_lowercase(),
                 args: args.clone(),
@@ -2755,12 +3248,29 @@ fn collect_aggregates(
                 alias,
             });
         }
-        LogicalExpr::Function { args, filter, .. } => {
+        LogicalExpr::Function {
+            args,
+            filter,
+            order_by,
+            over,
+            ..
+        } => {
             for arg in args {
                 collect_aggregates(arg, None, out);
             }
             if let Some(f) = filter {
                 collect_aggregates(f, None, out);
+            }
+            for k in order_by {
+                collect_aggregates(&k.expr, None, out);
+            }
+            if let Some(spec) = over {
+                for p in &spec.partition_by {
+                    collect_aggregates(p, None, out);
+                }
+                for k in &spec.order_by {
+                    collect_aggregates(&k.expr, None, out);
+                }
             }
         }
         LogicalExpr::Unary { expr: inner, .. } | LogicalExpr::Cast { expr: inner, .. } => {
@@ -2768,9 +3278,27 @@ fn collect_aggregates(
         }
         LogicalExpr::Binary { left, right, .. }
         | LogicalExpr::Compare { left, right, .. }
-        | LogicalExpr::IsDistinctFrom { left, right, .. } => {
+        | LogicalExpr::IsDistinctFrom { left, right, .. }
+        | LogicalExpr::Like {
+            expr: left,
+            pattern: right,
+            ..
+        } => {
             collect_aggregates(left, None, out);
             collect_aggregates(right, None, out);
+        }
+        LogicalExpr::Between {
+            expr, low, high, ..
+        } => {
+            collect_aggregates(expr, None, out);
+            collect_aggregates(low, None, out);
+            collect_aggregates(high, None, out);
+        }
+        LogicalExpr::InList { expr, list, .. } => {
+            collect_aggregates(expr, None, out);
+            for item in list {
+                collect_aggregates(item, None, out);
+            }
         }
         LogicalExpr::Case {
             operand,
@@ -2786,6 +3314,11 @@ fn collect_aggregates(
             }
             if let Some(e) = else_expr {
                 collect_aggregates(e, None, out);
+            }
+        }
+        LogicalExpr::Array(items) | LogicalExpr::Tuple(items) => {
+            for item in items {
+                collect_aggregates(item, None, out);
             }
         }
         _ => {}

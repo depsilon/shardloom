@@ -14,7 +14,7 @@ use shardloom_vortex::{
 #[path = "sql_grouping_syntax.rs"]
 mod grouping_syntax;
 #[path = "sql_window_frames.rs"]
-mod window_frames;
+pub(super) mod window_frames;
 
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "sql_projection_lowering.rs"]
@@ -2867,7 +2867,11 @@ fn sql_union_bounded_branch_statement(branch: &str) -> Result<String, ShardLoomE
             "SQL set-operation branches must be SELECT local-source statements",
         ));
     }
-    Ok(format!("{branch} LIMIT {MAX_LIMIT_ROWS}"))
+    if top_level_keyword_indexes(branch, "limit")?.is_empty() {
+        Ok(format!("{branch} LIMIT {}", usize::MAX))
+    } else {
+        Ok(branch.to_string())
+    }
 }
 
 fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, ShardLoomError> {
@@ -4211,9 +4215,9 @@ fn parse_positive_window_integer(
             "{function_name} window {value_label} must be a positive integer literal"
         ))
     })?;
-    if offset == 0 || offset > MAX_INPUT_ROWS {
+    if offset == 0 {
         return Err(unsupported_sql_error(&format!(
-            "{function_name} window {value_label} must be between 1 and {MAX_INPUT_ROWS}"
+            "{function_name} window {value_label} must be at least 1"
         )));
     }
     Ok(offset)

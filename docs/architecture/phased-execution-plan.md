@@ -844,12 +844,12 @@ with `CG-1` through `CG-23` open and `claim_gate_status=not_claim_grade`.
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 
-- [ ] `E2E-PERF-05B` converge native partitioned analytic windows, set operations, CTEs, and decorrelated subqueries onto AST-bound native execution.
+- [x] `E2E-PERF-05B` converge native partitioned analytic windows, set operations, CTEs, and decorrelated subqueries onto AST-bound native execution.
   - Queue identifier only: `E2E-PERF-05B` splits the second relational convergence slice under canonical `PERF-02` and `PERF-10`, with relevant competitive gates `CG-2`, `CG-5`, `CG-6`, `CG-16`, `CG-20`, and `CG-21` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
   - V1 scope classification: `required_for_v1`.
   - Execution checklist:
     - [x] Foundational native windows, subqueries, and set ops landed (`NATIVE-WINDOW-PRESSURE`, `NATIVE-SCALAR-SUBQUERIES`, `NATIVE-STREAM-SETS`).
-    - [ ] Converge arbitrary AST-bound windows, uncapped set operations, reusable `OwnedArraySource` CTEs, and decorrelated semi/anti/scalar subqueries onto native `shardloom-vortex` execution, retiring `sql_local_source_runtime.rs` `MAX_LIMIT_ROWS = 10_000` (`line 103`) row-map fallback paths.
+    - [x] Converge arbitrary AST-bound windows, uncapped set operations, reusable `OwnedArraySource` CTEs, and decorrelated semi/anti/scalar subqueries onto native `shardloom-vortex` execution, retiring `sql_local_source_runtime.rs` `MAX_LIMIT_ROWS = 10_000` (`line 103`) row-map fallback paths.
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 

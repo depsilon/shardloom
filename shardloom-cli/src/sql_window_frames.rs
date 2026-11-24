@@ -123,7 +123,7 @@ fn frame_start(raw: &str) -> Result<Option<usize>, ShardLoomError> {
     Ok(first)
 }
 
-fn parse_frame(raw: &str) -> Result<Frame, ShardLoomError> {
+pub(crate) fn parse_frame(raw: &str) -> Result<Frame, ShardLoomError> {
     let first_space = raw
         .find(char::is_whitespace)
         .ok_or_else(|| unsupported_sql_error("window frame requires bounds"))?;

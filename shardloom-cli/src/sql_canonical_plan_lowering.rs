@@ -1,23 +1,31 @@
 //! Canonical AST-bound SQL plan lowering onto the shared native relational engine.
 //!
-//! Handles relational SQL queries bound by `shardloom_plan::sql_binder` that go
-//! beyond the legacy syntax splitter (including N-way joins, comma joins,
-//! multi-alias FROM trees, canonical CASE/IN/BETWEEN/DISTINCT/HAVING/WITH CTE
-//! combinations) without external engine fallback.
+//! Handles relational SQL queries bound by `shardloom_plan::sql_binder` (multiway
+//! joins, comma joins, subqueries, AST-bound windows, set operations, CTE
+//! materialization, and canonical scalar/aggregate expressions) without external
+//! engine fallback.
+
+#[path = "sql_canonical_subquery.rs"]
+mod subquery;
+#[path = "sql_canonical_window.rs"]
+mod window;
 
 use super::{
     Aggregate, AggregateFunction, ColumnRef, ExprId, Expression, ExpressionKind, Filter, Join,
-    JoinColumn, JoinKind, Limit, Lowered, Lowerer, NativeResult, NullOrder, OrderKey,
-    ParsedRelationLeaf, Plan, Project, Side, Sort, VortexSimpleAggregateMeasure,
-    append_equality_keys, column, unsupported_sql_error, validate_sql_identifier,
+    JoinColumn, JoinKind, Limit, Lowered, Lowerer, NativeResult, NativeWindowFunction, NullOrder,
+    OrderKey, ParsedRelationLeaf, Plan, Project, Set, SetKind, Side, Sort, Subquery, SubqueryKind,
+    VortexSimpleAggregateMeasure, Window, WindowExpression, append_equality_keys, column,
+    unsupported_sql_error, validate_sql_identifier,
 };
 use shardloom_core::{BinaryOp, ComparisonOp, ScalarValue, UnaryOp};
 use shardloom_plan::sql_binder::{
     BoundSqlPlan, LogicalAggregateSpec, LogicalCte, LogicalExpr, LogicalJoinType,
-    LogicalProjectionItem, LogicalRelation, LogicalSortKey, bind_sql, expr::parse_core_dtype_label,
+    LogicalProjectionItem, LogicalRelation, LogicalSetOp, LogicalSortKey, LogicalWindowSpec,
+    bind_sql, expr::parse_core_dtype_label,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
+use std::sync::Arc;
 
 /// Metadata summary extracted from an AST-bound canonical plan before execution.
 pub(super) struct CanonicalPlanSummary {
@@ -38,6 +46,11 @@ type ExpandedProjection = (
     Vec<LogicalProjectionItem>,
     Vec<(String, Expression)>,
     Vec<ScopeColumn>,
+);
+type GroupByColumns = (Vec<String>, Vec<(LogicalExpr, String)>);
+type AggregateMeasures = (
+    Vec<VortexSimpleAggregateMeasure>,
+    Vec<(LogicalExpr, String)>,
 );
 
 #[derive(Clone)]
@@ -127,9 +140,435 @@ pub(super) fn parse_canonical_plan(raw: &str) -> Option<Box<BoundSqlPlan>> {
     can_lower_canonically(&bound).then(|| Box::new(bound))
 }
 
-/// Checks whether a canonical `BoundSqlPlan` lies within `E2E-PERF-05A`'s native lowering slice.
+/// Checks whether a canonical `BoundSqlPlan` lies within the canonical native lowering slice.
 pub(super) fn can_lower_canonically(bound: &BoundSqlPlan) -> bool {
     rel_supported(&bound.root, &BTreeSet::new())
+}
+
+/// Returns whether a canonical plan should take precedence over the legacy SQL parser.
+///
+/// Restricts precedence to unparameterized-relation queries (`bound_names.is_empty()`) that use
+/// canonical-converged features (multi-ref/explicit CTEs, AST windows, set operations, or
+/// subqueries) without legacy `outer.*` unresolved correlation qualifiers.
+pub(super) fn prefers_canonical_lowering(bound: &BoundSqlPlan, bound_names: &[String]) -> bool {
+    bound_names.is_empty()
+        && rel_has_canonical_priority(&bound.root)
+        && !has_unresolved_outer_qualifier(&bound.root, &BTreeSet::new())
+}
+
+fn rel_has_canonical_priority(rel: &LogicalRelation) -> bool {
+    match rel {
+        LogicalRelation::WithCte {
+            ctes,
+            recursive: false,
+            body,
+        } => with_cte_has_canonical_priority(ctes, body),
+        LogicalRelation::Window { .. } | LogicalRelation::SetOperation { .. } => true,
+        LogicalRelation::Subquery { input, .. } | LogicalRelation::Limit { input, .. } => {
+            rel_has_canonical_priority(input)
+        }
+        LogicalRelation::Filter { input, predicate } => {
+            expr_has_canonical_priority(predicate) || rel_has_canonical_priority(input)
+        }
+        LogicalRelation::Project { input, items, .. } => {
+            items.iter().any(|item| {
+                matches!(
+                    item,
+                    LogicalProjectionItem::Expr { expr, .. } if expr_has_canonical_priority(expr)
+                )
+            }) || rel_has_canonical_priority(input)
+        }
+        LogicalRelation::Aggregate {
+            input,
+            group_by,
+            aggregates,
+            having,
+            ..
+        } => {
+            group_by.iter().any(expr_has_canonical_priority)
+                || aggregates.iter().any(agg_has_canonical_priority)
+                || having.as_ref().is_some_and(expr_has_canonical_priority)
+                || rel_has_canonical_priority(input)
+        }
+        LogicalRelation::Sort { input, keys } => {
+            keys.iter().any(|k| expr_has_canonical_priority(&k.expr))
+                || rel_has_canonical_priority(input)
+        }
+        LogicalRelation::Join {
+            left, right, on, ..
+        } => {
+            on.as_ref().is_some_and(expr_has_canonical_priority)
+                || rel_has_canonical_priority(left)
+                || rel_has_canonical_priority(right)
+        }
+        LogicalRelation::Source { .. }
+        | LogicalRelation::Values { .. }
+        | LogicalRelation::Unit
+        | LogicalRelation::TableFunction { .. }
+        | LogicalRelation::WithCte {
+            recursive: true, ..
+        } => false,
+    }
+}
+
+fn with_cte_has_canonical_priority(ctes: &[LogicalCte], body: &LogicalRelation) -> bool {
+    for (idx, cte) in ctes.iter().enumerate() {
+        let mut counts = BTreeMap::new();
+        let mut shadowed = BTreeSet::new();
+        for later in &ctes[idx + 1..] {
+            count_rel_cte_refs(&later.query, &shadowed, &mut counts);
+            shadowed.insert(later.name.to_ascii_lowercase());
+        }
+        count_rel_cte_refs(body, &shadowed, &mut counts);
+        let refs = counts
+            .get(&cte.name.to_ascii_lowercase())
+            .copied()
+            .unwrap_or(0);
+        if cte.materialized == Some(true) || refs >= 2 || rel_has_canonical_priority(&cte.query) {
+            return true;
+        }
+    }
+    rel_has_canonical_priority(body)
+}
+
+fn agg_has_canonical_priority(spec: &LogicalAggregateSpec) -> bool {
+    spec.args.iter().any(expr_has_canonical_priority)
+        || spec
+            .filter
+            .as_ref()
+            .is_some_and(expr_has_canonical_priority)
+        || spec
+            .order_by
+            .iter()
+            .any(|k| expr_has_canonical_priority(&k.expr))
+}
+
+fn expr_has_canonical_priority(expr: &LogicalExpr) -> bool {
+    match expr {
+        LogicalExpr::Exists { .. }
+        | LogicalExpr::InSubquery { .. }
+        | LogicalExpr::ScalarSubquery(_)
+        | LogicalExpr::Function { over: Some(_), .. } => true,
+        LogicalExpr::Unary { expr, .. } | LogicalExpr::Cast { expr, .. } => {
+            expr_has_canonical_priority(expr)
+        }
+        LogicalExpr::Binary { left, right, .. }
+        | LogicalExpr::Compare { left, right, .. }
+        | LogicalExpr::IsDistinctFrom { left, right, .. }
+        | LogicalExpr::Like {
+            expr: left,
+            pattern: right,
+            ..
+        } => expr_has_canonical_priority(left) || expr_has_canonical_priority(right),
+        LogicalExpr::Between {
+            expr, low, high, ..
+        } => {
+            expr_has_canonical_priority(expr)
+                || expr_has_canonical_priority(low)
+                || expr_has_canonical_priority(high)
+        }
+        LogicalExpr::InList { expr, list, .. } => {
+            expr_has_canonical_priority(expr) || list.iter().any(expr_has_canonical_priority)
+        }
+        LogicalExpr::Case {
+            operand,
+            when_then,
+            else_expr,
+        } => {
+            operand.as_deref().is_some_and(expr_has_canonical_priority)
+                || when_then
+                    .iter()
+                    .any(|(w, t)| expr_has_canonical_priority(w) || expr_has_canonical_priority(t))
+                || else_expr
+                    .as_deref()
+                    .is_some_and(expr_has_canonical_priority)
+        }
+        LogicalExpr::Function {
+            args,
+            filter,
+            order_by,
+            over: None,
+            ..
+        } => {
+            args.iter().any(expr_has_canonical_priority)
+                || filter.as_deref().is_some_and(expr_has_canonical_priority)
+                || order_by
+                    .iter()
+                    .any(|k| expr_has_canonical_priority(&k.expr))
+        }
+        LogicalExpr::Array(items) | LogicalExpr::Tuple(items) => {
+            items.iter().any(expr_has_canonical_priority)
+        }
+        LogicalExpr::Literal(_)
+        | LogicalExpr::Column { .. }
+        | LogicalExpr::Parameter(_)
+        | LogicalExpr::Wildcard { .. }
+        | LogicalExpr::Interval { .. } => false,
+    }
+}
+
+fn rel_output_qualifiers(rel: &LogicalRelation, out: &mut BTreeSet<String>) {
+    match rel {
+        LogicalRelation::Source {
+            reference,
+            quoted_path,
+            alias,
+        } => {
+            if let Some(a) = alias {
+                out.insert(a.to_ascii_lowercase());
+            } else if !quoted_path {
+                out.insert(reference.to_ascii_lowercase());
+            }
+        }
+        LogicalRelation::Subquery { alias: Some(a), .. } => {
+            out.insert(a.to_ascii_lowercase());
+        }
+        LogicalRelation::Subquery { input, alias: None }
+        | LogicalRelation::Filter { input, .. }
+        | LogicalRelation::Project { input, .. }
+        | LogicalRelation::Aggregate { input, .. }
+        | LogicalRelation::Window { input, .. }
+        | LogicalRelation::Sort { input, .. }
+        | LogicalRelation::Limit { input, .. } => rel_output_qualifiers(input, out),
+        LogicalRelation::Join {
+            left,
+            right,
+            join_type,
+            ..
+        } => {
+            rel_output_qualifiers(left, out);
+            if !matches!(join_type, LogicalJoinType::Semi | LogicalJoinType::Anti) {
+                rel_output_qualifiers(right, out);
+            }
+        }
+        LogicalRelation::WithCte { body, .. } => rel_output_qualifiers(body, out),
+        LogicalRelation::SetOperation { .. }
+        | LogicalRelation::Values { .. }
+        | LogicalRelation::Unit
+        | LogicalRelation::TableFunction { .. } => {}
+    }
+}
+
+fn has_unresolved_outer_qualifier(rel: &LogicalRelation, outer_visible: &BTreeSet<String>) -> bool {
+    match rel {
+        LogicalRelation::Source { .. } | LogicalRelation::Values { .. } | LogicalRelation::Unit => {
+            false
+        }
+        LogicalRelation::Subquery { input, .. } | LogicalRelation::Limit { input, .. } => {
+            has_unresolved_outer_qualifier(input, outer_visible)
+        }
+        LogicalRelation::Filter { input, predicate } => {
+            if has_unresolved_outer_qualifier(input, outer_visible) {
+                return true;
+            }
+            let mut scope = outer_visible.clone();
+            rel_output_qualifiers(input, &mut scope);
+            expr_has_unresolved_qualifier(predicate, &scope)
+        }
+        LogicalRelation::Project { input, items, .. } => {
+            if has_unresolved_outer_qualifier(input, outer_visible) {
+                return true;
+            }
+            let mut scope = outer_visible.clone();
+            rel_output_qualifiers(input, &mut scope);
+            items.iter().any(|item| {
+                matches!(
+                    item,
+                    LogicalProjectionItem::Expr { expr, .. }
+                        if expr_has_unresolved_qualifier(expr, &scope)
+                )
+            })
+        }
+        LogicalRelation::Aggregate {
+            input,
+            group_by,
+            aggregates,
+            having,
+            ..
+        } => agg_has_unresolved_qualifier(
+            input,
+            group_by,
+            aggregates,
+            having.as_ref(),
+            outer_visible,
+        ),
+        LogicalRelation::Window { input, windows } => {
+            if has_unresolved_outer_qualifier(input, outer_visible) {
+                return true;
+            }
+            let mut scope = outer_visible.clone();
+            rel_output_qualifiers(input, &mut scope);
+            windows.iter().any(|(_, spec)| {
+                spec.partition_by
+                    .iter()
+                    .any(|p| expr_has_unresolved_qualifier(p, &scope))
+                    || spec
+                        .order_by
+                        .iter()
+                        .any(|k| expr_has_unresolved_qualifier(&k.expr, &scope))
+            })
+        }
+        LogicalRelation::Sort { input, keys } => {
+            if has_unresolved_outer_qualifier(input, outer_visible) {
+                return true;
+            }
+            let mut scope = outer_visible.clone();
+            rel_output_qualifiers(input, &mut scope);
+            keys.iter()
+                .any(|k| expr_has_unresolved_qualifier(&k.expr, &scope))
+        }
+        LogicalRelation::Join {
+            left, right, on, ..
+        } => {
+            if has_unresolved_outer_qualifier(left, outer_visible)
+                || has_unresolved_outer_qualifier(right, outer_visible)
+            {
+                return true;
+            }
+            on.as_ref().is_some_and(|cond| {
+                let mut scope = outer_visible.clone();
+                rel_output_qualifiers(left, &mut scope);
+                rel_output_qualifiers(right, &mut scope);
+                expr_has_unresolved_qualifier(cond, &scope)
+            })
+        }
+        LogicalRelation::SetOperation { left, right, .. } => {
+            has_unresolved_outer_qualifier(left, outer_visible)
+                || has_unresolved_outer_qualifier(right, outer_visible)
+        }
+        LogicalRelation::WithCte { ctes, body, .. } => {
+            ctes.iter()
+                .any(|cte| has_unresolved_outer_qualifier(&cte.query, outer_visible))
+                || has_unresolved_outer_qualifier(body, outer_visible)
+        }
+        LogicalRelation::TableFunction { .. } => true,
+    }
+}
+
+fn agg_has_unresolved_qualifier(
+    input: &LogicalRelation,
+    group_by: &[LogicalExpr],
+    aggregates: &[LogicalAggregateSpec],
+    having: Option<&LogicalExpr>,
+    outer_visible: &BTreeSet<String>,
+) -> bool {
+    if has_unresolved_outer_qualifier(input, outer_visible) {
+        return true;
+    }
+    let mut scope = outer_visible.clone();
+    rel_output_qualifiers(input, &mut scope);
+    group_by
+        .iter()
+        .any(|g| expr_has_unresolved_qualifier(g, &scope))
+        || aggregates.iter().any(|spec| {
+            spec.args
+                .iter()
+                .any(|a| expr_has_unresolved_qualifier(a, &scope))
+                || spec
+                    .filter
+                    .as_ref()
+                    .is_some_and(|f| expr_has_unresolved_qualifier(f, &scope))
+                || spec
+                    .order_by
+                    .iter()
+                    .any(|k| expr_has_unresolved_qualifier(&k.expr, &scope))
+        })
+        || having
+            .as_ref()
+            .is_some_and(|h| expr_has_unresolved_qualifier(h, &scope))
+}
+
+fn expr_has_unresolved_qualifier(expr: &LogicalExpr, scope: &BTreeSet<String>) -> bool {
+    match expr {
+        LogicalExpr::Column {
+            qualifier: Some(q), ..
+        } => !scope.contains(&q.to_ascii_lowercase()),
+        LogicalExpr::Column {
+            qualifier: None, ..
+        }
+        | LogicalExpr::Literal(_)
+        | LogicalExpr::Parameter(_)
+        | LogicalExpr::Wildcard { .. }
+        | LogicalExpr::Interval { .. } => false,
+        LogicalExpr::InSubquery { expr, subquery, .. } => {
+            expr_has_unresolved_qualifier(expr, scope)
+                || has_unresolved_outer_qualifier(subquery, scope)
+        }
+        LogicalExpr::Exists { subquery, .. } | LogicalExpr::ScalarSubquery(subquery) => {
+            has_unresolved_outer_qualifier(subquery, scope)
+        }
+        LogicalExpr::Unary { expr, .. } | LogicalExpr::Cast { expr, .. } => {
+            expr_has_unresolved_qualifier(expr, scope)
+        }
+        LogicalExpr::Binary { left, right, .. }
+        | LogicalExpr::Compare { left, right, .. }
+        | LogicalExpr::IsDistinctFrom { left, right, .. }
+        | LogicalExpr::Like {
+            expr: left,
+            pattern: right,
+            ..
+        } => {
+            expr_has_unresolved_qualifier(left, scope)
+                || expr_has_unresolved_qualifier(right, scope)
+        }
+        LogicalExpr::Between {
+            expr, low, high, ..
+        } => {
+            expr_has_unresolved_qualifier(expr, scope)
+                || expr_has_unresolved_qualifier(low, scope)
+                || expr_has_unresolved_qualifier(high, scope)
+        }
+        LogicalExpr::InList { expr, list, .. } => {
+            expr_has_unresolved_qualifier(expr, scope)
+                || list
+                    .iter()
+                    .any(|item| expr_has_unresolved_qualifier(item, scope))
+        }
+        LogicalExpr::Case {
+            operand,
+            when_then,
+            else_expr,
+        } => {
+            operand
+                .as_deref()
+                .is_some_and(|op| expr_has_unresolved_qualifier(op, scope))
+                || when_then.iter().any(|(w, t)| {
+                    expr_has_unresolved_qualifier(w, scope)
+                        || expr_has_unresolved_qualifier(t, scope)
+                })
+                || else_expr
+                    .as_deref()
+                    .is_some_and(|el| expr_has_unresolved_qualifier(el, scope))
+        }
+        LogicalExpr::Function {
+            args,
+            filter,
+            order_by,
+            over,
+            ..
+        } => {
+            args.iter()
+                .any(|arg| expr_has_unresolved_qualifier(arg, scope))
+                || filter
+                    .as_deref()
+                    .is_some_and(|f| expr_has_unresolved_qualifier(f, scope))
+                || order_by
+                    .iter()
+                    .any(|k| expr_has_unresolved_qualifier(&k.expr, scope))
+                || over.as_ref().is_some_and(|spec| {
+                    spec.partition_by
+                        .iter()
+                        .any(|p| expr_has_unresolved_qualifier(p, scope))
+                        || spec
+                            .order_by
+                            .iter()
+                            .any(|k| expr_has_unresolved_qualifier(&k.expr, scope))
+                })
+        }
+        LogicalExpr::Array(items) | LogicalExpr::Tuple(items) => items
+            .iter()
+            .any(|item| expr_has_unresolved_qualifier(item, scope)),
+    }
 }
 
 fn rel_supported(rel: &LogicalRelation, forbidden_sources: &BTreeSet<String>) -> bool {
@@ -141,13 +580,16 @@ fn rel_supported(rel: &LogicalRelation, forbidden_sources: &BTreeSet<String>) ->
         } => *quoted_path || !forbidden_sources.contains(&reference.to_ascii_lowercase()),
         LogicalRelation::Subquery { input, .. } => rel_supported(input, forbidden_sources),
         LogicalRelation::Filter { input, predicate } => {
-            rel_supported(input, forbidden_sources) && expr_supported(predicate)
+            rel_supported(input, forbidden_sources)
+                && expr_supported_with_sources(predicate, forbidden_sources)
         }
         LogicalRelation::Project { input, items, .. } => {
             rel_supported(input, forbidden_sources)
                 && items.iter().all(|item| match item {
                     LogicalProjectionItem::Wildcard { .. } => true,
-                    LogicalProjectionItem::Expr { expr, .. } => expr_supported(expr),
+                    LogicalProjectionItem::Expr { expr, .. } => {
+                        expr_supported_with_sources(expr, forbidden_sources)
+                    }
                 })
         }
         LogicalRelation::Aggregate {
@@ -156,12 +598,19 @@ fn rel_supported(rel: &LogicalRelation, forbidden_sources: &BTreeSet<String>) ->
             grouping_sets,
             aggregates,
             having,
-        } => {
-            grouping_sets.is_none()
-                && rel_supported(input, forbidden_sources)
-                && group_by.iter().all(expr_supported)
-                && aggregates.iter().all(agg_spec_supported)
-                && having.as_ref().is_none_or(expr_supported)
+        } => aggregate_supported(
+            input,
+            group_by,
+            grouping_sets.is_some(),
+            aggregates,
+            having.as_ref(),
+            forbidden_sources,
+        ),
+        LogicalRelation::Window { input, windows } => {
+            rel_supported(input, forbidden_sources)
+                && windows
+                    .iter()
+                    .all(|(_, spec)| window_spec_supported(spec, forbidden_sources))
         }
         LogicalRelation::Join {
             left,
@@ -171,23 +620,25 @@ fn rel_supported(rel: &LogicalRelation, forbidden_sources: &BTreeSet<String>) ->
             match_condition,
             tolerance,
         } => {
-            matches!(
-                join_type,
-                LogicalJoinType::Inner
-                    | LogicalJoinType::LeftOuter
-                    | LogicalJoinType::RightOuter
-                    | LogicalJoinType::FullOuter
-                    | LogicalJoinType::Cross
-                    | LogicalJoinType::Semi
-                    | LogicalJoinType::Anti
-            ) && match_condition.is_none()
+            match_condition.is_none()
                 && tolerance.is_none()
+                && join_supported(left, right, *join_type, on.as_ref(), forbidden_sources)
+        }
+        LogicalRelation::SetOperation {
+            left,
+            right,
+            op,
+            distinct,
+        } => {
+            (*distinct || matches!(op, LogicalSetOp::Union))
                 && rel_supported(left, forbidden_sources)
                 && rel_supported(right, forbidden_sources)
-                && on.as_ref().is_none_or(expr_supported)
         }
         LogicalRelation::Sort { input, keys } => {
-            rel_supported(input, forbidden_sources) && keys.iter().all(|k| expr_supported(&k.expr))
+            rel_supported(input, forbidden_sources)
+                && keys
+                    .iter()
+                    .all(|k| expr_supported_with_sources(&k.expr, forbidden_sources))
         }
         LogicalRelation::Limit {
             input,
@@ -195,40 +646,106 @@ fn rel_supported(rel: &LogicalRelation, forbidden_sources: &BTreeSet<String>) ->
             offset,
         } => {
             rel_supported(input, forbidden_sources)
-                && limit.as_ref().is_none_or(expr_supported)
-                && offset.as_ref().is_none_or(expr_supported)
+                && limit
+                    .as_ref()
+                    .is_none_or(|expr| expr_supported_with_sources(expr, forbidden_sources))
+                && offset
+                    .as_ref()
+                    .is_none_or(|expr| expr_supported_with_sources(expr, forbidden_sources))
         }
         LogicalRelation::WithCte {
             ctes,
             recursive: false,
             body,
-        } => {
-            let mut remaining = BTreeSet::new();
-            for cte in ctes {
-                if !remaining.insert(cte.name.to_ascii_lowercase()) {
-                    return false;
-                }
-            }
-            let mut inner_forbidden: BTreeSet<String> =
-                forbidden_sources.difference(&remaining).cloned().collect();
-            inner_forbidden.extend(remaining.iter().cloned());
-            for cte in ctes {
-                if !rel_supported(&cte.query, &inner_forbidden) {
-                    return false;
-                }
-                inner_forbidden.remove(&cte.name.to_ascii_lowercase());
-            }
-            rel_supported(body, &inner_forbidden)
-        }
+        } => with_cte_supported(ctes, body, forbidden_sources),
         LogicalRelation::Values { .. }
         | LogicalRelation::Unit
         | LogicalRelation::TableFunction { .. }
-        | LogicalRelation::Window { .. }
-        | LogicalRelation::SetOperation { .. }
         | LogicalRelation::WithCte {
             recursive: true, ..
         } => false,
     }
+}
+
+fn aggregate_supported(
+    input: &LogicalRelation,
+    group_by: &[LogicalExpr],
+    has_grouping_sets: bool,
+    aggregates: &[LogicalAggregateSpec],
+    having: Option<&LogicalExpr>,
+    forbidden_sources: &BTreeSet<String>,
+) -> bool {
+    !has_grouping_sets
+        && rel_supported(input, forbidden_sources)
+        && group_by
+            .iter()
+            .all(|expr| expr_supported_with_sources(expr, forbidden_sources))
+        && aggregates
+            .iter()
+            .all(|spec| agg_spec_supported(spec, forbidden_sources))
+        && having
+            .as_ref()
+            .is_none_or(|expr| expr_supported_with_sources(expr, forbidden_sources))
+}
+
+fn join_supported(
+    left: &LogicalRelation,
+    right: &LogicalRelation,
+    join_type: LogicalJoinType,
+    on: Option<&LogicalExpr>,
+    forbidden_sources: &BTreeSet<String>,
+) -> bool {
+    matches!(
+        join_type,
+        LogicalJoinType::Inner
+            | LogicalJoinType::LeftOuter
+            | LogicalJoinType::RightOuter
+            | LogicalJoinType::FullOuter
+            | LogicalJoinType::Cross
+            | LogicalJoinType::Semi
+            | LogicalJoinType::Anti
+    ) && rel_supported(left, forbidden_sources)
+        && rel_supported(right, forbidden_sources)
+        && on
+            .as_ref()
+            .is_none_or(|expr| expr_supported_with_sources(expr, forbidden_sources))
+}
+
+fn with_cte_supported(
+    ctes: &[LogicalCte],
+    body: &LogicalRelation,
+    forbidden_sources: &BTreeSet<String>,
+) -> bool {
+    let mut remaining = BTreeSet::new();
+    for cte in ctes {
+        if !remaining.insert(cte.name.to_ascii_lowercase()) {
+            return false;
+        }
+    }
+    let mut inner_forbidden: BTreeSet<String> =
+        forbidden_sources.difference(&remaining).cloned().collect();
+    inner_forbidden.extend(remaining.iter().cloned());
+    for cte in ctes {
+        if !rel_supported(&cte.query, &inner_forbidden) {
+            return false;
+        }
+        inner_forbidden.remove(&cte.name.to_ascii_lowercase());
+    }
+    rel_supported(body, &inner_forbidden)
+}
+
+fn window_spec_supported(spec: &LogicalWindowSpec, forbidden_sources: &BTreeSet<String>) -> bool {
+    spec.partition_by
+        .iter()
+        .all(|expr| expr_supported_with_sources(expr, forbidden_sources))
+        && spec
+            .order_by
+            .iter()
+            .all(|k| expr_supported_with_sources(&k.expr, forbidden_sources))
+        && spec
+            .frame
+            .as_ref()
+            .is_none_or(|frame| window::convert_window_frame(frame).is_ok())
 }
 
 fn agg_call_admitted(name: &str, args: &[LogicalExpr], distinct: bool) -> bool {
@@ -253,20 +770,34 @@ fn agg_call_admitted(name: &str, args: &[LogicalExpr], distinct: bool) -> bool {
     !args.is_empty() && args.len() <= 2
 }
 
-fn agg_spec_supported(spec: &LogicalAggregateSpec) -> bool {
+fn agg_spec_supported(spec: &LogicalAggregateSpec, forbidden_sources: &BTreeSet<String>) -> bool {
     agg_call_admitted(&spec.name, &spec.args, spec.distinct)
-        && spec.args.iter().all(expr_supported)
-        && spec.filter.as_ref().is_none_or(expr_supported)
-        && spec.order_by.iter().all(|k| expr_supported(&k.expr))
+        && spec
+            .args
+            .iter()
+            .all(|expr| expr_supported_with_sources(expr, forbidden_sources))
+        && spec
+            .filter
+            .as_ref()
+            .is_none_or(|expr| expr_supported_with_sources(expr, forbidden_sources))
+        && spec
+            .order_by
+            .iter()
+            .all(|k| expr_supported_with_sources(&k.expr, forbidden_sources))
 }
 
-fn expr_supported(expr: &LogicalExpr) -> bool {
+pub(super) fn expr_supported_with_sources(
+    expr: &LogicalExpr,
+    forbidden_sources: &BTreeSet<String>,
+) -> bool {
     match expr {
         LogicalExpr::Literal(_)
         | LogicalExpr::Column { .. }
         | LogicalExpr::Parameter(_)
         | LogicalExpr::Wildcard { .. } => true,
-        LogicalExpr::Unary { expr, .. } | LogicalExpr::Cast { expr, .. } => expr_supported(expr),
+        LogicalExpr::Unary { expr, .. } | LogicalExpr::Cast { expr, .. } => {
+            expr_supported_with_sources(expr, forbidden_sources)
+        }
         LogicalExpr::Binary { left, right, .. }
         | LogicalExpr::Compare { left, right, .. }
         | LogicalExpr::IsDistinctFrom { left, right, .. }
@@ -274,24 +805,63 @@ fn expr_supported(expr: &LogicalExpr) -> bool {
             expr: left,
             pattern: right,
             ..
-        } => expr_supported(left) && expr_supported(right),
+        } => {
+            expr_supported_with_sources(left, forbidden_sources)
+                && expr_supported_with_sources(right, forbidden_sources)
+        }
         LogicalExpr::Between {
             expr, low, high, ..
-        } => expr_supported(expr) && expr_supported(low) && expr_supported(high),
+        } => {
+            expr_supported_with_sources(expr, forbidden_sources)
+                && expr_supported_with_sources(low, forbidden_sources)
+                && expr_supported_with_sources(high, forbidden_sources)
+        }
         LogicalExpr::InList { expr, list, .. } => {
-            expr_supported(expr) && list.iter().all(expr_supported)
+            expr_supported_with_sources(expr, forbidden_sources)
+                && list
+                    .iter()
+                    .all(|item| expr_supported_with_sources(item, forbidden_sources))
+        }
+        LogicalExpr::InSubquery { expr, subquery, .. } => {
+            !matches!(expr.as_ref(), LogicalExpr::Tuple(_))
+                && expr_supported_with_sources(expr, forbidden_sources)
+                && rel_supported(subquery, forbidden_sources)
+        }
+        LogicalExpr::Exists { subquery, .. } | LogicalExpr::ScalarSubquery(subquery) => {
+            rel_supported(subquery, forbidden_sources)
         }
         LogicalExpr::Case {
             operand,
             when_then,
             else_expr,
         } => {
-            operand.as_deref().is_none_or(expr_supported)
-                && when_then
-                    .iter()
-                    .all(|(w, t)| expr_supported(w) && expr_supported(t))
-                && else_expr.as_deref().is_none_or(expr_supported)
+            operand
+                .as_deref()
+                .is_none_or(|op| expr_supported_with_sources(op, forbidden_sources))
+                && when_then.iter().all(|(w, t)| {
+                    expr_supported_with_sources(w, forbidden_sources)
+                        && expr_supported_with_sources(t, forbidden_sources)
+                })
+                && else_expr
+                    .as_deref()
+                    .is_none_or(|el| expr_supported_with_sources(el, forbidden_sources))
         }
+        LogicalExpr::Function {
+            name,
+            args,
+            distinct,
+            filter,
+            order_by,
+            over: Some(spec),
+        } => window::window_call_admitted(
+            name,
+            args,
+            *distinct,
+            filter.as_deref(),
+            order_by,
+            spec,
+            forbidden_sources,
+        ),
         LogicalExpr::Function {
             name,
             args,
@@ -301,17 +871,20 @@ fn expr_supported(expr: &LogicalExpr) -> bool {
             over: None,
         } => {
             (!is_agg_name(name) || agg_call_admitted(name, args, *distinct))
-                && args.iter().all(expr_supported)
-                && filter.as_deref().is_none_or(expr_supported)
-                && order_by.iter().all(|k| expr_supported(&k.expr))
+                && args
+                    .iter()
+                    .all(|arg| expr_supported_with_sources(arg, forbidden_sources))
+                && filter
+                    .as_deref()
+                    .is_none_or(|f| expr_supported_with_sources(f, forbidden_sources))
+                && order_by
+                    .iter()
+                    .all(|k| expr_supported_with_sources(&k.expr, forbidden_sources))
         }
-        LogicalExpr::Array(items) => items.iter().all(expr_supported),
-        LogicalExpr::InSubquery { .. }
-        | LogicalExpr::Exists { .. }
-        | LogicalExpr::ScalarSubquery(_)
-        | LogicalExpr::Function { over: Some(_), .. }
-        | LogicalExpr::Interval { .. }
-        | LogicalExpr::Tuple(_) => false,
+        LogicalExpr::Array(items) => items
+            .iter()
+            .all(|item| expr_supported_with_sources(item, forbidden_sources)),
+        LogicalExpr::Interval { .. } | LogicalExpr::Tuple(_) => false,
     }
 }
 
@@ -404,14 +977,67 @@ fn inspect_relation(
             Ok(())
         }
         LogicalRelation::Subquery { input, .. } => inspect_relation(input, ctes, depth + 1, state),
-        LogicalRelation::Filter { input, .. }
-        | LogicalRelation::Project { input, .. }
-        | LogicalRelation::Aggregate { input, .. }
-        | LogicalRelation::Sort { input, .. }
-        | LogicalRelation::Limit { input, .. } => inspect_relation(input, ctes, depth, state),
-        LogicalRelation::Join { left, right, .. } => {
+        LogicalRelation::Filter { input, predicate } => {
+            inspect_relation(input, ctes, depth, state)?;
+            subquery::inspect_expr_sources(predicate, ctes, depth, state)
+        }
+        LogicalRelation::Project { input, items, .. } => {
+            inspect_relation(input, ctes, depth, state)?;
+            for item in items {
+                if let LogicalProjectionItem::Expr { expr, .. } = item {
+                    subquery::inspect_expr_sources(expr, ctes, depth, state)?;
+                }
+            }
+            Ok(())
+        }
+        LogicalRelation::Aggregate {
+            input,
+            group_by,
+            aggregates,
+            having,
+            ..
+        } => inspect_aggregate_sources(
+            input,
+            group_by,
+            aggregates,
+            having.as_ref(),
+            ctes,
+            depth,
+            state,
+        ),
+        LogicalRelation::Window { input, windows } => {
+            inspect_relation(input, ctes, depth, state)?;
+            for (_, spec) in windows {
+                for p in &spec.partition_by {
+                    subquery::inspect_expr_sources(p, ctes, depth, state)?;
+                }
+                for k in &spec.order_by {
+                    subquery::inspect_expr_sources(&k.expr, ctes, depth, state)?;
+                }
+            }
+            Ok(())
+        }
+        LogicalRelation::Sort { input, keys } => {
+            inspect_relation(input, ctes, depth, state)?;
+            for k in keys {
+                subquery::inspect_expr_sources(&k.expr, ctes, depth, state)?;
+            }
+            Ok(())
+        }
+        LogicalRelation::Limit { input, .. } => inspect_relation(input, ctes, depth, state),
+        LogicalRelation::Join {
+            left, right, on, ..
+        } => {
             inspect_relation(left, ctes, depth, state)?;
-            inspect_relation(right, ctes, depth, state)
+            inspect_relation(right, ctes, depth, state)?;
+            if let Some(cond) = on {
+                subquery::inspect_expr_sources(cond, ctes, depth, state)?;
+            }
+            Ok(())
+        }
+        LogicalRelation::SetOperation { left, right, .. } => {
+            inspect_relation(left, ctes, depth + 1, state)?;
+            inspect_relation(right, ctes, depth + 1, state)
         }
         LogicalRelation::WithCte {
             ctes: defs, body, ..
@@ -427,6 +1053,36 @@ fn inspect_relation(
             "relation node is not admitted in canonical native lowering",
         )),
     }
+}
+
+fn inspect_aggregate_sources(
+    input: &LogicalRelation,
+    group_by: &[LogicalExpr],
+    aggregates: &[LogicalAggregateSpec],
+    having: Option<&LogicalExpr>,
+    ctes: &BTreeSet<String>,
+    depth: usize,
+    state: &mut InspectState,
+) -> NativeResult<()> {
+    inspect_relation(input, ctes, depth, state)?;
+    for g in group_by {
+        subquery::inspect_expr_sources(g, ctes, depth, state)?;
+    }
+    for agg in aggregates {
+        for a in &agg.args {
+            subquery::inspect_expr_sources(a, ctes, depth, state)?;
+        }
+        if let Some(f) = &agg.filter {
+            subquery::inspect_expr_sources(f, ctes, depth, state)?;
+        }
+        for k in &agg.order_by {
+            subquery::inspect_expr_sources(&k.expr, ctes, depth, state)?;
+        }
+    }
+    if let Some(h) = having {
+        subquery::inspect_expr_sources(h, ctes, depth, state)?;
+    }
+    Ok(())
 }
 
 fn make_relation_leaf(reference: &str, quoted_path: bool) -> NativeResult<ParsedRelationLeaf> {
@@ -496,13 +1152,7 @@ impl CanonicalLowering<'_, '_, '_> {
                 Ok(lowered.with_qualifier(alias.as_deref()))
             }
             LogicalRelation::Filter { input, predicate } => {
-                let mut lowered = self.lower_relation(input)?;
-                let expr = self.lower_expr(predicate, &lowered)?;
-                lowered.plan = Plan::Filter(Box::new(Filter {
-                    input: lowered.plan,
-                    predicate: expr,
-                }));
-                Ok(lowered)
+                subquery::lower_filter_with_subqueries(self, input, predicate)
             }
             LogicalRelation::Join {
                 left,
@@ -511,6 +1161,13 @@ impl CanonicalLowering<'_, '_, '_> {
                 on,
                 ..
             } => self.lower_join(left, right, *join_type, on.as_ref()),
+            LogicalRelation::Window { input, windows } => self.lower_bare_window(input, windows),
+            LogicalRelation::SetOperation {
+                left,
+                right,
+                op,
+                distinct,
+            } => self.lower_set_operation(left, right, *op, *distinct),
             LogicalRelation::Project {
                 input,
                 items,
@@ -535,13 +1192,74 @@ impl CanonicalLowering<'_, '_, '_> {
         }
     }
 
+    fn lower_set_operation(
+        &mut self,
+        left: &LogicalRelation,
+        right: &LogicalRelation,
+        op: LogicalSetOp,
+        distinct: bool,
+    ) -> NativeResult<ScopedRelation> {
+        let mut left_rel = self.lower_relation(left)?;
+        let right_rel = self.lower_relation(right)?;
+        if left_rel.entries.len() != right_rel.entries.len() {
+            return Err(unsupported_sql_error(&format!(
+                "set operation expects matching branch widths, found {} and {}",
+                left_rel.entries.len(),
+                right_rel.entries.len()
+            )));
+        }
+        let kind = match (op, distinct) {
+            (LogicalSetOp::Union, false) => SetKind::UnionAll,
+            (LogicalSetOp::Union, true) => SetKind::UnionDistinct,
+            (LogicalSetOp::Intersect, true) => SetKind::Intersect,
+            (LogicalSetOp::Except, true) => SetKind::Except,
+            (LogicalSetOp::Intersect | LogicalSetOp::Except, false) => {
+                return Err(unsupported_sql_error(
+                    "bag INTERSECT ALL / EXCEPT ALL are not admitted natively",
+                ));
+            }
+        };
+        if left_rel
+            .entries
+            .iter()
+            .any(|entry| entry.internal != entry.output)
+        {
+            let norm = left_rel
+                .entries
+                .iter()
+                .map(|entry| Ok((entry.output.clone(), column(&entry.internal)?)))
+                .collect::<NativeResult<Vec<_>>>()?;
+            left_rel.plan = Plan::Project(Box::new(Project {
+                input: left_rel.plan,
+                expressions: norm,
+            }));
+        }
+        let entries = left_rel
+            .entries
+            .into_iter()
+            .map(|entry| ScopeColumn {
+                internal: entry.output.clone(),
+                qualifier: None,
+                output: entry.output,
+            })
+            .collect();
+        Ok(ScopedRelation {
+            plan: Plan::Set(Box::new(Set {
+                left: left_rel.plan,
+                right: right_rel.plan,
+                kind,
+            })),
+            entries,
+        })
+    }
+
     fn lower_with_cte(
         &mut self,
         ctes: &[LogicalCte],
         body: &LogicalRelation,
     ) -> NativeResult<ScopedRelation> {
         let saved = self.ctes.clone();
-        for cte in ctes {
+        for (idx, cte) in ctes.iter().enumerate() {
             let mut cte_rel = self.lower_relation(&cte.query)?;
             if !cte.columns.is_empty() {
                 if cte.columns.len() != cte_rel.entries.len() {
@@ -571,7 +1289,19 @@ impl CanonicalLowering<'_, '_, '_> {
                     entries: renamed,
                 };
             }
-            self.ctes.insert(cte.name.to_ascii_lowercase(), cte_rel);
+            let cte_key = cte.name.to_ascii_lowercase();
+            let mut ref_counts = BTreeMap::new();
+            let mut shadowed = BTreeSet::new();
+            for later in &ctes[idx + 1..] {
+                count_rel_cte_refs(&later.query, &shadowed, &mut ref_counts);
+                shadowed.insert(later.name.to_ascii_lowercase());
+            }
+            count_rel_cte_refs(body, &shadowed, &mut ref_counts);
+            let refs = ref_counts.get(&cte_key).copied().unwrap_or(0);
+            if cte.materialized == Some(true) || (cte.materialized != Some(false) && refs >= 2) {
+                cte_rel.plan = Plan::Materialized(Arc::new(cte_rel.plan));
+            }
+            self.ctes.insert(cte_key, cte_rel);
         }
         let result = self.lower_relation(body);
         self.ctes = saved;
@@ -693,9 +1423,14 @@ impl CanonicalLowering<'_, '_, '_> {
             return self.lower_project(proj_input, items, *distinct, Some(keys));
         }
         let mut rel = self.lower_relation(input)?;
+        let saved_entries = rel.entries.clone();
+        let mut owned_keys = keys.to_vec();
+        for key in &mut owned_keys {
+            rel = subquery::materialize_expr_subqueries(self, rel, &mut key.expr)?;
+        }
         let mut extra_exprs = Vec::new();
-        let mut order_keys = Vec::with_capacity(keys.len());
-        for key in keys {
+        let mut order_keys = Vec::with_capacity(owned_keys.len());
+        for key in &owned_keys {
             if let LogicalExpr::Column { qualifier, name } = &key.expr {
                 let resolved = rel.resolve(qualifier.as_deref(), name)?;
                 order_keys.push(make_order_key(&resolved, key)?);
@@ -706,8 +1441,8 @@ impl CanonicalLowering<'_, '_, '_> {
                 order_keys.push(make_order_key(&hidden, key)?);
             }
         }
-        let added_extra = !extra_exprs.is_empty();
-        if added_extra {
+        let added_extra = !extra_exprs.is_empty() || rel.entries.len() != saved_entries.len();
+        if !extra_exprs.is_empty() {
             let mut exprs = rel
                 .entries
                 .iter()
@@ -724,6 +1459,7 @@ impl CanonicalLowering<'_, '_, '_> {
             keys: order_keys,
         }));
         if added_extra {
+            rel.entries = saved_entries;
             let restore = rel
                 .entries
                 .iter()
@@ -811,15 +1547,14 @@ impl CanonicalLowering<'_, '_, '_> {
         distinct: bool,
         outer_sort: Option<&[LogicalSortKey]>,
     ) -> NativeResult<ScopedRelation> {
-        if let LogicalRelation::Aggregate {
-            input: agg_input,
-            group_by,
-            aggregates,
-            having,
-            ..
-        } = input
-        {
-            return self.lower_aggregate_project(
+        match input {
+            LogicalRelation::Aggregate {
+                input: agg_input,
+                group_by,
+                aggregates,
+                having,
+                ..
+            } => self.lower_aggregate_project(
                 agg_input,
                 group_by,
                 aggregates,
@@ -827,19 +1562,32 @@ impl CanonicalLowering<'_, '_, '_> {
                 items,
                 distinct,
                 outer_sort,
-            );
+            ),
+            LogicalRelation::Window { input: win_in, .. } => {
+                if let LogicalRelation::Aggregate {
+                    input: agg_input,
+                    group_by,
+                    having,
+                    ..
+                } = win_in.as_ref()
+                {
+                    return self.lower_window_aggregate_project(
+                        agg_input,
+                        group_by,
+                        having.as_ref(),
+                        items,
+                        distinct,
+                        outer_sort,
+                    );
+                }
+                let rel = self.lower_relation(win_in)?;
+                self.lower_window_project_over_scope(rel, items, distinct, outer_sort)
+            }
+            other => {
+                let rel = self.lower_relation(other)?;
+                self.lower_window_project_over_scope(rel, items, distinct, outer_sort)
+            }
         }
-        let rel = self.lower_relation(input)?;
-        let (projected, expressions, visible_entries) =
-            self.expand_projection_items(items, &rel)?;
-        self.finish_projection(
-            rel,
-            &projected,
-            expressions,
-            visible_entries,
-            distinct,
-            outer_sort,
-        )
     }
 
     fn expand_projection_items(
@@ -1083,7 +1831,7 @@ impl CanonicalLowering<'_, '_, '_> {
         self.lower_aggregate_project(agg_input, group_by, aggregates, having, &items, false, None)
     }
 
-    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+    #[allow(clippy::too_many_arguments)]
     fn lower_aggregate_project(
         &mut self,
         agg_input: &LogicalRelation,
@@ -1094,26 +1842,61 @@ impl CanonicalLowering<'_, '_, '_> {
         distinct: bool,
         outer_sort: Option<&[LogicalSortKey]>,
     ) -> NativeResult<ScopedRelation> {
-        let raw_scope = self.lower_relation(agg_input)?;
-        let alias_exprs = collect_select_alias_map(items);
-        let resolved_group_by = resolve_group_by_aliases(group_by, &raw_scope, &alias_exprs);
+        let (mut post_scope, agg_map, group_map, alias_exprs) =
+            self.lower_aggregate_prefix(agg_input, group_by, having, items, outer_sort, &[])?;
+        post_scope =
+            self.materialize_having(post_scope, having, &alias_exprs, &agg_map, &group_map)?;
+        self.finish_aggregate_project(
+            post_scope,
+            items,
+            distinct,
+            outer_sort,
+            &alias_exprs,
+            &agg_map,
+            &group_map,
+        )
+    }
 
-        let mut agg_specs = Vec::<CollectedAgg>::new();
-        for item in items {
-            if let LogicalProjectionItem::Expr { expr, .. } = item {
-                collect_expr_aggregates(expr, &mut agg_specs);
-            }
-        }
-        if let Some(having_expr) = having {
-            let substituted = substitute_alias_expr(having_expr, &alias_exprs);
-            collect_expr_aggregates(&substituted, &mut agg_specs);
-        }
-        if let Some(keys) = outer_sort {
-            for key in keys {
-                let substituted = substitute_alias_expr(&key.expr, &alias_exprs);
-                collect_expr_aggregates(&substituted, &mut agg_specs);
-            }
-        }
+    #[allow(clippy::type_complexity)]
+    pub(super) fn lower_aggregate_prefix(
+        &mut self,
+        agg_input: &LogicalRelation,
+        group_by: &[LogicalExpr],
+        having: Option<&LogicalExpr>,
+        items: &[LogicalProjectionItem],
+        outer_sort: Option<&[LogicalSortKey]>,
+        extra_aggs: &[CollectedAgg],
+    ) -> NativeResult<(
+        ScopedRelation,
+        Vec<(LogicalExpr, String)>,
+        Vec<(LogicalExpr, String)>,
+        BTreeMap<String, LogicalExpr>,
+    )> {
+        let raw_scope = self.lower_relation(agg_input)?;
+        self.lower_aggregate_prefix_from_scope(
+            &raw_scope, group_by, having, items, outer_sort, extra_aggs,
+        )
+    }
+
+    #[allow(clippy::type_complexity)]
+    pub(super) fn lower_aggregate_prefix_from_scope(
+        &mut self,
+        raw_scope: &ScopedRelation,
+        group_by: &[LogicalExpr],
+        having: Option<&LogicalExpr>,
+        items: &[LogicalProjectionItem],
+        outer_sort: Option<&[LogicalSortKey]>,
+        extra_aggs: &[CollectedAgg],
+    ) -> NativeResult<(
+        ScopedRelation,
+        Vec<(LogicalExpr, String)>,
+        Vec<(LogicalExpr, String)>,
+        BTreeMap<String, LogicalExpr>,
+    )> {
+        let alias_exprs = collect_select_alias_map(items);
+        let resolved_group_by = resolve_group_by_aliases(group_by, raw_scope, &alias_exprs);
+        let agg_specs =
+            collect_all_aggregate_specs(items, having, outer_sort, &alias_exprs, extra_aggs);
         if resolved_group_by.is_empty() && agg_specs.is_empty() && having.is_some() {
             return Err(unsupported_sql_error(
                 "HAVING requires grouped or scalar aggregation",
@@ -1126,43 +1909,19 @@ impl CanonicalLowering<'_, '_, '_> {
             .map(|entry| entry.internal.clone())
             .collect();
         let mut pre_projections = Vec::<(String, Expression)>::new();
-        let mut group_cols = Vec::<String>::with_capacity(resolved_group_by.len());
-        let mut group_map = Vec::<(LogicalExpr, String)>::with_capacity(resolved_group_by.len());
-
-        for gb in &resolved_group_by {
-            let col_name = if let LogicalExpr::Column { qualifier, name } = gb {
-                raw_scope.resolve(qualifier.as_deref(), name)?
-            } else {
-                let expr = self.lower_expr(gb, &raw_scope)?;
-                let col = fresh_col_names(&pre_names, &mut self.lowerer.serial);
-                pre_names.push(col.clone());
-                pre_projections.push((col.clone(), expr));
-                col
-            };
-            group_cols.push(col_name.clone());
-            group_map.push((gb.clone(), col_name));
-        }
-
-        let mut measures = Vec::with_capacity(agg_specs.len());
-        let mut agg_map = Vec::<(LogicalExpr, String)>::with_capacity(agg_specs.len());
-        for spec in &agg_specs {
-            let alias = fresh_col_names(&pre_names, &mut self.lowerer.serial);
-            pre_names.push(alias.clone());
-            let measure = self.lower_single_measure(
-                spec,
-                &alias,
-                &raw_scope,
-                &mut pre_names,
-                &mut pre_projections,
-            )?;
-            measures.push(measure);
-            agg_map.push((spec.expr.clone(), alias));
-        }
-        if group_cols.is_empty() && measures.is_empty() {
-            let dummy = fresh_col_names(&pre_names, &mut self.lowerer.serial);
-            pre_names.push(dummy.clone());
-            measures.push(VortexSimpleAggregateMeasure::new("count", None, dummy));
-        }
+        let (group_cols, group_map) = self.lower_group_by_columns(
+            &resolved_group_by,
+            raw_scope,
+            &mut pre_names,
+            &mut pre_projections,
+        )?;
+        let (measures, agg_map) = self.lower_aggregate_measures(
+            &agg_specs,
+            group_cols.is_empty(),
+            raw_scope,
+            &mut pre_names,
+            &mut pre_projections,
+        )?;
 
         let mut plan = raw_scope.plan.clone();
         if !pre_projections.is_empty() {
@@ -1188,39 +1947,123 @@ impl CanonicalLowering<'_, '_, '_> {
             measures,
         }));
 
-        let mut post_entries = Vec::new();
-        for (_, col) in &group_map {
-            post_entries.push(ScopeColumn {
+        let post_entries = group_map
+            .iter()
+            .map(|(_, col)| col)
+            .chain(agg_map.iter().map(|(_, col)| col))
+            .map(|col| ScopeColumn {
                 internal: col.clone(),
                 qualifier: None,
                 output: col.clone(),
-            });
-        }
-        for (_, agg_col) in &agg_map {
-            post_entries.push(ScopeColumn {
-                internal: agg_col.clone(),
-                qualifier: None,
-                output: agg_col.clone(),
-            });
-        }
-        let mut post_scope = ScopedRelation {
-            plan,
-            entries: post_entries,
-        };
+            })
+            .collect();
+        Ok((
+            ScopedRelation {
+                plan,
+                entries: post_entries,
+            },
+            agg_map,
+            group_map,
+            alias_exprs,
+        ))
+    }
 
-        let rewrite_post = |expr: &LogicalExpr| -> LogicalExpr {
-            let with_aliases = substitute_alias_expr(expr, &alias_exprs);
-            rewrite_agg_and_group_expr(&with_aliases, &agg_map, &group_map)
+    fn lower_group_by_columns(
+        &mut self,
+        resolved_group_by: &[LogicalExpr],
+        raw_scope: &ScopedRelation,
+        pre_names: &mut Vec<String>,
+        pre_projections: &mut Vec<(String, Expression)>,
+    ) -> NativeResult<GroupByColumns> {
+        let mut group_cols = Vec::with_capacity(resolved_group_by.len());
+        let mut group_map = Vec::with_capacity(resolved_group_by.len());
+        for gb in resolved_group_by {
+            let col_name = if let LogicalExpr::Column { qualifier, name } = gb {
+                raw_scope.resolve(qualifier.as_deref(), name)?
+            } else {
+                let expr = self.lower_expr(gb, raw_scope)?;
+                let col = fresh_col_names(pre_names, &mut self.lowerer.serial);
+                pre_names.push(col.clone());
+                pre_projections.push((col.clone(), expr));
+                col
+            };
+            group_cols.push(col_name.clone());
+            group_map.push((gb.clone(), col_name));
+        }
+        Ok((group_cols, group_map))
+    }
+
+    fn lower_aggregate_measures(
+        &mut self,
+        agg_specs: &[CollectedAgg],
+        group_empty: bool,
+        raw_scope: &ScopedRelation,
+        pre_names: &mut Vec<String>,
+        pre_projections: &mut Vec<(String, Expression)>,
+    ) -> NativeResult<AggregateMeasures> {
+        let mut measures = Vec::with_capacity(agg_specs.len());
+        let mut agg_map = Vec::with_capacity(agg_specs.len());
+        for spec in agg_specs {
+            let alias = fresh_col_names(pre_names, &mut self.lowerer.serial);
+            pre_names.push(alias.clone());
+            let measure =
+                self.lower_single_measure(spec, &alias, raw_scope, pre_names, pre_projections)?;
+            measures.push(measure);
+            agg_map.push((spec.expr.clone(), alias));
+        }
+        if group_empty && measures.is_empty() {
+            let dummy = fresh_col_names(pre_names, &mut self.lowerer.serial);
+            pre_names.push(dummy.clone());
+            measures.push(VortexSimpleAggregateMeasure::new("count", None, dummy));
+        }
+        Ok((measures, agg_map))
+    }
+
+    pub(super) fn materialize_having(
+        &mut self,
+        mut post_scope: ScopedRelation,
+        having: Option<&LogicalExpr>,
+        alias_exprs: &BTreeMap<String, LogicalExpr>,
+        agg_map: &[(LogicalExpr, String)],
+        group_map: &[(LogicalExpr, String)],
+    ) -> NativeResult<ScopedRelation> {
+        let Some(having_expr) = having else {
+            return Ok(post_scope);
         };
-        if let Some(having_expr) = having {
-            let rewritten = rewrite_post(having_expr);
-            let pred = self.lower_expr(&rewritten, &post_scope)?;
-            post_scope.plan = Plan::Filter(Box::new(Filter {
+        let with_aliases = substitute_alias_expr(having_expr, alias_exprs);
+        let mut rewritten = rewrite_agg_and_group_expr(&with_aliases, agg_map, group_map);
+        let saved_entries = post_scope.entries.clone();
+        post_scope = subquery::materialize_expr_subqueries(self, post_scope, &mut rewritten)?;
+        let pred = self.lower_expr(&rewritten, &post_scope)?;
+        post_scope.plan = Plan::Filter(Box::new(Filter {
+            input: post_scope.plan,
+            predicate: pred,
+        }));
+        if post_scope.entries.len() != saved_entries.len() {
+            let exprs = saved_entries
+                .iter()
+                .map(|entry| Ok((entry.internal.clone(), column(&entry.internal)?)))
+                .collect::<NativeResult<Vec<_>>>()?;
+            post_scope.entries = saved_entries;
+            post_scope.plan = Plan::Project(Box::new(Project {
                 input: post_scope.plan,
-                predicate: pred,
+                expressions: exprs,
             }));
         }
+        Ok(post_scope)
+    }
 
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn finish_aggregate_project(
+        &mut self,
+        post_scope: ScopedRelation,
+        items: &[LogicalProjectionItem],
+        distinct: bool,
+        outer_sort: Option<&[LogicalSortKey]>,
+        alias_exprs: &BTreeMap<String, LogicalExpr>,
+        agg_map: &[(LogicalExpr, String)],
+        group_map: &[(LogicalExpr, String)],
+    ) -> NativeResult<ScopedRelation> {
         let rewritten_items: Vec<LogicalProjectionItem> = items
             .iter()
             .enumerate()
@@ -1234,7 +2077,7 @@ impl CanonicalLowering<'_, '_, '_> {
                         _ => format!("col_{idx}"),
                     });
                     LogicalProjectionItem::Expr {
-                        expr: Box::new(rewrite_agg_and_group_expr(expr, &agg_map, &group_map)),
+                        expr: Box::new(rewrite_agg_and_group_expr(expr, agg_map, group_map)),
                         alias: Some(out_alias),
                     }
                 }
@@ -1251,20 +2094,17 @@ impl CanonicalLowering<'_, '_, '_> {
                     {
                         key.expr.clone()
                     } else {
-                        rewrite_post(&key.expr)
+                        let with_aliases = substitute_alias_expr(&key.expr, alias_exprs);
+                        rewrite_agg_and_group_expr(&with_aliases, agg_map, group_map)
                     },
                     descending: key.descending,
                     nulls_first: key.nulls_first,
                 })
                 .collect::<Vec<_>>()
         });
-        let (expanded, expressions, visible_entries) =
-            self.expand_projection_items(&rewritten_items, &post_scope)?;
-        self.finish_projection(
+        self.lower_window_project_over_scope(
             post_scope,
-            &expanded,
-            expressions,
-            visible_entries,
+            &rewritten_items,
             distinct,
             rewritten_sort.as_deref(),
         )
@@ -1808,6 +2648,7 @@ impl CanonicalLowering<'_, '_, '_> {
     }
 }
 
+#[derive(Clone)]
 struct CollectedAgg {
     expr: LogicalExpr,
     name: String,
@@ -1968,12 +2809,29 @@ fn collect_expr_aggregates(expr: &LogicalExpr, out: &mut Vec<CollectedAgg>) {
                 });
             }
         }
-        LogicalExpr::Function { args, filter, .. } => {
+        LogicalExpr::Function {
+            args,
+            filter,
+            order_by,
+            over,
+            ..
+        } => {
             for arg in args {
                 collect_expr_aggregates(arg, out);
             }
             if let Some(f) = filter {
                 collect_expr_aggregates(f, out);
+            }
+            for k in order_by {
+                collect_expr_aggregates(&k.expr, out);
+            }
+            if let Some(spec) = over {
+                for p in &spec.partition_by {
+                    collect_expr_aggregates(p, out);
+                }
+                for k in &spec.order_by {
+                    collect_expr_aggregates(&k.expr, out);
+                }
             }
         }
         LogicalExpr::Unary { expr: inner, .. } | LogicalExpr::Cast { expr: inner, .. } => {
@@ -2026,6 +2884,37 @@ fn collect_expr_aggregates(expr: &LogicalExpr, out: &mut Vec<CollectedAgg>) {
         }
         _ => {}
     }
+}
+
+fn collect_all_aggregate_specs(
+    items: &[LogicalProjectionItem],
+    having: Option<&LogicalExpr>,
+    outer_sort: Option<&[LogicalSortKey]>,
+    alias_exprs: &BTreeMap<String, LogicalExpr>,
+    extra_aggs: &[CollectedAgg],
+) -> Vec<CollectedAgg> {
+    let mut agg_specs = Vec::<CollectedAgg>::new();
+    for item in items {
+        if let LogicalProjectionItem::Expr { expr, .. } = item {
+            collect_expr_aggregates(expr, &mut agg_specs);
+        }
+    }
+    if let Some(having_expr) = having {
+        let substituted = substitute_alias_expr(having_expr, alias_exprs);
+        collect_expr_aggregates(&substituted, &mut agg_specs);
+    }
+    if let Some(keys) = outer_sort {
+        for key in keys {
+            let substituted = substitute_alias_expr(&key.expr, alias_exprs);
+            collect_expr_aggregates(&substituted, &mut agg_specs);
+        }
+    }
+    for spec in extra_aggs {
+        if !agg_specs.iter().any(|existing| existing.expr == spec.expr) {
+            agg_specs.push(spec.clone());
+        }
+    }
+    agg_specs
 }
 
 fn collect_select_alias_map(items: &[LogicalProjectionItem]) -> BTreeMap<String, LogicalExpr> {
@@ -2216,16 +3105,158 @@ fn map_logical_children(
             filter,
             order_by,
             over,
-        } => LogicalExpr::Function {
-            name: name.clone(),
-            args: args.iter().map(f).collect(),
-            distinct: *distinct,
-            filter: filter.as_deref().map(f).map(Box::new),
-            order_by: order_by.clone(),
-            over: over.clone(),
-        },
+        } => map_logical_function(
+            name,
+            args,
+            *distinct,
+            filter.as_deref(),
+            order_by,
+            over.as_ref(),
+            f,
+        ),
         LogicalExpr::Array(items) => LogicalExpr::Array(items.iter().map(f).collect()),
+        LogicalExpr::Tuple(items) => LogicalExpr::Tuple(items.iter().map(f).collect()),
         other => other.clone(),
+    }
+}
+
+fn map_logical_function(
+    name: &str,
+    args: &[LogicalExpr],
+    distinct: bool,
+    filter: Option<&LogicalExpr>,
+    order_by: &[LogicalSortKey],
+    over: Option<&LogicalWindowSpec>,
+    f: &dyn Fn(&LogicalExpr) -> LogicalExpr,
+) -> LogicalExpr {
+    LogicalExpr::Function {
+        name: name.to_owned(),
+        args: args.iter().map(f).collect(),
+        distinct,
+        filter: filter.map(f).map(Box::new),
+        order_by: order_by
+            .iter()
+            .map(|k| LogicalSortKey {
+                expr: f(&k.expr),
+                descending: k.descending,
+                nulls_first: k.nulls_first,
+            })
+            .collect(),
+        over: over.map(|spec| LogicalWindowSpec {
+            name: spec.name.clone(),
+            partition_by: spec.partition_by.iter().map(f).collect(),
+            order_by: spec
+                .order_by
+                .iter()
+                .map(|k| LogicalSortKey {
+                    expr: f(&k.expr),
+                    descending: k.descending,
+                    nulls_first: k.nulls_first,
+                })
+                .collect(),
+            frame: spec.frame.clone(),
+        }),
+    }
+}
+
+fn count_rel_cte_refs(
+    rel: &LogicalRelation,
+    shadowed: &BTreeSet<String>,
+    counts: &mut BTreeMap<String, usize>,
+) {
+    match rel {
+        LogicalRelation::Source {
+            reference,
+            quoted_path: false,
+            ..
+        } => {
+            let key = reference.to_ascii_lowercase();
+            if !shadowed.contains(&key) {
+                *counts.entry(key).or_insert(0) += 1;
+            }
+        }
+        LogicalRelation::Subquery { input, .. } | LogicalRelation::Limit { input, .. } => {
+            count_rel_cte_refs(input, shadowed, counts);
+        }
+        LogicalRelation::Filter { input, predicate } => {
+            count_rel_cte_refs(input, shadowed, counts);
+            subquery::count_expr_cte_refs(predicate, shadowed, counts);
+        }
+        LogicalRelation::Project { input, items, .. } => {
+            count_rel_cte_refs(input, shadowed, counts);
+            for item in items {
+                if let LogicalProjectionItem::Expr { expr, .. } = item {
+                    subquery::count_expr_cte_refs(expr, shadowed, counts);
+                }
+            }
+        }
+        LogicalRelation::Aggregate {
+            input,
+            group_by,
+            aggregates,
+            having,
+            ..
+        } => {
+            count_rel_cte_refs(input, shadowed, counts);
+            for g in group_by {
+                subquery::count_expr_cte_refs(g, shadowed, counts);
+            }
+            for agg in aggregates {
+                for a in &agg.args {
+                    subquery::count_expr_cte_refs(a, shadowed, counts);
+                }
+                if let Some(f) = &agg.filter {
+                    subquery::count_expr_cte_refs(f, shadowed, counts);
+                }
+            }
+            if let Some(h) = having {
+                subquery::count_expr_cte_refs(h, shadowed, counts);
+            }
+        }
+        LogicalRelation::Window { input, windows } => {
+            count_rel_cte_refs(input, shadowed, counts);
+            for (_, spec) in windows {
+                for p in &spec.partition_by {
+                    subquery::count_expr_cte_refs(p, shadowed, counts);
+                }
+                for k in &spec.order_by {
+                    subquery::count_expr_cte_refs(&k.expr, shadowed, counts);
+                }
+            }
+        }
+        LogicalRelation::Sort { input, keys } => {
+            count_rel_cte_refs(input, shadowed, counts);
+            for k in keys {
+                subquery::count_expr_cte_refs(&k.expr, shadowed, counts);
+            }
+        }
+        LogicalRelation::Join {
+            left, right, on, ..
+        } => {
+            count_rel_cte_refs(left, shadowed, counts);
+            count_rel_cte_refs(right, shadowed, counts);
+            if let Some(cond) = on {
+                subquery::count_expr_cte_refs(cond, shadowed, counts);
+            }
+        }
+        LogicalRelation::SetOperation { left, right, .. } => {
+            count_rel_cte_refs(left, shadowed, counts);
+            count_rel_cte_refs(right, shadowed, counts);
+        }
+        LogicalRelation::WithCte { ctes, body, .. } => {
+            let mut inner_shadowed = shadowed.clone();
+            for cte in ctes {
+                count_rel_cte_refs(&cte.query, &inner_shadowed, counts);
+                inner_shadowed.insert(cte.name.to_ascii_lowercase());
+            }
+            count_rel_cte_refs(body, &inner_shadowed, counts);
+        }
+        LogicalRelation::Source {
+            quoted_path: true, ..
+        }
+        | LogicalRelation::Values { .. }
+        | LogicalRelation::Unit
+        | LogicalRelation::TableFunction { .. } => {}
     }
 }
 

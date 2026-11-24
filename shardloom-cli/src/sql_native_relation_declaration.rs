@@ -25,6 +25,7 @@ enum SqlDeclarationBody {
     Canonical {
         plan: Box<shardloom_plan::sql_binder::BoundSqlPlan>,
         bound_names: Vec<String>,
+        raw_sql: String,
     },
 }
 
@@ -52,10 +53,32 @@ impl NativeSqlDeclaration {
         parameters: BTreeMap<String, Expression>,
     ) -> NativeResult<Self> {
         super::parameters::validate(raw, &parameters)?;
+        let canonical_candidate = super::canonical::parse_canonical_plan(raw);
+        if let Some(plan) = canonical_candidate
+            .as_ref()
+            .filter(|plan| super::canonical::prefers_canonical_lowering(plan, names))
+        {
+            let summary = super::canonical::inspect_canonical_plan(plan, names)?;
+            return Ok(Self {
+                query: SqlDeclarationBody::Canonical {
+                    plan: canonical_candidate.expect("checked Some above"),
+                    bound_names: names.to_vec(),
+                    raw_sql: raw.to_owned(),
+                },
+                metadata_bytes: summary.metadata_bytes,
+                sources: summary.sources,
+                input_uses: summary.input_uses,
+                depth: summary.depth,
+                recursive_depth: 0,
+                dynamic: false,
+                parameters,
+                observation: None,
+            });
+        }
         let mut legacy = match parsed_native_query(raw) {
             Ok(query) => query,
             Err(legacy_err) => {
-                let Some(plan) = super::canonical::parse_canonical_plan(raw) else {
+                let Some(plan) = canonical_candidate else {
                     return Err(legacy_err);
                 };
                 let summary = super::canonical::inspect_canonical_plan(&plan, names)?;
@@ -63,6 +86,7 @@ impl NativeSqlDeclaration {
                     query: SqlDeclarationBody::Canonical {
                         plan,
                         bound_names: names.to_vec(),
+                        raw_sql: raw.to_owned(),
                     },
                     metadata_bytes: summary.metadata_bytes,
                     sources: summary.sources,
@@ -125,9 +149,22 @@ impl NativeSqlDeclaration {
                 self.observation = Some(name.to_ascii_lowercase());
                 Ok(())
             }
-            SqlDeclarationBody::Canonical { .. } => Err(unsupported_sql_error(
-                "OBSERVE is not admitted on canonical multi-join plans",
-            )),
+            SqlDeclarationBody::Canonical {
+                bound_names,
+                raw_sql,
+                ..
+            } => {
+                let Ok(mut legacy) = parsed_native_query(raw_sql) else {
+                    return Err(unsupported_sql_error(
+                        "OBSERVE is not admitted on canonical multi-join plans",
+                    ));
+                };
+                relation_sources::scopes::bind_inputs(&mut legacy, bound_names)?;
+                observation::validate(&legacy)?;
+                self.query = SqlDeclarationBody::Legacy(legacy);
+                self.observation = Some(name.to_ascii_lowercase());
+                Ok(())
+            }
         }
     }
 
@@ -165,9 +202,12 @@ impl NativeSqlDeclaration {
         match (&self.query, &self.observation) {
             (SqlDeclarationBody::Legacy(query), Some(name)) => lowerer.observation(query, name),
             (SqlDeclarationBody::Legacy(query), None) => lowerer.query(query),
-            (SqlDeclarationBody::Canonical { plan, bound_names }, None) => {
-                super::canonical::lower_bound_sql_plan(plan, bound_names, &mut lowerer)
-            }
+            (
+                SqlDeclarationBody::Canonical {
+                    plan, bound_names, ..
+                },
+                None,
+            ) => super::canonical::lower_bound_sql_plan(plan, bound_names, &mut lowerer),
             (SqlDeclarationBody::Canonical { .. }, Some(_)) => Err(unsupported_sql_error(
                 "OBSERVE is not admitted on canonical multi-join plans",
             )),

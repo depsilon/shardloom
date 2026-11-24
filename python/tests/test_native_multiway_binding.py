@@ -308,6 +308,79 @@ class NativeMultiwayBindingTests(unittest.TestCase):
         gc.collect()
         self.assertEqual(session.snapshot()["reserved_bytes"], 0)
 
+    def test_e2e_perf_05b_windows_uncapped_union_cte_and_subqueries(self):
+        session = self.session()
+        i64 = json.dumps({"Primitive": ["i64", True]})
+        utf8 = json.dumps({"Utf8": True})
+        fact = session.from_rows(
+            [
+                {"id": 1, "grp": "a", "val": 10},
+                {"id": 2, "grp": "a", "val": 25},
+                {"id": 3, "grp": "b", "val": 5},
+                {"id": 4, "grp": "b", "val": 15},
+            ],
+            fields=[("id", i64), ("grp", utf8), ("val", i64)],
+        )
+        big_a = session.from_rows(
+            [{"id": i} for i in range(6000)],
+            fields=[("id", i64)],
+        )
+        big_b = session.from_rows(
+            [{"id": i} for i in range(5000, 11000)],
+            fields=[("id", i64)],
+        )
+
+        with patch("subprocess.Popen", side_effect=AssertionError("child process")):
+            # Window over GROUP BY
+            win_plan = session.sql(
+                "SELECT grp, SUM(val) AS total, RANK() OVER (ORDER BY SUM(val) DESC) AS rnk "
+                "FROM 'memory://fact' GROUP BY grp ORDER BY rnk, grp",
+                sources=[("memory://fact", fact)],
+            )
+            win_res = win_plan.collect()
+            self.assertEqual(
+                win_res.row_export()[0],
+                [{"grp": "a", "total": 35.0, "rnk": 1}, {"grp": "b", "total": 20.0, "rnk": 2}],
+            )
+            self.assertEqual(win_res.report["fallback_attempted"], "false")
+            self.assertEqual(win_res.report["external_engine_invoked"], "false")
+            del win_res
+            win_plan.release_prepared()
+
+            # >10k row UNION ALL (no 10_000 limit cap)
+            union_plan = session.sql(
+                "SELECT id FROM 'memory://big_a' UNION ALL SELECT id FROM 'memory://big_b'",
+                sources=[("memory://big_a", big_a), ("memory://big_b", big_b)],
+            )
+            union_res = union_plan.collect()
+            union_rows, union_export = union_res.row_export()
+            self.assertEqual(len(union_rows), 12000)
+            self.assertTrue(union_export["complete"])
+            self.assertEqual(union_res.report["fallback_attempted"], "false")
+            del union_res
+            union_plan.release_prepared()
+
+            # Multi-ref CTE + Q17-style correlated scalar aggregate + EXISTS
+            cte_sub_plan = session.sql(
+                "WITH base AS (SELECT id, grp, val FROM 'memory://fact') "
+                "SELECT b1.id AS id, b1.val AS val FROM base b1 "
+                "WHERE EXISTS (SELECT 1 FROM base b2 WHERE b2.grp = b1.grp AND b2.val > b1.val) "
+                "AND b1.val < (SELECT 1 * AVG(b3.val) FROM base b3 WHERE b3.grp = b1.grp) "
+                "ORDER BY b1.id",
+                sources=[("memory://fact", fact)],
+            )
+            sub_res = cte_sub_plan.collect()
+            self.assertEqual(
+                sub_res.row_export()[0],
+                [{"id": 1, "val": 10}, {"id": 3, "val": 5}],
+            )
+            self.assertEqual(sub_res.report["external_engine_invoked"], "false")
+            del sub_res
+            cte_sub_plan.release_prepared()
+        del win_plan, union_plan, cte_sub_plan, fact, big_a, big_b
+        gc.collect()
+        self.assertEqual(session.snapshot()["reserved_bytes"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -291,12 +291,13 @@ fn product_local_workflow_profile_disables_synthetic_caps() {
         "test_product_local_required_columns",
     );
     let mut content = String::from("id,label\n");
-    for row_id in 0..=MAX_INPUT_ROWS {
+    for row_id in 0..=SMOKE_MAX_INPUT_ROWS {
         writeln!(&mut content, "{row_id},label-{row_id}").expect("write csv row");
     }
 
-    let smoke_error = parse_csv_source_content_with_plan(&content, &plan, Some(MAX_INPUT_ROWS))
-        .expect_err("smoke row cap remains enforced");
+    let smoke_error =
+        parse_csv_source_content_with_plan(&content, &plan, Some(SMOKE_MAX_INPUT_ROWS))
+            .expect_err("smoke row cap remains enforced");
     let (header, rows) = parse_csv_source_content_with_plan(&content, &plan, None)
         .expect("product local workflow has no synthetic row cap");
 
@@ -307,7 +308,7 @@ fn product_local_workflow_profile_disables_synthetic_caps() {
         "{smoke_error}"
     );
     assert_eq!(header, vec!["id", "label"]);
-    assert_eq!(rows.len(), MAX_INPUT_ROWS + 1);
+    assert_eq!(rows.len(), SMOKE_MAX_INPUT_ROWS + 1);
     assert_eq!(
         SqlLocalSourceRuntimeProfile::ProductLocalWorkflow.input_row_cap_label(),
         "none_synthetic_row_cap_disabled"
@@ -342,13 +343,13 @@ fn product_local_workflow_profile_disables_synthetic_caps() {
         SqlLocalSourceRuntimeProfile::Smoke
             .read_limits()
             .output_rows,
-        Some(MAX_LIMIT_ROWS)
+        Some(SMOKE_MAX_OUTPUT_ROWS)
     );
     assert_eq!(
         SqlLocalSourceRuntimeProfile::Smoke
             .read_limits()
             .join_candidate_rows,
-        Some(MAX_JOIN_CANDIDATE_ROWS)
+        Some(SMOKE_MAX_JOIN_CANDIDATE_ROWS)
     );
 }
 
@@ -3030,7 +3031,7 @@ fn schema_declared_text_stream_preserves_smoke_cap_and_product_no_cap() {
         ("label".to_string(), LogicalDType::Utf8),
     ];
     let mut body = String::from("id,label\n");
-    for row_id in 0..=MAX_INPUT_ROWS {
+    for row_id in 0..=SMOKE_MAX_INPUT_ROWS {
         writeln!(&mut body, "{row_id},label-{row_id}").expect("write csv row");
     }
     fs::write(&source, body).expect("write large schema-declared csv");
@@ -3056,7 +3057,7 @@ fn schema_declared_text_stream_preserves_smoke_cap_and_product_no_cap() {
     let fields = field_map(product_report.fields());
     assert_eq!(
         product_report.vortex_report.row_count,
-        u64::try_from(MAX_INPUT_ROWS + 1).expect("test row count fits u64")
+        u64::try_from(SMOKE_MAX_INPUT_ROWS + 1).expect("test row count fits u64")
     );
     assert_field_eq(
         &fields,
@@ -3098,7 +3099,7 @@ fn schema_declared_text_stream_preserves_smoke_cap_and_product_no_cap() {
     let inferred_fields = field_map(inferred_product_report.fields());
     assert_eq!(
         inferred_product_report.vortex_report.row_count,
-        u64::try_from(MAX_INPUT_ROWS + 1).expect("test row count fits u64")
+        u64::try_from(SMOKE_MAX_INPUT_ROWS + 1).expect("test row count fits u64")
     );
     assert_field_eq(
         &inferred_fields,
@@ -3761,7 +3762,7 @@ fn parser_blocks_invalid_window_offset_without_fallback() {
     assert!(
         error
             .to_string()
-            .contains("LAG window offset must be between 1 and 50000")
+            .contains("LAG window offset must be at least 1")
     );
 }
 
@@ -3775,7 +3776,7 @@ fn parser_blocks_invalid_window_bucket_count_without_fallback() {
     assert!(
         error
             .to_string()
-            .contains("NTILE window bucket count must be between 1 and 50000")
+            .contains("NTILE window bucket count must be at least 1")
     );
 }
 
@@ -5913,7 +5914,7 @@ fn parses_scoped_sql_union_all_statement() {
     assert_eq!(parsed.mode, SqlUnionMode::All);
     assert_eq!(parsed.branches.len(), 2);
     assert_eq!(parsed.branch_statements.len(), 2);
-    assert!(parsed.branch_statements[0].ends_with("LIMIT 10000"));
+    assert!(parsed.branch_statements[0].ends_with(&format!("LIMIT {}", usize::MAX)));
     assert_eq!(parsed.limit, 3);
     let order_by = parsed.order_by.expect("global order by parsed");
     assert_eq!(order_by.keys[0].column, "id");
@@ -6227,7 +6228,7 @@ fn csv_source_read_plan_materializes_required_columns_only() {
     let (header, rows) = parse_csv_source_content_with_plan(
         "id,label,amount\n1,alpha,8\n",
         &plan,
-        Some(MAX_INPUT_ROWS),
+        Some(SMOKE_MAX_INPUT_ROWS),
     )
     .expect("CSV parses with read plan");
 
@@ -6247,7 +6248,7 @@ fn jsonl_source_read_plan_skips_unselected_nested_and_escaped_values() {
     let (header, rows) = parse_jsonl_source_content_with_plan(
         "{\"id\":1,\"payload\":{\"nested\":[1,2]},\"label\":\"alpha\",\"tail\":\"\\u263A\"}\n",
         &plan,
-        Some(MAX_INPUT_ROWS),
+        Some(SMOKE_MAX_INPUT_ROWS),
     )
     .expect("projected JSONL parse skips unselected values");
 
@@ -6272,7 +6273,7 @@ fn jsonl_source_read_plan_normalizes_selected_nested_values_as_utf8_json_payload
     let (header, rows) = parse_jsonl_source_content_with_plan(
         "{\"id\":1,\"payload\":{\"nested\":[1,2]}}\n",
         &plan,
-        Some(MAX_INPUT_ROWS),
+        Some(SMOKE_MAX_INPUT_ROWS),
     )
     .expect("selected nested JSONL value is normalized as UTF-8 JSON payload");
 

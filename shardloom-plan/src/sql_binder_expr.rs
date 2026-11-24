@@ -913,45 +913,51 @@ pub(crate) fn bind_sort_key(
     })
 }
 
+pub(crate) fn bind_window_spec_ast(
+    spec: &ast::WindowSpec,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<LogicalWindowSpec> {
+    let partition_by = spec
+        .partition_by
+        .iter()
+        .map(|e| bind_ast_expr(e, diagnostics))
+        .collect::<Result<Vec<_>>>()?;
+    let order_by = spec
+        .order_by
+        .iter()
+        .map(|k| bind_sort_key(k, diagnostics))
+        .collect::<Result<Vec<_>>>()?;
+    let frame = spec
+        .window_frame
+        .as_ref()
+        .map(|f| -> Result<LogicalWindowFrame> {
+            let units = match f.units {
+                WindowFrameUnits::Rows => LogicalWindowUnits::Rows,
+                WindowFrameUnits::Range => LogicalWindowUnits::Range,
+                WindowFrameUnits::Groups => LogicalWindowUnits::Groups,
+            };
+            Ok(LogicalWindowFrame {
+                units,
+                start: f.start_bound.to_string(),
+                end: f.end_bound.as_ref().map(ToString::to_string),
+                exclusion: None,
+            })
+        })
+        .transpose()?;
+    Ok(LogicalWindowSpec {
+        name: spec.window_name.as_ref().map(|n| n.value.clone()),
+        partition_by,
+        order_by,
+        frame,
+    })
+}
+
 fn bind_window_type(
     window: &WindowType,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Result<LogicalWindowSpec> {
     match window {
-        WindowType::WindowSpec(spec) => {
-            let partition_by = spec
-                .partition_by
-                .iter()
-                .map(|e| bind_ast_expr(e, diagnostics))
-                .collect::<Result<Vec<_>>>()?;
-            let order_by = spec
-                .order_by
-                .iter()
-                .map(|k| bind_sort_key(k, diagnostics))
-                .collect::<Result<Vec<_>>>()?;
-            let frame = spec
-                .window_frame
-                .as_ref()
-                .map(|f| -> Result<LogicalWindowFrame> {
-                    let units = match f.units {
-                        WindowFrameUnits::Rows => LogicalWindowUnits::Rows,
-                        WindowFrameUnits::Range => LogicalWindowUnits::Range,
-                        WindowFrameUnits::Groups => LogicalWindowUnits::Groups,
-                    };
-                    Ok(LogicalWindowFrame {
-                        units,
-                        start: f.start_bound.to_string(),
-                        end: f.end_bound.as_ref().map(ToString::to_string),
-                    })
-                })
-                .transpose()?;
-            Ok(LogicalWindowSpec {
-                name: spec.window_name.as_ref().map(|n| n.value.clone()),
-                partition_by,
-                order_by,
-                frame,
-            })
-        }
+        WindowType::WindowSpec(spec) => bind_window_spec_ast(spec, diagnostics),
         WindowType::NamedWindow(ident) => Ok(LogicalWindowSpec {
             name: Some(ident.value.clone()),
             partition_by: Vec::new(),
