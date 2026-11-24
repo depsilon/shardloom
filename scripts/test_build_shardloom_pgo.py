@@ -394,6 +394,22 @@ class PgoTests(unittest.TestCase):
         pgo.verify_training(runner, binary)
         self.assertEqual(runner.report["training_evidence"]["corpus"], "multi-family")
 
+    @unittest.skipUnless(os.name == "posix", "native process groups require POSIX")
+    def test_stop_group_tolerates_macos_permission_error_and_records_step_error(self):
+        plan = pgo.make_plan(self.args, {})
+        output = Path(plan["run_dir"])
+        (output / "logs").mkdir(parents=True)
+        runner = pgo.Runner(self.args, plan)
+        runner.guard = lambda: None
+        with patch.object(os, "killpg", side_effect=PermissionError(1, "Operation not permitted")):
+            with self.assertRaisesRegex(ValueError, "PGO stage failed: boom"):
+                runner.step("boom", [sys.executable, "-c", "import sys; sys.exit(7)"])
+        step = plan["steps"][0]
+        self.assertEqual(step["status"], "failed")
+        self.assertEqual(step["returncode"], 7)
+        self.assertIn("PGO stage failed: boom (exit 7)", step["error"])
+        self.assertIsInstance(step["seconds"], float)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -173,7 +173,7 @@ def stop_group(process):
     """Stop ordinary descendants even when their leader already exited."""
     try:
         os.killpg(process.pid, signal.SIGTERM)
-    except ProcessLookupError:
+    except (ProcessLookupError, PermissionError):
         pass
     try:
         process.wait(timeout=5)
@@ -181,7 +181,7 @@ def stop_group(process):
         pass
     try:
         os.killpg(process.pid, signal.SIGKILL)
-    except ProcessLookupError:
+    except (ProcessLookupError, PermissionError):
         pass
     process.wait(timeout=5)
 
@@ -233,8 +233,9 @@ class Runner:
                     raise ValueError(f"PGO stage failed: {name} (exit {process.returncode})")
                 self.guard()
                 record["status"] = "passed"
-            except BaseException:
+            except BaseException as error:
                 record["status"] = "failed"
+                record["error"] = str(error) or type(error).__name__
                 raise
             finally:
                 previous = {s: signal.signal(s, signal.SIG_IGN) for s in (signal.SIGINT, signal.SIGTERM)}

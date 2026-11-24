@@ -349,6 +349,23 @@ class StorageGuardTests(unittest.TestCase):
                 child.kill()
                 child.communicate(timeout=5)
 
+    def test_accounting_ignores_transient_directory_removed_before_scandir(self):
+        transient = self.root / "transient"
+        transient.mkdir()
+        kept = self.root / "kept"
+        kept.write_bytes(b"retained-bytes")
+        real_scandir = os.scandir
+
+        def flaky_scandir(path):
+            if Path(path) == transient:
+                transient.rmdir()
+                raise FileNotFoundError(str(path))
+            return real_scandir(path)
+
+        with patch("local_uat_storage.os.scandir", side_effect=flaky_scandir):
+            total = accounted_bytes(self.root)
+        self.assertGreaterEqual(total, accounted_bytes(self.source) + kept.stat().st_size)
+
 
 if __name__ == "__main__":
     unittest.main()
