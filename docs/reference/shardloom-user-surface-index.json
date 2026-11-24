@@ -1467,10 +1467,10 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "36f32793b24a18916f1a3f55b7f349ca4865a412ae9a9daeada7092b111757c3",
+    "source_identity": "496b2073464ca778824db4066d1ddb33b33c9089bfa7bc39957a43459cd87234",
     "source_inputs": {
       "Cargo.lock": "be1330cef33e791ea390a7e52b79ba82d64f6d210611a51c9b4ac39f707c967d",
-      "Cargo.toml": "42174168ba1fe13980ca8d1f7f7cb7f24266afc369d541e4695974be06c3c3ad",
+      "Cargo.toml": "cfaf3aa5f01c7c8e81f8b64bdfbc95d4a8113ddd452df05f23f16ffe2bf3e4ad",
       "docs/release/channel-proofs/pypi-v1.1.0-provenance.json": "56e349f401a1a35fbbbf53c1c916d615b3b894d23d42a05e77d7ca1f65bc1282",
       "docs/release/package-channel-readiness-matrix.json": "dfff6eeb5014ea635c52f8efc7419bcda66fa11012b15507486ca18903fc7785",
       "python/src/shardloom/_batch_function.py": "7664382a8750f196c2ee30f414e92b0c66cd15733e1561d9d1d2c5e0c2ee5cd3",

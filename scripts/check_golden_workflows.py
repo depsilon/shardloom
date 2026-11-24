@@ -225,9 +225,9 @@ def run_subprocess(
 def locate_binary(repo_root: Path, explicit: Path | None) -> Path:
     if explicit is not None:
         return resolve(repo_root, explicit).resolve()
-    target_root = Path(os.environ.get("CARGO_TARGET_DIR", repo_root / "target"))
-    if not target_root.is_absolute():
-        target_root = repo_root / target_root
+    from maintain_shared_cargo_target import resolve_cargo_target_dir
+
+    target_root = resolve_cargo_target_dir(repo_root)
     suffix = ".exe" if os.name == "nt" else ""
     return (target_root / "debug" / f"shardloom{suffix}").resolve()
 

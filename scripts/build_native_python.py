@@ -19,6 +19,7 @@ import sys
 import tempfile
 
 from local_uat_storage import require_local_path
+from maintain_shared_cargo_target import prune_superseded_artifacts, resolve_cargo_target_dir
 
 
 def native_artifact(messages: list[dict[str, object]]) -> Path:
@@ -60,18 +61,19 @@ def stage_library(source: Path, output_dir: Path) -> Path:
     return destination
 
 
-def build_native_binding(repo_root: Path, output_dir: Path, *, release: bool,
+def build_native_binding(repo_root: Path, output_dir: Path | None = None, *, release: bool,
                          offline: bool = False, cargo: str = "cargo") -> dict[str, object]:
     if sys.platform not in {"darwin", "linux"}:
         raise ValueError("the native Python binding currently requires macOS or Linux")
     repo_root = repo_root.resolve(strict=True)
-    output_dir = require_local_path(output_dir.resolve(), Path.home(), sys.platform)
     env = dict(os.environ, PYO3_PYTHON=sys.executable, PYO3_BUILD_EXTENSION_MODULE="1")
     metadata_command = [cargo, "metadata", "--locked", "--no-deps", "--format-version", "1"]
     if offline:
         metadata_command.append("--offline")
     metadata = json.loads(subprocess.check_output(metadata_command, cwd=repo_root, env=env))
     target = require_local_path(Path(metadata["target_directory"]), Path.home(), sys.platform)
+    resolved_output = output_dir if output_dir is not None else (target / "native-python-dev")
+    output_dir = require_local_path(resolved_output.resolve(), Path.home(), sys.platform)
     command = [cargo, "build", "--locked", "-p", "shardloom-python", "--features", "python-native",
                "--message-format=json-render-diagnostics"]
     if release:
@@ -96,6 +98,7 @@ def build_native_binding(repo_root: Path, output_dir: Path, *, release: bool,
     if target.resolve() not in artifact.resolve().parents:
         raise ValueError("Cargo artifact is outside its resolved target directory")
     destination = stage_library(artifact, output_dir)
+    prune_report = prune_superseded_artifacts(target, keep_workspace_hashes=2, keep_dep_hashes=3)
     digest = hashlib.sha256()
     with destination.open("rb") as stream:
         for block in iter(lambda: stream.read(1 << 20), b""):
@@ -107,6 +110,7 @@ def build_native_binding(repo_root: Path, output_dir: Path, *, release: bool,
         "library_sha256": digest.hexdigest(), "python_abi": "cp310-abi3",
         "package_version": next(package["version"] for package in metadata["packages"]
                                 if package["name"] == "shardloom-python"),
+        "pruned_superseded_artifacts": prune_report,
         "installed": False, "published": False,
     }
 
@@ -114,12 +118,20 @@ def build_native_binding(repo_root: Path, output_dir: Path, *, release: bool,
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", type=Path, default=Path(__file__).resolve().parents[1])
-    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        help="Defaults to <resolved Cargo target_directory>/native-python-dev",
+    )
     parser.add_argument("--release", action="store_true")
     parser.add_argument("--offline", action="store_true")
     parser.add_argument("--cargo", default="cargo")
     arguments = parser.parse_args()
-    report = build_native_binding(arguments.repo_root, arguments.output_dir,
+    output_dir = arguments.output_dir
+    if output_dir is None:
+        output_dir = resolve_cargo_target_dir(arguments.repo_root, arguments.cargo) / "native-python-dev"
+    report = build_native_binding(arguments.repo_root, output_dir,
                                   release=arguments.release, offline=arguments.offline,
                                   cargo=arguments.cargo)
     print(json.dumps(report, indent=2))
