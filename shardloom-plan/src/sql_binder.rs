@@ -2772,6 +2772,73 @@ fn validate_select_modifiers(select: &Select, diagnostics: &mut Vec<Diagnostic>)
     Ok(())
 }
 
+pub(crate) fn validate_wildcard_options(
+    opts: &ast::WildcardAdditionalOptions,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<()> {
+    if opts.opt_ilike.is_some()
+        || opts.opt_exclude.is_some()
+        || opts.opt_except.is_some()
+        || opts.opt_replace.is_some()
+        || opts.opt_rename.is_some()
+        || opts.opt_alias.is_some()
+    {
+        let msg = "SQL wildcard modifiers (EXCLUDE, EXCEPT, REPLACE, RENAME, ILIKE, AS) are not admitted; project explicit columns instead";
+        diagnostics.push(expr::unsupported_diag("sql.wildcard", msg));
+        return Err(unsupported_sql_error(msg));
+    }
+    Ok(())
+}
+
+fn bind_select_item(
+    item: &SelectItem,
+    named_windows: &BTreeMap<String, LogicalWindowSpec>,
+    windows: &mut Vec<(String, LogicalWindowSpec)>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<LogicalProjectionItem> {
+    match item {
+        SelectItem::UnnamedExpr(e) => {
+            let mut bound = expr::bind_ast_expr(e, diagnostics)?;
+            resolve_expr_named_windows(&mut bound, named_windows);
+            collect_windows(&bound, windows);
+            Ok(LogicalProjectionItem::Expr {
+                expr: Box::new(bound),
+                alias: None,
+            })
+        }
+        SelectItem::ExprWithAlias { expr: e, alias } => {
+            let mut bound = expr::bind_ast_expr(e, diagnostics)?;
+            resolve_expr_named_windows(&mut bound, named_windows);
+            collect_windows(&bound, windows);
+            Ok(LogicalProjectionItem::Expr {
+                expr: Box::new(bound),
+                alias: Some(alias.value.clone()),
+            })
+        }
+        SelectItem::Wildcard(opts) => {
+            validate_wildcard_options(opts, diagnostics)?;
+            Ok(LogicalProjectionItem::Wildcard { qualifier: None })
+        }
+        SelectItem::QualifiedWildcard(kind, opts) => {
+            validate_wildcard_options(opts, diagnostics)?;
+            let qualifier = match kind {
+                ast::SelectItemQualifiedWildcardKind::ObjectName(name) => name.to_string(),
+                ast::SelectItemQualifiedWildcardKind::Expr(expr) => {
+                    return Err(unsupported_sql_error(&format!(
+                        "expression-qualified wildcard `{expr}.*` is not admitted"
+                    )));
+                }
+            };
+            Ok(LogicalProjectionItem::Wildcard {
+                qualifier: Some(qualifier),
+            })
+        }
+        other @ SelectItem::ExprWithAliases { .. } => Err(unsupported_sql_error(&format!(
+            "unsupported SELECT item `{other}`"
+        ))),
+    }
+}
+
 fn bind_select(select: &Select, diagnostics: &mut Vec<Diagnostic>) -> Result<LogicalRelation> {
     validate_select_modifiers(select, diagnostics)?;
     let mut input = if select.from.is_empty() {
@@ -2807,39 +2874,12 @@ fn bind_select(select: &Select, diagnostics: &mut Vec<Diagnostic>) -> Result<Log
     let mut items = Vec::with_capacity(select.projection.len());
     let mut windows = Vec::new();
     for item in &select.projection {
-        match item {
-            SelectItem::UnnamedExpr(e) => {
-                let mut bound = expr::bind_ast_expr(e, diagnostics)?;
-                resolve_expr_named_windows(&mut bound, &named_windows);
-                collect_windows(&bound, &mut windows);
-                items.push(LogicalProjectionItem::Expr {
-                    expr: Box::new(bound),
-                    alias: None,
-                });
-            }
-            SelectItem::ExprWithAlias { expr: e, alias } => {
-                let mut bound = expr::bind_ast_expr(e, diagnostics)?;
-                resolve_expr_named_windows(&mut bound, &named_windows);
-                collect_windows(&bound, &mut windows);
-                items.push(LogicalProjectionItem::Expr {
-                    expr: Box::new(bound),
-                    alias: Some(alias.value.clone()),
-                });
-            }
-            SelectItem::Wildcard(_) => {
-                items.push(LogicalProjectionItem::Wildcard { qualifier: None });
-            }
-            SelectItem::QualifiedWildcard(kind, _) => {
-                items.push(LogicalProjectionItem::Wildcard {
-                    qualifier: Some(kind.to_string().trim_end_matches(".*").to_string()),
-                });
-            }
-            other @ SelectItem::ExprWithAliases { .. } => {
-                return Err(unsupported_sql_error(&format!(
-                    "unsupported SELECT item `{other}`"
-                )));
-            }
-        }
+        items.push(bind_select_item(
+            item,
+            &named_windows,
+            &mut windows,
+            diagnostics,
+        )?);
     }
 
     let (group_by, grouping_sets) = bind_group_by(&select.group_by, diagnostics)?;

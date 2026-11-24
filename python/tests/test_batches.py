@@ -516,6 +516,24 @@ class ArrowIpcBatchAdapterTests(unittest.TestCase):
         self.assertEqual(iterator._process.poll(), 0)
         self.assertEqual(len(trace.read_text().splitlines()), 2)
 
+    @unittest.skipUnless(_HAS_PYARROW, "pyarrow required for binary arrow_ipc transport tests")
+    def test_arrow_ipc_input_rejects_lossy_coercions_and_mismatched_schemas(self):
+        import pyarrow as pa
+
+        int_input = BatchInput([], (("v", "int64"),))
+        with self.assertRaises(TypeError):
+            int_input.encode_arrow_ipc([{"v": 1.9}])
+        with self.assertRaises(TypeError):
+            int_input.encode_arrow_ipc([{"v": True}])
+        with self.assertRaises(ValueError):
+            BatchInput([], (("v", "float64"),)).encode_arrow_ipc([{"v": float("nan")}])
+        with self.assertRaises(ValueError):
+            BatchInput([], (("v", {"type": "int64", "nullable": False}),)).encode_arrow_ipc(
+                [{"v": None}]
+            )
+        with self.assertRaises(ValueError):
+            int_input.encode_arrow_ipc(pa.record_batch({"v": pa.array([1.9], type=pa.float64())}))
+
 
 if __name__ == "__main__":
     unittest.main()

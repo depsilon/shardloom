@@ -1694,36 +1694,42 @@ impl CanonicalLowering<'_, '_, '_> {
         }
     }
 
+    fn count_wildcard_duplicate_outputs(
+        items: &[LogicalProjectionItem],
+        wildcard_entries: &[ScopeColumn],
+    ) -> BTreeMap<String, usize> {
+        let mut duplicate_outputs = BTreeMap::<String, usize>::new();
+        for item in items {
+            if let LogicalProjectionItem::Wildcard { qualifier } = item {
+                for entry in wildcard_entries {
+                    if qualifier
+                        .as_deref()
+                        .is_none_or(|q| entry.qualifier.as_deref() == Some(q))
+                    {
+                        *duplicate_outputs.entry(entry.output.clone()).or_insert(0) += 1;
+                    }
+                }
+            }
+        }
+        duplicate_outputs
+    }
+
     fn expand_projection_items(
         &mut self,
         items: &[LogicalProjectionItem],
+        wildcard_entries: &[ScopeColumn],
         scope: &ScopedRelation,
     ) -> NativeResult<ExpandedProjection> {
         let mut expanded = Vec::new();
         let mut expressions = Vec::new();
         let mut visible = Vec::new();
-        let mut duplicate_outputs = BTreeMap::<String, usize>::new();
-        for item in items {
-            match item {
-                LogicalProjectionItem::Wildcard { qualifier } => {
-                    for entry in &scope.entries {
-                        if qualifier
-                            .as_deref()
-                            .is_none_or(|q| entry.qualifier.as_deref() == Some(q))
-                        {
-                            *duplicate_outputs.entry(entry.output.clone()).or_insert(0) += 1;
-                        }
-                    }
-                }
-                LogicalProjectionItem::Expr { .. } => {}
-            }
-        }
+        let duplicate_outputs = Self::count_wildcard_duplicate_outputs(items, wildcard_entries);
         let mut used_names = BTreeSet::new();
         for (idx, item) in items.iter().enumerate() {
             match item {
                 LogicalProjectionItem::Wildcard { qualifier } => {
                     let mut matched = 0usize;
-                    for entry in &scope.entries {
+                    for entry in wildcard_entries {
                         if qualifier
                             .as_deref()
                             .is_some_and(|q| entry.qualifier.as_deref() != Some(q))

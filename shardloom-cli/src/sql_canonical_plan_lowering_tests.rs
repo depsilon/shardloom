@@ -896,4 +896,36 @@ fn canonical_fetch_qualify_is_true_and_having_in_subquery() {
         collect_rows(&prepare_file_sql(&having_not_in_sql)),
         vec![json!({"grp": "b", "rows": 1})]
     );
+
+    let wildcard_window_sql = format!(
+        "SELECT *, ROW_NUMBER() OVER (ORDER BY id) AS rn FROM '{}' ORDER BY id",
+        flags_path.display()
+    );
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&wildcard_window_sql)),
+        vec![
+            json!({"id": 1, "grp": "a", "flag": true, "rn": 1}),
+            json!({"id": 2, "grp": "a", "flag": false, "rn": 2}),
+            json!({"id": 3, "grp": "b", "flag": null, "rn": 3}),
+        ]
+    );
+
+    let wildcard_order_window_sql = format!(
+        "SELECT * FROM '{}' ORDER BY ROW_NUMBER() OVER (ORDER BY id DESC)",
+        flags_path.display()
+    );
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&wildcard_order_window_sql)),
+        vec![
+            json!({"id": 3, "grp": "b", "flag": null}),
+            json!({"id": 2, "grp": "a", "flag": false}),
+            json!({"id": 1, "grp": "a", "flag": true}),
+        ]
+    );
+
+    let wildcard_exclude_sql = format!(
+        "SELECT * EXCLUDE (flag), ROW_NUMBER() OVER (ORDER BY id) AS rn FROM '{}'",
+        flags_path.display()
+    );
+    assert!(try_prepare_file_sql(&wildcard_exclude_sql).is_err());
 }

@@ -323,6 +323,7 @@ impl CanonicalLowering<'_, '_, '_> {
         distinct: bool,
         outer_sort: Option<&[LogicalSortKey]>,
     ) -> NativeResult<ScopedRelation> {
+        let wildcard_entries = scope.entries.clone();
         let mut materialized_items = items.to_vec();
         for item in &mut materialized_items {
             if let LogicalProjectionItem::Expr { expr, .. } = item {
@@ -359,7 +360,7 @@ impl CanonicalLowering<'_, '_, '_> {
                 .collect::<Vec<_>>()
         });
         let (expanded, expressions, visible_entries) =
-            self.expand_projection_items(&final_items, &win_scope)?;
+            self.expand_projection_items(&final_items, &wildcard_entries, &win_scope)?;
         self.finish_projection(
             win_scope,
             &expanded,

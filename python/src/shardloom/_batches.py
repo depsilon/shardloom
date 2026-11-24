@@ -102,41 +102,89 @@ class BatchInput:
             rows.append(values)
         return rows
 
+    @staticmethod
+    def _arrow_input_value(value: Any, dtype: ResultType) -> Any:
+        from ._input_schema import temporal_input_value
+        from ._temporal import temporal_parts
+
+        if value is None:
+            return None
+        if temporal_parts(dtype.name) is not None:
+            return temporal_input_value(dtype.name, value)
+        if dtype.name in {"list", "fixed_size_list", "embedding", "fixed_shape_tensor"}:
+            child = dtype.parameters[0]
+            return [BatchInput._arrow_input_value(item, child) for item in value]
+        if dtype.name in {
+            "variable_shape_tensor",
+            "sparse_vector",
+            "quantized_vector",
+            "point",
+            "linestring",
+            "polygon",
+        }:
+            return BatchInput._arrow_input_value(value, dtype.parameters[0])
+        if dtype.name == "struct":
+            return {
+                field_name: BatchInput._arrow_input_value(value[field_name], child)
+                for field_name, child in dtype.parameters
+            }
+        return value
+
     def encode_arrow_ipc(self, batch: object) -> bytes:
         import pyarrow
 
         from ._result_schema import _arrow_field, _contains_uuid, arrow_table
 
         expected_names = tuple(name for name, _ in self.schema)
+        pa_schema = pyarrow.schema([_arrow_field(name, dtype, pyarrow) for name, dtype in self._types])
         if isinstance(batch, pyarrow.RecordBatch):
             if batch.num_rows > 2048 or tuple(batch.schema.names) != expected_names:
                 raise ValueError("input RecordBatch schema or row count differs from declaration")
-            record_batch = batch
+            for idx, expected_field in enumerate(pa_schema):
+                actual_field = batch.schema.field(idx)
+                if actual_field.type != expected_field.type or (
+                    not expected_field.nullable and batch.column(idx).null_count > 0
+                ):
+                    raise ValueError("input RecordBatch schema or row count differs from declaration")
+            record_batch = (
+                pyarrow.RecordBatch.from_arrays(batch.columns, schema=pa_schema)
+                if batch.schema != pa_schema
+                else batch
+            )
         elif isinstance(batch, pyarrow.Table):
             if batch.num_rows > 2048 or tuple(batch.schema.names) != expected_names:
                 raise ValueError("input Table schema or row count differs from declaration")
+            for idx, expected_field in enumerate(pa_schema):
+                actual_field = batch.schema.field(idx)
+                if actual_field.type != expected_field.type or (
+                    not expected_field.nullable and batch.column(idx).null_count > 0
+                ):
+                    raise ValueError("input Table schema or row count differs from declaration")
             combined = batch.combine_chunks()
             batches = combined.to_batches()
             if not batches:
-                record_batch = pyarrow.RecordBatch.from_pylist([], schema=combined.schema)
+                record_batch = pyarrow.RecordBatch.from_pylist([], schema=pa_schema)
             elif len(batches) == 1:
-                record_batch = batches[0]
+                raw_batch = batches[0]
+                record_batch = (
+                    pyarrow.RecordBatch.from_arrays(raw_batch.columns, schema=pa_schema)
+                    if raw_batch.schema != pa_schema
+                    else raw_batch
+                )
             else:
                 raise ValueError("input Table exceeds single RecordBatch framing")
         elif isinstance(batch, Sequence) and not isinstance(batch, (str, bytes, bytearray)):
-            if len(batch) > 2048:
-                raise ValueError("each input batch must contain at most 2,048 rows")
-            name_set = set(expected_names)
-            for row in batch:
-                if not isinstance(row, Mapping) or set(row) != name_set:
-                    raise ValueError("batch rows must match the complete declared schema")
+            self.encode(batch)
+            normalized_rows = [
+                {name: BatchInput._arrow_input_value(row[name], dtype) for name, dtype in self._types}
+                for row in batch
+            ]
             if any(_contains_uuid(dtype) for _, dtype in self._types):
-                table = arrow_table(batch, self._types, pyarrow)
+                table = arrow_table(normalized_rows, self._types, pyarrow)
                 batches = table.combine_chunks().to_batches()
                 record_batch = batches[0] if batches else pyarrow.RecordBatch.from_pylist([], schema=table.schema)
             else:
-                pa_schema = pyarrow.schema([_arrow_field(name, dtype, pyarrow) for name, dtype in self._types])
-                record_batch = pyarrow.RecordBatch.from_pylist(list(batch), schema=pa_schema)
+                record_batch = pyarrow.RecordBatch.from_pylist(normalized_rows, schema=pa_schema)
         else:
             raise TypeError("each input batch must be a RecordBatch, Table, or sequence of row mappings")
 

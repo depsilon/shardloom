@@ -838,7 +838,9 @@ pub(crate) fn bind_function_arg(
         | FunctionArg::Named { arg: expr, .. }
         | FunctionArg::ExprNamed { arg: expr, .. } => match expr {
             FunctionArgExpr::Expr(e) => bind_ast_expr(e, diagnostics),
-            FunctionArgExpr::Wildcard | FunctionArgExpr::WildcardWithOptions(_) => {
+            FunctionArgExpr::Wildcard => Ok(LogicalExpr::Wildcard { qualifier: None }),
+            FunctionArgExpr::WildcardWithOptions(opts) => {
+                crate::sql_binder::validate_wildcard_options(opts, diagnostics)?;
                 Ok(LogicalExpr::Wildcard { qualifier: None })
             }
             FunctionArgExpr::QualifiedWildcard(name) => Ok(LogicalExpr::Wildcard {

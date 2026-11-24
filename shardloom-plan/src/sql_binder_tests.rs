@@ -384,3 +384,22 @@ fn handles_qualify_fetch_quantified_candidate_and_null_safe_is_truth() {
             )
     ));
 }
+
+#[test]
+fn rejects_wildcard_modifiers_and_expr_qualified_wildcards() {
+    for sql in [
+        "SELECT * EXCLUDE (secret), ROW_NUMBER() OVER (ORDER BY id) AS rn FROM 'in.parquet'",
+        "SELECT * REPLACE (id + 1 AS id), ROW_NUMBER() OVER (ORDER BY id) AS rn FROM 'in.parquet'",
+        "SELECT t.* EXCLUDE (secret) FROM 'in.parquet' AS t",
+        "SELECT COUNT(* EXCLUDE (secret)) FROM 'in.parquet'",
+    ] {
+        let err = bind_sql(sql).expect_err(sql);
+        assert!(err.to_string().contains("wildcard"), "{sql}: {err}");
+    }
+    for sql in [
+        "SELECT t.* EXCEPT (secret) FROM 'in.parquet' AS t",
+        "SELECT * RENAME (id AS ident) FROM 'in.parquet'",
+    ] {
+        assert!(bind_sql(sql).is_err(), "{sql}");
+    }
+}
