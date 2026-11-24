@@ -13,7 +13,7 @@ import threading
 from typing import Any, Mapping, Sequence
 
 from .errors import ShardLoomCommandError, ShardLoomProtocolError, ShardLoomTimeoutError
-from ._result_schema import ResultType, python_rows, schema_fields
+from ._result_schema import ResultType, arrow_table_python_rows, python_rows, schema_fields
 
 _MAX_INPUT_FRAME = 8 << 20
 _MAX_RESPONSE_FRAME = (16 << 20) + 4096
@@ -245,7 +245,11 @@ class ResultBatch:
     def result_rows(self) -> tuple[Mapping[str, Any], ...]:
         rows = self._result_rows
         if rows is None:
-            rows = tuple(self._arrow_table.to_pylist())
+            import pyarrow
+
+            rows = tuple(
+                arrow_table_python_rows(self._arrow_table, self._result_schema, pyarrow)
+            )
             object.__setattr__(self, "_result_rows", rows)
         return rows
 

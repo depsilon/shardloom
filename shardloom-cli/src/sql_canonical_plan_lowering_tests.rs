@@ -1061,4 +1061,19 @@ fn canonical_order_by_ordinals_and_guarded_case_subqueries() {
         err.to_string().contains("scalar subquery cardinality"),
         "{err}"
     );
+
+    let order_named_win_sql = format!(
+        "SELECT id FROM '{}' WINDOW w AS (ORDER BY id DESC) ORDER BY ROW_NUMBER() OVER w LIMIT 1",
+        flags_path.display()
+    );
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&order_named_win_sql)),
+        vec![json!({"id": 3})]
+    );
+
+    let unknown_order_named_win_sql = format!(
+        "SELECT id FROM '{}' ORDER BY ROW_NUMBER() OVER missing_w LIMIT 1",
+        flags_path.display()
+    );
+    assert!(try_prepare_file_sql(&unknown_order_named_win_sql).is_err());
 }

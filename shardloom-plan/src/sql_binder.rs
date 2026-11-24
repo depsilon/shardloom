@@ -2090,11 +2090,13 @@ pub fn bind_sql(raw: &str) -> Result<BoundSqlPlan> {
         diagnostics.push(expr::unsupported_diag("sql.non_query_statement", &msg));
         return Err(unsupported_sql_error(&msg));
     };
-    let mut root = bind_ast_query(&query, &mut diagnostics)?;
+    let mut root = bind_ast_query_with_window_exclusions(
+        &query,
+        &modifiers.named_window_exclusions,
+        &mut diagnostics,
+    )?;
     apply_asof_modifiers(&mut root, &modifiers, &mut 0);
-    if modifiers.over_exclusions.iter().any(Option::is_some)
-        || !modifiers.named_window_exclusions.is_empty()
-    {
+    if modifiers.over_exclusions.iter().any(Option::is_some) {
         apply_window_exclusions_rel(&mut root, &modifiers, &mut 0);
     }
     let mut source_refs = Vec::new();
@@ -2348,9 +2350,12 @@ fn apply_window_exclusions_rel(
         }
         LogicalRelation::Sort { input, keys } => {
             apply_window_exclusions_rel(input, mods, cursor);
+            let mut order_windows = Vec::new();
             for k in keys {
                 apply_window_exclusions_expr(&mut k.expr, mods, cursor);
+                collect_windows(&k.expr, &mut order_windows);
             }
+            attach_order_windows(input, order_windows);
         }
         LogicalRelation::Subquery { input, .. } | LogicalRelation::Limit { input, .. } => {
             apply_window_exclusions_rel(input, mods, cursor);
@@ -2590,6 +2595,15 @@ pub(crate) fn bind_ast_query(
     query: &Query,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Result<LogicalRelation> {
+    let empty = BTreeMap::new();
+    bind_ast_query_with_window_exclusions(query, &empty, diagnostics)
+}
+
+fn bind_ast_query_with_window_exclusions(
+    query: &Query,
+    named_window_exclusions: &BTreeMap<String, String>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<LogicalRelation> {
     if !query.locks.is_empty()
         || query.for_clause.is_some()
         || query.settings.is_some()
@@ -2600,30 +2614,10 @@ pub(crate) fn bind_ast_query(
             "unsupported query-level modifier clause (FOR/LOCKS/SETTINGS/FORMAT/PIPE)",
         ));
     }
-    let mut plan = bind_set_expr(&query.body, diagnostics)?;
+    let (mut plan, named_windows) =
+        bind_set_expr(&query.body, named_window_exclusions, diagnostics)?;
     if let Some(order_by) = &query.order_by {
-        if order_by.interpolate.is_some() {
-            return Err(unsupported_sql_error(
-                "ORDER BY INTERPOLATE is not admitted",
-            ));
-        }
-        let keys = match &order_by.kind {
-            OrderByKind::Expressions(exprs) => exprs
-                .iter()
-                .map(|k| expr::bind_sort_key(k, diagnostics))
-                .collect::<Result<Vec<_>>>()?,
-            OrderByKind::All(_) => {
-                return Err(unsupported_sql_error(
-                    "ORDER BY ALL is not admitted; list explicit ordering columns",
-                ));
-            }
-        };
-        if !keys.is_empty() {
-            plan = LogicalRelation::Sort {
-                input: Box::new(plan),
-                keys,
-            };
-        }
+        plan = bind_query_order_by(plan, order_by, &named_windows, diagnostics)?;
     }
     if let Some((limit, offset)) = bind_limit_and_fetch(query, diagnostics)? {
         plan = LogicalRelation::Limit {
@@ -2652,7 +2646,11 @@ pub(crate) fn bind_ast_query(
                 name: cte.alias.name.value.clone(),
                 columns,
                 materialized,
-                query: Box::new(bind_ast_query(&cte.query, diagnostics)?),
+                query: Box::new(bind_ast_query_with_window_exclusions(
+                    &cte.query,
+                    named_window_exclusions,
+                    diagnostics,
+                )?),
             });
         }
         plan = LogicalRelation::WithCte {
@@ -2662,6 +2660,69 @@ pub(crate) fn bind_ast_query(
         };
     }
     Ok(plan)
+}
+
+fn bind_query_order_by(
+    mut plan: LogicalRelation,
+    order_by: &ast::OrderBy,
+    named_windows: &BTreeMap<String, LogicalWindowSpec>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<LogicalRelation> {
+    if order_by.interpolate.is_some() {
+        return Err(unsupported_sql_error(
+            "ORDER BY INTERPOLATE is not admitted",
+        ));
+    }
+    let mut keys = match &order_by.kind {
+        OrderByKind::Expressions(exprs) => exprs
+            .iter()
+            .map(|k| expr::bind_sort_key(k, diagnostics))
+            .collect::<Result<Vec<_>>>()?,
+        OrderByKind::All(_) => {
+            return Err(unsupported_sql_error(
+                "ORDER BY ALL is not admitted; list explicit ordering columns",
+            ));
+        }
+    };
+    let mut order_windows = Vec::new();
+    for key in &mut keys {
+        resolve_expr_named_windows(&mut key.expr, named_windows)?;
+        collect_windows(&key.expr, &mut order_windows);
+    }
+    attach_order_windows(&mut plan, order_windows);
+    if !keys.is_empty() {
+        plan = LogicalRelation::Sort {
+            input: Box::new(plan),
+            keys,
+        };
+    }
+    Ok(plan)
+}
+
+fn attach_order_windows(
+    rel: &mut LogicalRelation,
+    order_windows: Vec<(String, LogicalWindowSpec)>,
+) {
+    if order_windows.is_empty() {
+        return;
+    }
+    if let LogicalRelation::Project { input, .. } = rel {
+        if let LogicalRelation::Window { windows, .. } = input.as_mut() {
+            windows.extend(order_windows);
+        } else {
+            let inner = std::mem::replace(input.as_mut(), LogicalRelation::Unit);
+            **input = LogicalRelation::Window {
+                input: Box::new(inner),
+                windows: order_windows,
+            };
+        }
+    } else {
+        let inner = std::mem::replace(rel, LogicalRelation::Unit);
+        *rel = LogicalRelation::Window {
+            input: Box::new(inner),
+            windows: order_windows,
+        };
+    }
 }
 
 fn bind_limit_and_fetch(
@@ -2714,10 +2775,17 @@ fn bind_limit_and_fetch(
     Ok((limit_expr.is_some() || offset_expr.is_some()).then_some((limit_expr, offset_expr)))
 }
 
-fn bind_set_expr(body: &SetExpr, diagnostics: &mut Vec<Diagnostic>) -> Result<LogicalRelation> {
+fn bind_set_expr(
+    body: &SetExpr,
+    named_window_exclusions: &BTreeMap<String, String>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<(LogicalRelation, BTreeMap<String, LogicalWindowSpec>)> {
     match body {
-        SetExpr::Select(select) => bind_select(select, diagnostics),
-        SetExpr::Query(inner) => bind_ast_query(inner, diagnostics),
+        SetExpr::Select(select) => bind_select(select, named_window_exclusions, diagnostics),
+        SetExpr::Query(inner) => Ok((
+            bind_ast_query_with_window_exclusions(inner, named_window_exclusions, diagnostics)?,
+            BTreeMap::new(),
+        )),
         SetExpr::Values(values) => {
             let rows = values
                 .rows
@@ -2729,7 +2797,10 @@ fn bind_set_expr(body: &SetExpr, diagnostics: &mut Vec<Diagnostic>) -> Result<Lo
                         .collect::<Result<Vec<_>>>()
                 })
                 .collect::<Result<Vec<_>>>()?;
-            Ok(LogicalRelation::Values { rows, alias: None })
+            Ok((
+                LogicalRelation::Values { rows, alias: None },
+                BTreeMap::new(),
+            ))
         }
         SetExpr::SetOperation {
             left,
@@ -2756,12 +2827,15 @@ fn bind_set_expr(body: &SetExpr, diagnostics: &mut Vec<Diagnostic>) -> Result<Lo
                     return Err(unsupported_sql_error(msg));
                 }
             };
-            Ok(LogicalRelation::SetOperation {
-                left: Box::new(bind_set_expr(left, diagnostics)?),
-                right: Box::new(bind_set_expr(right, diagnostics)?),
-                op: logical_op,
-                distinct,
-            })
+            Ok((
+                LogicalRelation::SetOperation {
+                    left: Box::new(bind_set_expr(left, named_window_exclusions, diagnostics)?.0),
+                    right: Box::new(bind_set_expr(right, named_window_exclusions, diagnostics)?.0),
+                    op: logical_op,
+                    distinct,
+                },
+                BTreeMap::new(),
+            ))
         }
         other => {
             let msg = format!("unsupported SQL query body `{other}`");
@@ -2823,7 +2897,7 @@ fn bind_select_item(
     match item {
         SelectItem::UnnamedExpr(e) => {
             let mut bound = expr::bind_ast_expr(e, diagnostics)?;
-            resolve_expr_named_windows(&mut bound, named_windows);
+            resolve_expr_named_windows(&mut bound, named_windows)?;
             collect_windows(&bound, windows);
             Ok(LogicalProjectionItem::Expr {
                 expr: Box::new(bound),
@@ -2832,7 +2906,7 @@ fn bind_select_item(
         }
         SelectItem::ExprWithAlias { expr: e, alias } => {
             let mut bound = expr::bind_ast_expr(e, diagnostics)?;
-            resolve_expr_named_windows(&mut bound, named_windows);
+            resolve_expr_named_windows(&mut bound, named_windows)?;
             collect_windows(&bound, windows);
             Ok(LogicalProjectionItem::Expr {
                 expr: Box::new(bound),
@@ -2863,7 +2937,54 @@ fn bind_select_item(
     }
 }
 
-fn bind_select(select: &Select, diagnostics: &mut Vec<Diagnostic>) -> Result<LogicalRelation> {
+fn bind_named_windows(
+    defs: &[ast::NamedWindowDefinition],
+    named_window_exclusions: &BTreeMap<String, String>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<BTreeMap<String, LogicalWindowSpec>> {
+    let mut named_windows = BTreeMap::new();
+    for ast::NamedWindowDefinition(ident, def) in defs {
+        let mut resolved = match def {
+            ast::NamedWindowExpr::WindowSpec(spec) => {
+                expr::bind_window_spec_ast(spec, diagnostics)?
+            }
+            ast::NamedWindowExpr::NamedWindow(parent) => LogicalWindowSpec {
+                name: Some(parent.value.clone()),
+                partition_by: Vec::new(),
+                order_by: Vec::new(),
+                frame: None,
+            },
+        };
+        for expr in &mut resolved.partition_by {
+            resolve_expr_named_windows(expr, &named_windows)?;
+        }
+        for key in &mut resolved.order_by {
+            resolve_expr_named_windows(&mut key.expr, &named_windows)?;
+        }
+        resolve_spec_named_window(&mut resolved, &named_windows)?;
+        let key = ident.value.to_ascii_lowercase();
+        if named_windows.contains_key(&key) {
+            return Err(unsupported_sql_error(&format!(
+                "duplicate named window definition `{}`",
+                ident.value
+            )));
+        }
+        if let (Some(frame), Some(label)) = (&mut resolved.frame, named_window_exclusions.get(&key))
+            && frame.exclusion.is_none()
+        {
+            frame.exclusion = Some(label.clone());
+        }
+        resolved.name = None;
+        named_windows.insert(key, resolved);
+    }
+    Ok(named_windows)
+}
+
+fn bind_select(
+    select: &Select,
+    named_window_exclusions: &BTreeMap<String, String>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<(LogicalRelation, BTreeMap<String, LogicalWindowSpec>)> {
     validate_select_modifiers(select, diagnostics)?;
     let mut input = if select.from.is_empty() {
         LogicalRelation::Unit
@@ -2877,22 +2998,10 @@ fn bind_select(select: &Select, diagnostics: &mut Vec<Diagnostic>) -> Result<Log
         };
     }
 
-    let mut named_windows = BTreeMap::new();
-    for ast::NamedWindowDefinition(ident, def) in &select.named_window {
-        let mut resolved = match def {
-            ast::NamedWindowExpr::WindowSpec(spec) => {
-                expr::bind_window_spec_ast(spec, diagnostics)?
-            }
-            ast::NamedWindowExpr::NamedWindow(parent) => LogicalWindowSpec {
-                name: Some(parent.value.clone()),
-                partition_by: Vec::new(),
-                order_by: Vec::new(),
-                frame: None,
-            },
-        };
-        resolve_spec_named_window(&mut resolved, &named_windows);
-        resolved.name = Some(ident.value.clone());
-        named_windows.insert(ident.value.to_ascii_lowercase(), resolved);
+    let named_windows =
+        bind_named_windows(&select.named_window, named_window_exclusions, diagnostics)?;
+    if let LogicalRelation::Filter { predicate, .. } = &mut input {
+        resolve_expr_named_windows(predicate, &named_windows)?;
     }
 
     let mut items = Vec::with_capacity(select.projection.len());
@@ -2906,12 +3015,18 @@ fn bind_select(select: &Select, diagnostics: &mut Vec<Diagnostic>) -> Result<Log
         )?);
     }
 
-    let (group_by, grouping_sets) = bind_group_by(&select.group_by, diagnostics)?;
-    let having = select
+    let (mut group_by, grouping_sets) = bind_group_by(&select.group_by, diagnostics)?;
+    for gb in &mut group_by {
+        resolve_expr_named_windows(gb, &named_windows)?;
+    }
+    let mut having = select
         .having
         .as_ref()
         .map(|h| expr::bind_ast_expr(h, diagnostics))
         .transpose()?;
+    if let Some(ref mut h) = having {
+        resolve_expr_named_windows(h, &named_windows)?;
+    }
     let mut aggregates = Vec::new();
     for item in &items {
         if let LogicalProjectionItem::Expr { expr: e, alias } = item {
@@ -2937,11 +3052,14 @@ fn bind_select(select: &Select, diagnostics: &mut Vec<Diagnostic>) -> Result<Log
     }
 
     let distinct = matches!(select.distinct, Some(ast::Distinct::Distinct));
-    Ok(LogicalRelation::Project {
-        input: Box::new(input),
-        items,
-        distinct,
-    })
+    Ok((
+        LogicalRelation::Project {
+            input: Box::new(input),
+            items,
+            distinct,
+        },
+        named_windows,
+    ))
 }
 
 fn bind_from_list(
@@ -3222,26 +3340,44 @@ fn bind_group_by(
 fn resolve_spec_named_window(
     spec: &mut LogicalWindowSpec,
     named: &BTreeMap<String, LogicalWindowSpec>,
-) {
-    if let Some(ref win_name) = spec.name
-        && let Some(base) = named.get(&win_name.to_ascii_lowercase())
-    {
-        if spec.partition_by.is_empty() {
-            spec.partition_by.clone_from(&base.partition_by);
-        }
-        if spec.order_by.is_empty() {
-            spec.order_by.clone_from(&base.order_by);
-        }
-        if spec.frame.is_none() {
-            spec.frame.clone_from(&base.frame);
-        }
+) -> Result<()> {
+    let Some(win_name) = spec.name.take() else {
+        return Ok(());
+    };
+    let base = named
+        .get(&win_name.to_ascii_lowercase())
+        .ok_or_else(|| unsupported_sql_error(&format!("unknown named window `{win_name}`")))?;
+    if !base.partition_by.is_empty() && !spec.partition_by.is_empty() {
+        return Err(unsupported_sql_error(&format!(
+            "named window reference `{win_name}` cannot override PARTITION BY"
+        )));
     }
+    if !base.order_by.is_empty() && !spec.order_by.is_empty() {
+        return Err(unsupported_sql_error(&format!(
+            "named window reference `{win_name}` cannot override ORDER BY"
+        )));
+    }
+    if base.frame.is_some() && spec.frame.is_some() {
+        return Err(unsupported_sql_error(&format!(
+            "named window reference `{win_name}` cannot override window frame"
+        )));
+    }
+    if spec.partition_by.is_empty() {
+        spec.partition_by.clone_from(&base.partition_by);
+    }
+    if spec.order_by.is_empty() {
+        spec.order_by.clone_from(&base.order_by);
+    }
+    if spec.frame.is_none() {
+        spec.frame.clone_from(&base.frame);
+    }
+    Ok(())
 }
 
-fn resolve_expr_named_windows(expr: &mut LogicalExpr, named: &BTreeMap<String, LogicalWindowSpec>) {
-    if named.is_empty() {
-        return;
-    }
+fn resolve_expr_named_windows(
+    expr: &mut LogicalExpr,
+    named: &BTreeMap<String, LogicalWindowSpec>,
+) -> Result<()> {
     match expr {
         LogicalExpr::Function {
             args,
@@ -3251,20 +3387,26 @@ fn resolve_expr_named_windows(expr: &mut LogicalExpr, named: &BTreeMap<String, L
             ..
         } => {
             for arg in args {
-                resolve_expr_named_windows(arg, named);
+                resolve_expr_named_windows(arg, named)?;
             }
             if let Some(f) = filter {
-                resolve_expr_named_windows(f, named);
+                resolve_expr_named_windows(f, named)?;
             }
             for k in order_by {
-                resolve_expr_named_windows(&mut k.expr, named);
+                resolve_expr_named_windows(&mut k.expr, named)?;
             }
             if let Some(spec) = over {
-                resolve_spec_named_window(spec, named);
+                for p in &mut spec.partition_by {
+                    resolve_expr_named_windows(p, named)?;
+                }
+                for k in &mut spec.order_by {
+                    resolve_expr_named_windows(&mut k.expr, named)?;
+                }
+                resolve_spec_named_window(spec, named)?;
             }
         }
         LogicalExpr::Unary { expr: inner, .. } | LogicalExpr::Cast { expr: inner, .. } => {
-            resolve_expr_named_windows(inner, named);
+            resolve_expr_named_windows(inner, named)?;
         }
         LogicalExpr::Binary { left, right, .. }
         | LogicalExpr::Compare { left, right, .. }
@@ -3274,21 +3416,24 @@ fn resolve_expr_named_windows(expr: &mut LogicalExpr, named: &BTreeMap<String, L
             pattern: right,
             ..
         } => {
-            resolve_expr_named_windows(left, named);
-            resolve_expr_named_windows(right, named);
+            resolve_expr_named_windows(left, named)?;
+            resolve_expr_named_windows(right, named)?;
         }
         LogicalExpr::Between {
             expr, low, high, ..
         } => {
-            resolve_expr_named_windows(expr, named);
-            resolve_expr_named_windows(low, named);
-            resolve_expr_named_windows(high, named);
+            resolve_expr_named_windows(expr, named)?;
+            resolve_expr_named_windows(low, named)?;
+            resolve_expr_named_windows(high, named)?;
         }
         LogicalExpr::InList { expr, list, .. } => {
-            resolve_expr_named_windows(expr, named);
+            resolve_expr_named_windows(expr, named)?;
             for item in list {
-                resolve_expr_named_windows(item, named);
+                resolve_expr_named_windows(item, named)?;
             }
+        }
+        LogicalExpr::InSubquery { expr, .. } => {
+            resolve_expr_named_windows(expr, named)?;
         }
         LogicalExpr::Case {
             operand,
@@ -3296,23 +3441,24 @@ fn resolve_expr_named_windows(expr: &mut LogicalExpr, named: &BTreeMap<String, L
             else_expr,
         } => {
             if let Some(op) = operand {
-                resolve_expr_named_windows(op, named);
+                resolve_expr_named_windows(op, named)?;
             }
             for (w, t) in when_then {
-                resolve_expr_named_windows(w, named);
-                resolve_expr_named_windows(t, named);
+                resolve_expr_named_windows(w, named)?;
+                resolve_expr_named_windows(t, named)?;
             }
             if let Some(e) = else_expr {
-                resolve_expr_named_windows(e, named);
+                resolve_expr_named_windows(e, named)?;
             }
         }
         LogicalExpr::Array(items) | LogicalExpr::Tuple(items) => {
             for item in items {
-                resolve_expr_named_windows(item, named);
+                resolve_expr_named_windows(item, named)?;
             }
         }
         _ => {}
     }
+    Ok(())
 }
 
 fn collect_windows(expr: &LogicalExpr, out: &mut Vec<(String, LogicalWindowSpec)>) {
@@ -3384,6 +3530,9 @@ fn collect_windows(expr: &LogicalExpr, out: &mut Vec<(String, LogicalWindowSpec)
             for item in list {
                 collect_windows(item, out);
             }
+        }
+        LogicalExpr::InSubquery { expr, .. } => {
+            collect_windows(expr, out);
         }
         LogicalExpr::Case {
             operand,

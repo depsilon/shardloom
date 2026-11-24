@@ -534,6 +534,185 @@ class ArrowIpcBatchAdapterTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             int_input.encode_arrow_ipc(pa.record_batch({"v": pa.array([1.9], type=pa.float64())}))
 
+    @unittest.skipUnless(_HAS_PYARROW, "pyarrow is optional")
+    def test_arrow_ipc_result_batch_preserves_exact_temporal_ticks(self):
+        import datetime as dt
+        import uuid
+        import pyarrow as pa
+        from shardloom._result_schema import schema_fields
+
+        wire_schema = {
+            "Struct": [
+                {
+                    "names": ["t", "ts_ns", "ts_tz", "d32", "dur", "times", "nested", "u"],
+                    "dtypes": [
+                        {
+                            "Extension": {
+                                "id": "vortex.time",
+                                "storage_dtype": {"Primitive": ["i64", True]},
+                                "metadata": [0],
+                            }
+                        },
+                        {
+                            "Extension": {
+                                "id": "vortex.timestamp",
+                                "storage_dtype": {"Primitive": ["i64", True]},
+                                "metadata": [0, 0, 0],
+                            }
+                        },
+                        {
+                            "Extension": {
+                                "id": "vortex.timestamp",
+                                "storage_dtype": {"Primitive": ["i64", True]},
+                                "metadata": [2, 3, 0, *b"UTC"],
+                            }
+                        },
+                        {
+                            "Extension": {
+                                "id": "vortex.date",
+                                "storage_dtype": {"Primitive": ["i32", True]},
+                                "metadata": [4],
+                            }
+                        },
+                        {
+                            "Extension": {
+                                "id": "shardloom.duration.v1",
+                                "storage_dtype": {"Primitive": ["i64", True]},
+                                "metadata": [3],
+                            }
+                        },
+                        {
+                            "List": [
+                                {
+                                    "Extension": {
+                                        "id": "vortex.time",
+                                        "storage_dtype": {"Primitive": ["i64", True]},
+                                        "metadata": [0],
+                                    }
+                                },
+                                True,
+                            ]
+                        },
+                        {
+                            "Struct": [
+                                {
+                                    "names": ["ts"],
+                                    "dtypes": [
+                                        {
+                                            "Extension": {
+                                                "id": "vortex.timestamp",
+                                                "storage_dtype": {"Primitive": ["i64", True]},
+                                                "metadata": [0, 0, 0],
+                                            }
+                                        }
+                                    ],
+                                },
+                                True,
+                            ]
+                        },
+                        {
+                            "Extension": {
+                                "id": "vortex.uuid",
+                                "storage_dtype": {
+                                    "FixedSizeList": [{"Primitive": ["u8", False]}, 16, True]
+                                },
+                                "metadata": [],
+                            }
+                        },
+                    ],
+                },
+                False,
+            ]
+        }
+        uid = uuid.UUID("12345678-1234-5678-1234-567812345678")
+        expected_rows = (
+            {
+                "t": 1001,
+                "ts_ns": 1001,
+                "ts_tz": 1_000_000,
+                "d32": 5_000_000,
+                "dur": 1001,
+                "times": [1001, dt.time(0, 0, 0, 2)],
+                "nested": {"ts": 1001},
+                "u": uid,
+            },
+            {
+                "t": dt.time(0, 0, 0, 2),
+                "ts_ns": dt.datetime(1970, 1, 1, 0, 0, 0, 2),
+                "ts_tz": None,
+                "d32": dt.date(1970, 1, 1),
+                "dur": dt.timedelta(microseconds=2),
+                "times": None,
+                "nested": None,
+                "u": None,
+            },
+        )
+
+        # Verify multi-chunk & sliced Arrow tables convert without precision loss or OverflowError.
+        full_table = pa.table(
+            {
+                "t": pa.array([9999, 1001, 2000], type=pa.time64("ns")),
+                "ts_ns": pa.array([9999, 1001, 2000], type=pa.timestamp("ns")),
+                "ts_tz": pa.array([0, 1_000_000, None], type=pa.timestamp("us", tz="UTC")),
+                "d32": pa.array([0, 5_000_000, 0], type=pa.date32()),
+                "dur": pa.array([0, 1001, 2000], type=pa.duration("ns")),
+                "times": pa.array([[500], [1001, 2000], None], type=pa.list_(pa.time64("ns"))),
+                "nested": pa.StructArray.from_arrays(
+                    [pa.array([0, 1001, 5_000_000], type=pa.timestamp("ns"))],
+                    names=["ts"],
+                    mask=pa.array([False, False, True]),
+                ),
+                "u": pa.uuid().wrap_array(
+                    pa.array([uid.bytes, uid.bytes, None], type=pa.binary(16))
+                ),
+            }
+        )
+        sliced = pa.concat_tables([full_table.slice(1, 1), full_table.slice(2, 1)])
+        parsed_schema = schema_fields(json.dumps(wire_schema), "vortex.dtype.serde.v1")
+        batch = ResultBatch._from_arrow_table(0, sliced, parsed_schema)
+        self.assertEqual(batch.result_rows, expected_rows)
+        self.assertEqual(batch.to_rows(), expected_rows)
+        self.assertEqual(batch.python_objects, expected_rows)
+
+        # Verify end-to-end wire_format="arrow_ipc" stream yields identical Python rows.
+        client, _trace = _arrow_peer_client(
+            self,
+            f"""
+            wire_schema = {wire_schema!r}
+            tbl = pa.table({{
+                't': pa.array([1001, 2000], type=pa.time64('ns')),
+                'ts_ns': pa.array([1001, 2000], type=pa.timestamp('ns')),
+                'ts_tz': pa.array([1_000_000, None], type=pa.timestamp('us', tz='UTC')),
+                'd32': pa.array([5_000_000, 0], type=pa.date32()),
+                'dur': pa.array([1001, 2000], type=pa.duration('ns')),
+                'times': pa.array([[1001, 2000], None], type=pa.list_(pa.time64('ns'))),
+                'nested': pa.StructArray.from_arrays(
+                    [pa.array([1001, 0], type=pa.timestamp('ns'))],
+                    names=['ts'],
+                    mask=pa.array([False, True]),
+                ),
+                'u': pa.uuid().wrap_array(pa.array([{uid.bytes!r}, None], type=pa.binary(16))),
+            }})
+            sink = pa.BufferOutputStream()
+            with pa.ipc.new_stream(sink, tbl.schema) as writer:
+                writer.write_table(tbl)
+            raw = bytes(sink.getvalue())
+            send_json({{'kind':'batch_ipc','index':0,'row_count':2,'schema':wire_schema,'byte_len':len(raw)}})
+            sys.stdout.buffer.write(raw)
+            sys.stdout.buffer.flush()
+            ack, _ = read_frame()
+            assert ack == {{'kind':'ack','index':0}}
+            finish(2, 1)
+            """,
+        )
+        iterator = ResultBatchIterator(client, ["run", "sql"], wire_format="arrow_ipc")
+        self.addCleanup(iterator.close)
+        wire_batch = next(iterator)
+        self.assertEqual(wire_batch.result_rows, expected_rows)
+        self.assertEqual(wire_batch.to_rows(), expected_rows)
+        with self.assertRaises(StopIteration):
+            next(iterator)
+
 
 if __name__ == "__main__":
     unittest.main()

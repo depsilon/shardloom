@@ -28,7 +28,7 @@ pub(super) fn window_call_admitted(
     spec: &LogicalWindowSpec,
     forbidden_sources: &BTreeSet<String>,
 ) -> bool {
-    if filter.is_some() || !order_by.is_empty() {
+    if filter.is_some() || !order_by.is_empty() || spec.name.is_some() {
         return false;
     }
     if !args
@@ -470,6 +470,11 @@ impl CanonicalLowering<'_, '_, '_> {
         pre_names: &mut Vec<String>,
         pre_exprs: &mut Vec<(String, Expression)>,
     ) -> NativeResult<WindowExpression> {
+        if spec.name.is_some() {
+            return Err(unsupported_sql_error(
+                "unresolved named window reference in window specification",
+            ));
+        }
         if filter.is_some() || !agg_order_by.is_empty() {
             return Err(unsupported_sql_error(
                 "window FILTER and WITHIN GROUP ORDER BY clauses are not admitted",

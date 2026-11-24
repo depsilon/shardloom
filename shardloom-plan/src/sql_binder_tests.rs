@@ -424,3 +424,58 @@ fn rejects_by_name_sets_ignore_nulls_windows_and_silent_ast_modifiers() {
             .is_ok()
     );
 }
+
+#[test]
+fn resolves_named_windows_in_query_order_by_and_rejects_unknown_or_conflicting_refs() {
+    let plan = bind_sql(
+        "SELECT id FROM 'in.parquet' WINDOW w AS (ORDER BY id DESC) ORDER BY ROW_NUMBER() OVER w LIMIT 1",
+    )
+    .expect("named window in ORDER BY binds");
+
+    let LogicalRelation::Limit {
+        input: sort_rel, ..
+    } = &plan.root
+    else {
+        panic!("expected Limit root");
+    };
+    let LogicalRelation::Sort {
+        input: proj_rel,
+        keys,
+    } = sort_rel.as_ref()
+    else {
+        panic!("expected Sort under Limit");
+    };
+    let LogicalRelation::Project { input: win_rel, .. } = proj_rel.as_ref() else {
+        panic!("expected Project under Sort");
+    };
+    let LogicalRelation::Window { windows, .. } = win_rel.as_ref() else {
+        panic!("expected Window under Project");
+    };
+    assert_eq!(windows.len(), 1);
+    assert!(windows[0].1.name.is_none());
+    assert_eq!(windows[0].1.order_by.len(), 1);
+    let LogicalExpr::Function {
+        over: Some(spec), ..
+    } = &keys[0].expr
+    else {
+        panic!("expected window function in ORDER BY key");
+    };
+    assert!(spec.name.is_none());
+    assert_eq!(spec.order_by.len(), 1);
+
+    assert!(
+        bind_sql(
+            "SELECT id, SUM(v) OVER w2 FROM 'in.parquet' WINDOW w1 AS (PARTITION BY grp), w2 AS (w1 ORDER BY id)"
+        )
+        .is_ok()
+    );
+
+    for bad_sql in [
+        "SELECT ROW_NUMBER() OVER missing_w FROM 'in.parquet'",
+        "SELECT id FROM 'in.parquet' ORDER BY ROW_NUMBER() OVER missing_w",
+        "SELECT id FROM 'in.parquet' WINDOW w AS (ORDER BY id) ORDER BY ROW_NUMBER() OVER (w ORDER BY id DESC)",
+        "SELECT id FROM 'in.parquet' WINDOW w AS (ORDER BY id), w AS (ORDER BY id DESC) ORDER BY ROW_NUMBER() OVER w",
+    ] {
+        assert!(bind_sql(bad_sql).is_err(), "{bad_sql}");
+    }
+}
