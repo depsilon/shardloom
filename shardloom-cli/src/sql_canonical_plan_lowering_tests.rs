@@ -1114,4 +1114,33 @@ fn canonical_order_by_named_windows_and_substring_for() {
         flags_path.display()
     );
     assert_eq!(collect_rows(&prepare_file_sql(&ok_ts_prec_sql)).len(), 1);
+
+    let filter_path = dir.path().join("agg_filter.parquet");
+    let filter_schema = Arc::new(Schema::new(vec![
+        Field::new("id", DataType::Int64, false),
+        Field::new("v", DataType::Utf8, false),
+        Field::new("keep", DataType::Boolean, true),
+    ]));
+    let filter_batch = RecordBatch::try_new(
+        filter_schema,
+        vec![
+            Arc::new(Int64Array::from(vec![1, 2, 3])),
+            Arc::new(StringArray::from(vec!["10", "bad", "20"])),
+            Arc::new(arrow_array::BooleanArray::from(vec![
+                Some(true),
+                Some(false),
+                None,
+            ])),
+        ],
+    )
+    .unwrap();
+    write_parquet_rows(&filter_path, &filter_batch, 3);
+    let filtered_agg_sql = format!(
+        "SELECT SUM(CAST(v AS BIGINT)) FILTER (WHERE keep) AS s, COUNT(CAST(v AS BIGINT)) FILTER (WHERE keep) AS c, COUNT(*) OVER () AS win_cnt FROM '{}'",
+        filter_path.display()
+    );
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&filtered_agg_sql)),
+        vec![json!({"s": 10.0, "c": 1, "win_cnt": 1})]
+    );
 }

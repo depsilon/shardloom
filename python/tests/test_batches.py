@@ -713,6 +713,63 @@ class ArrowIpcBatchAdapterTests(unittest.TestCase):
         with self.assertRaises(StopIteration):
             next(iterator)
 
+    @unittest.skipUnless(_HAS_PYARROW, "pyarrow is optional")
+    def test_arrow_ipc_to_pandas_preserves_nullable_full_width_integers(self):
+        from unittest import mock
+        import types
+        import pyarrow as pa
+        from shardloom._result_schema import schema_fields
+
+        wire_schema = {
+            "Struct": [
+                {
+                    "names": ["i", "u"],
+                    "dtypes": [
+                        {"Primitive": ["i64", True]},
+                        {"Primitive": ["u64", True]},
+                    ],
+                },
+                False,
+            ]
+        }
+        large_i64 = 9_007_199_254_740_993
+        max_u64 = (1 << 64) - 1
+        table = pa.table(
+            {
+                "i": pa.array([large_i64, None], type=pa.int64()),
+                "u": pa.array([max_u64, None], type=pa.uint64()),
+            }
+        )
+        schema = schema_fields(json.dumps(wire_schema), "vortex.dtype.serde.v1")
+        batch = ResultBatch._from_arrow_table(0, table, schema)
+
+        captured = {}
+
+        def fake_dataframe(rows, *, columns, dtype):
+            captured["rows"] = rows
+            captured["columns"] = columns
+            captured["dtype"] = dtype
+            return {"rows": rows, "columns": columns, "dtype": dtype}
+
+        with mock.patch.dict(sys.modules, {"pandas": types.SimpleNamespace(DataFrame=fake_dataframe)}):
+            frame = batch.to_pandas()
+
+        self.assertIs(captured["dtype"], object)
+        self.assertEqual(captured["columns"], ("i", "u"))
+        self.assertEqual(
+            frame["rows"],
+            ({"i": large_i64, "u": max_u64}, {"i": None, "u": None}),
+        )
+        self.assertIs(type(captured["rows"][0]["i"]), int)
+        self.assertIs(type(captured["rows"][0]["u"]), int)
+
+        if importlib.util.find_spec("pandas") is not None:
+            real_df = batch.to_pandas()
+            self.assertEqual(
+                real_df.to_dict(orient="records"),
+                [{"i": large_i64, "u": max_u64}, {"i": None, "u": None}],
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

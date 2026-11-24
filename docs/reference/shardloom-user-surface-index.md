@@ -65,7 +65,7 @@ Point, LineString and Polygon columns, coordinate metadata and the shared
 `ST_*` function family in current source builds.
 
 <!-- BEGIN GENERATED APPLICATION REFERENCE -->
-Source identity: `aa6b3fd4c4b103dea3a3fca8527b24f2f94f3a5dce551b223a5732ed2d33fd17` (SHA-256 of the listed source inputs).
+Source identity: `6e8a74607abd12acff32a423656954658f1b9dd1c394cd55108015b0375fae42` (SHA-256 of the listed source inputs).
 This reference describes the listed source inputs; published package availability is tracked in the [selected-channel package readiness matrix](../release/package-channel-readiness-matrix.md).
 
 ### Python application exports

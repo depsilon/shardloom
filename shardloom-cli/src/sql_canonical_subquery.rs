@@ -1394,14 +1394,22 @@ fn materialize_function_subqueries(
         }
         return Ok(scope);
     }
-    for arg in args {
-        scope = materialize_expr_subqueries_guarded(ctx, scope, arg, guard)?;
-    }
+    let mut arg_guard = guard.cloned();
     if let Some(f) = filter {
         scope = materialize_expr_subqueries_guarded(ctx, scope, f, guard)?;
+        if over.is_none()
+            && (args.iter().any(expr_has_subquery)
+                || order_by.iter().any(|k| expr_has_subquery(&k.expr)))
+        {
+            let filter_pred = ctx.lower_expr(f, &scope)?;
+            arg_guard = Some(demand_guard(guard, filter_pred, true)?);
+        }
+    }
+    for arg in args {
+        scope = materialize_expr_subqueries_guarded(ctx, scope, arg, arg_guard.as_ref())?;
     }
     for k in order_by {
-        scope = materialize_expr_subqueries_guarded(ctx, scope, &mut k.expr, guard)?;
+        scope = materialize_expr_subqueries_guarded(ctx, scope, &mut k.expr, arg_guard.as_ref())?;
     }
     if let Some(spec) = over {
         for p in &mut spec.partition_by {

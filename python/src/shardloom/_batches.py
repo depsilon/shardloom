@@ -287,15 +287,15 @@ class ResultBatch:
         return tuple(python_rows(self.result_rows, self.result_schema))
 
     def to_pandas(self):
-        if self._arrow_table is not None:
-            return self._arrow_table.to_pandas()
         from .query import _result_to_pandas
         import pandas
         return _result_to_pandas(self, pandas)
 
     def to_arrow(self):
         if self._arrow_table is not None:
-            return self._arrow_table
+            from ._tensor import restore_arrow_schema
+            import pyarrow
+            return restore_arrow_schema(self._arrow_table, self.result_schema, pyarrow)
         from .query import _result_to_arrow_table
         import pyarrow
         return _result_to_arrow_table(self, pyarrow)

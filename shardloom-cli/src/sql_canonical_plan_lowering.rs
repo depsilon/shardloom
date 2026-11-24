@@ -2245,6 +2245,63 @@ impl CanonicalLowering<'_, '_, '_> {
         )
     }
 
+    fn lower_agg_filter_and_guard(
+        &mut self,
+        filter: Option<&LogicalExpr>,
+        raw_scope: &ScopedRelation,
+        pre_names: &mut Vec<String>,
+        pre_projections: &mut Vec<(String, Expression)>,
+    ) -> NativeResult<(Option<ColumnRef>, Option<Expression>)> {
+        let Some(filter) = filter else {
+            return Ok((None, None));
+        };
+        if let LogicalExpr::Column { qualifier, name } = filter {
+            let resolved = raw_scope.resolve(qualifier.as_deref(), name)?;
+            return Ok((
+                Some(ColumnRef::new(resolved.clone())?),
+                Some(column(&resolved)?),
+            ));
+        }
+        let lowered = self.lower_expr(filter, raw_scope)?;
+        let col = fresh_col_names(pre_names, &mut self.lowerer.serial);
+        pre_names.push(col.clone());
+        pre_projections.push((col.clone(), lowered.clone()));
+        Ok((Some(ColumnRef::new(col)?), Some(lowered)))
+    }
+
+    fn lower_filtered_agg_expr(
+        &mut self,
+        expr: &LogicalExpr,
+        filter_guard: Option<&Expression>,
+        raw_scope: &ScopedRelation,
+        pre_names: &mut Vec<String>,
+        pre_projections: &mut Vec<(String, Expression)>,
+    ) -> NativeResult<String> {
+        if let LogicalExpr::Column { qualifier, name } = expr {
+            return raw_scope.resolve(qualifier.as_deref(), name);
+        }
+        let lowered = self.lower_expr(expr, raw_scope)?;
+        let guarded = if let Some(guard) = filter_guard {
+            Expression::new(
+                self.next_id("canon.agg_filtered")?,
+                ExpressionKind::FunctionCall {
+                    name: "case_when".into(),
+                    args: vec![
+                        guard.clone(),
+                        lowered,
+                        Expression::literal(self.next_id("canon.agg_excluded")?, ScalarValue::Null),
+                    ],
+                },
+            )
+        } else {
+            lowered
+        };
+        let col = fresh_col_names(pre_names, &mut self.lowerer.serial);
+        pre_names.push(col.clone());
+        pre_projections.push((col.clone(), guarded));
+        Ok(col)
+    }
+
     fn lower_single_measure(
         &mut self,
         spec: &CollectedAgg,
@@ -2269,33 +2326,41 @@ impl CanonicalLowering<'_, '_, '_> {
         })?;
         let native_name = agg_fn.native_name(effective_distinct)?;
 
+        let (filter_col, filter_guard) = self.lower_agg_filter_and_guard(
+            spec.filter.as_ref(),
+            raw_scope,
+            pre_names,
+            pre_projections,
+        )?;
+
         let mut arg_col = None;
         let mut secondary_col = None;
         let mut separator = None;
-        let mut lower_arg = |expr: &LogicalExpr| -> NativeResult<Option<ColumnRef>> {
-            if matches!(expr, LogicalExpr::Wildcard { qualifier: None }) {
-                return Ok(None);
-            }
-            if let LogicalExpr::Column { qualifier, name } = expr {
-                return Ok(Some(ColumnRef::new(
-                    raw_scope.resolve(qualifier.as_deref(), name)?,
-                )?));
-            }
-            let lowered = self.lower_expr(expr, raw_scope)?;
-            let col = fresh_col_names(pre_names, &mut self.lowerer.serial);
-            pre_names.push(col.clone());
-            pre_projections.push((col.clone(), lowered));
-            Ok(Some(ColumnRef::new(col)?))
-        };
 
-        if let Some(first) = spec.args.first() {
-            arg_col = lower_arg(first)?;
+        if let Some(first) = spec.args.first()
+            && !matches!(first, LogicalExpr::Wildcard { qualifier: None })
+        {
+            let col = self.lower_filtered_agg_expr(
+                first,
+                filter_guard.as_ref(),
+                raw_scope,
+                pre_names,
+                pre_projections,
+            )?;
+            arg_col = Some(ColumnRef::new(col)?);
         }
         if let Some(second) = spec.args.get(1) {
             if matches!(agg_fn, AggregateFunction::StringAgg) {
                 separator = Some(self.extract_utf8_literal(second, "STRING_AGG separator")?);
-            } else {
-                secondary_col = lower_arg(second)?;
+            } else if !matches!(second, LogicalExpr::Wildcard { qualifier: None }) {
+                let col = self.lower_filtered_agg_expr(
+                    second,
+                    filter_guard.as_ref(),
+                    raw_scope,
+                    pre_names,
+                    pre_projections,
+                )?;
+                secondary_col = Some(ColumnRef::new(col)?);
             }
         }
         if spec.args.len() > 2 {
@@ -2305,30 +2370,15 @@ impl CanonicalLowering<'_, '_, '_> {
             )));
         }
 
-        let filter_col = if let Some(filter) = &spec.filter {
-            let lowered = self.lower_expr(filter, raw_scope)?;
-            let col = fresh_col_names(pre_names, &mut self.lowerer.serial);
-            pre_names.push(col.clone());
-            pre_projections.push((col.clone(), lowered));
-            Some(ColumnRef::new(col)?)
-        } else {
-            None
-        };
-
         let mut order_keys = Vec::with_capacity(spec.order_by.len());
         for key in &spec.order_by {
-            let target = match &key.expr {
-                LogicalExpr::Column { qualifier, name } => {
-                    raw_scope.resolve(qualifier.as_deref(), name)?
-                }
-                other => {
-                    let lowered = self.lower_expr(other, raw_scope)?;
-                    let col = fresh_col_names(pre_names, &mut self.lowerer.serial);
-                    pre_names.push(col.clone());
-                    pre_projections.push((col.clone(), lowered));
-                    col
-                }
-            };
+            let target = self.lower_filtered_agg_expr(
+                &key.expr,
+                filter_guard.as_ref(),
+                raw_scope,
+                pre_names,
+                pre_projections,
+            )?;
             order_keys.push(make_order_key(&target, key)?);
         }
 
