@@ -424,21 +424,32 @@ fn eval_unary_batch(
                 values: values.iter().map(|v| !v).collect(),
                 valid: valid.clone(),
             }),
-            ColumnarColumn::ScalarFallback { values, .. }
-                if values.iter().all(ScalarValue::is_null) =>
-            {
-                Ok(ColumnarColumn::Bool {
-                    values: vec![false; rows],
-                    valid: vec![false; rows],
-                })
+            other => {
+                let mut values = Vec::with_capacity(rows);
+                let mut valid = Vec::with_capacity(rows);
+                for row in 0..rows {
+                    match other.get(row) {
+                        ScalarValue::Null => {
+                            values.push(false);
+                            valid.push(false);
+                        }
+                        ScalarValue::Boolean(v) => {
+                            values.push(!v);
+                            valid.push(true);
+                        }
+                        val => {
+                            return Err(EvalFailure::unsupported(
+                                "unary_not",
+                                format!(
+                                    "NOT supports boolean or null, got {}",
+                                    val.dtype().as_str()
+                                ),
+                            ));
+                        }
+                    }
+                }
+                Ok(ColumnarColumn::Bool { values, valid })
             }
-            other => Err(EvalFailure::unsupported(
-                "unary_not",
-                format!(
-                    "NOT supports boolean or null, got {}",
-                    other.dtype().as_str()
-                ),
-            )),
         },
         UnaryOp::Negate => eval_negate_batch(child, float_policy),
     }
@@ -608,10 +619,11 @@ fn eval_binary_batch(
     right: &ColumnarColumn,
     float_policy: FloatPolicy,
 ) -> super::EvalResult<ColumnarColumn> {
-    if matches!(op, BinaryOp::And | BinaryOp::Or)
-        && let Some(out) = eval_bool_binary_batch(left, op, right)
-    {
-        return Ok(out);
+    if matches!(op, BinaryOp::And | BinaryOp::Or) {
+        if let Some(out) = eval_bool_binary_batch(left, op, right) {
+            return Ok(out);
+        }
+        return eval_binary_fallback(left, op, right, float_policy);
     }
     match (left, right) {
         (
@@ -742,7 +754,11 @@ fn eval_binary_fallback(
     let ldtype = left.dtype();
     let rdtype = right.dtype();
     let mut out = Vec::with_capacity(rows);
-    let mut out_dtype = LogicalDType::Unknown;
+    let mut out_dtype = if matches!(op, BinaryOp::And | BinaryOp::Or) {
+        LogicalDType::Boolean
+    } else {
+        LogicalDType::Unknown
+    };
     for i in 0..rows {
         let lv = super::EvalValue::new(left.get(i), ldtype.clone(), super::NullBehavior::NullAware);
         let rv =
@@ -893,7 +909,12 @@ fn eval_compare_fallback(
                 values.push(false);
                 valid.push(false);
             }
-            _ => unreachable!("eval_compare returns bool or null"),
+            other => {
+                return Err(EvalFailure::invalid(
+                    "comparison",
+                    format!("unexpected comparison output {}", other.dtype().as_str()),
+                ));
+            }
         }
     }
     Ok(ColumnarColumn::Bool { values, valid })
@@ -1078,7 +1099,12 @@ fn eval_i64_scalar(left: i64, op: BinaryOp, right: i64) -> super::EvalResult<i64
             return Err(EvalFailure::invalid("remainder", "remainder by zero"));
         }
         BinaryOp::Remainder => i64::try_from(i128::from(left) % i128::from(right)).ok(),
-        BinaryOp::And | BinaryOp::Or => None,
+        BinaryOp::And | BinaryOp::Or => {
+            return Err(EvalFailure::unsupported(
+                op.as_str(),
+                "boolean operator routed to numeric scalar kernel",
+            ));
+        }
     }
     .ok_or_else(|| EvalFailure::invalid("numeric_binary", "int64 arithmetic overflow"))
 }
@@ -1096,7 +1122,12 @@ fn eval_u64_scalar(left: u64, op: BinaryOp, right: u64) -> super::EvalResult<u64
             return Err(EvalFailure::invalid("remainder", "remainder by zero"));
         }
         BinaryOp::Remainder => left.checked_rem(right),
-        BinaryOp::And | BinaryOp::Or => None,
+        BinaryOp::And | BinaryOp::Or => {
+            return Err(EvalFailure::unsupported(
+                op.as_str(),
+                "boolean operator routed to numeric scalar kernel",
+            ));
+        }
     }
     .ok_or_else(|| EvalFailure::invalid("numeric_binary", "uint64 arithmetic overflow"))
 }
@@ -1125,7 +1156,12 @@ fn eval_f64_scalar(
         BinaryOp::Multiply => left * right,
         BinaryOp::Divide => left / right,
         BinaryOp::Remainder => left % right,
-        BinaryOp::And | BinaryOp::Or => unreachable!("boolean ops handled above"),
+        BinaryOp::And | BinaryOp::Or => {
+            return Err(EvalFailure::unsupported(
+                op.as_str(),
+                "boolean operator routed to numeric scalar kernel",
+            ));
+        }
     };
     if !float_policy.admits(output) {
         return Err(EvalFailure::invalid(
@@ -1646,5 +1682,85 @@ mod tests {
                 Some(f64::INFINITY.to_bits()),
             ]
         );
+    }
+
+    #[test]
+    fn logical_operators_reject_nonboolean_operands_without_panicking() {
+        let mut r0 = ExpressionInputRow::new();
+        r0.insert("f".into(), ScalarValue::Float64(1.5));
+        r0.insert("i".into(), ScalarValue::Int64(2));
+        r0.insert("u".into(), ScalarValue::UInt64(3));
+        r0.insert("bf".into(), ScalarValue::Boolean(false));
+        r0.insert("bt".into(), ScalarValue::Boolean(true));
+        let rows = [r0];
+        let batch = ColumnarBatch::from_rows(&rows).unwrap();
+
+        for op in [BinaryOp::And, BinaryOp::Or] {
+            for (left, right) in [
+                (col("f"), col("f")),
+                (col("i"), col("i")),
+                (col("u"), col("u")),
+                (col("i"), col("f")),
+            ] {
+                let expr = bin(left, op, right);
+                for policy in [FloatPolicy::Strict, FloatPolicy::Extended] {
+                    assert!(matches!(
+                        evaluate_expression_batch_with_policy(&expr, &batch, policy),
+                        Err(ShardLoomError::NotImplemented(_))
+                    ));
+                }
+                assert_parity(&expr, &rows);
+            }
+        }
+
+        // 3VL short-circuit and NULL parity across mixed/typed columns.
+        assert_parity(&bin(col("bf"), BinaryOp::And, col("f")), &rows);
+        assert_parity(&bin(col("bt"), BinaryOp::Or, col("i")), &rows);
+        assert_parity(
+            &bin(col("bt"), BinaryOp::And, lit(ScalarValue::Null)),
+            &rows,
+        );
+        assert_parity(&bin(col("bf"), BinaryOp::Or, lit(ScalarValue::Null)), &rows);
+
+        let not_float = Expression::new(
+            id("not_f"),
+            ExpressionKind::Unary {
+                op: UnaryOp::Not,
+                expr: Box::new(col("f")),
+            },
+        );
+        assert!(matches!(
+            evaluate_expression_batch(&not_float, &batch),
+            Err(ShardLoomError::NotImplemented(_))
+        ));
+        assert_parity(&not_float, &rows);
+
+        let mut null_i_row = ExpressionInputRow::new();
+        null_i_row.insert("ni".into(), ScalarValue::Null);
+        let null_typed_batch = ColumnarBatch::new(
+            1,
+            BTreeMap::from([(
+                "ni".to_string(),
+                ColumnarColumn::Int64 {
+                    values: vec![0],
+                    valid: vec![false],
+                },
+            )]),
+        )
+        .unwrap();
+        let not_null_typed = Expression::new(
+            id("not_ni"),
+            ExpressionKind::Unary {
+                op: UnaryOp::Not,
+                expr: Box::new(col("ni")),
+            },
+        );
+        assert_eq!(
+            evaluate_expression_batch(&not_null_typed, &null_typed_batch)
+                .unwrap()
+                .to_scalars(),
+            vec![ScalarValue::Null]
+        );
+        assert_parity(&not_null_typed, &[null_i_row]);
     }
 }
