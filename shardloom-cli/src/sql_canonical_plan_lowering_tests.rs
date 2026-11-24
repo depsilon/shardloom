@@ -966,3 +966,99 @@ fn canonical_window_wildcards_and_rejected_sql_modifiers() {
         assert!(try_prepare_file_sql(&bad_sql).is_err(), "{bad_sql}");
     }
 }
+
+#[test]
+fn canonical_order_by_ordinals_and_guarded_case_subqueries() {
+    let dir = CanonicalTempDir::new("ord_case");
+    let flags_path = dir.path().join("flags.parquet");
+    let two_row_path = dir.path().join("two_rows.parquet");
+    let flags_batch = batch_i64_str(
+        &[("id", vec![Some(1), Some(2), Some(3)])],
+        &[("grp", vec![Some("a"), Some("a"), Some("b")])],
+    );
+    write_parquet_rows(&flags_path, &flags_batch, 3);
+    write_parquet_rows(
+        &two_row_path,
+        &batch_i64(&[("cnt", vec![Some(2), Some(99)])]),
+        2,
+    );
+
+    let ord_win_sql = format!(
+        "SELECT id, ROW_NUMBER() OVER (ORDER BY id) AS rn FROM '{}' ORDER BY 1 DESC LIMIT 1",
+        flags_path.display()
+    );
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&ord_win_sql)),
+        vec![json!({"id": 3, "rn": 3})]
+    );
+
+    let set_ord_sql = format!(
+        "SELECT id, grp FROM '{}' WHERE id = 1 UNION ALL SELECT id, grp FROM '{}' WHERE id = 3 ORDER BY 1 DESC",
+        flags_path.display(),
+        flags_path.display()
+    );
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&set_ord_sql)),
+        vec![json!({"id": 3, "grp": "b"}), json!({"id": 1, "grp": "a"})]
+    );
+
+    for bad_ord_sql in [
+        format!(
+            "SELECT id, ROW_NUMBER() OVER (ORDER BY id) AS rn FROM '{}' ORDER BY 0",
+            flags_path.display()
+        ),
+        format!(
+            "SELECT id, ROW_NUMBER() OVER (ORDER BY id) AS rn FROM '{}' ORDER BY 3",
+            flags_path.display()
+        ),
+        format!(
+            "SELECT id, grp FROM '{}' UNION ALL SELECT id, grp FROM '{}' ORDER BY 3",
+            flags_path.display(),
+            flags_path.display()
+        ),
+    ] {
+        assert!(try_prepare_file_sql(&bad_ord_sql).is_err(), "{bad_ord_sql}");
+    }
+
+    let guarded_case_sql = format!(
+        "SELECT id, ROW_NUMBER() OVER (ORDER BY id) AS rn, CASE WHEN TRUE THEN 7 ELSE (SELECT cnt FROM '{}') END AS v FROM '{}' ORDER BY id",
+        two_row_path.display(),
+        flags_path.display()
+    );
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&guarded_case_sql)),
+        vec![
+            json!({"id": 1, "rn": 1, "v": 7}),
+            json!({"id": 2, "rn": 2, "v": 7}),
+            json!({"id": 3, "rn": 3, "v": 7}),
+        ]
+    );
+
+    let guarded_coalesce_sql = format!(
+        "SELECT id, ROW_NUMBER() OVER (ORDER BY id) AS rn, COALESCE(7, (SELECT cnt FROM '{}')) AS v FROM '{}' ORDER BY id",
+        two_row_path.display(),
+        flags_path.display()
+    );
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&guarded_coalesce_sql)),
+        vec![
+            json!({"id": 1, "rn": 1, "v": 7}),
+            json!({"id": 2, "rn": 2, "v": 7}),
+            json!({"id": 3, "rn": 3, "v": 7}),
+        ]
+    );
+
+    let active_bad_case_sql = format!(
+        "SELECT id, ROW_NUMBER() OVER (ORDER BY id) AS rn, CASE WHEN FALSE THEN 7 ELSE (SELECT cnt FROM '{}') END AS v FROM '{}'",
+        two_row_path.display(),
+        flags_path.display()
+    );
+    let (_, prepared) = prepare_file_sql(&active_bad_case_sql);
+    let Err(err) = prepared.collect_jsonl(&CancellationToken::default()) else {
+        panic!("selected branch multi-row scalar subquery must fail");
+    };
+    assert!(
+        err.to_string().contains("scalar subquery cardinality"),
+        "{err}"
+    );
+}

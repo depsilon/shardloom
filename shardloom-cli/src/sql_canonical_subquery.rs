@@ -1,11 +1,12 @@
 //! Canonical subquery inspection, semi/anti/scalar-aggregate decorrelation, and native lowering.
 
 use super::{
-    Aggregate, CanonicalLowering, ColumnRef, Filter, InspectState, Join, JoinColumn, JoinKind,
-    NativeResult, Plan, Project, ScopeColumn, ScopedRelation, Side, Subquery, SubqueryKind, column,
-    fresh_col_names, inspect_relation, unsupported_sql_error,
+    Aggregate, CanonicalLowering, ColumnRef, ExprId, Expression, ExpressionKind, Filter,
+    InspectState, Join, JoinColumn, JoinKind, NativeResult, Plan, Project, ScopeColumn,
+    ScopedRelation, Side, Subquery, SubqueryKind, column, fresh_col_names, inspect_relation,
+    unsupported_sql_error,
 };
-use shardloom_core::{BinaryOp, ComparisonOp, ScalarValue};
+use shardloom_core::{BinaryOp, ComparisonOp, ScalarValue, UnaryOp};
 use shardloom_plan::sql_binder::{LogicalExpr, LogicalProjectionItem, LogicalRelation};
 use shardloom_vortex::relational_query::VortexRelationalJoinKey as JoinKey;
 use std::collections::{BTreeMap, BTreeSet};
@@ -1112,44 +1113,63 @@ fn rel_has_outer_references(rel: &LogicalRelation) -> bool {
 /// Replaces any `Exists`, `InSubquery`, or `ScalarSubquery` inside `expr` with `Plan::Subquery` columns.
 pub(super) fn materialize_expr_subqueries(
     ctx: &mut CanonicalLowering<'_, '_, '_>,
+    scope: ScopedRelation,
+    expr: &mut LogicalExpr,
+) -> NativeResult<ScopedRelation> {
+    materialize_expr_subqueries_guarded(ctx, scope, expr, None)
+}
+
+fn demand_guard(
+    guard: Option<&Expression>,
+    condition: Expression,
+    selected: bool,
+) -> NativeResult<Expression> {
+    let boolean = |value| {
+        Expression::literal(
+            ExprId::new("canonical.scalar.demand").expect("fixed identifier"),
+            ScalarValue::Boolean(value),
+        )
+    };
+    let branch = Expression::new(
+        ExprId::new("canonical.scalar.branch")?,
+        ExpressionKind::FunctionCall {
+            name: "case_when".into(),
+            args: vec![condition, boolean(selected), boolean(!selected)],
+        },
+    );
+    Ok(if let Some(guard) = guard {
+        Expression::new(
+            ExprId::new("canonical.scalar.guard")?,
+            ExpressionKind::FunctionCall {
+                name: "case_when".into(),
+                args: vec![guard.clone(), branch, boolean(false)],
+            },
+        )
+    } else {
+        branch
+    })
+}
+
+fn materialize_expr_subqueries_guarded(
+    ctx: &mut CanonicalLowering<'_, '_, '_>,
     mut scope: ScopedRelation,
     expr: &mut LogicalExpr,
+    guard: Option<&Expression>,
 ) -> NativeResult<ScopedRelation> {
     if !expr_has_subquery(expr) {
         return Ok(scope);
     }
+    if matches!(
+        expr,
+        LogicalExpr::InSubquery { .. }
+            | LogicalExpr::Exists { .. }
+            | LogicalExpr::ScalarSubquery(_)
+    ) {
+        return materialize_direct_subquery(ctx, scope, expr, guard);
+    }
     match expr {
-        LogicalExpr::InSubquery {
-            expr: lhs,
-            subquery,
-            negated,
-        } => {
-            scope = materialize_expr_subqueries(ctx, scope, lhs)?;
-            let out_col =
-                append_subquery_node(ctx, &mut scope, SubqueryTarget::In(lhs), subquery, *negated)?;
-            *expr = LogicalExpr::Column {
-                qualifier: None,
-                name: out_col,
-            };
-        }
-        LogicalExpr::Exists { subquery, negated } => {
-            let out_col =
-                append_subquery_node(ctx, &mut scope, SubqueryTarget::Exists, subquery, *negated)?;
-            *expr = LogicalExpr::Column {
-                qualifier: None,
-                name: out_col,
-            };
-        }
-        LogicalExpr::ScalarSubquery(subquery) => {
-            let out_col =
-                append_subquery_node(ctx, &mut scope, SubqueryTarget::Scalar, subquery, false)?;
-            *expr = LogicalExpr::Column {
-                qualifier: None,
-                name: out_col,
-            };
-        }
         LogicalExpr::Unary { expr: inner, .. } | LogicalExpr::Cast { expr: inner, .. } => {
-            scope = materialize_expr_subqueries(ctx, scope, inner)?;
+            scope = materialize_expr_subqueries_guarded(ctx, scope, inner, guard)?;
         }
         LogicalExpr::Binary { left, right, .. }
         | LogicalExpr::Compare { left, right, .. }
@@ -1159,8 +1179,8 @@ pub(super) fn materialize_expr_subqueries(
             pattern: right,
             ..
         } => {
-            scope = materialize_expr_subqueries(ctx, scope, left)?;
-            scope = materialize_expr_subqueries(ctx, scope, right)?;
+            scope = materialize_expr_subqueries_guarded(ctx, scope, left, guard)?;
+            scope = materialize_expr_subqueries_guarded(ctx, scope, right, guard)?;
         }
         LogicalExpr::Between {
             expr: target,
@@ -1168,15 +1188,15 @@ pub(super) fn materialize_expr_subqueries(
             high,
             ..
         } => {
-            scope = materialize_expr_subqueries(ctx, scope, target)?;
-            scope = materialize_expr_subqueries(ctx, scope, low)?;
-            scope = materialize_expr_subqueries(ctx, scope, high)?;
+            scope = materialize_expr_subqueries_guarded(ctx, scope, target, guard)?;
+            scope = materialize_expr_subqueries_guarded(ctx, scope, low, guard)?;
+            scope = materialize_expr_subqueries_guarded(ctx, scope, high, guard)?;
         }
         LogicalExpr::InList {
             expr: target, list, ..
         } => {
-            scope = materialize_expr_subqueries(ctx, scope, target)?;
-            scope = materialize_expr_slice_subqueries(ctx, scope, list)?;
+            scope = materialize_expr_subqueries_guarded(ctx, scope, target, guard)?;
+            scope = materialize_expr_slice_subqueries(ctx, scope, list, guard)?;
         }
         LogicalExpr::Case {
             operand,
@@ -1189,9 +1209,11 @@ pub(super) fn materialize_expr_subqueries(
                 operand.as_deref_mut(),
                 when_then,
                 else_expr.as_deref_mut(),
+                guard,
             )?;
         }
         LogicalExpr::Function {
+            name,
             args,
             filter,
             order_by,
@@ -1201,17 +1223,66 @@ pub(super) fn materialize_expr_subqueries(
             scope = materialize_function_subqueries(
                 ctx,
                 scope,
+                name,
                 args,
                 filter.as_deref_mut(),
                 order_by,
                 over.as_mut(),
+                guard,
             )?;
         }
         LogicalExpr::Array(items) | LogicalExpr::Tuple(items) => {
-            scope = materialize_expr_slice_subqueries(ctx, scope, items)?;
+            scope = materialize_expr_slice_subqueries(ctx, scope, items, guard)?;
         }
         _ => {}
     }
+    Ok(scope)
+}
+
+fn materialize_direct_subquery(
+    ctx: &mut CanonicalLowering<'_, '_, '_>,
+    mut scope: ScopedRelation,
+    expr: &mut LogicalExpr,
+    guard: Option<&Expression>,
+) -> NativeResult<ScopedRelation> {
+    let out_col = match expr {
+        LogicalExpr::InSubquery {
+            expr: lhs,
+            subquery,
+            negated,
+        } => {
+            scope = materialize_expr_subqueries_guarded(ctx, scope, lhs, guard)?;
+            append_subquery_node(
+                ctx,
+                &mut scope,
+                SubqueryTarget::In(lhs),
+                subquery,
+                *negated,
+                guard,
+            )?
+        }
+        LogicalExpr::Exists { subquery, negated } => append_subquery_node(
+            ctx,
+            &mut scope,
+            SubqueryTarget::Exists,
+            subquery,
+            *negated,
+            guard,
+        )?,
+        LogicalExpr::ScalarSubquery(subquery) => append_subquery_node(
+            ctx,
+            &mut scope,
+            SubqueryTarget::Scalar,
+            subquery,
+            false,
+            guard,
+        )?,
+        _ => return Ok(scope),
+    };
+    *expr = LogicalExpr::Column {
+        qualifier: None,
+        name: out_col,
+    };
     Ok(scope)
 }
 
@@ -1219,9 +1290,10 @@ fn materialize_expr_slice_subqueries(
     ctx: &mut CanonicalLowering<'_, '_, '_>,
     mut scope: ScopedRelation,
     items: &mut [LogicalExpr],
+    guard: Option<&Expression>,
 ) -> NativeResult<ScopedRelation> {
     for item in items {
-        scope = materialize_expr_subqueries(ctx, scope, item)?;
+        scope = materialize_expr_subqueries_guarded(ctx, scope, item, guard)?;
     }
     Ok(scope)
 }
@@ -1232,43 +1304,111 @@ fn materialize_case_subqueries(
     operand: Option<&mut LogicalExpr>,
     when_then: &mut [(LogicalExpr, LogicalExpr)],
     else_expr: Option<&mut LogicalExpr>,
+    guard: Option<&Expression>,
 ) -> NativeResult<ScopedRelation> {
-    if let Some(op) = operand {
-        scope = materialize_expr_subqueries(ctx, scope, op)?;
-    }
-    for (w, t) in when_then {
-        scope = materialize_expr_subqueries(ctx, scope, w)?;
-        scope = materialize_expr_subqueries(ctx, scope, t)?;
+    let lowered_op = if let Some(op) = operand {
+        scope = materialize_expr_subqueries_guarded(ctx, scope, op, guard)?;
+        Some(ctx.lower_expr(op, &scope)?)
+    } else {
+        None
+    };
+    let mut remaining_guard: Option<Expression> = guard.cloned();
+    for idx in 0..when_then.len() {
+        scope = materialize_expr_subqueries_guarded(
+            ctx,
+            scope,
+            &mut when_then[idx].0,
+            remaining_guard.as_ref(),
+        )?;
+        let later_has_subquery = expr_has_subquery(&when_then[idx].1)
+            || when_then[idx + 1..]
+                .iter()
+                .any(|(nw, nt)| expr_has_subquery(nw) || expr_has_subquery(nt))
+            || else_expr.as_deref().is_some_and(expr_has_subquery);
+        if later_has_subquery {
+            let when_val = ctx.lower_expr(&when_then[idx].0, &scope)?;
+            let cond_expr = if let Some(ref op_val) = lowered_op {
+                Expression::new(
+                    ExprId::new("canonical.case.eq")?,
+                    ExpressionKind::Compare {
+                        left: Box::new(op_val.clone()),
+                        op: ComparisonOp::Eq,
+                        right: Box::new(when_val),
+                    },
+                )
+            } else {
+                when_val
+            };
+            let then_guard = demand_guard(remaining_guard.as_ref(), cond_expr.clone(), true)?;
+            let next_remaining = demand_guard(remaining_guard.as_ref(), cond_expr, false)?;
+            scope = materialize_expr_subqueries_guarded(
+                ctx,
+                scope,
+                &mut when_then[idx].1,
+                Some(&then_guard),
+            )?;
+            remaining_guard = Some(next_remaining);
+        }
     }
     if let Some(el) = else_expr {
-        scope = materialize_expr_subqueries(ctx, scope, el)?;
+        scope = materialize_expr_subqueries_guarded(ctx, scope, el, remaining_guard.as_ref())?;
     }
     Ok(scope)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn materialize_function_subqueries(
     ctx: &mut CanonicalLowering<'_, '_, '_>,
     mut scope: ScopedRelation,
+    fn_name: &str,
     args: &mut [LogicalExpr],
     filter: Option<&mut LogicalExpr>,
     order_by: &mut [shardloom_plan::sql_binder::LogicalSortKey],
     over: Option<&mut shardloom_plan::sql_binder::LogicalWindowSpec>,
+    guard: Option<&Expression>,
 ) -> NativeResult<ScopedRelation> {
+    if over.is_none()
+        && filter.is_none()
+        && order_by.is_empty()
+        && fn_name.eq_ignore_ascii_case("coalesce")
+    {
+        let mut coalesce_guard: Option<Expression> = guard.cloned();
+        for idx in 0..args.len() {
+            scope = materialize_expr_subqueries_guarded(
+                ctx,
+                scope,
+                &mut args[idx],
+                coalesce_guard.as_ref(),
+            )?;
+            if args[idx + 1..].iter().any(expr_has_subquery) {
+                let lowered_arg = ctx.lower_expr(&args[idx], &scope)?;
+                let is_null = Expression::new(
+                    ExprId::new("canonical.coalesce.null")?,
+                    ExpressionKind::Unary {
+                        op: UnaryOp::IsNull,
+                        expr: Box::new(lowered_arg),
+                    },
+                );
+                coalesce_guard = Some(demand_guard(coalesce_guard.as_ref(), is_null, true)?);
+            }
+        }
+        return Ok(scope);
+    }
     for arg in args {
-        scope = materialize_expr_subqueries(ctx, scope, arg)?;
+        scope = materialize_expr_subqueries_guarded(ctx, scope, arg, guard)?;
     }
     if let Some(f) = filter {
-        scope = materialize_expr_subqueries(ctx, scope, f)?;
+        scope = materialize_expr_subqueries_guarded(ctx, scope, f, guard)?;
     }
     for k in order_by {
-        scope = materialize_expr_subqueries(ctx, scope, &mut k.expr)?;
+        scope = materialize_expr_subqueries_guarded(ctx, scope, &mut k.expr, guard)?;
     }
     if let Some(spec) = over {
         for p in &mut spec.partition_by {
-            scope = materialize_expr_subqueries(ctx, scope, p)?;
+            scope = materialize_expr_subqueries_guarded(ctx, scope, p, guard)?;
         }
         for k in &mut spec.order_by {
-            scope = materialize_expr_subqueries(ctx, scope, &mut k.expr)?;
+            scope = materialize_expr_subqueries_guarded(ctx, scope, &mut k.expr, guard)?;
         }
     }
     Ok(scope)
@@ -1287,6 +1427,7 @@ fn append_subquery_node(
     target: SubqueryTarget<'_>,
     subquery: &LogicalRelation,
     negated: bool,
+    guard: Option<&Expression>,
 ) -> NativeResult<String> {
     let is_scalar = matches!(target, SubqueryTarget::Scalar);
     if !is_scalar
@@ -1303,16 +1444,44 @@ fn append_subquery_node(
                 right: rk,
             });
         }
-        return finish_subquery_node(ctx, outer, target, inner_scope, correlation, negated, false);
+        return finish_subquery_node(
+            ctx,
+            outer,
+            target,
+            inner_scope,
+            correlation,
+            negated,
+            false,
+            guard,
+        );
     }
     if let Ok(inner_scope) = ctx.lower_relation(subquery) {
-        return finish_subquery_node(ctx, outer, target, inner_scope, Vec::new(), negated, false);
+        return finish_subquery_node(
+            ctx,
+            outer,
+            target,
+            inner_scope,
+            Vec::new(),
+            negated,
+            false,
+            guard,
+        );
     }
     let mut attached_outer = None;
     let inner_scope = lower_correlated_relation(ctx, outer, subquery, &mut attached_outer)?;
-    finish_subquery_node(ctx, outer, target, inner_scope, Vec::new(), negated, true)
+    finish_subquery_node(
+        ctx,
+        outer,
+        target,
+        inner_scope,
+        Vec::new(),
+        negated,
+        true,
+        guard,
+    )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn finish_subquery_node(
     ctx: &mut CanonicalLowering<'_, '_, '_>,
     outer: &mut ScopedRelation,
@@ -1321,6 +1490,7 @@ fn finish_subquery_node(
     correlation: Vec<JoinKey>,
     negated: bool,
     parameterized: bool,
+    guard: Option<&Expression>,
 ) -> NativeResult<String> {
     let kind = match target {
         SubqueryTarget::Exists => SubqueryKind::Exists,
@@ -1359,7 +1529,7 @@ fn finish_subquery_node(
         input: outer.plan.clone(),
         relation,
         kind,
-        evaluation_guard: None,
+        evaluation_guard: guard.cloned(),
         correlation,
         output_column: out_col.clone(),
         negated,

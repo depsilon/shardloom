@@ -1535,7 +1535,19 @@ impl CanonicalLowering<'_, '_, '_> {
         let mut extra_exprs = Vec::new();
         let mut order_keys = Vec::with_capacity(owned_keys.len());
         for key in &owned_keys {
-            if let LogicalExpr::Column { qualifier, name } = &key.expr {
+            if let Some(ord) = extract_ordinal_literal(&key.expr) {
+                let idx = usize::try_from(ord)
+                    .ok()
+                    .and_then(|n| n.checked_sub(1))
+                    .filter(|&i| i < saved_entries.len())
+                    .ok_or_else(|| {
+                        unsupported_sql_error(&format!(
+                            "ORDER BY ordinal {ord} is outside the 1..={} output column list",
+                            saved_entries.len()
+                        ))
+                    })?;
+                order_keys.push(make_order_key(&saved_entries[idx].internal, key)?);
+            } else if let LogicalExpr::Column { qualifier, name } = &key.expr {
                 let resolved = rel.resolve(qualifier.as_deref(), name)?;
                 order_keys.push(make_order_key(&resolved, key)?);
             } else {
@@ -1880,6 +1892,19 @@ impl CanonicalLowering<'_, '_, '_> {
         projected_names: &mut Vec<String>,
         expressions: &mut Vec<(String, Expression)>,
     ) -> NativeResult<String> {
+        if let Some(ord) = extract_ordinal_literal(expr) {
+            let idx = usize::try_from(ord)
+                .ok()
+                .and_then(|n| n.checked_sub(1))
+                .filter(|&i| i < visible_names.len())
+                .ok_or_else(|| {
+                    unsupported_sql_error(&format!(
+                        "ORDER BY ordinal {ord} is outside the 1..={} SELECT list",
+                        visible_names.len()
+                    ))
+                })?;
+            return Ok(visible_names[idx].clone());
+        }
         if let LogicalExpr::Column {
             qualifier: None,
             name,
@@ -2004,7 +2029,7 @@ impl CanonicalLowering<'_, '_, '_> {
         BTreeMap<String, LogicalExpr>,
     )> {
         let alias_exprs = collect_select_alias_map(items);
-        let resolved_group_by = resolve_group_by_aliases(group_by, raw_scope, &alias_exprs);
+        let resolved_group_by = resolve_group_by_aliases(group_by, items, raw_scope, &alias_exprs)?;
         let agg_specs =
             collect_all_aggregate_specs(items, having, outer_sort, &alias_exprs, extra_aggs);
         if resolved_group_by.is_empty() && agg_specs.is_empty() && having.is_some() {
@@ -3061,14 +3086,153 @@ fn items_has_alias(items: &[LogicalProjectionItem], target: &str) -> bool {
     })
 }
 
+fn extract_ordinal_literal(expr: &LogicalExpr) -> Option<i128> {
+    match expr {
+        LogicalExpr::Literal(ScalarValue::Int64(v)) => Some(i128::from(*v)),
+        LogicalExpr::Literal(ScalarValue::UInt64(v)) => Some(i128::from(*v)),
+        LogicalExpr::Unary {
+            op: UnaryOp::Negate,
+            expr: inner,
+        } => match inner.as_ref() {
+            LogicalExpr::Literal(ScalarValue::Int64(v)) => Some(-i128::from(*v)),
+            LogicalExpr::Literal(ScalarValue::UInt64(v)) => Some(-i128::from(*v)),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+fn expr_has_window(expr: &LogicalExpr) -> bool {
+    let mut has_win = false;
+    collect_expr_fn_flag(expr, &mut has_win);
+    has_win
+}
+
+fn collect_expr_fn_flag(expr: &LogicalExpr, has_win: &mut bool) {
+    if *has_win {
+        return;
+    }
+    match expr {
+        LogicalExpr::Function {
+            args,
+            filter,
+            order_by,
+            over,
+            ..
+        } => {
+            if over.is_some() {
+                *has_win = true;
+                return;
+            }
+            for arg in args {
+                collect_expr_fn_flag(arg, has_win);
+            }
+            if let Some(f) = filter {
+                collect_expr_fn_flag(f, has_win);
+            }
+            for k in order_by {
+                collect_expr_fn_flag(&k.expr, has_win);
+            }
+        }
+        LogicalExpr::Unary { expr: inner, .. } | LogicalExpr::Cast { expr: inner, .. } => {
+            collect_expr_fn_flag(inner, has_win);
+        }
+        LogicalExpr::Binary { left, right, .. }
+        | LogicalExpr::Compare { left, right, .. }
+        | LogicalExpr::IsDistinctFrom { left, right, .. }
+        | LogicalExpr::Like {
+            expr: left,
+            pattern: right,
+            ..
+        } => {
+            collect_expr_fn_flag(left, has_win);
+            collect_expr_fn_flag(right, has_win);
+        }
+        LogicalExpr::Between {
+            expr: target,
+            low,
+            high,
+            ..
+        } => {
+            collect_expr_fn_flag(target, has_win);
+            collect_expr_fn_flag(low, has_win);
+            collect_expr_fn_flag(high, has_win);
+        }
+        LogicalExpr::InList {
+            expr: target, list, ..
+        } => {
+            collect_expr_fn_flag(target, has_win);
+            for item in list {
+                collect_expr_fn_flag(item, has_win);
+            }
+        }
+        LogicalExpr::Case {
+            operand,
+            when_then,
+            else_expr,
+        } => {
+            if let Some(op) = operand {
+                collect_expr_fn_flag(op, has_win);
+            }
+            for (w, t) in when_then {
+                collect_expr_fn_flag(w, has_win);
+                collect_expr_fn_flag(t, has_win);
+            }
+            if let Some(el) = else_expr {
+                collect_expr_fn_flag(el, has_win);
+            }
+        }
+        LogicalExpr::Array(items) | LogicalExpr::Tuple(items) => {
+            for item in items {
+                collect_expr_fn_flag(item, has_win);
+            }
+        }
+        _ => {}
+    }
+}
+
 fn resolve_group_by_aliases(
     group_by: &[LogicalExpr],
+    items: &[LogicalProjectionItem],
     raw_scope: &ScopedRelation,
     aliases: &BTreeMap<String, LogicalExpr>,
-) -> Vec<LogicalExpr> {
+) -> NativeResult<Vec<LogicalExpr>> {
     group_by
         .iter()
         .map(|gb| {
+            if let Some(ord) = extract_ordinal_literal(gb) {
+                if items
+                    .iter()
+                    .any(|i| matches!(i, LogicalProjectionItem::Wildcard { .. }))
+                {
+                    return Err(unsupported_sql_error(
+                        "GROUP BY ordinal cannot be combined with wildcard SELECT items",
+                    ));
+                }
+                let idx = usize::try_from(ord)
+                    .ok()
+                    .and_then(|n| n.checked_sub(1))
+                    .filter(|&i| i < items.len())
+                    .ok_or_else(|| {
+                        unsupported_sql_error("GROUP BY ordinal is outside the SELECT list")
+                    })?;
+                let LogicalProjectionItem::Expr {
+                    expr: target_expr, ..
+                } = &items[idx]
+                else {
+                    return Err(unsupported_sql_error(
+                        "GROUP BY ordinal cannot be combined with wildcard SELECT items",
+                    ));
+                };
+                let mut aggs = Vec::new();
+                collect_expr_aggregates(target_expr, &mut aggs);
+                if !aggs.is_empty() || expr_has_window(target_expr) {
+                    return Err(unsupported_sql_error(
+                        "GROUP BY ordinal cannot reference an aggregate or window",
+                    ));
+                }
+                return Ok(target_expr.as_ref().clone());
+            }
             if let LogicalExpr::Column {
                 qualifier: None,
                 name,
@@ -3076,9 +3240,9 @@ fn resolve_group_by_aliases(
                 && raw_scope.resolve(None, name).is_err()
                 && let Some(expr) = aliases.get(name)
             {
-                return expr.clone();
+                return Ok(expr.clone());
             }
-            gb.clone()
+            Ok(gb.clone())
         })
         .collect()
 }
