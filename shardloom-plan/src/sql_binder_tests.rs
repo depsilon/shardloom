@@ -403,3 +403,24 @@ fn rejects_wildcard_modifiers_and_expr_qualified_wildcards() {
         assert!(bind_sql(sql).is_err(), "{sql}");
     }
 }
+
+#[test]
+fn rejects_by_name_sets_ignore_nulls_windows_and_silent_ast_modifiers() {
+    for sql in [
+        "SELECT a, b FROM 'left.parquet' UNION ALL BY NAME SELECT b, a FROM 'right.parquet'",
+        "SELECT a, b FROM 'left.parquet' UNION BY NAME SELECT b, a FROM 'right.parquet'",
+        "SELECT a, b FROM 'left.parquet' UNION DISTINCT BY NAME SELECT b, a FROM 'right.parquet'",
+        "SELECT FIRST_VALUE(v) IGNORE NULLS OVER (ORDER BY id) FROM 'in.parquet'",
+        "SELECT FIRST_VALUE(v IGNORE NULLS) OVER (ORDER BY id) FROM 'in.parquet'",
+        "SELECT COUNT(v RESPECT NULLS) FROM 'in.parquet'",
+        "SELECT * FROM 'in.parquet' TABLESAMPLE BERNOULLI (10)",
+        "SELECT * FROM (SELECT id FROM 'in.parquet') AS t(renamed_id)",
+        "SELECT SUBSTR(str => name, pos => 1) FROM 'in.parquet'",
+    ] {
+        assert!(bind_sql(sql).is_err(), "{sql}");
+    }
+    assert!(
+        bind_sql("SELECT FIRST_VALUE(v) RESPECT NULLS OVER (ORDER BY id) FROM 'in.parquet'")
+            .is_ok()
+    );
+}

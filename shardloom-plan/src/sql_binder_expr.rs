@@ -347,8 +347,13 @@ fn bind_extended_expr(expr: &SqlExpr, diagnostics: &mut Vec<Diagnostic>) -> Resu
             kind,
             expr,
             data_type,
-            ..
+            format,
         } => {
+            if format.is_some() {
+                return Err(unsupported_sql_error(
+                    "CAST(... FORMAT ...) is not admitted",
+                ));
+            }
             let try_cast = matches!(kind, CastKind::TryCast | CastKind::SafeCast);
             Ok(LogicalExpr::Cast {
                 expr: Box::new(bind_ast_expr(expr, diagnostics)?),
@@ -773,7 +778,96 @@ fn bind_case(
     })
 }
 
+fn validate_null_treatment(
+    nt: ast::NullTreatment,
+    fn_lower: &str,
+    has_over: bool,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<()> {
+    match nt {
+        ast::NullTreatment::IgnoreNulls => {
+            let msg = "window and aggregate IGNORE NULLS modifiers are not admitted";
+            diagnostics.push(unsupported_diag("sql.function", msg));
+            Err(unsupported_sql_error(msg))
+        }
+        ast::NullTreatment::RespectNulls => {
+            if has_over
+                && matches!(
+                    fn_lower,
+                    "first_value" | "last_value" | "nth_value" | "lag" | "lead"
+                )
+            {
+                Ok(())
+            } else {
+                let msg = "RESPECT NULLS is only admitted on window navigation functions";
+                diagnostics.push(unsupported_diag("sql.function", msg));
+                Err(unsupported_sql_error(msg))
+            }
+        }
+    }
+}
+
+fn bind_function_arg_list(
+    list: &ast::FunctionArgumentList,
+    fn_lower: &str,
+    has_over: bool,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<(Vec<LogicalExpr>, bool, Vec<LogicalSortKey>)> {
+    let distinct = matches!(
+        list.duplicate_treatment,
+        Some(ast::DuplicateTreatment::Distinct)
+    );
+    let mut args = Vec::with_capacity(list.args.len());
+    for arg in &list.args {
+        args.push(bind_function_arg(arg, diagnostics)?);
+    }
+    let mut order_by = Vec::new();
+    for clause in &list.clauses {
+        match clause {
+            FunctionArgumentClause::OrderBy(keys) => {
+                for key in keys {
+                    order_by.push(bind_sort_key(key, diagnostics)?);
+                }
+            }
+            FunctionArgumentClause::Separator(sep) => {
+                let SqlValue::SingleQuotedString(text) = &sep.value else {
+                    return Err(unsupported_sql_error(
+                        "SEPARATOR clause requires a single-quoted string literal",
+                    ));
+                };
+                args.push(LogicalExpr::Literal(ScalarValue::Utf8(text.clone())));
+            }
+            FunctionArgumentClause::IgnoreOrRespectNulls(nt) => {
+                validate_null_treatment(*nt, fn_lower, has_over, diagnostics)?;
+            }
+            other => {
+                return Err(unsupported_sql_error(&format!(
+                    "unsupported function argument clause `{other}`"
+                )));
+            }
+        }
+    }
+    Ok((args, distinct, order_by))
+}
+
 fn bind_function(func: &ast::Function, diagnostics: &mut Vec<Diagnostic>) -> Result<LogicalExpr> {
+    if func.uses_odbc_syntax {
+        return Err(unsupported_sql_error(
+            "ODBC `{fn ...}` function syntax is not admitted",
+        ));
+    }
+    if !matches!(func.parameters, FunctionArguments::None) {
+        return Err(unsupported_sql_error(
+            "parametric SQL function syntax is not admitted",
+        ));
+    }
+    let fn_name = func.name.to_string();
+    let fn_lower = fn_name.to_ascii_lowercase();
+    let has_over = func.over.is_some();
+    if let Some(nt) = func.null_treatment {
+        validate_null_treatment(nt, &fn_lower, has_over, diagnostics)?;
+    }
+
     let mut args = Vec::new();
     let mut distinct = false;
     let mut order_by = Vec::new();
@@ -786,24 +880,8 @@ fn bind_function(func: &ast::Function, diagnostics: &mut Vec<Diagnostic>) -> Res
             )?)));
         }
         FunctionArguments::List(list) => {
-            distinct = matches!(
-                list.duplicate_treatment,
-                Some(ast::DuplicateTreatment::Distinct)
-            );
-            for arg in &list.args {
-                args.push(bind_function_arg(arg, diagnostics)?);
-            }
-            for clause in &list.clauses {
-                if let FunctionArgumentClause::OrderBy(keys) = clause {
-                    for key in keys {
-                        order_by.push(bind_sort_key(key, diagnostics)?);
-                    }
-                } else if let FunctionArgumentClause::Separator(sep) = clause
-                    && let SqlValue::SingleQuotedString(text) = &sep.value
-                {
-                    args.push(LogicalExpr::Literal(ScalarValue::Utf8(text.clone())));
-                }
-            }
+            (args, distinct, order_by) =
+                bind_function_arg_list(list, &fn_lower, has_over, diagnostics)?;
         }
     }
     let filter = func
@@ -820,7 +898,7 @@ fn bind_function(func: &ast::Function, diagnostics: &mut Vec<Diagnostic>) -> Res
         .map(|window| bind_window_type(window, diagnostics))
         .transpose()?;
     Ok(LogicalExpr::Function {
-        name: func.name.to_string(),
+        name: fn_name,
         args,
         distinct,
         filter,
@@ -834,9 +912,7 @@ pub(crate) fn bind_function_arg(
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Result<LogicalExpr> {
     match arg {
-        FunctionArg::Unnamed(expr)
-        | FunctionArg::Named { arg: expr, .. }
-        | FunctionArg::ExprNamed { arg: expr, .. } => match expr {
+        FunctionArg::Unnamed(expr) => match expr {
             FunctionArgExpr::Expr(e) => bind_ast_expr(e, diagnostics),
             FunctionArgExpr::Wildcard => Ok(LogicalExpr::Wildcard { qualifier: None }),
             FunctionArgExpr::WildcardWithOptions(opts) => {
@@ -847,6 +923,9 @@ pub(crate) fn bind_function_arg(
                 qualifier: Some(name.to_string()),
             }),
         },
+        FunctionArg::Named { .. } | FunctionArg::ExprNamed { .. } => Err(unsupported_sql_error(
+            "named SQL function arguments are not admitted; pass positional arguments",
+        )),
     }
 }
 
@@ -907,7 +986,18 @@ pub(crate) fn bind_sort_key(
     key: &ast::OrderByExpr,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Result<LogicalSortKey> {
-    let descending = matches!(key.options.sort, Some(ast::OrderBySort::Desc));
+    if key.with_fill.is_some() {
+        return Err(unsupported_sql_error("ORDER BY WITH FILL is not admitted"));
+    }
+    let descending = match &key.options.sort {
+        None | Some(ast::OrderBySort::Asc) => false,
+        Some(ast::OrderBySort::Desc) => true,
+        Some(ast::OrderBySort::Using(op)) => {
+            return Err(unsupported_sql_error(&format!(
+                "ORDER BY USING `{op}` is not admitted"
+            )));
+        }
+    };
     Ok(LogicalSortKey {
         expr: bind_ast_expr(&key.expr, diagnostics)?,
         descending,

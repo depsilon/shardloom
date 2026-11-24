@@ -896,6 +896,31 @@ fn canonical_fetch_qualify_is_true_and_having_in_subquery() {
         collect_rows(&prepare_file_sql(&having_not_in_sql)),
         vec![json!({"grp": "b", "rows": 1})]
     );
+}
+
+#[test]
+fn canonical_window_wildcards_and_rejected_sql_modifiers() {
+    let dir = CanonicalTempDir::new("win_wildcards");
+    let flags_path = dir.path().join("flags.parquet");
+    let bool_schema = Arc::new(Schema::new(vec![
+        Field::new("id", DataType::Int64, false),
+        Field::new("grp", DataType::Utf8, false),
+        Field::new("flag", DataType::Boolean, true),
+    ]));
+    let bool_batch = RecordBatch::try_new(
+        bool_schema,
+        vec![
+            Arc::new(Int64Array::from(vec![1, 2, 3])),
+            Arc::new(StringArray::from(vec!["a", "a", "b"])),
+            Arc::new(arrow_array::BooleanArray::from(vec![
+                Some(true),
+                Some(false),
+                None,
+            ])),
+        ],
+    )
+    .unwrap();
+    write_parquet_rows(&flags_path, &bool_batch, 3);
 
     let wildcard_window_sql = format!(
         "SELECT *, ROW_NUMBER() OVER (ORDER BY id) AS rn FROM '{}' ORDER BY id",
@@ -923,9 +948,21 @@ fn canonical_fetch_qualify_is_true_and_having_in_subquery() {
         ]
     );
 
-    let wildcard_exclude_sql = format!(
-        "SELECT * EXCLUDE (flag), ROW_NUMBER() OVER (ORDER BY id) AS rn FROM '{}'",
-        flags_path.display()
-    );
-    assert!(try_prepare_file_sql(&wildcard_exclude_sql).is_err());
+    for bad_sql in [
+        format!(
+            "SELECT * EXCLUDE (flag), ROW_NUMBER() OVER (ORDER BY id) AS rn FROM '{}'",
+            flags_path.display()
+        ),
+        format!(
+            "SELECT id, grp FROM '{}' UNION ALL BY NAME SELECT grp, id FROM '{}'",
+            flags_path.display(),
+            flags_path.display()
+        ),
+        format!(
+            "SELECT id, FIRST_VALUE(flag) IGNORE NULLS OVER (ORDER BY id DESC) AS fv FROM '{}'",
+            flags_path.display()
+        ),
+    ] {
+        assert!(try_prepare_file_sql(&bad_sql).is_err(), "{bad_sql}");
+    }
 }

@@ -2602,6 +2602,11 @@ pub(crate) fn bind_ast_query(
     }
     let mut plan = bind_set_expr(&query.body, diagnostics)?;
     if let Some(order_by) = &query.order_by {
+        if order_by.interpolate.is_some() {
+            return Err(unsupported_sql_error(
+                "ORDER BY INTERPOLATE is not admitted",
+            ));
+        }
         let keys = match &order_by.kind {
             OrderByKind::Expressions(exprs) => exprs
                 .iter()
@@ -2630,6 +2635,9 @@ pub(crate) fn bind_ast_query(
     if let Some(with) = &query.with {
         let mut ctes = Vec::with_capacity(with.cte_tables.len());
         for cte in &with.cte_tables {
+            if cte.from.is_some() || cte.alias.at.is_some() {
+                return Err(unsupported_sql_error("unsupported CTE FROM/AT modifier"));
+            }
             let columns = cte
                 .alias
                 .columns
@@ -2661,16 +2669,25 @@ fn bind_limit_and_fetch(
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Result<Option<(Option<LogicalExpr>, Option<LogicalExpr>)>> {
     let (mut limit_expr, offset_expr) = match &query.limit_clause {
-        Some(LimitClause::LimitOffset { limit, offset, .. }) => (
-            limit
-                .as_ref()
-                .map(|e| expr::bind_ast_expr(e, diagnostics))
-                .transpose()?,
-            offset
-                .as_ref()
-                .map(|o| expr::bind_ast_expr(&o.value, diagnostics))
-                .transpose()?,
-        ),
+        Some(LimitClause::LimitOffset {
+            limit,
+            offset,
+            limit_by,
+        }) => {
+            if !limit_by.is_empty() {
+                return Err(unsupported_sql_error("LIMIT BY is not admitted"));
+            }
+            (
+                limit
+                    .as_ref()
+                    .map(|e| expr::bind_ast_expr(e, diagnostics))
+                    .transpose()?,
+                offset
+                    .as_ref()
+                    .map(|o| expr::bind_ast_expr(&o.value, diagnostics))
+                    .transpose()?,
+            )
+        }
         Some(LimitClause::OffsetCommaLimit { offset, limit }) => (
             Some(expr::bind_ast_expr(limit, diagnostics)?),
             Some(expr::bind_ast_expr(offset, diagnostics)?),
@@ -2728,10 +2745,17 @@ fn bind_set_expr(body: &SetExpr, diagnostics: &mut Vec<Diagnostic>) -> Result<Lo
                     return Err(unsupported_sql_error("MINUS is not admitted; use EXCEPT"));
                 }
             };
-            let distinct = !matches!(
-                set_quantifier,
-                SetQuantifier::All | SetQuantifier::AllByName
-            );
+            let distinct = match set_quantifier {
+                SetQuantifier::All => false,
+                SetQuantifier::Distinct | SetQuantifier::None => true,
+                SetQuantifier::ByName
+                | SetQuantifier::AllByName
+                | SetQuantifier::DistinctByName => {
+                    let msg = "set operations with BY NAME alignment are not admitted; align projected columns explicitly";
+                    diagnostics.push(expr::unsupported_diag("sql.set_operation", msg));
+                    return Err(unsupported_sql_error(msg));
+                }
+            };
             Ok(LogicalRelation::SetOperation {
                 left: Box::new(bind_set_expr(left, diagnostics)?),
                 right: Box::new(bind_set_expr(right, diagnostics)?),
@@ -3003,16 +3027,56 @@ fn bind_join(
     })
 }
 
+fn bind_simple_table_alias(alias: Option<&ast::TableAlias>) -> Result<Option<String>> {
+    let Some(a) = alias else {
+        return Ok(None);
+    };
+    if !a.columns.is_empty() || a.at.is_some() {
+        return Err(unsupported_sql_error(
+            "table alias column lists `AS t(c1, ...)` and `AT` modifiers are not admitted; alias columns in SELECT",
+        ));
+    }
+    Ok(Some(a.name.value.clone()))
+}
+
 fn bind_table_factor(
     factor: &TableFactor,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Result<LogicalRelation> {
     match factor {
         TableFactor::Table {
-            name, args, alias, ..
+            name,
+            alias,
+            args,
+            with_hints,
+            version,
+            with_ordinality,
+            partitions,
+            json_path,
+            sample,
+            index_directives,
+            inheritance,
         } => {
-            let alias_name = alias.as_ref().map(|a| a.name.value.clone());
+            if !with_hints.is_empty()
+                || version.is_some()
+                || *with_ordinality
+                || !partitions.is_empty()
+                || json_path.is_some()
+                || sample.is_some()
+                || !index_directives.is_empty()
+                || inheritance.is_some()
+            {
+                return Err(unsupported_sql_error(
+                    "unsupported FROM table modifier (TABLESAMPLE/VERSION/WITH ORDINALITY/PARTITION/HINTS/ONLY)",
+                ));
+            }
+            let alias_name = bind_simple_table_alias(alias.as_ref())?;
             if let Some(tf_args) = args {
+                if tf_args.settings.is_some() {
+                    return Err(unsupported_sql_error(
+                        "table function SETTINGS clause is not admitted",
+                    ));
+                }
                 let mut bound_args = Vec::with_capacity(tf_args.args.len());
                 for arg in &tf_args.args {
                     bound_args.push(bind_table_arg(arg, diagnostics)?);
@@ -3042,14 +3106,37 @@ fn bind_table_factor(
             }
         }
         TableFactor::Derived {
-            subquery, alias, ..
-        } => Ok(LogicalRelation::Subquery {
-            input: Box::new(bind_ast_query(subquery, diagnostics)?),
-            alias: alias.as_ref().map(|a| a.name.value.clone()),
-        }),
+            lateral,
+            subquery,
+            alias,
+            sample,
+        } => {
+            if *lateral || sample.is_some() {
+                return Err(unsupported_sql_error(
+                    "LATERAL derived subqueries and TABLESAMPLE are not admitted",
+                ));
+            }
+            let alias_name = bind_simple_table_alias(alias.as_ref())?;
+            Ok(LogicalRelation::Subquery {
+                input: Box::new(bind_ast_query(subquery, diagnostics)?),
+                alias: alias_name,
+            })
+        }
         TableFactor::NestedJoin {
-            table_with_joins, ..
-        } => bind_table_with_joins(table_with_joins, diagnostics),
+            table_with_joins,
+            alias,
+        } => {
+            let alias_name = bind_simple_table_alias(alias.as_ref())?;
+            let inner = bind_table_with_joins(table_with_joins, diagnostics)?;
+            if let Some(a) = alias_name {
+                Ok(LogicalRelation::Subquery {
+                    input: Box::new(inner),
+                    alias: Some(a),
+                })
+            } else {
+                Ok(inner)
+            }
+        }
         other => Err(unsupported_sql_error(&format!(
             "unsupported FROM table factor `{other}`"
         ))),
@@ -3120,7 +3207,11 @@ fn bind_group_by(
                 match modifier {
                     GroupByWithModifier::Rollup => spec = Some(LogicalGroupingSpec::Rollup),
                     GroupByWithModifier::Cube => spec = Some(LogicalGroupingSpec::Cube),
-                    _ => {}
+                    other => {
+                        return Err(unsupported_sql_error(&format!(
+                            "unsupported GROUP BY modifier `{other:?}`"
+                        )));
+                    }
                 }
             }
             Ok((keys, spec))
