@@ -37,6 +37,7 @@ pub struct MemoryBatchSourceBuilder {
     columnar_copy_reasons: ArrowCopyReasons,
     transfer_report: NativeTransferReport,
     cancellation: CancellationToken,
+    is_batch: bool,
 }
 
 impl MemoryBatchSourceBuilder {
@@ -58,7 +59,12 @@ impl MemoryBatchSourceBuilder {
             columnar_copy_reasons: ArrowCopyReasons::default(),
             transfer_report: NativeTransferReport::default(),
             cancellation,
+            is_batch: false,
         })
+    }
+
+    pub(super) fn set_is_batch(&mut self, is_batch: bool) {
+        self.is_batch = is_batch;
     }
 
     /// Admit a boundary adapter's temporary frame/conversion storage before it
@@ -160,6 +166,53 @@ impl MemoryBatchSourceBuilder {
             &self.cancellation,
         )?;
         self.push_source(&source)
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub(super) fn push_arrow_in_context(
+        &mut self,
+        batch: arrow_array::RecordBatch,
+        context: &crate::resident_session::NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        context.check_cancelled()?;
+        let source =
+            ResidentMemorySource::from_arrow_in_context(&self.session, batch, context, false)?;
+        self.push_source(&source)
+    }
+
+    /// Decode one bounded Arrow IPC stream (at most 2,048 total rows) into
+    /// resident native buffers under the shared memory grant.
+    ///
+    /// # Errors
+    /// Rejects malformed IPC streams, empty or mismatched schemas, more than
+    /// 2,048 rows in one frame, cancellation, or memory pressure.
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub fn push_arrow_ipc_stream(&mut self, bytes: &[u8]) -> Result<usize> {
+        self.cancellation.check()?;
+        let reader = arrow_ipc::reader::StreamReader::try_new(std::io::Cursor::new(bytes), None)
+            .map_err(native_error)?;
+        let schema = reader.schema();
+        let mut total_rows = 0usize;
+        let mut saw_batch = false;
+        for batch in reader {
+            self.cancellation.check()?;
+            let batch = batch.map_err(native_error)?;
+            total_rows = total_rows
+                .checked_add(batch.num_rows())
+                .filter(|rows| *rows <= MAX_BATCH_ROWS)
+                .ok_or_else(|| {
+                    memory_error("Arrow IPC input stream exceeds 2,048 rows per batch")
+                })?;
+            saw_batch = true;
+            let _decoded_credit = self.reserve_scratch(
+                u64::try_from(batch.get_array_memory_size()).map_err(native_error)?,
+            )?;
+            self.push_arrow(batch)?;
+        }
+        if !saw_batch {
+            self.push_arrow(arrow_array::RecordBatch::new_empty(schema))?;
+        }
+        Ok(total_rows)
     }
 
     fn push_source(&mut self, source: &ResidentMemorySource) -> Result<()> {
@@ -407,7 +460,7 @@ impl MemoryBatchSourceBuilder {
             intake_columnar_allocation_bytes_transferred: 0,
             transfer_report: self.transfer_report,
             metadata: Some(credit),
-            is_batch: false,
+            is_batch: self.is_batch,
             generated_range: None,
         })))
     }

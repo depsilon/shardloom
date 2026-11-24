@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence, Union, cast
 
 from ._compat import dataclass
+from . import _sql_ast
 from ._native_backend import NativePlanState
 from ._query_reports import (
     WorkflowDataQualityCheckResult,
@@ -10652,24 +10653,7 @@ def _is_unary_numeric_sign(value: str, index: int, char: str) -> bool:
 
 
 def _validate_balanced_expression_parentheses(value: str) -> None:
-    in_quote = False
-    depth = 0
-    for char in value:
-        if char == "'":
-            in_quote = not in_quote
-            continue
-        if in_quote:
-            continue
-        if char == "(":
-            depth += 1
-        elif char == ")":
-            depth -= 1
-            if depth < 0:
-                raise ValueError("computed with_column expression has unbalanced parentheses")
-    if in_quote:
-        raise ValueError("computed with_column expression has an unclosed string literal")
-    if depth != 0:
-        raise ValueError("computed with_column expression has unbalanced parentheses")
+    _sql_ast.validate_balanced_parentheses(value)
 
 
 def _sql_numeric_abs_projection_expression(expression: object) -> str:
@@ -11146,36 +11130,7 @@ def _sql_temporal_extract_projection_expression(expression: object) -> str:
 
 
 def _split_projection_function_args(expression: str) -> tuple[str, ...]:
-    args: list[str] = []
-    start = 0
-    depth = 0
-    in_quote = False
-    index = 0
-    while index < len(expression):
-        char = expression[index]
-        if char == "'":
-            if in_quote and index + 1 < len(expression) and expression[index + 1] == "'":
-                index += 2
-                continue
-            in_quote = not in_quote
-        elif char == "(" and not in_quote:
-            depth += 1
-        elif char == ")" and not in_quote:
-            depth -= 1
-            if depth < 0:
-                raise ValueError("computed with_column expression has unbalanced parentheses")
-        elif char == "," and not in_quote and depth == 0:
-            args.append(expression[start:index].strip())
-            start = index + 1
-        index += 1
-    if in_quote:
-        raise ValueError("computed with_column expression has an unclosed string literal")
-    if depth != 0:
-        raise ValueError("computed with_column expression has unbalanced parentheses")
-    args.append(expression[start:].strip())
-    if any(not arg for arg in args):
-        raise ValueError("computed with_column expression has an empty argument")
-    return tuple(args)
+    return _sql_ast.split_top_level_csv(expression)
 
 
 def _sql_string_function_text_arg(value: object, name: str) -> tuple[str, bool]:
@@ -12139,60 +12094,7 @@ def _find_top_level_sql_phrase_span_outside_quotes(
     statement: str,
     phrase: str,
 ) -> tuple[int, int] | None:
-    tokens = phrase.lower().split()
-    if not tokens:
-        return None
-    lower = statement.lower()
-    in_quote = False
-    depth = 0
-    index = 0
-    first = tokens[0]
-    while index <= len(statement) - len(first):
-        char = statement[index]
-        if char == "'":
-            if in_quote and index + 1 < len(statement) and statement[index + 1] == "'":
-                index += 2
-                continue
-            in_quote = not in_quote
-            index += 1
-            continue
-        if not in_quote:
-            if char == "(":
-                depth += 1
-                index += 1
-                continue
-            if char == ")" and depth > 0:
-                depth -= 1
-                index += 1
-                continue
-            if depth == 0 and lower.startswith(first, index):
-                before = statement[index - 1] if index > 0 else ""
-                after_index = index + len(first)
-                after = statement[after_index] if after_index < len(statement) else ""
-                if _is_identifier_char(before) or _is_identifier_char(after):
-                    index += 1
-                    continue
-                cursor = after_index
-                matched = True
-                for token in tokens[1:]:
-                    if cursor >= len(statement) or not statement[cursor].isspace():
-                        matched = False
-                        break
-                    while cursor < len(statement) and statement[cursor].isspace():
-                        cursor += 1
-                    if not lower.startswith(token, cursor):
-                        matched = False
-                        break
-                    token_end = cursor + len(token)
-                    next_char = statement[token_end] if token_end < len(statement) else ""
-                    if _is_identifier_char(next_char):
-                        matched = False
-                        break
-                    cursor = token_end
-                if matched:
-                    return index, cursor
-        index += 1
-    return None
+    return _sql_ast.find_top_level_phrase_span(statement, phrase)
 
 
 
@@ -12424,128 +12326,23 @@ def _collect_native_relational(
 
 
 def _sql_source_refs(statement: str) -> tuple[str, ...]:
-    refs: list[str] = []
-    lower = statement.lower()
-    in_quote = False
-    index = 0
-    while index < len(statement):
-        char = statement[index]
-        if char == "'":
-            if in_quote and index + 1 < len(statement) and statement[index + 1] == "'":
-                index += 2
-                continue
-            in_quote = not in_quote
-            index += 1
-            continue
-        if in_quote:
-            index += 1
-            continue
-        keyword_len = 0
-        for keyword in ("from", "join"):
-            if lower.startswith(keyword, index):
-                before = statement[index - 1] if index > 0 else ""
-                after_index = index + len(keyword)
-                after = statement[after_index] if after_index < len(statement) else ""
-                if not _is_identifier_char(before) and not _is_identifier_char(after):
-                    keyword_len = len(keyword)
-                    break
-        if keyword_len == 0:
-            index += 1
-            continue
-        ref_start = index + keyword_len
-        while ref_start < len(statement) and statement[ref_start].isspace():
-            ref_start += 1
-        if ref_start < len(statement) and statement[ref_start] == "'":
-            ref_end = ref_start + 1
-            current: list[str] = []
-            while ref_end < len(statement):
-                if statement[ref_end] == "'":
-                    if ref_end + 1 < len(statement) and statement[ref_end + 1] == "'":
-                        current.append("'")
-                        ref_end += 2
-                        continue
-                    refs.append("".join(current))
-                    index = ref_end + 1
-                    break
-                current.append(statement[ref_end])
-                ref_end += 1
-            else:
-                index = ref_end
-        else:
-            index = ref_start
-    return tuple(refs)
+    return _sql_ast.extract_source_refs(statement)
 
 
 def _starts_with_sql_keyword(statement: str, keyword: str) -> bool:
-    lower = statement.lower()
-    needle = keyword.lower()
-    if not lower.startswith(needle):
-        return False
-    if len(statement) == len(needle):
-        return True
-    return not _is_identifier_char(statement[len(needle)])
+    return _sql_ast.starts_with_keyword(statement, keyword)
 
 
 def _contains_sql_keyword_outside_quotes(statement: str, keyword: str) -> bool:
-    return _find_sql_keyword_outside_quotes(statement, keyword) is not None
+    return _sql_ast.contains_keyword_outside_quotes(statement, keyword)
 
 
 def _find_sql_keyword_outside_quotes(statement: str, keyword: str) -> int | None:
-    lower = statement.lower()
-    needle = keyword.lower()
-    in_quote = False
-    index = 0
-    while index <= len(statement) - len(needle):
-        char = statement[index]
-        if char == "'":
-            if in_quote and index + 1 < len(statement) and statement[index + 1] == "'":
-                index += 2
-                continue
-            in_quote = not in_quote
-            index += 1
-            continue
-        if not in_quote and lower.startswith(needle, index):
-            before = statement[index - 1] if index > 0 else ""
-            after_index = index + len(needle)
-            after = statement[after_index] if after_index < len(statement) else ""
-            if not _is_identifier_char(before) and not _is_identifier_char(after):
-                return index
-        index += 1
-    return None
+    return _sql_ast.find_keyword_outside_quotes(statement, keyword)
 
 
 def _find_top_level_sql_keyword_outside_quotes(statement: str, keyword: str) -> int | None:
-    lower = statement.lower()
-    needle = keyword.lower()
-    in_quote = False
-    depth = 0
-    index = 0
-    while index <= len(statement) - len(needle):
-        char = statement[index]
-        if char == "'":
-            if in_quote and index + 1 < len(statement) and statement[index + 1] == "'":
-                index += 2
-                continue
-            in_quote = not in_quote
-            index += 1
-            continue
-        if not in_quote:
-            if char == "(":
-                depth += 1
-                index += 1
-                continue
-            if char == ")" and depth > 0:
-                depth -= 1
-                index += 1
-                continue
-            if depth == 0 and lower.startswith(needle, index):
-                before = statement[index - 1] if index > 0 else ""
-                after_index = index + len(needle)
-                after = statement[after_index] if after_index < len(statement) else ""
-                if not _is_identifier_char(before) and not _is_identifier_char(after):
-                    return index
-        index += 1
-    return None
+    return _sql_ast.find_top_level_keyword(statement, keyword)
 
 
 def _is_identifier_char(char: str) -> bool:

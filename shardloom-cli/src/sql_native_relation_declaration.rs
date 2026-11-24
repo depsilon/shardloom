@@ -20,8 +20,17 @@ pub(crate) struct NativeSqlLowering {
     pub(crate) lowered_input: Option<(usize, Lowered)>,
 }
 
+enum SqlDeclarationBody {
+    Legacy(ParsedRelationQuery),
+    Canonical {
+        plan: Box<shardloom_plan::sql_binder::BoundSqlPlan>,
+        bound_names: Vec<String>,
+        raw_sql: String,
+    },
+}
+
 pub(crate) struct NativeSqlDeclaration {
-    query: ParsedRelationQuery,
+    query: SqlDeclarationBody,
     pub(crate) metadata_bytes: usize,
     pub(crate) sources: BTreeMap<ParsedRelationLeaf, u8>,
     pub(crate) input_uses: BTreeMap<usize, usize>,
@@ -44,20 +53,58 @@ impl NativeSqlDeclaration {
         parameters: BTreeMap<String, Expression>,
     ) -> NativeResult<Self> {
         super::parameters::validate(raw, &parameters)?;
-        let mut declaration = Self {
-            query: parsed_native_query(raw)?,
-            metadata_bytes: 0,
-            sources: BTreeMap::new(),
-            input_uses: BTreeMap::new(),
-            depth: 0,
-            recursive_depth: 0,
-            dynamic: false,
-            parameters,
-            observation: None,
+        let canonical_candidate = match super::canonical::classify_canonical_sql(raw) {
+            super::canonical::CanonicalSqlRoute::Admitted(plan) => Some(plan),
+            super::canonical::CanonicalSqlRoute::LegacyNative => None,
+            super::canonical::CanonicalSqlRoute::Rejected(err) => return Err(err),
         };
-        relation_sources::scopes::bind_inputs(&mut declaration.query, names)?;
-        let admission =
-            visit::Admission::inspect(&declaration.query, &CancellationToken::default())?;
+        if let Some(plan) = canonical_candidate
+            .as_ref()
+            .filter(|plan| super::canonical::prefers_canonical_lowering(plan, names))
+        {
+            let summary = super::canonical::inspect_canonical_plan(plan, names)?;
+            return Ok(Self {
+                query: SqlDeclarationBody::Canonical {
+                    plan: canonical_candidate.expect("checked Some above"),
+                    bound_names: names.to_vec(),
+                    raw_sql: raw.to_owned(),
+                },
+                metadata_bytes: summary.metadata_bytes,
+                sources: summary.sources,
+                input_uses: summary.input_uses,
+                depth: summary.depth,
+                recursive_depth: 0,
+                dynamic: false,
+                parameters,
+                observation: None,
+            });
+        }
+        let mut legacy = match parsed_native_query(raw) {
+            Ok(query) => query,
+            Err(legacy_err) => {
+                let Some(plan) = canonical_candidate else {
+                    return Err(legacy_err);
+                };
+                let summary = super::canonical::inspect_canonical_plan(&plan, names)?;
+                return Ok(Self {
+                    query: SqlDeclarationBody::Canonical {
+                        plan,
+                        bound_names: names.to_vec(),
+                        raw_sql: raw.to_owned(),
+                    },
+                    metadata_bytes: summary.metadata_bytes,
+                    sources: summary.sources,
+                    input_uses: summary.input_uses,
+                    depth: summary.depth,
+                    recursive_depth: 0,
+                    dynamic: false,
+                    parameters,
+                    observation: None,
+                });
+            }
+        };
+        relation_sources::scopes::bind_inputs(&mut legacy, names)?;
+        let admission = visit::Admission::inspect(&legacy, &CancellationToken::default())?;
         let metadata_bytes = admission.bytes;
         let sources = admission
             .source_uses
@@ -67,29 +114,62 @@ impl NativeSqlDeclaration {
         let input_uses = admission.input_uses;
         let depth = admission.query_depth;
         let recursive_depth = admission.recursive_depth;
-        declaration.dynamic = dynamic::required(&declaration.query);
-        declaration.metadata_bytes = metadata_bytes;
-        declaration.sources = sources;
-        declaration.input_uses = input_uses;
-        declaration.depth = depth;
-        declaration.recursive_depth = recursive_depth;
-        Ok(declaration)
+        let dynamic = dynamic::required(&legacy);
+        Ok(Self {
+            query: SqlDeclarationBody::Legacy(legacy),
+            metadata_bytes,
+            sources,
+            input_uses,
+            depth,
+            recursive_depth,
+            dynamic,
+            parameters,
+            observation: None,
+        })
     }
 
     pub(crate) fn validate_inputs(&self, inputs: &BoundRelations) -> NativeResult<()> {
-        super::retained::validate_query(&self.query, inputs)?;
-        scalar::validate_bound_query(&self.query, inputs)
+        match &self.query {
+            SqlDeclarationBody::Legacy(query) => {
+                super::retained::validate_query(query, inputs)?;
+                scalar::validate_bound_query(query, inputs)
+            }
+            SqlDeclarationBody::Canonical { .. } => Ok(()),
+        }
     }
 
     pub(crate) fn references_outer(&self, inputs: &BoundRelations) -> NativeResult<bool> {
-        predicate::query_outer(&self.query, inputs)
+        match &self.query {
+            SqlDeclarationBody::Legacy(query) => predicate::query_outer(query, inputs),
+            SqlDeclarationBody::Canonical { .. } => Ok(false),
+        }
     }
 
     pub(crate) fn observe(&mut self, name: &str) -> NativeResult<()> {
         validate_sql_identifier(name)?;
-        observation::validate(&self.query)?;
-        self.observation = Some(name.to_ascii_lowercase());
-        Ok(())
+        match &self.query {
+            SqlDeclarationBody::Legacy(query) => {
+                observation::validate(query)?;
+                self.observation = Some(name.to_ascii_lowercase());
+                Ok(())
+            }
+            SqlDeclarationBody::Canonical {
+                bound_names,
+                raw_sql,
+                ..
+            } => {
+                let Ok(mut legacy) = parsed_native_query(raw_sql) else {
+                    return Err(unsupported_sql_error(
+                        "OBSERVE is not admitted on canonical multi-join plans",
+                    ));
+                };
+                relation_sources::scopes::bind_inputs(&mut legacy, bound_names)?;
+                observation::validate(&legacy)?;
+                self.query = SqlDeclarationBody::Legacy(legacy);
+                self.observation = Some(name.to_ascii_lowercase());
+                Ok(())
+            }
+        }
     }
 
     pub(crate) fn lower(
@@ -123,19 +203,30 @@ impl NativeSqlDeclaration {
             cancellation: cancellation.clone(),
             parameters: self.parameters.clone(),
         };
-        match &self.observation {
-            Some(name) => lowerer.observation(&self.query, name),
-            None => lowerer.query(&self.query),
+        match (&self.query, &self.observation) {
+            (SqlDeclarationBody::Legacy(query), Some(name)) => lowerer.observation(query, name),
+            (SqlDeclarationBody::Legacy(query), None) => lowerer.query(query),
+            (
+                SqlDeclarationBody::Canonical {
+                    plan, bound_names, ..
+                },
+                None,
+            ) => super::canonical::lower_bound_sql_plan(plan, bound_names, &mut lowerer),
+            (SqlDeclarationBody::Canonical { .. }, Some(_)) => Err(unsupported_sql_error(
+                "OBSERVE is not admitted on canonical multi-join plans",
+            )),
         }
     }
 }
 
 impl Drop for NativeSqlDeclaration {
     fn drop(&mut self) {
-        relation_sources::scopes::drain_query(std::mem::replace(
+        if let SqlDeclarationBody::Legacy(query) = std::mem::replace(
             &mut self.query,
-            ParsedRelationQuery::Input(usize::MAX),
-        ));
+            SqlDeclarationBody::Legacy(ParsedRelationQuery::Input(usize::MAX)),
+        ) {
+            relation_sources::scopes::drain_query(query);
+        }
     }
 }
 

@@ -38,6 +38,84 @@ use vortex::{
 
 const SCAN_ROWS: usize = 8192;
 const METADATA_BYTES_PER_CHUNK: u64 = 8192;
+const NATIVE_SINK_ZONED_MAX_COLUMNS: usize = 1024;
+const NATIVE_SINK_ZONED_MIN_MEMORY_BYTES: u64 = 32 * 1024 * 1024;
+
+fn build_native_sink_strategy(
+    dtype: &DType,
+    produced: bool,
+    max_chunks: usize,
+    force_flat: bool,
+    memory_limit_bytes: u64,
+    metadata: &std::sync::Arc<std::sync::Mutex<shardloom_exec::live_memory::MemoryLease>>,
+    session: &vortex::session::VortexSession,
+) -> (std::sync::Arc<dyn vortex::layout::LayoutStrategy>, bool) {
+    use std::num::NonZeroUsize;
+    use std::sync::Arc;
+    use vortex::compressor::BtrBlocksCompressorBuilder;
+    use vortex::layout::layouts::{
+        chunked::writer::ChunkedLayoutStrategy,
+        compressed::CompressingStrategy,
+        flat::writer::FlatLayoutStrategy,
+        repartition::{RepartitionStrategy, RepartitionWriterOptions},
+        table::TableStrategy,
+        zoned::writer::{ZonedLayoutOptions, ZonedStrategy},
+    };
+
+    let flat_fallback = || {
+        let strategy = if produced {
+            native_flat_layout::SequentialNativeFlatLayout::accounted_strategy(
+                max_chunks,
+                Arc::clone(metadata),
+            )
+        } else {
+            native_flat_layout::SequentialNativeFlatLayout::strategy(max_chunks)
+        };
+        (strategy, false)
+    };
+    let Some(fields) = dtype.as_struct_fields_opt() else {
+        return flat_fallback();
+    };
+    if produced
+        || force_flat
+        || fields.nfields() == 0
+        || fields.nfields() > NATIVE_SINK_ZONED_MAX_COLUMNS
+        || memory_limit_bytes < NATIVE_SINK_ZONED_MIN_MEMORY_BYTES
+    {
+        return flat_fallback();
+    }
+
+    let flat: Arc<dyn vortex::layout::LayoutStrategy> = Arc::new(FlatLayoutStrategy::default());
+    let compressor = BtrBlocksCompressorBuilder::from_session(session).build();
+    let compressed: Arc<dyn vortex::layout::LayoutStrategy> = Arc::new(
+        CompressingStrategy::new(Arc::clone(&flat), compressor)
+            .with_concurrency(1)
+            .with_stats(&[]),
+    );
+    let chunked: Arc<dyn vortex::layout::LayoutStrategy> =
+        Arc::new(ChunkedLayoutStrategy::new(Arc::clone(&compressed)));
+    let zoned: Arc<dyn vortex::layout::LayoutStrategy> = Arc::new(ZonedStrategy::new(
+        chunked,
+        compressed,
+        ZonedLayoutOptions {
+            block_size: NonZeroUsize::new(SCAN_ROWS).expect("SCAN_ROWS is non-zero"),
+            concurrency: NonZeroUsize::new(1).expect("concurrency is non-zero"),
+            ..Default::default()
+        },
+    ));
+    let repartition: Arc<dyn vortex::layout::LayoutStrategy> = Arc::new(RepartitionStrategy::new(
+        zoned,
+        RepartitionWriterOptions {
+            block_size_minimum: 0,
+            block_len_multiple: SCAN_ROWS,
+            block_size_target: None,
+            canonicalize: false,
+        },
+    ));
+    let nested_fields = crate::vortex_ingest::nested_layout::field_writers(dtype, session);
+    let table = TableStrategy::new(flat, repartition).with_field_writers(nested_fields);
+    (Arc::new(table), true)
+}
 
 #[path = "local_primitive_native_sink_batches.rs"]
 mod batches;
@@ -669,6 +747,29 @@ impl NativeSinkPlan {
     }
 
     #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+    pub(super) fn metadata_reservation_bytes(
+        &self,
+        max_chunks: usize,
+        encoded_schema_bytes: u64,
+    ) -> Result<u64> {
+        let metadata_base = self
+            .schema_metadata
+            .bytes()
+            .max(encoded_schema_bytes)
+            .checked_add(128 * 1024)
+            .ok_or_else(|| sink_error("native sink schema metadata overflow"))?;
+        if self.source.is_produced() {
+            Ok(metadata_base)
+        } else {
+            u64::try_from(max_chunks)
+                .ok()
+                .and_then(|chunks| chunks.checked_mul(METADATA_BYTES_PER_CHUNK))
+                .and_then(|bytes| bytes.checked_add(metadata_base))
+                .ok_or_else(|| sink_error("native sink metadata reservation overflow"))
+        }
+    }
+
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
     pub(super) fn write_produced(
         self,
         request: &VortexQueryPrimitiveRequest,
@@ -716,21 +817,7 @@ impl NativeSinkPlan {
                 }
                 Err(error) => return Err(error),
             };
-        let metadata_base = self
-            .schema_metadata
-            .bytes()
-            .max(metadata.bytes())
-            .checked_add(128 * 1024)
-            .ok_or_else(|| sink_error("native sink schema metadata overflow"))?;
-        let metadata_bytes = if self.source.is_produced() {
-            metadata_base
-        } else {
-            u64::try_from(max_chunks)
-                .ok()
-                .and_then(|chunks| chunks.checked_mul(METADATA_BYTES_PER_CHUNK))
-                .and_then(|bytes| bytes.checked_add(metadata_base))
-                .ok_or_else(|| sink_error("native sink metadata reservation overflow"))?
-        };
+        let metadata_bytes = self.metadata_reservation_bytes(max_chunks, metadata.bytes())?;
         metadata.resize(metadata_bytes)?;
         let metadata = std::sync::Arc::new(std::sync::Mutex::new(metadata));
         let statistics = crate::native_file_statistics::FileStatisticsReservation::reserve(
@@ -752,6 +839,7 @@ impl NativeSinkPlan {
         let mut stopped_at_limit = false;
         #[cfg(feature = "native-binary-objects")]
         let mut object_metadata_bytes = 0_u64;
+        let mut zoned_btrblocks_used = false;
         self.source.with_native_execution_or_admitted(
             cancellation,
             admitted,
@@ -763,14 +851,23 @@ impl NativeSinkPlan {
                     .into_iter()
                     .collect::<std::collections::BTreeSet<_>>();
                 let mut context = session.create_execution_ctx();
-                let strategy = if self.source.is_produced() {
-                    native_flat_layout::SequentialNativeFlatLayout::accounted_strategy(
-                        max_chunks,
-                        std::sync::Arc::clone(&metadata),
-                    )
-                } else {
-                    native_flat_layout::SequentialNativeFlatLayout::strategy(max_chunks)
-                };
+                #[cfg(feature = "native-binary-objects")]
+                let has_binary_objects =
+                    crate::native_binary_type::contains(&self.dtype, execution.into(), |cause| {
+                        sink_error(&cause.to_string())
+                    })?;
+                #[cfg(not(feature = "native-binary-objects"))]
+                let has_binary_objects = false;
+                let (strategy, used_zoned) = build_native_sink_strategy(
+                    &self.dtype,
+                    self.source.is_produced(),
+                    max_chunks,
+                    has_binary_objects,
+                    self.session.memory().snapshot().limit_bytes,
+                    &metadata,
+                    session,
+                );
+                zoned_btrblocks_used = used_zoned;
                 #[cfg(feature = "native-binary-objects")]
                 let (strategy, objects) =
                     crate::binary_object::writer::strategy(strategy, &self.dtype, execution)?;
@@ -977,7 +1074,11 @@ impl NativeSinkPlan {
             source_generation_validated: true,
             dtype_and_row_count_validated: true,
             output_sha256: checksum,
-            metadata_fidelity: "native_dtype_validity_preserved;native_serializer_selects_serializable_encodings;small_produced_fragments_use_bounded_credited_native_batching;source_layout_user_metadata_not_copied;supported_file_statistics_recomputed_from_output;admitted_binary_objects_copy_selected_managed_payloads_once_and_preserve_external_references",
+            metadata_fidelity: if zoned_btrblocks_used {
+                "native_dtype_validity_preserved;native_serializer_selects_serializable_encodings;small_produced_fragments_use_bounded_credited_native_batching;source_layout_user_metadata_not_copied;supported_file_statistics_recomputed_from_output;admitted_binary_objects_copy_selected_managed_payloads_once_and_preserve_external_references;native_btrblocks_compression_and_zoned_layout_enabled"
+            } else {
+                "native_dtype_validity_preserved;native_serializer_selects_serializable_encodings;small_produced_fragments_use_bounded_credited_native_batching;source_layout_user_metadata_not_copied;supported_file_statistics_recomputed_from_output;admitted_binary_objects_copy_selected_managed_payloads_once_and_preserve_external_references"
+            },
             compatibility: None,
         });
         Ok(VortexLocalPrimitiveRowExportReport {

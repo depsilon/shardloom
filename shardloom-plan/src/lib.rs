@@ -20,6 +20,7 @@ pub mod object_store;
 pub mod optimizer;
 pub mod plan_ir;
 pub mod scan;
+pub mod sql_binder;
 
 // Report-only estimate/explain surfaces.
 pub use estimate::{EstimateConfidence, EstimateReport, EstimateValue};

@@ -599,3 +599,107 @@ fn first_batch_profile_rejects_misnamed_clickbench_csv_columns() {
     );
     assert!(misnamed_specs.is_empty(), "{misnamed_specs:?}");
 }
+
+#[test]
+fn projected_decoder_skips_unprojected_fields_and_preserves_undiscovered_field_errors() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    let csv_fixture = Fixture::bytes("csv", b"a,b,c\n1,alpha,100\n2,beta,200\n");
+    let header = ["a", "b", "c"];
+    let memory = LiveMemoryPool::new(8 << 20).unwrap();
+    let token = CancellationToken::default();
+    let full_parses = Arc::new(AtomicUsize::new(0));
+    let full_decoder: TextRecordDecoder = Arc::new(move |raw| {
+        let cells: Vec<&str> = raw.trim_end_matches(['\r', '\n']).split(',').collect();
+        if cells.len() != 3 {
+            return Err(failed("bad csv width"));
+        }
+        Ok(header
+            .iter()
+            .zip(cells)
+            .map(|(k, v)| ((*k).to_string(), ScalarValue::Utf8(v.to_string())))
+            .collect())
+    });
+    let mut source = TextSource::admit_adapted(
+        &csv_fixture.0,
+        TextFraming::Csv,
+        true,
+        full_decoder,
+        None,
+        None,
+        &["a".into(), "b".into(), "c".into()],
+        None,
+        &memory,
+        &token,
+    )
+    .unwrap();
+    let parse_counter = Arc::clone(&full_parses);
+    TextSource::set_projected_decoder(
+        &mut source,
+        Arc::new(move |raw, projection| {
+            let cells: Vec<&str> = raw.trim_end_matches(['\r', '\n']).split(',').collect();
+            if cells.len() != 3 {
+                return Err(failed("bad csv width"));
+            }
+            parse_counter.fetch_add(projection.len(), Ordering::Relaxed);
+            Ok(projection
+                .iter()
+                .map(|&idx| {
+                    (
+                        header[idx].to_string(),
+                        ScalarValue::Utf8(cells[idx].to_string()),
+                    )
+                })
+                .collect())
+        }),
+    )
+    .unwrap();
+
+    let mut reader = source
+        .open(&[1], 16, &token, Arc::new(TextReadMetrics::default()))
+        .unwrap();
+    let batch = reader.next().unwrap().unwrap();
+    assert_eq!(batch.num_columns(), 1);
+    let col = batch
+        .column(0)
+        .as_any()
+        .downcast_ref::<StringArray>()
+        .unwrap();
+    assert_eq!(col.value(0), "alpha");
+    assert_eq!(col.value(1), "beta");
+    // Only 1 projected column parsed per row across 2 rows = 2 parses (not 6).
+    assert_eq!(full_parses.load(Ordering::Relaxed), 2);
+    assert!(reader.next().is_none());
+    drop((batch, reader, source));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+    // Undiscovered field check remains active even with a projected decoder installed.
+    let jsonl_fixture = Fixture::bytes("jsonl", b"{\"a\":1,\"b\":\"x\"}\n");
+    let mut jsonl_source = TextSource::admit(
+        &jsonl_fixture.0,
+        TextFraming::JsonLines,
+        false,
+        decoder(),
+        None,
+        None,
+        &memory,
+        &token,
+    )
+    .unwrap();
+    TextSource::set_projected_decoder(
+        &mut jsonl_source,
+        Arc::new(|_, _| {
+            Ok(vec![(
+                "injected_unknown".to_string(),
+                ScalarValue::Int64(9),
+            )])
+        }),
+    )
+    .unwrap();
+    let mut bad_reader = jsonl_source
+        .open(&[0], 16, &token, Arc::new(TextReadMetrics::default()))
+        .unwrap();
+    assert!(bad_reader.next().unwrap().is_err());
+    drop((bad_reader, jsonl_source));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}

@@ -233,6 +233,15 @@ impl PreparedColumnarSource {
         self: &Arc<Self>,
         context: &NativeExecutionContext<'_>,
     ) -> Result<ColumnarReader> {
+        self.open_with_runtime_filters(None, false, context)
+    }
+
+    pub(crate) fn open_with_runtime_filters(
+        self: &Arc<Self>,
+        runtime_predicate: Option<PredicateExpr>,
+        empty_short_circuit: bool,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<ColumnarReader> {
         context.check_cancelled()?;
         let metrics = Arc::new(LocalReadMetrics::default());
         Ok(ColumnarReader {
@@ -252,6 +261,8 @@ impl PreparedColumnarSource {
             coverage_field_rows: 0,
             coverage_regions: 0,
             coverage_retained_bytes: 0,
+            runtime_predicate,
+            empty_short_circuit,
         })
     }
 }
@@ -314,6 +325,8 @@ pub(crate) struct ColumnarReader {
     coverage_field_rows: u64,
     coverage_regions: u64,
     coverage_retained_bytes: u64,
+    runtime_predicate: Option<PredicateExpr>,
+    empty_short_circuit: bool,
 }
 
 struct Decoder {
@@ -388,6 +401,22 @@ impl ColumnarReader {
         session: &ResidentVortexSession,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Option<(ResidentMemorySource, u64)>> {
+        if self.empty_short_circuit {
+            self.prepared
+                .source
+                .validate_generation_controlled(context.cancellation())?;
+            self.ended = true;
+            if let Some(other) = &mut self.other {
+                other.mark_ended();
+            }
+            if !self.decisions_recorded {
+                if let Some(selection) = self.prepared.region_selection {
+                    selection.complete(context)?;
+                }
+                self.decisions_recorded = true;
+            }
+            return Ok(None);
+        }
         if self.other.is_none() {
             return self.next_parquet_native(session, context);
         }

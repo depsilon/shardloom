@@ -4,8 +4,8 @@
 use super::{
     ParsedAggregate, ParsedAggregateArgument, ParsedPredicate, ParsedRelationIdentity,
     ParsedRelationQuery as Query, ParsedRelationSource as Source, ParsedSqlLocalSource,
-    ShardLoomError, WindowFunction, matching_closing_parenthesis, scalar_expression, split_sql_csv,
-    starts_with_keyword, unsupported_sql_error, validate_query_structure, validate_sql_identifier,
+    ShardLoomError, WindowFunction, scalar_expression, unsupported_sql_error,
+    validate_query_structure,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
@@ -83,7 +83,7 @@ pub(in super::super) fn bind_inputs(
 ) -> Result<(), ShardLoomError> {
     let mut scope = Scope::new();
     for (index, name) in inputs.iter().enumerate() {
-        validate_sql_identifier(name)?;
+        super::validate_sql_identifier(name)?;
         if scope
             .insert(name.to_ascii_lowercase(), Arc::new(Query::Input(index)))
             .is_some()
@@ -96,78 +96,21 @@ pub(in super::super) fn bind_inputs(
     bind(query, &scope, &BTreeSet::new())
 }
 
-#[allow(clippy::too_many_lines)] // Parse declarations before binding the same lexical scope.
 pub(super) fn parse(statement: &str) -> Result<Query, ShardLoomError> {
     validate_query_structure(statement)?;
-    let mut tail = statement[4..].trim_start();
-    let recursive = starts_with_keyword(tail, "recursive");
-    if recursive {
-        tail = keyword(tail, "recursive")?;
-    }
-    let mut definitions = Vec::new();
-    let mut names = BTreeSet::new();
-    loop {
-        let end = tail
-            .find(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '_'))
-            .unwrap_or(tail.len());
-        let name = &tail[..end];
-        validate_sql_identifier(name)?;
-        if !names.insert(name.to_ascii_lowercase()) {
-            return Err(unsupported_sql_error(
-                "WITH names must be distinct ignoring case",
-            ));
-        }
-        tail = tail[end..].trim_start();
-        let mut columns = Vec::new();
-        if tail.starts_with('(') {
-            let close = closing(tail)?;
-            let mut seen = BTreeSet::new();
-            for column in split_sql_csv(&tail[1..close])? {
-                validate_sql_identifier(column.trim())?;
-                if !seen.insert(column.trim().to_ascii_lowercase()) {
-                    return Err(unsupported_sql_error("CTE column names must be distinct"));
-                }
-                columns.push(column.trim().to_owned());
-            }
-            if columns.is_empty() {
-                return Err(unsupported_sql_error(
-                    "CTE column-name list must not be empty",
-                ));
-            }
-            tail = tail[close + 1..].trim_start();
-        }
-        tail = keyword(tail, "as")?;
-        let materialized = if starts_with_keyword(tail, "not") {
-            tail = keyword(keyword(tail, "not")?, "materialized")?;
-            false
-        } else if starts_with_keyword(tail, "materialized") {
-            tail = keyword(tail, "materialized")?;
-            true
-        } else {
-            false
-        };
-        if !tail.starts_with('(') {
-            return Err(unsupported_sql_error(
-                "CTE AS requires a parenthesized query",
-            ));
-        }
-        let close = closing(tail)?;
-        definitions.push((
-            name.to_ascii_lowercase(),
-            columns,
-            materialized,
-            &tail[1..close],
-        ));
-        tail = tail[close + 1..].trim_start();
-        if let Some(next) = tail.strip_prefix(',') {
-            tail = next.trim_start();
-        } else {
-            break;
-        }
-    }
+    let cte_parts = shardloom_plan::sql_binder::extract_cte_definitions(statement)?;
+    let recursive = cte_parts.recursive;
+    let names: BTreeSet<String> = cte_parts
+        .definitions
+        .iter()
+        .map(|definition| definition.name.clone())
+        .collect();
     let mut scope = Scope::new();
-    for (name, columns, materialized, raw) in definitions {
-        let mut query = Query::parse(raw)?;
+    for definition in cte_parts.definitions {
+        let name = definition.name;
+        let columns = definition.columns;
+        let materialized = definition.materialized;
+        let mut query = Query::parse(&definition.body_sql)?;
         let identity = ParsedRelationIdentity::default();
         if recursive {
             let mut step_scope = Scope::new();
@@ -201,7 +144,7 @@ pub(super) fn parse(statement: &str) -> Result<Query, ShardLoomError> {
         }
         scope.insert(name, Arc::new(query));
     }
-    let mut query = Query::parse(tail)?;
+    let mut query = Query::parse(&cte_parts.tail_sql)?;
     bind(&mut query, &scope, &names)?;
     Ok(query)
 }
@@ -269,20 +212,6 @@ fn references_recursive(
     }
     .query(query)?;
     Ok(found.get())
-}
-
-fn closing(raw: &str) -> Result<usize, ShardLoomError> {
-    matching_closing_parenthesis(raw, 0)?
-        .ok_or_else(|| unsupported_sql_error("CTE parentheses must be balanced"))
-}
-
-fn keyword<'a>(raw: &'a str, word: &str) -> Result<&'a str, ShardLoomError> {
-    if !starts_with_keyword(raw, word) {
-        return Err(unsupported_sql_error(&format!(
-            "CTE declaration requires {word}"
-        )));
-    }
-    Ok(raw[word.len()..].trim_start())
 }
 
 /// Bind only currently unresolved names. A relation inserted from this scope is

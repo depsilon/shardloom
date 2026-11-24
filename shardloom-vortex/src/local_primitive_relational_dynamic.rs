@@ -125,6 +125,8 @@ pub fn prepare_relational_with_dynamic_inputs_in_session_controlled(
         sources,
         source_paths,
         memory_sources,
+        #[cfg(feature = "vortex-write")]
+        owned_array_sources,
         batch_sources,
         metadata,
     } = preparation.binding.finish()?;
@@ -132,6 +134,8 @@ pub fn prepare_relational_with_dynamic_inputs_in_session_controlled(
         session: session.clone(),
         sources,
         memory_sources,
+        #[cfg(feature = "vortex-write")]
+        owned_array_sources,
         batch_sources,
         source_paths,
         root: PreparedRoot::Dynamic(Box::new(lower)),

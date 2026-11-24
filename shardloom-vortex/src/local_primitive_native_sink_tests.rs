@@ -764,17 +764,16 @@ fn source_read_reservation_failure_cleans_staging_after_writer_admission() {
         prepared.session.memory(),
     )
     .unwrap();
-    let metadata = 40_000_u64.div_ceil(SCAN_ROWS as u64) * METADATA_BYTES_PER_CHUNK
-        + 128 * 1024
-        + prepared.schema_metadata.bytes().max(
-            crate::native_payload_schema::reserve_encoded_schema(
-                &prepared.dtype,
-                prepared.session.memory(),
-            )
-            .unwrap()
-            .bytes(),
-        )
+    let encoded_schema = crate::native_payload_schema::reserve_encoded_schema(
+        &prepared.dtype,
+        prepared.session.memory(),
+    )
+    .unwrap();
+    let metadata = prepared
+        .metadata_reservation_bytes(40_000_usize.div_ceil(SCAN_ROWS), encoded_schema.bytes())
+        .unwrap()
         + statistics.bytes();
+    drop(encoded_schema);
     drop(statistics);
     let available = policy.resource_envelope().memory_budget_bytes
         - prepared.session.snapshot().memory.reserved_bytes;
@@ -1062,4 +1061,90 @@ fn native_sink_plan_supports_explicit_durable_sync_opt_out() {
         .unwrap();
     assert_eq!(nondurable_report.rows_written, 6);
     assert_eq!(read_complete(&durable_out), read_complete(&nondurable_out));
+}
+
+#[test]
+fn native_sink_writes_compressed_multi_zone_layout_and_prunes_filters() {
+    let fixture = Fixture::new();
+    let rows = 24_576_usize;
+    let source = fixture.0.join("multi-zone-source.vortex");
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let array = StructArray::new(
+        ["zone_key", "repeated_code"].into(),
+        vec![
+            PrimitiveArray::from_iter(0..u64::try_from(rows).unwrap()).into_array(),
+            PrimitiveArray::from_iter((0..rows).map(|index| i64::try_from(index % 4).unwrap()))
+                .into_array(),
+        ],
+        rows,
+        Validity::NonNullable,
+    )
+    .into_array();
+    session
+        .write_options()
+        .blocking(&runtime)
+        .write(
+            fs::File::create(&source).unwrap(),
+            ArrayIteratorAdapter::new(array.dtype().clone(), [Ok(array)].into_iter()),
+        )
+        .unwrap();
+
+    let request = Fixture::request(&source);
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap();
+    let output = fixture.0.join("multi-zone-out.vortex");
+    let report = execute_vortex_local_primitive_row_export_with_policy(
+        &request,
+        &output,
+        VortexLocalPrimitiveRowExportFormat::Vortex,
+        false,
+        policy,
+    )
+    .unwrap();
+    assert_eq!(report.rows_written, rows as u64);
+    let evidence = report.evidence.native_array_sink.unwrap();
+    assert!(
+        evidence
+            .metadata_fidelity
+            .contains("native_btrblocks_compression_and_zoned_layout_enabled")
+    );
+    // Two 8-byte columns * 24,576 rows = 393,216 logical bytes; BtrBlocks
+    // delta/RLE/dictionary encoding should compress well below raw logical size.
+    let output_bytes = fs::metadata(&output).unwrap().len();
+    assert!(
+        output_bytes < 150_000,
+        "expected BtrBlocks compressed output < 150KB, got {output_bytes}"
+    );
+
+    let file = runtime
+        .block_on(session.open_options().open_path(&output))
+        .unwrap();
+    assert!(
+        format!("{:?}", file.footer().layout()).contains("vortex.zoned"),
+        "expected zoned layout in output footer, got {:?}",
+        file.footer().layout()
+    );
+
+    let filter_request = VortexQueryPrimitiveRequest::filter_and_project(
+        DatasetUri::new(output.display().to_string()).unwrap(),
+        PredicateExpr::Compare {
+            column: ColumnRef::new("zone_key").unwrap(),
+            op: ComparisonOp::GtEq,
+            value: StatValue::UInt64(20_000),
+        },
+        ProjectionRequest::columns(vec![ColumnRef::new("zone_key").unwrap()]),
+    );
+    let filtered_output = fixture.0.join("multi-zone-filtered.vortex");
+    let filtered = execute_vortex_local_primitive_row_export_with_policy(
+        &filter_request,
+        &filtered_output,
+        VortexLocalPrimitiveRowExportFormat::Vortex,
+        false,
+        policy,
+    )
+    .unwrap();
+    assert_eq!(filtered.rows_written, 4_576);
 }

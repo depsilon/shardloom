@@ -146,7 +146,168 @@ pub struct NativeArrowBatchStream {
     metadata: Arc<MemoryLease>,
 }
 
+struct CountingWriter<W> {
+    inner: W,
+    bytes_written: u64,
+}
+
+impl<W: std::io::Write> std::io::Write for CountingWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let written = self.inner.write(buf)?;
+        self.bytes_written = self
+            .bytes_written
+            .checked_add(u64::try_from(written).unwrap_or(u64::MAX))
+            .ok_or_else(|| std::io::Error::other("Arrow IPC byte counter overflow"))?;
+        Ok(written)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
+    }
+}
+
+/// One bounded serialized Arrow IPC batch retaining credits for both the raw
+/// IPC stream payload and its accompanying native dtype JSON metadata.
+pub struct SerializedArrowIpcBatch {
+    pub rows: usize,
+    pub ipc_bytes: shardloom_exec::live_memory::Budgeted<Vec<u8>>,
+    pub result_schema_json: shardloom_exec::live_memory::Budgeted<String>,
+}
+
+struct BoundedIpcVec {
+    bytes: Vec<u8>,
+    lease: MemoryLease,
+    max_bytes: usize,
+}
+
+impl std::io::Write for BoundedIpcVec {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let next = self
+            .bytes
+            .len()
+            .checked_add(buf.len())
+            .filter(|len| *len <= self.max_bytes)
+            .ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "Arrow IPC batch exceeds byte bound",
+                )
+            })?;
+        if next > self.bytes.capacity() {
+            let current_cap = self.bytes.capacity();
+            let target_cap = current_cap
+                .max(4)
+                .checked_mul(2)
+                .unwrap_or(self.max_bytes)
+                .max(next)
+                .min(self.max_bytes);
+            let overlap = u64::try_from(current_cap)
+                .ok()
+                .and_then(|c| c.checked_add(u64::try_from(target_cap).ok()?))
+                .ok_or_else(|| std::io::Error::other("Arrow IPC capacity overflow"))?;
+            self.lease
+                .resize(overlap)
+                .map_err(|error| std::io::Error::other(error.to_string()))?;
+            if let Err(error) = self.bytes.try_reserve_exact(target_cap - self.bytes.len()) {
+                let _ = self.lease.resize(u64::try_from(current_cap).unwrap_or(0));
+                return Err(std::io::Error::other(error.to_string()));
+            }
+            let actual_cap = u64::try_from(self.bytes.capacity()).map_err(std::io::Error::other)?;
+            self.lease
+                .resize(actual_cap)
+                .map_err(|error| std::io::Error::other(error.to_string()))?;
+        }
+        self.bytes.extend_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+pub(crate) fn serialize_array_arrow_ipc(
+    array: &ArrayRef,
+    max_bytes: usize,
+    context: &NativeExecutionContext<'_>,
+) -> Result<SerializedArrowIpcBatch> {
+    if max_bytes == 0 {
+        return Err(failed("Arrow IPC batch byte bound must be positive"));
+    }
+    context.check_cancelled()?;
+    let (schema, _metadata) =
+        prepare_arrow_schema_from_dtype(array.dtype(), context.memory(), context.cancellation())?;
+    let converted =
+        convert_native_record_batch(&schema, array.dtype(), Some(array), context, false)?;
+    context.check_cancelled()?;
+    let mut sink = BoundedIpcVec {
+        bytes: Vec::new(),
+        lease: context.memory().reserve(0)?,
+        max_bytes,
+    };
+    let mut writer =
+        arrow_ipc::writer::StreamWriter::try_new(&mut sink, &schema).map_err(native_error)?;
+    writer.write(&converted.batch).map_err(native_error)?;
+    context.check_cancelled()?;
+    writer.finish().map_err(native_error)?;
+    drop(writer);
+    let result_schema_json =
+        crate::local_primitives::collect::serialize_result_schema(array.dtype(), context)?;
+    Ok(SerializedArrowIpcBatch {
+        rows: converted.array_len,
+        ipc_bytes: shardloom_exec::live_memory::Budgeted::new(sink.bytes, sink.lease),
+        result_schema_json,
+    })
+}
+
+fn prepare_arrow_schema_from_dtype(
+    dtype: &DType,
+    memory: &LiveMemoryPool,
+    cancellation: &CancellationToken,
+) -> Result<(SchemaRef, Arc<MemoryLease>)> {
+    cancellation.check()?;
+    let metadata = Arc::new(native_payload_schema::reserve_schema(
+        dtype,
+        (memory, cancellation),
+    )?);
+    let DType::Struct(fields, Nullability::NonNullable) = dtype else {
+        return Err(failed(
+            "completed result requires a nonnullable record schema",
+        ));
+    };
+    let schema = fields
+        .names()
+        .iter()
+        .zip(fields.fields())
+        .map(|(name, dtype)| {
+            conversion::field_admitted(name.as_ref(), &dtype, (memory, cancellation))?
+                .ok_or_else(|| failed("result field has no admitted Arrow representation"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    cancellation.check()?;
+    Ok((Arc::new(Schema::new(schema)), metadata))
+}
+
+struct ConvertedNativeBatch {
+    array_len: usize,
+    batch: RecordBatch,
+    work: MemoryLease,
+    metadata_bytes: u64,
+    admitted: u64,
+    ranges: Option<ReservedVec<(usize, usize)>>,
+}
+
 impl OwnedVortexResultBatch {
+    fn prepare_arrow_schema(
+        &self,
+        session: &ResidentVortexSession,
+        cancellation: &CancellationToken,
+    ) -> Result<(SchemaRef, Arc<MemoryLease>)> {
+        cancellation.check()?;
+        self.validate_schema_and_rows()?;
+        prepare_arrow_schema_from_dtype(self.dtype(), session.memory(), cancellation)
+    }
+
     /// Request direct Arrow batches over this completed native result.
     /// Encoded/unsupported Arrow representations are converted once by the
     /// pinned provider. Compatible buffers are shared, never rebuilt as rows.
@@ -158,35 +319,11 @@ impl OwnedVortexResultBatch {
         self: &Arc<Self>,
         cancellation: CancellationToken,
     ) -> Result<NativeArrowBatchStream> {
-        cancellation.check()?;
-        self.validate_schema_and_rows()?;
         let session = self.retained_session();
-        let metadata = Arc::new(native_payload_schema::reserve_schema(
-            self.dtype(),
-            (session.memory(), &cancellation),
-        )?);
-        let DType::Struct(fields, Nullability::NonNullable) = self.dtype() else {
-            return Err(failed(
-                "completed result requires a nonnullable record schema",
-            ));
-        };
-        let schema = fields
-            .names()
-            .iter()
-            .zip(fields.fields())
-            .map(|(name, dtype)| {
-                conversion::field_admitted(
-                    name.as_ref(),
-                    &dtype,
-                    (session.memory(), &cancellation),
-                )?
-                .ok_or_else(|| failed("result field has no admitted Arrow representation"))
-            })
-            .collect::<Result<Vec<_>>>()?;
-        cancellation.check()?;
+        let (schema, metadata) = self.prepare_arrow_schema(&session, &cancellation)?;
         Ok(NativeArrowBatchStream {
             source: Arc::clone(self),
-            schema: Arc::new(Schema::new(schema)),
+            schema,
             cancellation,
             next: 0,
             failed: false,
@@ -194,6 +331,113 @@ impl OwnedVortexResultBatch {
             metadata,
         })
     }
+
+    /// Stream this completed native result as an Arrow IPC stream directly into
+    /// `writer`, returning the total encoded bytes written.
+    ///
+    /// # Errors
+    /// Rejects cancellation, unsupported schemas, inconsistent completed results,
+    /// shared-memory exhaustion, or writer I/O failures.
+    pub fn write_arrow_ipc_stream(
+        &self,
+        writer: impl std::io::Write,
+        cancellation: &CancellationToken,
+    ) -> Result<u64> {
+        let session = self.retained_session();
+        let (schema, _metadata) = self.prepare_arrow_schema(&session, cancellation)?;
+        let mut counting = CountingWriter {
+            inner: writer,
+            bytes_written: 0,
+        };
+        session.with_native_execution_context(cancellation, |context| {
+            let mut ipc = arrow_ipc::writer::StreamWriter::try_new(&mut counting, &schema)
+                .map_err(native_error)?;
+            for index in 0..self.arrays().len().max(1) {
+                context.check_cancelled()?;
+                let converted = convert_native_record_batch(
+                    &schema,
+                    self.dtype(),
+                    self.arrays().get(index),
+                    context,
+                    false,
+                )?;
+                context.check_cancelled()?;
+                ipc.write(&converted.batch).map_err(native_error)?;
+            }
+            context.check_cancelled()?;
+            ipc.finish().map_err(native_error)?;
+            drop(ipc);
+            counting.inner.flush().map_err(native_error)?;
+            Ok(counting.bytes_written)
+        })
+    }
+}
+
+fn convert_native_record_batch(
+    schema: &SchemaRef,
+    root_dtype: &DType,
+    array: Option<&ArrayRef>,
+    context: &NativeExecutionContext<'_>,
+    collect_ranges: bool,
+) -> Result<ConvertedNativeBatch> {
+    let array = if let Some(array) = array {
+        array.clone()
+    } else {
+        crate::local_primitives::native_payload::empty_record(root_dtype, context)?
+    };
+    // Metadata is admitted before constructing canonical containers,
+    // target fields, Arrow wrappers or the pointer-range inventory.
+    let mut work = native_payload_schema::reserve_schema(array.dtype(), context)?;
+    let metadata_bytes = work.bytes();
+    let mut ctx = context.native_session().create_execution_ctx();
+    let check = || context.check_cancelled();
+    let limits = ConversionLimits {
+        memory: context.memory(),
+        string_bytes: usize::MAX,
+        arrow_batch_bytes: context.memory().snapshot().limit_bytes,
+        check: &check,
+    };
+    let mut expanded = 0;
+    let canonical = conversion::canonical(&array, &mut ctx, &limits, &mut expanded)?;
+    // This is a conservative conversion-work envelope, not a dataset
+    // size ceiling or a whole-provider/process allocator guarantee.
+    let admitted = expanded
+        .checked_mul(8)
+        .and_then(|bytes| bytes.checked_add(metadata_bytes))
+        .ok_or_else(|| failed("columnar conversion admission overflow"))?;
+    work.resize(admitted)?;
+    let ranges = collect_ranges
+        .then(|| native_ranges(&canonical, context.memory()))
+        .transpose()?;
+    let target = Field::new("", DataType::Struct(schema.fields().clone()), false);
+    let arrow = context
+        .native_session()
+        .arrow()
+        .execute_arrow(canonical, Some(&target), &mut ctx)
+        .map_err(native_error)?;
+    let structure = arrow
+        .as_any()
+        .downcast_ref::<arrow_array::StructArray>()
+        .ok_or_else(|| failed("Arrow provider did not return the declared record"))?;
+    if structure.len() != array.len() || structure.null_count() != 0 {
+        return Err(failed(
+            "Arrow provider changed record cardinality or validity",
+        ));
+    }
+    let batch = RecordBatch::try_new_with_options(
+        Arc::clone(schema),
+        structure.columns().to_vec(),
+        &arrow_array::RecordBatchOptions::new().with_row_count(Some(array.len())),
+    )
+    .map_err(native_error)?;
+    Ok(ConvertedNativeBatch {
+        array_len: array.len(),
+        batch,
+        work,
+        metadata_bytes,
+        admitted,
+        ranges,
+    })
 }
 
 impl NativeArrowBatchStream {
@@ -281,68 +525,32 @@ impl NativeArrowBatchStream {
         &self,
         context: &NativeExecutionContext<'_>,
     ) -> Result<(RecordBatch, NativeArrowExportReport)> {
-        let array = if let Some(array) = self.source.arrays().get(self.next) {
-            array.clone()
-        } else {
-            crate::local_primitives::native_payload::empty_record(self.source.dtype(), context)?
-        };
-        // Metadata is admitted before constructing canonical containers,
-        // target fields, Arrow wrappers or the pointer-range inventory.
-        let mut work = native_payload_schema::reserve_schema(array.dtype(), context)?;
-        let metadata_bytes = work.bytes();
-        let mut ctx = context.native_session().create_execution_ctx();
-        let check = || context.check_cancelled();
-        let limits = ConversionLimits {
-            memory: context.memory(),
-            string_bytes: usize::MAX,
-            arrow_batch_bytes: context.memory().snapshot().limit_bytes,
-            check: &check,
-        };
-        let mut expanded = 0;
-        let canonical = conversion::canonical(&array, &mut ctx, &limits, &mut expanded)?;
-        // This is a conservative conversion-work envelope, not a dataset
-        // size ceiling or a whole-provider/process allocator guarantee.
-        let admitted = expanded
-            .checked_mul(8)
-            .and_then(|bytes| bytes.checked_add(metadata_bytes))
-            .ok_or_else(|| failed("columnar conversion admission overflow"))?;
-        work.resize(admitted)?;
-        let ranges = native_ranges(&canonical, context.memory())?;
-        let target = Field::new("", DataType::Struct(self.schema.fields().clone()), false);
-        let arrow = context
-            .native_session()
-            .arrow()
-            .execute_arrow(canonical.clone(), Some(&target), &mut ctx)
-            .map_err(native_error)?;
-        let structure = arrow
-            .as_any()
-            .downcast_ref::<arrow_array::StructArray>()
-            .ok_or_else(|| failed("Arrow provider did not return the declared record"))?;
-        if structure.len() != array.len() || structure.null_count() != 0 {
-            return Err(failed(
-                "Arrow provider changed record cardinality or validity",
-            ));
-        }
-        let batch = RecordBatch::try_new_with_options(
-            Arc::clone(&self.schema),
-            structure.columns().to_vec(),
-            &arrow_array::RecordBatchOptions::new().with_row_count(Some(array.len())),
-        )
-        .map_err(native_error)?;
+        let converted = convert_native_record_batch(
+            &self.schema,
+            self.source.dtype(),
+            self.source.arrays().get(self.next),
+            context,
+            true,
+        )?;
+        let ranges = converted
+            .ranges
+            .ok_or_else(|| failed("native buffer range inventory is absent"))?;
+        let mut work = converted.work;
         let mut observed = NativeArrowExportReport {
-            output_rows: u64::try_from(batch.num_rows()).map_err(native_error)?,
+            output_rows: u64::try_from(converted.batch.num_rows()).map_err(native_error)?,
             output_batches: 1,
-            peak_conversion_work_reserved_bytes: admitted,
+            peak_conversion_work_reserved_bytes: converted.admitted,
             provider_canonicalization_calls: 1,
             ..NativeArrowExportReport::default()
         };
-        for column in batch.columns() {
+        for column in converted.batch.columns() {
             observe_buffers(column, &ranges.values, &mut observed, context.memory())?;
         }
-        let retained = metadata_bytes
+        let retained = converted
+            .metadata_bytes
             .checked_add(observed.converted_buffer_capacity_bytes)
             .ok_or_else(|| failed("columnar retained admission overflow"))?;
-        if retained > admitted {
+        if retained > converted.admitted {
             return Err(failed(
                 "Arrow conversion exceeded its pre-reserved work envelope",
             ));
@@ -354,7 +562,7 @@ impl NativeArrowBatchStream {
         let credit = Arc::new(ExportCredit {
             #[cfg(feature = "native-binary-objects")]
             _objects: crate::native_binary_type::contains(
-                array.dtype(),
+                self.source.dtype(),
                 context.into(),
                 native_error,
             )?
@@ -363,7 +571,8 @@ impl NativeArrowBatchStream {
             _conversion: work,
             _schema: Arc::clone(&self.metadata),
         });
-        let columns = batch
+        let columns = converted
+            .batch
             .columns()
             .iter()
             .map(|array| retain_array(array, &credit, context.memory()))
@@ -371,7 +580,7 @@ impl NativeArrowBatchStream {
         let batch = RecordBatch::try_new_with_options(
             Arc::clone(&self.schema),
             columns,
-            &arrow_array::RecordBatchOptions::new().with_row_count(Some(array.len())),
+            &arrow_array::RecordBatchOptions::new().with_row_count(Some(converted.array_len)),
         )
         .map_err(native_error)?;
         context.check_cancelled()?;

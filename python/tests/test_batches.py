@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
 import subprocess
@@ -9,6 +10,8 @@ import sys
 import tempfile
 import textwrap
 import unittest
+
+_HAS_PYARROW = importlib.util.find_spec("pyarrow") is not None
 
 from shardloom import ResultBatch, ResultBatchIterator, ShardLoomContext, from_batches
 from shardloom._batches import BatchInput
@@ -98,6 +101,11 @@ request = read()
         self.assertEqual(batches[0].result_rows, ())
         self.assertEqual(batches[0].result_columns, ("n",))
         self.assertIsNotNone(iterator.report)
+
+    def test_json_mode_omits_wire_format_in_worker_request(self):
+        iterator, _ = self.transaction("assert 'wire_format' not in request\nbatch()\nread()\nfinish(1, 1)\n")
+        batches = list(iterator)
+        self.assertEqual([b.to_rows() for b in batches], [({"n": 7},)])
 
     def test_early_close_cancels_without_acknowledging_or_replaying(self):
         iterator, trace = self.transaction("batch()\nassert read() == {'kind':'cancel'}\n")
@@ -344,6 +352,423 @@ request = read()
         self.assertIsNotNone(iterator._process.poll())
         self.assertTrue(iterator._closed)
         self.assertIsNone(iterator.report)
+
+
+def _arrow_peer_client(test_case: unittest.TestCase, body: str, *, timeout: float = 3):
+    directory = tempfile.TemporaryDirectory()
+    test_case.addCleanup(directory.cleanup)
+    path = Path(directory.name) / "arrow_peer.py"
+    trace = Path(directory.name) / "trace.jsonl"
+    prelude = f"""
+import json, sys, time
+from pathlib import Path
+import pyarrow as pa
+assert sys.argv[1:] == ['python-worker', '--batch-stream'], sys.argv
+trace = Path({str(trace)!r})
+def read_exact(n):
+    buf = bytearray()
+    while len(buf) < n:
+        chunk = sys.stdin.buffer.read(n - len(buf))
+        if not chunk:
+            raise SystemExit(1)
+        buf.extend(chunk)
+    return bytes(buf)
+def read_frame():
+    line = sys.stdin.buffer.readline()
+    if not line:
+        raise SystemExit(0)
+    value = json.loads(line.decode('utf-8'))
+    payload = None
+    if value.get('kind') == 'rows_ipc':
+        raw = read_exact(value['byte_len'])
+        payload = pa.ipc.open_stream(pa.py_buffer(raw)).read_all()
+        with trace.open('a') as output:
+            output.write(json.dumps({{**value, 'decoded_rows': payload.to_pylist()}}) + '\\n')
+    else:
+        with trace.open('a') as output:
+            output.write(json.dumps(value) + '\\n')
+    return value, payload
+def send_json(value):
+    if value.get('schema_version') == 'shardloom.output.v2':
+        value.update(result={{'fields':value['fields']}}, result_refs=[], artifacts=[],
+                     artifact_refs=[], certificates=[], policy={{}}, lifecycle={{}}, capability_snapshot={{}})
+    sys.stdout.buffer.write((json.dumps(value) + '\\n').encode('utf-8'))
+    sys.stdout.buffer.flush()
+def send_batch_ipc(index, values):
+    table = pa.table({{'n': pa.array(values, type=pa.int64())}})
+    sink = pa.BufferOutputStream()
+    with pa.ipc.new_stream(sink, table.schema) as writer:
+        writer.write_table(table)
+    raw = bytes(sink.getvalue())
+    header = {{
+        'kind': 'batch_ipc',
+        'index': index,
+        'row_count': table.num_rows,
+        'schema': {SCHEMA!r},
+        'byte_len': len(raw),
+    }}
+    sys.stdout.buffer.write((json.dumps(header) + '\\n').encode('utf-8'))
+    sys.stdout.buffer.write(raw)
+    sys.stdout.buffer.flush()
+def finish(rows, batches):
+    send_json({{'schema_version':'shardloom.output.v2','command':'run','status':'success',
+          'summary':'complete','human_text':'complete',
+          'fallback':{{'attempted':False,'allowed':False,'engine':None,'reason':'disabled'}},
+          'diagnostics':[], 'fields':[{{'key':key,'value':str(value)}} for key,value in [
+              ('native_batch_protocol','shardloom.native_batches.arrow_ipc.v1'),
+              ('result_payload_complete','true'),('output_row_count',rows),
+              ('native_result_batches_acknowledged',batches)]]}})
+request, _ = read_frame()
+"""
+    path.write_text(prelude + textwrap.dedent(body), encoding="utf-8")
+    client = ShardLoomClient(binary=[sys.executable, str(path)], timeout=timeout)
+    test_case.addCleanup(client.close)
+    return client, trace
+
+
+@unittest.skipUnless(sys.platform != "win32", "batch pipe transport requires Unix")
+class ArrowIpcBatchAdapterTests(unittest.TestCase):
+    def test_wire_format_validation_and_json_mode_stay_pyarrow_free(self):
+        probe = (
+            "import sys, shardloom; "
+            "from shardloom import ResultBatchIterator; "
+            "from shardloom._batches import BatchInput; "
+            "assert 'pyarrow' not in sys.modules"
+        )
+        import os
+
+        env = dict(os.environ)
+        env["PYTHONPATH"] = str(Path(__file__).resolve().parents[1] / "src")
+        subprocess.run([sys.executable, "-c", probe], env=env, check=True)
+        client = ShardLoomClient(binary=[sys.executable, "-c", "pass"], timeout=2)
+        self.addCleanup(client.close)
+        with self.assertRaises(ValueError):
+            ResultBatchIterator(client, ["run", "sql"], wire_format="parquet")
+
+    @unittest.skipUnless(_HAS_PYARROW, "pyarrow required for binary arrow_ipc transport tests")
+    def test_arrow_ipc_wire_format_roundtrips_inputs_and_results(self):
+        import pyarrow as pa
+
+        client, trace = _arrow_peer_client(
+            self,
+            """
+            assert request.get('wire_format') == 'arrow_ipc'
+            send_json({'kind':'input','uri':'memory://x','index':0,'max_rows':2048,'max_bytes':8388608})
+            hdr0, tbl0 = read_frame()
+            assert hdr0['kind'] == 'rows_ipc' and hdr0['index'] == 0 and tbl0.to_pylist() == [{'n': 10}, {'n': 20}]
+            send_json({'kind':'input','uri':'memory://x','index':1,'max_rows':2048,'max_bytes':8388608})
+            hdr1, tbl1 = read_frame()
+            assert hdr1['kind'] == 'rows_ipc' and hdr1['index'] == 1 and tbl1.to_pylist() == [{'n': None}]
+            send_json({'kind':'input','uri':'memory://x','index':2,'max_rows':2048,'max_bytes':8388608})
+            end_hdr, _ = read_frame()
+            assert end_hdr == {'kind':'end','uri':'memory://x','index':2}
+            send_batch_ipc(0, [10, 20])
+            ack0, _ = read_frame()
+            assert ack0 == {'kind':'ack','index':0}
+            send_batch_ipc(1, [None])
+            ack1, _ = read_frame()
+            assert ack1 == {'kind':'ack','index':1}
+            finish(3, 2)
+            """,
+        )
+        pa_rb = pa.record_batch({"n": pa.array([None], type=pa.int64())})
+        iterator = ResultBatchIterator(
+            client,
+            ["run", "sql"],
+            inputs={"memory://x": BatchInput([[{"n": 10}, {"n": 20}], pa_rb], (("n", "int64"),))},
+            wire_format="arrow_ipc",
+        )
+        self.addCleanup(iterator.close)
+        first = next(iterator)
+        self.assertIsNone(first._result_rows)
+        arrow_first = first.to_arrow()
+        self.assertEqual(arrow_first.to_pylist(), [{"n": 10}, {"n": 20}])
+        self.assertIsNone(first._result_rows)
+        self.assertEqual(first.to_rows(), ({"n": 10}, {"n": 20}))
+        self.assertEqual(first.to_rows(), ({"n": 10}, {"n": 20}))
+        second = next(iterator)
+        self.assertEqual(second.result_rows, ({"n": None},))
+        with self.assertRaises(StopIteration):
+            next(iterator)
+        self.assertIsNotNone(iterator.report)
+        self.assertEqual(
+            iterator._terminal_envelope.field("native_batch_protocol"),
+            "shardloom.native_batches.arrow_ipc.v1",
+        )
+        self.assertIn('"decoded_rows": [{"n": 10}, {"n": 20}]', trace.read_text())
+
+    @unittest.skipUnless(_HAS_PYARROW, "pyarrow required for binary arrow_ipc transport tests")
+    def test_arrow_ipc_cancellation_drains_binary_payload_cleanly(self):
+        client, trace = _arrow_peer_client(
+            self,
+            """
+            send_batch_ipc(0, [1, 2])
+            send_batch_ipc(1, [3, 4])
+            cancel, _ = read_frame()
+            assert cancel == {'kind':'cancel'}
+            """,
+        )
+        iterator = ResultBatchIterator(client, ["run", "sql"], wire_format="arrow_ipc")
+        self.addCleanup(iterator.close)
+        first = next(iterator)
+        self.assertEqual(first.to_arrow().to_pylist(), [{"n": 1}, {"n": 2}])
+        iterator.close()
+        self.assertEqual(iterator._process.poll(), 0)
+        self.assertEqual(len(trace.read_text().splitlines()), 2)
+
+    @unittest.skipUnless(_HAS_PYARROW, "pyarrow required for binary arrow_ipc transport tests")
+    def test_arrow_ipc_input_rejects_lossy_coercions_and_mismatched_schemas(self):
+        import pyarrow as pa
+
+        int_input = BatchInput([], (("v", "int64"),))
+        with self.assertRaises(TypeError):
+            int_input.encode_arrow_ipc([{"v": 1.9}])
+        with self.assertRaises(TypeError):
+            int_input.encode_arrow_ipc([{"v": True}])
+        with self.assertRaises(ValueError):
+            BatchInput([], (("v", "float64"),)).encode_arrow_ipc([{"v": float("nan")}])
+        with self.assertRaises(ValueError):
+            BatchInput([], (("v", {"type": "int64", "nullable": False}),)).encode_arrow_ipc(
+                [{"v": None}]
+            )
+        with self.assertRaises(ValueError):
+            int_input.encode_arrow_ipc(pa.record_batch({"v": pa.array([1.9], type=pa.float64())}))
+
+    @unittest.skipUnless(_HAS_PYARROW, "pyarrow is optional")
+    def test_arrow_ipc_result_batch_preserves_exact_temporal_ticks(self):
+        import datetime as dt
+        import uuid
+        import pyarrow as pa
+        from shardloom._result_schema import schema_fields
+
+        wire_schema = {
+            "Struct": [
+                {
+                    "names": ["t", "ts_ns", "ts_tz", "d32", "dur", "times", "nested", "u"],
+                    "dtypes": [
+                        {
+                            "Extension": {
+                                "id": "vortex.time",
+                                "storage_dtype": {"Primitive": ["i64", True]},
+                                "metadata": [0],
+                            }
+                        },
+                        {
+                            "Extension": {
+                                "id": "vortex.timestamp",
+                                "storage_dtype": {"Primitive": ["i64", True]},
+                                "metadata": [0, 0, 0],
+                            }
+                        },
+                        {
+                            "Extension": {
+                                "id": "vortex.timestamp",
+                                "storage_dtype": {"Primitive": ["i64", True]},
+                                "metadata": [2, 3, 0, *b"UTC"],
+                            }
+                        },
+                        {
+                            "Extension": {
+                                "id": "vortex.date",
+                                "storage_dtype": {"Primitive": ["i32", True]},
+                                "metadata": [4],
+                            }
+                        },
+                        {
+                            "Extension": {
+                                "id": "shardloom.duration.v1",
+                                "storage_dtype": {"Primitive": ["i64", True]},
+                                "metadata": [3],
+                            }
+                        },
+                        {
+                            "List": [
+                                {
+                                    "Extension": {
+                                        "id": "vortex.time",
+                                        "storage_dtype": {"Primitive": ["i64", True]},
+                                        "metadata": [0],
+                                    }
+                                },
+                                True,
+                            ]
+                        },
+                        {
+                            "Struct": [
+                                {
+                                    "names": ["ts"],
+                                    "dtypes": [
+                                        {
+                                            "Extension": {
+                                                "id": "vortex.timestamp",
+                                                "storage_dtype": {"Primitive": ["i64", True]},
+                                                "metadata": [0, 0, 0],
+                                            }
+                                        }
+                                    ],
+                                },
+                                True,
+                            ]
+                        },
+                        {
+                            "Extension": {
+                                "id": "vortex.uuid",
+                                "storage_dtype": {
+                                    "FixedSizeList": [{"Primitive": ["u8", False]}, 16, True]
+                                },
+                                "metadata": [],
+                            }
+                        },
+                    ],
+                },
+                False,
+            ]
+        }
+        uid = uuid.UUID("12345678-1234-5678-1234-567812345678")
+        expected_rows = (
+            {
+                "t": 1001,
+                "ts_ns": 1001,
+                "ts_tz": 1_000_000,
+                "d32": 5_000_000,
+                "dur": 1001,
+                "times": [1001, dt.time(0, 0, 0, 2)],
+                "nested": {"ts": 1001},
+                "u": uid,
+            },
+            {
+                "t": dt.time(0, 0, 0, 2),
+                "ts_ns": dt.datetime(1970, 1, 1, 0, 0, 0, 2),
+                "ts_tz": None,
+                "d32": dt.date(1970, 1, 1),
+                "dur": dt.timedelta(microseconds=2),
+                "times": None,
+                "nested": None,
+                "u": None,
+            },
+        )
+
+        # Verify multi-chunk & sliced Arrow tables convert without precision loss or OverflowError.
+        full_table = pa.table(
+            {
+                "t": pa.array([9999, 1001, 2000], type=pa.time64("ns")),
+                "ts_ns": pa.array([9999, 1001, 2000], type=pa.timestamp("ns")),
+                "ts_tz": pa.array([0, 1_000_000, None], type=pa.timestamp("us", tz="UTC")),
+                "d32": pa.array([0, 5_000_000, 0], type=pa.date32()),
+                "dur": pa.array([0, 1001, 2000], type=pa.duration("ns")),
+                "times": pa.array([[500], [1001, 2000], None], type=pa.list_(pa.time64("ns"))),
+                "nested": pa.StructArray.from_arrays(
+                    [pa.array([0, 1001, 5_000_000], type=pa.timestamp("ns"))],
+                    names=["ts"],
+                    mask=pa.array([False, False, True]),
+                ),
+                "u": pa.uuid().wrap_array(
+                    pa.array([uid.bytes, uid.bytes, None], type=pa.binary(16))
+                ),
+            }
+        )
+        sliced = pa.concat_tables([full_table.slice(1, 1), full_table.slice(2, 1)])
+        parsed_schema = schema_fields(json.dumps(wire_schema), "vortex.dtype.serde.v1")
+        batch = ResultBatch._from_arrow_table(0, sliced, parsed_schema)
+        self.assertEqual(batch.result_rows, expected_rows)
+        self.assertEqual(batch.to_rows(), expected_rows)
+        self.assertEqual(batch.python_objects, expected_rows)
+
+        # Verify end-to-end wire_format="arrow_ipc" stream yields identical Python rows.
+        client, _trace = _arrow_peer_client(
+            self,
+            f"""
+            wire_schema = {wire_schema!r}
+            tbl = pa.table({{
+                't': pa.array([1001, 2000], type=pa.time64('ns')),
+                'ts_ns': pa.array([1001, 2000], type=pa.timestamp('ns')),
+                'ts_tz': pa.array([1_000_000, None], type=pa.timestamp('us', tz='UTC')),
+                'd32': pa.array([5_000_000, 0], type=pa.date32()),
+                'dur': pa.array([1001, 2000], type=pa.duration('ns')),
+                'times': pa.array([[1001, 2000], None], type=pa.list_(pa.time64('ns'))),
+                'nested': pa.StructArray.from_arrays(
+                    [pa.array([1001, 0], type=pa.timestamp('ns'))],
+                    names=['ts'],
+                    mask=pa.array([False, True]),
+                ),
+                'u': pa.uuid().wrap_array(pa.array([{uid.bytes!r}, None], type=pa.binary(16))),
+            }})
+            sink = pa.BufferOutputStream()
+            with pa.ipc.new_stream(sink, tbl.schema) as writer:
+                writer.write_table(tbl)
+            raw = bytes(sink.getvalue())
+            send_json({{'kind':'batch_ipc','index':0,'row_count':2,'schema':wire_schema,'byte_len':len(raw)}})
+            sys.stdout.buffer.write(raw)
+            sys.stdout.buffer.flush()
+            ack, _ = read_frame()
+            assert ack == {{'kind':'ack','index':0}}
+            finish(2, 1)
+            """,
+        )
+        iterator = ResultBatchIterator(client, ["run", "sql"], wire_format="arrow_ipc")
+        self.addCleanup(iterator.close)
+        wire_batch = next(iterator)
+        self.assertEqual(wire_batch.result_rows, expected_rows)
+        self.assertEqual(wire_batch.to_rows(), expected_rows)
+        with self.assertRaises(StopIteration):
+            next(iterator)
+
+    @unittest.skipUnless(_HAS_PYARROW, "pyarrow is optional")
+    def test_arrow_ipc_to_pandas_preserves_nullable_full_width_integers(self):
+        from unittest import mock
+        import types
+        import pyarrow as pa
+        from shardloom._result_schema import schema_fields
+
+        wire_schema = {
+            "Struct": [
+                {
+                    "names": ["i", "u"],
+                    "dtypes": [
+                        {"Primitive": ["i64", True]},
+                        {"Primitive": ["u64", True]},
+                    ],
+                },
+                False,
+            ]
+        }
+        large_i64 = 9_007_199_254_740_993
+        max_u64 = (1 << 64) - 1
+        table = pa.table(
+            {
+                "i": pa.array([large_i64, None], type=pa.int64()),
+                "u": pa.array([max_u64, None], type=pa.uint64()),
+            }
+        )
+        schema = schema_fields(json.dumps(wire_schema), "vortex.dtype.serde.v1")
+        batch = ResultBatch._from_arrow_table(0, table, schema)
+
+        captured = {}
+
+        def fake_dataframe(rows, *, columns, dtype):
+            captured["rows"] = rows
+            captured["columns"] = columns
+            captured["dtype"] = dtype
+            return {"rows": rows, "columns": columns, "dtype": dtype}
+
+        with mock.patch.dict(sys.modules, {"pandas": types.SimpleNamespace(DataFrame=fake_dataframe)}):
+            frame = batch.to_pandas()
+
+        self.assertIs(captured["dtype"], object)
+        self.assertEqual(captured["columns"], ("i", "u"))
+        self.assertEqual(
+            frame["rows"],
+            ({"i": large_i64, "u": max_u64}, {"i": None, "u": None}),
+        )
+        self.assertIs(type(captured["rows"][0]["i"]), int)
+        self.assertIs(type(captured["rows"][0]["u"]), int)
+
+        if importlib.util.find_spec("pandas") is not None:
+            real_df = batch.to_pandas()
+            self.assertEqual(
+                real_df.to_dict(orient="records"),
+                [{"i": large_i64, "u": max_u64}, {"i": None, "u": None}],
+            )
 
 
 if __name__ == "__main__":

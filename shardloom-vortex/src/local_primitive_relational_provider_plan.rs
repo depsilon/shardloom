@@ -778,7 +778,7 @@ fn checked_predicate(
     predicate_preserves_typed_semantics(&predicate, source).then_some(predicate)
 }
 
-pub(super) fn predicate_preserves_typed_semantics(
+pub(in crate::local_primitives) fn predicate_preserves_typed_semantics(
     predicate: &PredicateExpr,
     source: &DType,
 ) -> bool {

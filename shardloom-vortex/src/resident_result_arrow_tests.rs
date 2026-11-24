@@ -546,3 +546,96 @@ fn native_arrow_borrowed_export_rejects_a_foreign_execution_owner() {
     assert_eq!(session.snapshot().completed_executions, 1);
     assert_eq!(foreign.shared_memory_pool().snapshot().reserved_bytes, 0);
 }
+
+#[test]
+fn native_arrow_ipc_stream_roundtrips_batches_empty_and_cancels_cleanly() {
+    let input = batch(
+        vec![
+            ("id", Arc::new(Int64Array::from(vec![10, 20, 30]))),
+            (
+                "label",
+                Arc::new(StringArray::from(vec![Some("a"), None, Some("c")])),
+            ),
+        ],
+        true,
+    );
+    let (result, session) = native(input.clone(), 16 << 20);
+    let memory = session.memory().clone();
+    let mut encoded = Vec::new();
+    let bytes = result
+        .write_arrow_ipc_stream(&mut encoded, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(bytes, u64::try_from(encoded.len()).unwrap());
+    let reader = arrow_ipc::reader::StreamReader::try_new(encoded.as_slice(), None).unwrap();
+    assert_eq!(reader.schema(), input.schema());
+    let decoded = reader.collect::<std::result::Result<Vec<_>, _>>().unwrap();
+    assert_eq!(decoded, vec![input]);
+
+    let cancelled = CancellationToken::default();
+    cancelled.cancel();
+    let mut canceled_buf = Vec::new();
+    assert!(
+        result
+            .write_arrow_ipc_stream(&mut canceled_buf, &cancelled)
+            .is_err()
+    );
+    assert_eq!(canceled_buf, [] as [u8; 0]);
+    drop((result, session));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+    let empty_input = batch(
+        vec![("n", Arc::new(Int64Array::from(Vec::<i64>::new())))],
+        false,
+    );
+    let (empty_result, empty_session) = native(empty_input.clone(), 8 << 20);
+    let empty_memory = empty_session.memory().clone();
+    let mut empty_encoded = Vec::new();
+    let empty_bytes = empty_result
+        .write_arrow_ipc_stream(&mut empty_encoded, &CancellationToken::default())
+        .unwrap();
+    assert_eq!(empty_bytes, u64::try_from(empty_encoded.len()).unwrap());
+    let empty_reader =
+        arrow_ipc::reader::StreamReader::try_new(empty_encoded.as_slice(), None).unwrap();
+    assert_eq!(empty_reader.schema(), empty_input.schema());
+    let empty_batches = empty_reader
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .unwrap();
+    let total_rows: usize = empty_batches.iter().map(RecordBatch::num_rows).sum();
+    assert_eq!(total_rows, 0);
+    drop((empty_result, empty_session));
+    assert_eq!(empty_memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn bounded_ipc_vec_accounts_for_capacity_and_reallocation_overlap() {
+    use std::io::Write as _;
+
+    let pool = LiveMemoryPool::new(512).unwrap();
+    let mut vec_sink = BoundedIpcVec {
+        bytes: Vec::new(),
+        lease: pool.reserve(0).unwrap(),
+        max_bytes: 256,
+    };
+    vec_sink.write_all(&[1_u8; 60]).unwrap();
+    let first_cap = vec_sink.bytes.capacity() as u64;
+    assert!(first_cap >= 60);
+    assert_eq!(vec_sink.lease.bytes(), first_cap);
+    assert_eq!(pool.snapshot().reserved_bytes, first_cap);
+
+    // Growing requires reserving old + new capacity during reallocation, which is bounded
+    // against max_bytes and the shared LiveMemoryPool peak.
+    vec_sink.write_all(&[2_u8; 60]).unwrap();
+    let second_cap = vec_sink.bytes.capacity() as u64;
+    assert!(second_cap >= 120);
+    assert_eq!(vec_sink.lease.bytes(), second_cap);
+    assert!(pool.snapshot().peak_reserved_bytes >= first_cap + second_cap);
+
+    // Tight pool denies growth whose reallocation overlap would exceed pool capacity.
+    let occupied = pool
+        .reserve(pool.snapshot().limit_bytes - pool.snapshot().reserved_bytes)
+        .unwrap();
+    assert!(vec_sink.write_all(&[3_u8; 100]).is_err());
+    assert_eq!(vec_sink.lease.bytes(), second_cap);
+    drop((vec_sink, occupied));
+    assert_eq!(pool.snapshot().reserved_bytes, 0);
+}

@@ -99,9 +99,9 @@ const ADMITTED_LOCAL_SOURCE_EXTENSIONS: &str =
 const VORTEX_PREPARE_SCHEMA_VERSION: &str = "shardloom.vortex_prepare.v1";
 const LOCAL_SOURCE_STATE_SCHEMA_VERSION: &str = "shardloom.local_source_state.v1";
 const LOCAL_INPUT_ADAPTER_REGISTRY_VERSION: &str = "shardloom.local_input_adapter_registry.v1";
-const MAX_INPUT_ROWS: usize = 50_000;
-const MAX_LIMIT_ROWS: usize = 10_000;
-const MAX_JOIN_CANDIDATE_ROWS: usize = MAX_INPUT_ROWS;
+const SMOKE_MAX_INPUT_ROWS: usize = 50_000;
+const SMOKE_MAX_OUTPUT_ROWS: usize = 10_000;
+const SMOKE_MAX_JOIN_CANDIDATE_ROWS: usize = SMOKE_MAX_INPUT_ROWS;
 const MAX_LOCAL_SOURCE_BYTES: u64 = 128 * 1024 * 1024;
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 const LOCAL_OLAP_MEDIUM_SOURCE_ROW_THRESHOLD: usize = 1_000_000;
@@ -211,9 +211,9 @@ impl SqlLocalSourceRuntimeProfile {
     const fn read_limits(self) -> LocalSourceReadLimits {
         match self {
             Self::Smoke => LocalSourceReadLimits {
-                input_rows: Some(MAX_INPUT_ROWS),
+                input_rows: Some(SMOKE_MAX_INPUT_ROWS),
                 source_bytes: Some(MAX_LOCAL_SOURCE_BYTES),
-                output_rows: Some(MAX_LIMIT_ROWS),
+                output_rows: Some(SMOKE_MAX_OUTPUT_ROWS),
                 join_candidate_rows: self.join_candidate_cap(),
             },
             Self::ProductLocalWorkflow => LocalSourceReadLimits {
@@ -246,7 +246,7 @@ impl SqlLocalSourceRuntimeProfile {
 
     const fn join_candidate_cap(self) -> Option<usize> {
         match self {
-            Self::Smoke => Some(MAX_JOIN_CANDIDATE_ROWS),
+            Self::Smoke => Some(SMOKE_MAX_JOIN_CANDIDATE_ROWS),
             Self::ProductLocalWorkflow => None,
         }
     }
@@ -2504,69 +2504,10 @@ pub(crate) fn parse_vortex_ingest_schema_hints(
 }
 
 // Shared with SQL syntax: commas inside type arguments and quoted zones are
-// part of one declaration. Keep a single checked top-level splitter.
+// part of one declaration. Keep a single checked top-level splitter backed by
+// the canonical SQL tokenizer in `shardloom-plan`.
 fn split_sql_csv(raw: &str) -> Result<Vec<String>, ShardLoomError> {
-    let mut values = Vec::new();
-    let mut current = String::new();
-    let mut chars = raw.chars().peekable();
-    let mut in_quote = false;
-    let mut depth = 0_u32;
-    let mut bracket_depth = 0_u32;
-    while let Some(ch) = chars.next() {
-        match ch {
-            '\'' if in_quote && chars.peek() == Some(&'\'') => {
-                current.push('\'');
-                current.push('\'');
-                let _ = chars.next();
-            }
-            '\'' => {
-                in_quote = !in_quote;
-                current.push(ch);
-            }
-            '(' if !in_quote => {
-                depth += 1;
-                current.push(ch);
-            }
-            ')' if !in_quote => {
-                depth = depth.checked_sub(1).ok_or_else(|| {
-                    unsupported_sql_error("SQL expression parentheses are not balanced")
-                })?;
-                current.push(ch);
-            }
-            '[' if !in_quote => {
-                bracket_depth += 1;
-                current.push(ch);
-            }
-            ']' if !in_quote => {
-                bracket_depth = bracket_depth.checked_sub(1).ok_or_else(|| {
-                    unsupported_sql_error("SQL expression square brackets are not balanced")
-                })?;
-                current.push(ch);
-            }
-            ',' if !in_quote && depth == 0 && bracket_depth == 0 => {
-                values.push(current.trim().to_string());
-                current = String::new();
-            }
-            _ => current.push(ch),
-        }
-    }
-    if in_quote {
-        return Err(unsupported_sql_error("SQL string literal is not closed"));
-    }
-    if depth != 0 {
-        return Err(unsupported_sql_error(
-            "SQL expression parentheses are not balanced",
-        ));
-    }
-    if bracket_depth != 0 {
-        return Err(unsupported_sql_error(
-            "SQL expression square brackets are not balanced",
-        ));
-    }
-    if !current.trim().is_empty() {
-        values.push(current.trim().to_string());
-    }
-    Ok(values)
+    shardloom_plan::sql_binder::split_top_level_csv(raw)
 }
 
 #[cfg(not(all(
@@ -9927,7 +9868,7 @@ fn parse_json_source_content(
     parse_json_source_content_with_plan(
         content,
         &LocalSourceReadPlan::full("full_source_state_parse_test"),
-        Some(MAX_INPUT_ROWS),
+        Some(SMOKE_MAX_INPUT_ROWS),
     )
 }
 

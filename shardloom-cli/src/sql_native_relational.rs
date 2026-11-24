@@ -30,6 +30,8 @@ use shardloom_vortex::{
     },
 };
 
+#[path = "sql_canonical_plan_lowering.rs"]
+mod canonical;
 #[path = "sql_native_relation_declaration.rs"]
 mod declaration;
 #[path = "sql_native_relational_dynamic.rs"]
@@ -170,7 +172,44 @@ fn prepare_with_owner(
             .map_err(|_| unsupported_sql_error("SQL parser metadata size overflow"))?,
     )?;
     parameters::validate(raw, &BTreeMap::<String, Expression>::new())?;
-    let parsed = parsed_native_query(raw)?;
+    let canonical_candidate = match canonical::classify_canonical_sql(raw) {
+        canonical::CanonicalSqlRoute::Admitted(bound) => Some(bound),
+        canonical::CanonicalSqlRoute::LegacyNative => None,
+        canonical::CanonicalSqlRoute::Rejected(err) => return Err(err),
+    };
+    if let Some(bound) = canonical_candidate
+        .as_ref()
+        .filter(|bound| canonical::prefers_canonical_lowering(bound, &[]))
+    {
+        return prepare_canonical_with_owner(
+            bound,
+            policy,
+            session,
+            parser_bytes,
+            &mut metadata,
+            inputs,
+            &mut resolve_source,
+            cancellation,
+        );
+    }
+    let parsed = match parsed_native_query(raw) {
+        Ok(parsed) => parsed,
+        Err(legacy_err) => {
+            let Some(bound) = canonical_candidate else {
+                return Err(legacy_err);
+            };
+            return prepare_canonical_with_owner(
+                &bound,
+                policy,
+                session,
+                parser_bytes,
+                &mut metadata,
+                inputs,
+                &mut resolve_source,
+                cancellation,
+            );
+        }
+    };
     let admission = visit::Admission::inspect(&parsed, cancellation)?;
     metadata.resize(
         u64::try_from(parser_bytes.max(admission.bytes))
@@ -191,9 +230,31 @@ fn prepare_with_owner(
             cancellation,
         );
     }
+    lower_legacy_prepared_relational(
+        &parsed,
+        policy,
+        session,
+        inputs,
+        resolve_source,
+        cancellation,
+    )
+}
+
+#[cfg(test)]
+fn lower_legacy_prepared_relational(
+    parsed: &ParsedRelationQuery,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &shardloom_vortex::resident_session::ResidentVortexSession,
+    inputs: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> NativeResult<()>,
+    mut resolve_source: impl FnMut(
+        &ParsedRelationLeaf,
+        Option<&shardloom_exec::live_memory::LiveMemoryPool>,
+    ) -> NativeResult<Vec<DatasetUri>>,
+    cancellation: &shardloom_exec::compute_pool::CancellationToken,
+) -> NativeResult<PreparedVortexRelational> {
     let lower = |schemas: &mut VortexRelationalPreparation<'_>| {
         cancellation.check()?;
-        register_sql_memory_inputs(&parsed, schemas)?;
+        register_sql_memory_inputs(parsed, schemas)?;
         inputs(schemas)?;
         let mut memo = LoweringMemo::new(schemas)?;
         let mut lowerer = Lowerer {
@@ -209,7 +270,54 @@ fn prepare_with_owner(
             memo: &mut memo,
             frontier: None,
         };
-        let mut query = lowerer.query(&parsed)?;
+        let mut query = lowerer.query(parsed)?;
+        lowerer.prune(&mut query.plan, None, &mut BTreeSet::new())?;
+        Ok(query.plan)
+    };
+    shardloom_vortex::local_primitives::prepared_relational::prepare_relational_with_schema_in_session_controlled(
+        policy, session, lower, cancellation,
+    )
+}
+
+#[cfg(test)]
+#[inline(never)]
+#[allow(clippy::too_many_arguments)]
+fn prepare_canonical_with_owner(
+    bound: &shardloom_plan::sql_binder::BoundSqlPlan,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &shardloom_vortex::resident_session::ResidentVortexSession,
+    parser_bytes: usize,
+    metadata: &mut shardloom_exec::live_memory::MemoryLease,
+    inputs: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> NativeResult<()>,
+    resolve_source: &mut impl FnMut(
+        &ParsedRelationLeaf,
+        Option<&shardloom_exec::live_memory::LiveMemoryPool>,
+    ) -> NativeResult<Vec<DatasetUri>>,
+    cancellation: &shardloom_exec::compute_pool::CancellationToken,
+) -> NativeResult<PreparedVortexRelational> {
+    let summary = canonical::inspect_canonical_plan(bound, &[])?;
+    metadata.resize(
+        u64::try_from(parser_bytes.max(summary.metadata_bytes))
+            .map_err(|_| unsupported_sql_error("SQL declaration metadata size overflow"))?,
+    )?;
+    let lower = |schemas: &mut VortexRelationalPreparation<'_>| {
+        cancellation.check()?;
+        inputs(schemas)?;
+        let mut memo = LoweringMemo::new(schemas)?;
+        let mut lowerer = Lowerer {
+            schemas,
+            serial: 0,
+            resolve_source,
+            declaration: None,
+            outer: None,
+            bound_inputs: BoundRelations::new(),
+            lowered_input: None,
+            cancellation: cancellation.clone(),
+            parameters: BTreeMap::new(),
+            memo: &mut memo,
+            frontier: None,
+        };
+        let mut query = canonical::lower_bound_sql_plan(bound, &[], &mut lowerer)?;
         lowerer.prune(&mut query.plan, None, &mut BTreeSet::new())?;
         Ok(query.plan)
     };
@@ -220,7 +328,20 @@ fn prepare_with_owner(
 
 /// Shape discovery is syntax-only. File/type/resource admission happens at prepare.
 pub(crate) fn is_relational(raw: &str) -> NativeResult<bool> {
-    let parsed = parsed_native_query(raw)?;
+    let route = canonical::classify_canonical_sql(raw);
+    if let canonical::CanonicalSqlRoute::Rejected(err) = route {
+        return Err(err);
+    }
+    let parsed = match parsed_native_query(raw) {
+        Ok(parsed) => parsed,
+        Err(legacy_err) => {
+            return if matches!(route, canonical::CanonicalSqlRoute::Admitted(_)) {
+                Ok(true)
+            } else {
+                Err(legacy_err)
+            };
+        }
+    };
     let ParsedRelationQuery::Select(parsed) = parsed else {
         return Ok(true);
     };
@@ -244,7 +365,20 @@ pub(crate) fn is_relational(raw: &str) -> NativeResult<bool> {
 
 /// Ordinary local SELECT discovery is inert, including on absent source paths.
 pub(crate) fn is_plain_select(raw: &str) -> NativeResult<bool> {
-    let parsed = parsed_native_query(raw)?;
+    let route = canonical::classify_canonical_sql(raw);
+    if let canonical::CanonicalSqlRoute::Rejected(err) = route {
+        return Err(err);
+    }
+    let parsed = match parsed_native_query(raw) {
+        Ok(parsed) => parsed,
+        Err(legacy_err) => {
+            return if matches!(route, canonical::CanonicalSqlRoute::Admitted(_)) {
+                Ok(false)
+            } else {
+                Err(legacy_err)
+            };
+        }
+    };
     Ok(matches!(parsed,
         ParsedRelationQuery::Select(parsed) if matches!(parsed.source, ParsedRelationSource::Local(_))))
 }
@@ -259,7 +393,19 @@ pub(crate) fn source_count(raw: &str) -> NativeResult<usize> {
 }
 
 pub(crate) fn source_leaves(raw: &str) -> NativeResult<BTreeSet<ParsedRelationLeaf>> {
-    let parsed = parsed_native_query(raw)?;
+    let route = canonical::classify_canonical_sql(raw);
+    if let canonical::CanonicalSqlRoute::Rejected(err) = route {
+        return Err(err);
+    }
+    let parsed = match parsed_native_query(raw) {
+        Ok(parsed) => parsed,
+        Err(legacy_err) => {
+            if let canonical::CanonicalSqlRoute::Admitted(bound) = route {
+                return canonical::extract_source_leaves(&bound);
+            }
+            return Err(legacy_err);
+        }
+    };
     let mut paths = BTreeSet::new();
     declared_query_sources(&parsed, &mut paths);
     Ok(paths)
@@ -449,35 +595,36 @@ impl Lowerer<'_, '_> {
         Ok(lowered)
     }
 
+    pub(super) fn bound_input(&mut self, index: usize) -> NativeResult<Lowered> {
+        if let Some((slot, lowered)) = &self.lowered_input
+            && *slot == index
+        {
+            return Ok(lowered.clone());
+        }
+        let declaration = self
+            .bound_inputs
+            .get(&index)
+            .cloned()
+            .ok_or_else(|| unsupported_sql_error("named relation input is not bound"))?;
+        let sources = self
+            .declaration
+            .as_ref()
+            .ok_or_else(|| unsupported_sql_error("named relation source ownership is absent"))?
+            .sources
+            .clone();
+        declaration.lower_with_outer(
+            self.schemas,
+            &sources,
+            &self.cancellation,
+            self.outer.as_deref(),
+            self.memo,
+        )
+    }
+
     fn query_root(&mut self, query: &ParsedRelationQuery) -> NativeResult<Lowered> {
         self.cancellation.check()?;
         let parsed = match query {
-            ParsedRelationQuery::Input(index) => {
-                if let Some((slot, lowered)) = &self.lowered_input
-                    && slot == index
-                {
-                    return Ok(lowered.clone());
-                }
-                let declaration =
-                    self.bound_inputs.get(index).cloned().ok_or_else(|| {
-                        unsupported_sql_error("named relation input is not bound")
-                    })?;
-                let sources = self
-                    .declaration
-                    .as_ref()
-                    .ok_or_else(|| {
-                        unsupported_sql_error("named relation source ownership is absent")
-                    })?
-                    .sources
-                    .clone();
-                return declaration.lower_with_outer(
-                    self.schemas,
-                    &sources,
-                    &self.cancellation,
-                    self.outer.as_deref(),
-                    self.memo,
-                );
-            }
+            ParsedRelationQuery::Input(index) => return self.bound_input(*index),
             ParsedRelationQuery::Materialized { .. }
             | ParsedRelationQuery::Recursive { .. }
             | ParsedRelationQuery::RecursiveInput(_) => return self.retained_query(query),

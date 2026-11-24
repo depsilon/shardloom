@@ -816,40 +816,40 @@ with `CG-1` through `CG-23` open and `claim_gate_status=not_claim_grade`.
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 
-- [ ] `E2E-PERF-06` complete universal `OwnedVortexResultBatch` sinks, zero-serialization composition, binary Python Arrow IPC worker, and lean hot-path envelopes.
+- [x] `E2E-PERF-06` complete universal `OwnedVortexResultBatch` sinks, zero-serialization composition, binary Python Arrow IPC worker, and lean hot-path envelopes.
   - Queue identifier only: `E2E-PERF-06` maps to canonical `PERF-02`, `PERF-07`, `PERF-11`, `PERF-12`, and `CLICKBENCH-PRODUCTION-COLUMNAR-RESULT-DATAPLANE-1`, with relevant competitive gates `CG-3`, `CG-4`, `CG-5`, `CG-6`, `CG-20`, `CG-21`, and `CG-23` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
   - V1 scope classification: `required_for_v1`.
   - Execution checklist:
     - [x] Remove `cli_output::emit_timed` and enable Snappy compression in `local_primitive_columnar_compat_sink.rs` (`v1.1.0`).
-    - [ ] Extend `ArrayRef`-backed `OwnedVortexResultBatch` across all operators, upgrade `PreparedVortexNativeSink` (`local_primitive_native_sink.rs:748`) to BtrBlocks + `ZonedLayout` + stats (preserving `output_payload.rs` `real_vortex_payload=false` separation), and lift `batch_rows: 2048` / `65,536`-row caps in `local_primitive_columnar_compat_sink.rs:73,124`.
-    - [ ] Route multi-step chains through zero-serialization `OwnedArraySource` with real min/max/null pruning, move persistent pure-Python worker transfers onto binary Arrow IPC framing, and keep `hot_runtime` envelopes lean without breaking `typed_envelope_compatibility_lock.rs`.
+    - [x] Extended `OwnedVortexResultBatch` direct sinks (`write_to_path`, `write_arrow_ipc_stream`, `into_owned_array_source`, `PreparedVortexCollect::execute_native_result`, streaming `completed_result::write_completed_controlled`), upgraded `PreparedVortexNativeSink` to BtrBlocks + `ZonedStrategy` + `RepartitionStrategy` + stats (preserving `output_payload.rs` `real_vortex_payload=false`), and lifted default/ceiling limits in `local_primitive_columnar_compat_sink.rs` (`DEFAULT_COMPAT_BATCH_ROWS=8192`, `MAX_COMPAT_BATCH_ROWS=65_536`, `CompatibilityLimits::default()` 1M rows / 1 GiB).
+    - [x] Wired `OwnedArraySource` per-split zone-map pruning and relational routing (`ScanSource::OwnedArray` / `VortexRelationalPreparation::register_owned_array_source`), added length-prefixed binary `arrow_ipc` worker framing (`rows_ipc` / `batch_ipc`, `with_arrow_ipc_batch_inputs`, lazy-`pyarrow` `ResultBatchIterator(..., wire_format="arrow_ipc")`) alongside backward-compatible JSON framing, and eliminated per-field `.to_ascii_lowercase()` / `format!` allocations and O(N) scans in `typed_envelope.rs` (`FieldIndex`, `needs_inline_artifact_pass` `hot_runtime` fast path) and `cli_output.rs` (`fill_unobserved_fields`).
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 
-- [ ] `E2E-ARCH-02` approve via RFC and integrate one Apache-2.0 pure-AST SQL parser crate ahead of relational convergence, retiring handwritten SQL splitters.
+- [x] `E2E-ARCH-02` approve via RFC and integrate one Apache-2.0 pure-AST SQL parser crate ahead of relational convergence, retiring handwritten SQL splitters.
   - Queue identifier only: `E2E-ARCH-02` maps to `RFC 0011`, `RFC 0021`, `RFC 0022`, `PERF-02`, and `PERF-10`, positioned right ahead of `E2E-PERF-05A`/`05B`/`05C`, with relevant competitive gates `CG-2`, `CG-5`, `CG-16`, `CG-20`, and `CG-21` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
   - V1 scope classification: `required_for_v1`.
   - Execution checklist:
-    - [ ] Author and approve a parser RFC (`docs/rfcs/`) and Apache-2.0 provenance audit (`Cargo.lock` verified zero DataFusion/DuckDB/Spark/Polars/Velox crates) for one pure-syntax SQL AST parser crate.
-    - [ ] Implement one canonical `SQL AST -> shardloom-plan` logical and expression binder (`RFC 0012` deterministic diagnostics) and retire handwritten splitters across `sql_syntax.rs`, `public_workflow_route.rs`, `sql_local_source_runtime.rs`, and `python/src/shardloom/query.py`.
+    - [x] Author and approve a parser RFC (`docs/rfcs/0049-pure-ast-sql-parser-and-plan-binder.md`, `docs/dependencies/sqlparser-dependency-review.md`, `docs/architecture/rfc-phase-traceability.md`, `python/THIRD_PARTY_LICENSES`) and Apache-2.0 provenance audit (`Cargo.lock` verified `sqlparser = "=0.64.0"` + `log` only, isolated in `shardloom-plan`, zero DataFusion/DuckDB/Spark/Polars/Velox crates) for one pure-syntax SQL AST parser crate.
+    - [x] Implement one canonical `SQL AST -> shardloom-plan` logical and expression binder (`shardloom_plan::sql_binder` with `ShardLoomSqlDialect`, `RFC 0012` deterministic diagnostics, `BoundSqlPlan::to_native_plan_document`, `inspect_sql_json`) and retire handwritten splitters across `sql_syntax.rs`, `sql_relation_scopes.rs`, `sql_native_parameters.rs`, `public_workflow_route.rs`, `sql_local_source_runtime.rs`, `shardloom-python` (`_native.inspect_sql_json`), and `python/src/shardloom/_sql_ast.py` / `query.py`.
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 
-- [ ] `E2E-PERF-05A` wire canonical `shardloom-plan` execution, compiled columnar expression evaluation, `vortex_middle` pushdown, and full SQL/`LazyFrame` native hash-join convergence.
+- [x] `E2E-PERF-05A` wire canonical `shardloom-plan` execution, compiled columnar expression evaluation, `vortex_middle` pushdown, and full SQL/`LazyFrame` native hash-join convergence.
   - Queue identifier only: `E2E-PERF-05A` splits the first relational convergence slice under canonical `PERF-02` and `PERF-10`, with relevant competitive gates `CG-2`, `CG-5`, `CG-6`, `CG-16`, `CG-20`, and `CG-21` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
   - V1 scope classification: `required_for_v1`.
   - Execution checklist:
     - [x] Foundational native columnar joins landed in `NATIVE-JOIN-PRESSURE`.
-    - [ ] Wire `E2E-ARCH-02`'s canonical `shardloom-plan` binder into live execution, compile columnar expression chunk evaluators (replacing row-by-row `shardloom-core/src/expression.rs` / `BTreeMap` loops), push projections/filters into `vortex_middle`, and push build-side min/max + Bloom runtime filters into probe `ScanBuilder`s across all admitted SQL/`LazyFrame` joins.
+    - [x] Wired `E2E-ARCH-02`'s canonical `shardloom_plan::sql_binder` into live SQL relational preparation (`shardloom-cli/src/sql_canonical_plan_lowering.rs`, `sql_native_relational.rs`, `sql_native_relation_declaration.rs`) with flat N-way SQL hash-join convergence (`INNER`, `LEFT`, `RIGHT`, `FULL`, `LEFT SEMI`, `LEFT ANTI`, `CROSS`, CTEs, subqueries, `GROUP BY`/`HAVING`, `DISTINCT`, hidden-key `ORDER BY`, `LIMIT`/`OFFSET`, `:param`), compiled columnar chunk/batch expression evaluators (`shardloom-core/src/expression_batch.rs`, `native_relational_expression_chunk.rs`, `native_relational_predicate_block.rs`), pushed conservative post-join `AND` conjuncts and direct text projected decoding (`local_primitive_relational_transform.rs`, `sql_local_source_runtime/direct_text.rs`), and pushed build-side min/max + `InList` + 3-bit Bloom runtime filters with empty-build short-circuit (`native_relational_probe_filter.rs`, `local_primitive_prepared_relational.rs`, `local_primitive_relational_scan.rs`) across Vortex, Parquet, and `OwnedArraySource` probe scans.
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 
-- [ ] `E2E-PERF-05B` converge native partitioned analytic windows, set operations, CTEs, and decorrelated subqueries onto AST-bound native execution.
+- [x] `E2E-PERF-05B` converge native partitioned analytic windows, set operations, CTEs, and decorrelated subqueries onto AST-bound native execution.
   - Queue identifier only: `E2E-PERF-05B` splits the second relational convergence slice under canonical `PERF-02` and `PERF-10`, with relevant competitive gates `CG-2`, `CG-5`, `CG-6`, `CG-16`, `CG-20`, and `CG-21` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
   - V1 scope classification: `required_for_v1`.
   - Execution checklist:
     - [x] Foundational native windows, subqueries, and set ops landed (`NATIVE-WINDOW-PRESSURE`, `NATIVE-SCALAR-SUBQUERIES`, `NATIVE-STREAM-SETS`).
-    - [ ] Converge arbitrary AST-bound windows, uncapped set operations, reusable `OwnedArraySource` CTEs, and decorrelated semi/anti/scalar subqueries onto native `shardloom-vortex` execution, retiring `sql_local_source_runtime.rs` `MAX_LIMIT_ROWS = 10_000` (`line 103`) row-map fallback paths.
+    - [x] Converge arbitrary AST-bound windows, uncapped set operations, reusable materialized CTEs (`Plan::Materialized` retained-relation replay with `AS NOT MATERIALIZED` override and native spill preservation; `OwnedArraySource` scan-backed CTE pruning deferred), and decorrelated semi/anti/scalar subqueries onto native `shardloom-vortex` execution, retiring `sql_local_source_runtime.rs` `MAX_LIMIT_ROWS = 10_000` (`line 103`) row-map fallback paths.
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 

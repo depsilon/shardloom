@@ -17,7 +17,7 @@ use shardloom_exec::{
     live_memory::{Budgeted, LiveMemoryPool, MemoryLease},
 };
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap, HashSet},
     fs::File,
     io::{BufRead, BufReader, Read},
     path::Path,
@@ -37,6 +37,11 @@ pub enum TextFraming {
 
 /// The decoder must preserve the adapter's existing duplicate/coercion rules.
 pub type TextRecordDecoder = Arc<dyn Fn(&str) -> Result<Vec<(String, ScalarValue)>> + Send + Sync>;
+
+/// Optional projection-aware record decoder that skips parsing unprojected
+/// fields while still validating record framing and complete field widths.
+pub type TextProjectedDecoder =
+    Arc<dyn Fn(&str, &[usize]) -> Result<Vec<(String, ScalarValue)>> + Send + Sync>;
 
 /// Existing adapter inference/coercion rules, kept outside source ownership.
 #[derive(Clone, Copy)]
@@ -87,6 +92,7 @@ pub struct TextSource {
     identity: Arc<SourceIdentity>,
     schema: SchemaRef,
     decoder: TextRecordDecoder,
+    projected_decoder: Option<TextProjectedDecoder>,
     framing: TextFraming,
     skip_first: bool,
     max_rows: Option<usize>,
@@ -286,6 +292,7 @@ impl TextSource {
             identity,
             schema,
             decoder,
+            projected_decoder: None,
             framing,
             skip_first,
             max_rows,
@@ -329,6 +336,19 @@ impl TextSource {
             .ok_or_else(|| failed("text discovery byte count overflow"))?;
         Ok(())
     }
+
+    /// Attach a projection-aware decoder before sharing the descriptor.
+    /// # Errors
+    /// Rejects a shared descriptor.
+    pub fn set_projected_decoder(
+        source: &mut Arc<Self>,
+        projected_decoder: TextProjectedDecoder,
+    ) -> Result<()> {
+        let source =
+            Arc::get_mut(source).ok_or_else(|| failed("text descriptor is already shared"))?;
+        source.projected_decoder = Some(projected_decoder);
+        Ok(())
+    }
     #[must_use]
     pub fn identity(&self) -> Arc<SourceIdentity> {
         Arc::clone(&self.identity)
@@ -359,7 +379,7 @@ impl TextSource {
             cancellation,
             metrics,
         )?;
-        TextReader::new(Arc::clone(self), schema, frames, batch_rows)
+        TextReader::new(Arc::clone(self), schema, projection, frames, batch_rows)
     }
 
     /// The demanded source supplies its already generation-checked, I/O-admitted
@@ -382,7 +402,7 @@ impl TextSource {
             &self.memory,
             cancellation,
         )?;
-        TextReader::new(Arc::clone(self), schema, frames, batch_rows)
+        TextReader::new(Arc::clone(self), schema, projection, frames, batch_rows)
     }
 }
 
@@ -416,6 +436,10 @@ pub fn resolve_record_fields(mut fields: Vec<(String, ScalarValue)>) -> Vec<(Str
 pub struct TextReader {
     source: Arc<TextSource>,
     schema: SchemaRef,
+    projection: Vec<usize>,
+    names: Vec<String>,
+    projected_positions: HashMap<String, usize>,
+    known_fields: HashSet<String>,
     frames: Frames,
     batch_rows: usize,
     sizing: AdaptiveWorkSizer,
@@ -430,6 +454,7 @@ impl TextReader {
     fn new(
         source: Arc<TextSource>,
         schema: SchemaRef,
+        projection: &[usize],
         frames: Frames,
         batch_rows: usize,
     ) -> Result<Self> {
@@ -439,9 +464,29 @@ impl TextReader {
         let mut cost = super::work_sizing::schema_cost(&schema, 8192 + 4096, 2)?;
         cost.bytes_per_unit = cost.bytes_per_unit.max(builder_row_bytes(&schema)?);
         let record_workspace = record_charge(source.largest_record_bytes, 34)?;
+        let names = schema
+            .fields()
+            .iter()
+            .map(|f| f.name().clone())
+            .collect::<Vec<_>>();
+        let projected_positions = names
+            .iter()
+            .enumerate()
+            .map(|(index, name)| (name.clone(), index))
+            .collect::<HashMap<_, _>>();
+        let known_fields = source
+            .schema
+            .fields()
+            .iter()
+            .map(|field| field.name().clone())
+            .collect::<HashSet<_>>();
         Ok(Self {
             source,
             schema,
+            projection: projection.to_vec(),
+            names,
+            projected_positions,
+            known_fields,
             frames,
             batch_rows: batch_rows.clamp(1, 8192),
             sizing: AdaptiveWorkSizer::default(),
@@ -523,22 +568,20 @@ impl TextReader {
         Ok((selected, capacity, initial))
     }
 
-    fn decode_row(&self, record: &[u8], names: &[String]) -> Result<Vec<ScalarValue>> {
-        let decoded = resolve_record_fields((self.source.decoder)(
-            std::str::from_utf8(record).map_err(failed)?,
-        )?);
-        let mut values = vec![ScalarValue::Null; names.len()];
+    fn decode_row(&self, record: &[u8]) -> Result<Vec<ScalarValue>> {
+        let raw = std::str::from_utf8(record).map_err(failed)?;
+        let decoded =
+            resolve_record_fields(if let Some(projected) = &self.source.projected_decoder {
+                projected(raw, &self.projection)?
+            } else {
+                (self.source.decoder)(raw)?
+            });
+        let mut values = vec![ScalarValue::Null; self.names.len()];
         for (name, value) in decoded {
-            if !self
-                .source
-                .schema
-                .fields()
-                .iter()
-                .any(|field| field.name() == &name)
-            {
+            if !self.known_fields.contains(&name) {
                 return Err(failed("text replay introduced an undiscovered field"));
             }
-            if let Some(index) = names.iter().position(|column| column == &name) {
+            if let Some(&index) = self.projected_positions.get(&name) {
                 values[index] = if let Some(policy) = self.source.type_policy {
                     (policy.coerce)(value, self.schema.field(index).data_type(), &name)?
                 } else {
@@ -567,15 +610,9 @@ impl TextReader {
         let (selected, capacity, initial) = self.batch_geometry()?;
         let target_rows = usize::try_from(selected.units()).map_err(failed)?;
         let mut credit = self.source.memory.reserve(initial)?;
-        let names = self
-            .schema
-            .fields()
-            .iter()
-            .map(|f| f.name().clone())
-            .collect::<Vec<_>>();
         let mut builder = TextRecordBatchBuilder::new(
             Arc::clone(&self.schema),
-            &names,
+            &self.names,
             capacity,
             "streaming text source",
         )?;
@@ -618,7 +655,7 @@ impl TextReader {
                     )
                     .ok_or_else(|| failed("text batch capacity overflow"))?,
             )?;
-            let values = self.decode_row(record.value(), &names)?;
+            let values = self.decode_row(record.value())?;
             builder.append_row(&values)?;
             raw_bytes = raw_bytes
                 .checked_add(record.value().len())

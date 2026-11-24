@@ -113,6 +113,16 @@ type ArrowProvider<'a> = dyn FnMut() -> Result<Option<arrow_array::RecordBatch>>
 type ArrowSources<'a> =
     dyn FnMut(&shardloom_core::DatasetUri, u64) -> Result<Option<arrow_array::RecordBatch>> + 'a;
 
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+type ArrowIpcSources<'a> = dyn FnMut(
+        &shardloom_core::DatasetUri,
+        u64,
+    ) -> Result<Option<shardloom_exec::live_memory::Budgeted<Vec<u8>>>>
+    + 'a;
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+type ArrowIpcRowObserver<'a> = dyn FnMut(usize) -> Result<()> + 'a;
+
 pub(super) enum Provider<'a> {
     Columns(&'a mut ColumnProvider<'a>),
     ColumnsBySource(&'a mut ColumnsBySource<'a>),
@@ -120,6 +130,11 @@ pub(super) enum Provider<'a> {
     Arrow(&'a mut ArrowProvider<'a>),
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     ArrowSources(&'a mut ArrowSources<'a>),
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    ArrowIpcSources {
+        input: &'a mut ArrowIpcSources<'a>,
+        on_rows: &'a mut ArrowIpcRowObserver<'a>,
+    },
 }
 
 impl Provider<'_> {
@@ -146,10 +161,28 @@ impl Provider<'_> {
                     ResidentMemorySource::from_arrow_in_context(session, batch, context, true)
                 })
                 .transpose(),
+            #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+            Self::ArrowIpcSources { input, on_rows } => input(uri, ordinal)?
+                .map(|budgeted_bytes| {
+                    let source = ResidentMemorySource::from_arrow_ipc_stream_in_context(
+                        session,
+                        budgeted_bytes.value(),
+                        context,
+                        true,
+                    )?;
+                    drop(budgeted_bytes);
+                    on_rows(source.row_count())?;
+                    Ok(source)
+                })
+                .transpose(),
         }
     }
 
     fn has_transport_bounds(&self) -> bool {
+        #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+        if matches!(self, Self::ArrowIpcSources { .. }) {
+            return true;
+        }
         matches!(self, Self::Columns(_) | Self::ColumnsBySource(_))
     }
 }
@@ -460,6 +493,23 @@ impl PreparedVortexRelational {
         })
     }
 
+    /// Import bounded binary Arrow IPC streams by source URI and zero-based
+    /// ordinal while reusing the active native execution context.
+    /// # Errors
+    /// Rejects a provider when the plan has no streaming source declarations.
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub fn with_arrow_ipc_batch_inputs<'p, 'i>(
+        &'p self,
+        input: &'i mut ArrowIpcSources<'i>,
+        on_rows: &'i mut ArrowIpcRowObserver<'i>,
+    ) -> Result<VortexRelationalBatchInput<'p, 'i>> {
+        self.validate_batch_provider(true)?;
+        Ok(VortexRelationalBatchInput {
+            prepared: self,
+            input: Provider::ArrowIpcSources { input, on_rows },
+        })
+    }
+
     pub(super) fn validate_batch_provider(&self, supplied: bool) -> Result<()> {
         if self.batch_sources.iter().any(Source::external) != supplied {
             return Err(failed(if supplied {
@@ -509,6 +559,19 @@ pub(super) trait Input {
         metrics: &Metrics<'_>,
         consume: &mut dyn FnMut(&ArrayRef) -> Result<()>,
     ) -> Result<()>;
+
+    fn run_with_probe_filters(
+        &self,
+        index: usize,
+        probe_filters: &[super::super::native_relational_probe_filter::ProbeRuntimeFilter],
+        residual_present: bool,
+        context: &NativeExecutionContext<'_>,
+        metrics: &Metrics<'_>,
+        consume: &mut dyn FnMut(&ArrayRef) -> Result<()>,
+    ) -> Result<()> {
+        let _ = (probe_filters, residual_present);
+        self.run(index, context, metrics, consume)
+    }
 
     /// Optional source capability, independent of input format. Ranking remains
     /// in the common native consumer; the source owns positions and read phases.
@@ -1073,6 +1136,51 @@ impl Input for Execution<'_, '_> {
         Ok(())
     }
 
+    fn run_with_probe_filters(
+        &self,
+        index: usize,
+        probe_filters: &[super::super::native_relational_probe_filter::ProbeRuntimeFilter],
+        residual_present: bool,
+        context: &NativeExecutionContext<'_>,
+        metrics: &Metrics<'_>,
+        consume: &mut dyn FnMut(&ArrayRef) -> Result<()>,
+    ) -> Result<()> {
+        #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+        if !probe_filters.is_empty()
+            && let (Some(state), Some(declaration)) = (
+                self.states.values.get(index),
+                self.prepared.batch_sources.get(index),
+            )
+            && !state.started.get()
+            && state.usage.get().admits_independent_read()
+            && let Some(source) = &declaration.local
+        {
+            let dtype = declaration.schema.dtype();
+            let empty = !residual_present
+                && super::scan::has_infallible_empty_build(probe_filters, &mut |name| {
+                    dtype.as_struct_fields_opt()?.field(name)
+                });
+            let runtime_pred = (!empty)
+                .then(|| super::scan::admitted_runtime_predicate(probe_filters, dtype))
+                .flatten();
+            if empty || runtime_pred.is_some() {
+                context.check_cancelled()?;
+                {
+                    let mut owner = state
+                        .local_reader
+                        .try_borrow_mut()
+                        .map_err(|_| failed("local source reader is already active"))?;
+                    *owner =
+                        Some(source.open_with_runtime_filters(runtime_pred, empty, context)?);
+                }
+                return self.run_producer(index, context, metrics, Consumption::Query, consume);
+            }
+        }
+        #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
+        let _ = (probe_filters, residual_present);
+        self.run(index, context, metrics, consume)
+    }
+
     fn run(
         &self,
         index: usize,
@@ -1239,6 +1347,26 @@ impl VortexRelationalBatchInput<'_, '_> {
         consume: impl FnMut(super::super::collect::SerializedVortexResultBatch) -> Result<()>,
     ) -> Result<ExecutedVortexRelational> {
         self.prepared.for_each_json_batch_with_input(
+            cancellation,
+            batch_rows,
+            max_batch_bytes,
+            Some(self.input),
+            consume,
+        )
+    }
+
+    /// Materialize bounded binary Arrow IPC stream batches through the same native operation.
+    /// # Errors
+    /// Rejects invalid delivery bounds, unsupported Arrow schemas, cancellation, and failures.
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub fn for_each_arrow_ipc_batch(
+        self,
+        cancellation: &CancellationToken,
+        batch_rows: usize,
+        max_batch_bytes: usize,
+        consume: impl FnMut(crate::resident_session::SerializedArrowIpcBatch) -> Result<()>,
+    ) -> Result<ExecutedVortexRelational> {
+        self.prepared.for_each_arrow_ipc_batch_with_input(
             cancellation,
             batch_rows,
             max_batch_bytes,

@@ -1467,16 +1467,16 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "3a0ec87bc617f672e0b3dfbda23137d5ba23a61aeeff43b2e6075585633bb3b1",
+    "source_identity": "6e8a74607abd12acff32a423656954658f1b9dd1c394cd55108015b0375fae42",
     "source_inputs": {
-      "Cargo.lock": "c4a058c647813300978d6e316ecf8c52e4dd40f1137cfd9d2c7c478b456f1476",
-      "Cargo.toml": "3db8fee2fe573d1cb73d5031427f13d37377aff9428c37b056709888f420c808",
+      "Cargo.lock": "be1330cef33e791ea390a7e52b79ba82d64f6d210611a51c9b4ac39f707c967d",
+      "Cargo.toml": "cfaf3aa5f01c7c8e81f8b64bdfbc95d4a8113ddd452df05f23f16ffe2bf3e4ad",
       "docs/release/channel-proofs/pypi-v1.1.0-provenance.json": "56e349f401a1a35fbbbf53c1c916d615b3b894d23d42a05e77d7ca1f65bc1282",
       "docs/release/package-channel-readiness-matrix.json": "dfff6eeb5014ea635c52f8efc7419bcda66fa11012b15507486ca18903fc7785",
       "python/src/shardloom/_batch_function.py": "7664382a8750f196c2ee30f414e92b0c66cd15733e1561d9d1d2c5e0c2ee5cd3",
-      "python/src/shardloom/_batches.py": "21777bdff8bc866a4931592d204687e00a11ee1379ab2d4869132582eb20551a",
+      "python/src/shardloom/_batches.py": "8f9b94b3527e14ca42e0e819f6080881648efd7287a0ed04ca7baa74213bc716",
       "python/src/shardloom/_exports.py": "c0998197db5310d3e629372b81a0f3976131d389d190616945857b83efc6d0bd",
-      "python/src/shardloom/_result_schema.py": "aa26d4dd761b850934c408e8f8bafef4b58be7c686f280605cfb0ae1706c156a",
+      "python/src/shardloom/_result_schema.py": "d09749e4cdd0b8cf1638a235749db3be534ba13b6bcf76f03823e49df32713a1",
       "python/src/shardloom/_version.py": "597d4c348df09fd4bb9deb24b6592ebe5c93f992aec32b348c39eda9ea57ed17",
       "python/src/shardloom/_window.py": "812f97e1daaba678a9bab26261eb43dd5db17771a3e83d6479aa174f1cd6b316",
       "python/src/shardloom/adbc.py": "8ab2cc51e5f632561493e0b47bd693552dd45d19fa07ae5676571a23a95d0dba",
@@ -1488,7 +1488,7 @@
       "python/src/shardloom/functions.py": "567d95f04a5adb916bf85bd2e9db371b5c378c662178a75add493b37a1965529",
       "python/src/shardloom/models.py": "1c6d78f296f9f44eb826bc281197a516985407070e4253254dec94d7931af4b4",
       "python/src/shardloom/notebook.py": "b6c29d9b6c49ae76333be3fffc214ed05721a158bd4356bafdc020fb951207ab",
-      "python/src/shardloom/query.py": "f66d4c28154b118286a8ad326e5d70d07d1b86f48772637336b6be13fae51787",
+      "python/src/shardloom/query.py": "00ffb775dc3c2e141f0d9ce9ffcb5059edcda13afee78b93225bebfd7e600b10",
       "python/src/shardloom/quickstart.py": "5fa6e3d5b5fc8b136407d12a3698365c5d08fccb56474e50891950b4e34cc2b7",
       "python/src/shardloom/runtime_defaults.py": "eed9c30cbd7e76493105bf4ed8274bffa36dff43e3b286cd9d1867992839f45a",
       "python/src/shardloom/session.py": "599d83763d7e6c677e4372cb3c6e1432c518750f2b924549a145f994b400d454",
@@ -2322,7 +2322,7 @@
         "audience": "application",
         "kind": "class",
         "source": "python/src/shardloom/_batches.py",
-        "signature": "(index: 'int', result_rows: 'tuple[Mapping[str, Any], ...]', result_schema: 'tuple[tuple[str, ResultType], ...]') -> None",
+        "signature": "(index: 'int', result_rows: 'tuple[Mapping[str, Any], ...]', result_schema: 'tuple[tuple[str, ResultType], ...]')",
         "summary": "One provisional batch; success is established by the iterator's final report."
       },
       {
@@ -2331,7 +2331,7 @@
         "audience": "application",
         "kind": "class",
         "source": "python/src/shardloom/_batches.py",
-        "signature": "(client, args, *, inputs=None, batch_rows=2048, stream_results=True, check=True)",
+        "signature": "(client, args, *, inputs=None, batch_rows=2048, stream_results=True, check=True, wire_format='json')",
         "summary": "One native transaction with explicit backpressure and deterministic close."
       },
       {

@@ -108,6 +108,20 @@ impl Binder<'_> {
             return Err(failed("filter predicate must produce a nullable boolean"));
         }
         self.charge_named_fields(&input.fields)?;
+        if matches!(input.kind, NodeKind::Join { .. }) {
+            let Some(remaining) =
+                self.push_join_filter(&mut input, predicate, predicate_metadata)?
+            else {
+                return Ok(*input);
+            };
+            return Ok(Node {
+                fields: input.fields.clone(),
+                kind: NodeKind::Filter {
+                    input,
+                    predicate: remaining,
+                },
+            });
+        }
         if self.push_scan_filter(&mut input, &predicate, predicate_metadata)? {
             return Ok(*input);
         }

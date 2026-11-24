@@ -274,10 +274,16 @@ impl PreparedVortexRelational {
         if let Some(path) = self.source_paths.first() {
             return DatasetUri::new(path.display().to_string());
         }
-        self.memory_sources
+        if let Some((uri, _)) = self.memory_sources.first() {
+            return Ok(uri.clone());
+        }
+        #[cfg(feature = "vortex-write")]
+        if let Some((uri, _)) = self.owned_array_sources.first() {
+            return Ok(uri.clone());
+        }
+        self.batch_sources
             .first()
-            .map(|(uri, _)| uri.clone())
-            .or_else(|| self.batch_sources.first().map(|source| source.uri.clone()))
+            .map(|source| source.uri.clone())
             .ok_or_else(|| failed("relational source is absent"))
     }
 }

@@ -561,6 +561,64 @@ pub(super) fn build_expression_column<'a>(
 }
 
 #[cfg(unix)]
+pub(in crate::local_primitives) fn build_bool_buffers(
+    nullable: bool,
+    rows: usize,
+    allocator: &HostAllocatorRef,
+    mut fill: impl FnMut(&mut [u8], Option<&mut [u8]>) -> Result<()>,
+) -> Result<ArrayRef> {
+    let bytes = rows.div_ceil(8);
+    let mut validity = nullable
+        .then(|| allocate(allocator, bytes, 1))
+        .transpose()?;
+    let mut data = allocate(allocator, bytes, 1)?;
+    fill(
+        data.as_mut_slice(),
+        validity.as_mut().map(WritableHostBuffer::as_mut_slice),
+    )?;
+    let validity = validity
+        .map(|buffer| finish_validity(buffer.freeze(), rows, allocator))
+        .transpose()?
+        .unwrap_or(Validity::NonNullable);
+    let dtype = DType::Bool(if nullable {
+        vortex::array::dtype::Nullability::Nullable
+    } else {
+        vortex::array::dtype::Nullability::NonNullable
+    });
+    finish_column(&dtype, rows, data.freeze(), validity, None, allocator)
+}
+
+#[cfg(unix)]
+pub(in crate::local_primitives) fn build_primitive_buffers<
+    T: vortex::array::dtype::NativePType + vortex::array::memory::HostBufferElement,
+>(
+    dtype: &DType,
+    rows: usize,
+    allocator: &HostAllocatorRef,
+    mut fill: impl FnMut(&mut [T], Option<&mut [u8]>) -> Result<()>,
+) -> Result<ArrayRef> {
+    if !matches!(dtype, DType::Primitive(ptype, _) if *ptype == T::PTYPE) {
+        return Err(failed(
+            "typed numeric construction changed its declared dtype",
+        ));
+    }
+    let mut validity = dtype
+        .is_nullable()
+        .then(|| allocate(allocator, rows.div_ceil(8), 1))
+        .transpose()?;
+    let mut data = allocate(allocator, multiply(rows, size_of::<T>())?, align_of::<T>())?;
+    fill(
+        data.as_mut_slice_typed::<T>().map_err(vortex_error)?,
+        validity.as_mut().map(WritableHostBuffer::as_mut_slice),
+    )?;
+    let validity = validity
+        .map(|buffer| finish_validity(buffer.freeze(), rows, allocator))
+        .transpose()?
+        .unwrap_or(Validity::NonNullable);
+    finish_column(dtype, rows, data.freeze(), validity, None, allocator)
+}
+
+#[cfg(unix)]
 pub(super) fn build_numeric_column<
     T: vortex::array::dtype::NativePType + vortex::array::memory::HostBufferElement,
 >(

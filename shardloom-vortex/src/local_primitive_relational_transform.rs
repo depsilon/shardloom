@@ -24,6 +24,104 @@ pub(super) fn column_projection(expressions: &[native_relational_expression::Exp
     })
 }
 
+fn remap_probe_filters(
+    fields: &[(String, super::DType)],
+    expressions: &[native_relational_expression::Expression],
+    probe_filters: &[super::super::native_relational_probe_filter::ProbeRuntimeFilter],
+) -> Vec<super::super::native_relational_probe_filter::ProbeRuntimeFilter> {
+    if !column_projection(expressions) {
+        return Vec::new();
+    }
+    probe_filters
+        .iter()
+        .filter_map(|filter| {
+            filter.remap(|name| {
+                fields
+                    .iter()
+                    .zip(expressions)
+                    .find_map(|((out_name, _), expr)| {
+                        if out_name == name
+                            && let native_relational_expression::Kind::Column(source) = &expr.kind
+                        {
+                            Some(source.clone())
+                        } else {
+                            None
+                        }
+                    })
+            })
+        })
+        .collect()
+}
+
+fn pipeline_probe_filters(
+    stages: &[PipelineStage],
+    probe_filters: &[super::super::native_relational_probe_filter::ProbeRuntimeFilter],
+) -> Vec<super::super::native_relational_probe_filter::ProbeRuntimeFilter> {
+    let mut current = probe_filters.to_vec();
+    for stage in stages.iter().rev() {
+        if current.is_empty() {
+            break;
+        }
+        match &stage.kind {
+            PipelineKind::Project(expressions) => {
+                current = remap_probe_filters(&stage.fields, expressions, &current);
+            }
+            PipelineKind::Filter(predicate) if predicate.is_infallible_for_join_pushdown(true) => {}
+            _ => {
+                current.clear();
+                break;
+            }
+        }
+    }
+    current
+}
+
+struct PipelineState<'a> {
+    batch_rows: usize,
+    ranges: ReservedVec<(usize, usize)>,
+    observations: ReservedVec<(usize, super::native_relational_aggregate::Aggregate<'a>)>,
+}
+
+fn prepare_pipeline_state<'a>(
+    stages: &'a [PipelineStage],
+    metrics: &Metrics<'_>,
+    batch_rows: usize,
+    context: &NativeExecutionContext<'_>,
+) -> Result<PipelineState<'a>> {
+    let mut ranges = ReservedVec::new(context.memory())?;
+    let batch_rows = stages
+        .iter()
+        .fold(batch_rows, |rows, stage| match &stage.kind {
+            PipelineKind::ApplicationBatch(spec) => rows.min(spec.max_batch_rows()),
+            _ => rows,
+        });
+    ranges.reserve(stages.len())?;
+    let mut observations = ReservedVec::new(context.memory())?;
+    for (index, stage) in stages.iter().enumerate() {
+        if let PipelineKind::ApplicationBatch(spec) = &stage.kind {
+            spec.observation(metrics, context)?;
+        }
+        ranges.values.push(match stage.kind {
+            PipelineKind::Limit { offset, count } => (offset, count),
+            _ => (0, 0),
+        });
+        if let PipelineKind::Observe(observation) = &stage.kind {
+            observations.push((
+                index,
+                super::native_relational_aggregate::Aggregate::new(
+                    &observation.spec,
+                    context.memory(),
+                )?,
+            ))?;
+        }
+    }
+    Ok(PipelineState {
+        batch_rows,
+        ranges,
+        observations,
+    })
+}
+
 impl Node {
     /// Direct field selections preserve the producer's value-validation scope.
     pub(super) fn before_column_projections(&self) -> &Self {
@@ -41,46 +139,59 @@ impl Node {
 }
 
 impl PreparedVortexRelational {
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn run_transform(
         &self,
-        node: &Node,
+        kind: &NodeKind,
+        fields: &[(String, super::DType)],
         context: &NativeExecutionContext<'_>,
         metrics: &Metrics<'_>,
         batch_rows: usize,
         parameter: Option<&ArrayRef>,
+        probe_filters: &[super::super::native_relational_probe_filter::ProbeRuntimeFilter],
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<()> {
-        match &node.kind {
-            NodeKind::Project { input, expressions } => self.run(
-                input,
-                context,
-                metrics,
-                batch_rows,
-                parameter,
-                &mut |array| consume(project_array(&node.fields, expressions, &array, context)?),
-            ),
-            NodeKind::Filter { input, predicate } => {
-                let recipe = predicate.filter_recipe();
-                self.run(
+        match kind {
+            NodeKind::Project { input, expressions } => {
+                let child_filters = if !probe_filters.is_empty() && column_projection(expressions) {
+                    remap_probe_filters(fields, expressions, probe_filters)
+                } else {
+                    Vec::new()
+                };
+                self.run_with_probe_filters(
                     input,
                     context,
                     metrics,
                     batch_rows,
                     parameter,
+                    &child_filters,
+                    &mut |array| consume(project_array(fields, expressions, &array, context)?),
+                )
+            }
+            NodeKind::Filter { input, predicate } => {
+                let recipe = predicate.filter_recipe();
+                let child_filters = if !probe_filters.is_empty()
+                    && predicate.is_infallible_for_join_pushdown(true)
+                {
+                    probe_filters
+                } else {
+                    &[]
+                };
+                self.run_with_probe_filters(
+                    input,
+                    context,
+                    metrics,
+                    batch_rows,
+                    parameter,
+                    child_filters,
                     &mut |array| {
                         let rows = filter_rows(predicate, recipe, &array, context)?;
-                        rows.for_each_batch(
-                            &array,
-                            &node.fields,
-                            array.len().max(1),
-                            context,
-                            consume,
-                        )
+                        rows.for_each_batch(&array, fields, array.len().max(1), context, consume)
                     },
                 )
             }
             NodeKind::Sort { .. } => {
-                self.run_sort(node, context, metrics, batch_rows, parameter, consume)
+                self.run_sort(kind, context, metrics, batch_rows, parameter, consume)
             }
             NodeKind::Limit {
                 input,
@@ -125,6 +236,7 @@ impl PreparedVortexRelational {
         metrics: &Metrics<'_>,
         batch_rows: usize,
         parameter: Option<&ArrayRef>,
+        probe_filters: &[super::super::native_relational_probe_filter::ProbeRuntimeFilter],
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<()> {
         if metrics.input.is_none()
@@ -136,39 +248,19 @@ impl PreparedVortexRelational {
         {
             return Ok(());
         }
-        let mut ranges = ReservedVec::new(context.memory())?;
-        let batch_rows = stages
-            .iter()
-            .fold(batch_rows, |rows, stage| match &stage.kind {
-                PipelineKind::ApplicationBatch(spec) => rows.min(spec.max_batch_rows()),
-                _ => rows,
-            });
-        ranges.reserve(stages.len())?;
-        let mut observations = ReservedVec::new(context.memory())?;
-        for (index, stage) in stages.iter().enumerate() {
-            if let PipelineKind::ApplicationBatch(spec) = &stage.kind {
-                spec.observation(metrics, context)?;
-            }
-            ranges.values.push(match stage.kind {
-                PipelineKind::Limit { offset, count } => (offset, count),
-                _ => (0, 0),
-            });
-            if let PipelineKind::Observe(observation) = &stage.kind {
-                observations.push((
-                    index,
-                    super::native_relational_aggregate::Aggregate::new(
-                        &observation.spec,
-                        context.memory(),
-                    )?,
-                ))?;
-            }
-        }
-        self.run(
+        let child_filters = pipeline_probe_filters(stages, probe_filters);
+        let PipelineState {
+            batch_rows,
+            mut ranges,
+            mut observations,
+        } = prepare_pipeline_state(stages, metrics, batch_rows, context)?;
+        self.run_with_probe_filters(
             input,
             context,
             metrics,
             batch_rows,
             parameter,
+            &child_filters,
             &mut |mut array| {
                 let mut observation_index = 0;
                 for (index, stage) in stages.iter().enumerate() {
@@ -230,7 +322,7 @@ impl PreparedVortexRelational {
 
     fn run_sort(
         &self,
-        node: &Node,
+        kind: &NodeKind,
         context: &NativeExecutionContext<'_>,
         metrics: &Metrics<'_>,
         batch_rows: usize,
@@ -241,7 +333,7 @@ impl PreparedVortexRelational {
             input,
             spec,
             output_prefix,
-        } = &node.kind
+        } = kind
         else {
             return Err(failed("sort dispatch received another operator"));
         };
@@ -267,7 +359,7 @@ impl PreparedVortexRelational {
         }
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
         if spec.unobserved_fields.is_empty()
-            && self.run_ranked_sort(node, context, metrics, batch_rows, parameter, consume)?
+            && self.run_ranked_sort(kind, context, metrics, batch_rows, parameter, consume)?
         {
             return Ok(());
         }

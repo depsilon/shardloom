@@ -1,5 +1,6 @@
 use std::{
     fs,
+    ops::Deref,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -10,18 +11,39 @@ fn field(key: &str, value: &str) -> String {
     format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
 }
 
-fn unique_target_dir(label: &str) -> PathBuf {
-    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .expect("workspace root")
-        .join("target")
+struct TempTestDir(PathBuf);
+
+impl Deref for TempTestDir {
+    type Target = Path;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl AsRef<Path> for TempTestDir {
+    fn as_ref(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for TempTestDir {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+fn unique_target_dir(label: &str) -> TempTestDir {
+    let dir = std::env::temp_dir()
+        .join("shardloom-sqlite-smoke")
         .join(format!(
             "{label}-{}-{}",
             std::process::id(),
             std::thread::current().name().unwrap_or("test")
         ));
+    let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).expect("target dir");
-    dir
+    TempTestDir(dir)
 }
 
 fn create_sqlite_fixture(path: &Path) {
@@ -151,7 +173,6 @@ fn sqlite_declared_bytes_guard_source_and_preserve_existing_outputs() {
             .unwrap()
             .contains("\"label\":\"alpha\"")
     );
-    fs::remove_dir_all(dir).unwrap();
 }
 
 #[test]

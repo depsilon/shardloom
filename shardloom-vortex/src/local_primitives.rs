@@ -225,6 +225,9 @@ mod native_relational_order;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_output_buffer.rs"]
 mod native_relational_output_buffer;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_relational_probe_filter.rs"]
+mod native_relational_probe_filter;
 #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
 #[path = "local_primitives/native_relational_record_output.rs"]
 mod native_relational_record_output;
@@ -374,7 +377,7 @@ mod aggregate_owned;
 mod aggregate_result_values;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitive_completed_result.rs"]
-mod completed_result;
+pub(crate) mod completed_result;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitive_json_sink.rs"]
 mod json_sink;

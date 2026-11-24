@@ -140,10 +140,15 @@ fn dense_integer_join_prepared_streams_preserve_completion_spill_and_escaped_own
                         let expected = u64::from(!(stream_right && late_error));
                         assert_eq!(report.integer_lookup_work[0].admitted, expected);
                         if expected != 0 {
-                            let probe_rows = if stream_right {
+                            let base_probe_rows = if stream_right {
                                 file_rows.len()
                             } else {
                                 stream_rows.len()
+                            };
+                            let probe_rows = if kind == JoinKind::Inner {
+                                129
+                            } else {
+                                base_probe_rows
                             };
                             assert_eq!(report.integer_lookup_work[0].probe_rows, probe_rows as u64);
                         }

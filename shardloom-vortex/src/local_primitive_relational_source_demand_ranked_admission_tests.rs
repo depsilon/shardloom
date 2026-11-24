@@ -42,7 +42,7 @@ fn ranked_admission_declines_before_source_work_and_preserves_native_execution()
                     .reserve(memory.limit_bytes - memory.reserved_bytes)?;
                 let before = context.memory().snapshot();
                 assert!(!prepared.run_ranked_sort(
-                    sort,
+                    &sort.kind,
                     context,
                     &metrics,
                     7,

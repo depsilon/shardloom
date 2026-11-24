@@ -55,14 +55,14 @@ fn timestamp_writer(session: &VortexSession) -> Arc<dyn LayoutStrategy> {
     )
 }
 
-pub(super) fn root_writer(
+pub(crate) fn root_writer(
     dtype: &DType,
     session: &VortexSession,
 ) -> Option<Arc<dyn LayoutStrategy>> {
     is_full_domain_timestamp(dtype).then(|| timestamp_writer(session))
 }
 
-pub(super) fn field_writers(
+pub(crate) fn field_writers(
     dtype: &DType,
     session: &VortexSession,
 ) -> Vec<(FieldPath, Arc<dyn LayoutStrategy>)> {

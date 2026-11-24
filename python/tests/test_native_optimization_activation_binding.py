@@ -70,7 +70,7 @@ class NativeOptimizationActivationTests(unittest.TestCase):
     def setUpClass(cls):
         cls.native = _load_native()
 
-    def check_work(self, fields, requirement, extension):
+    def check_work(self, fields, requirement, extension, case_id=""):
         self.assertEqual(fields["fallback_attempted"], "false")
         self.assertEqual(fields["external_engine_invoked"], "false")
         if requirement.startswith("count_"):
@@ -102,6 +102,18 @@ class NativeOptimizationActivationTests(unittest.TestCase):
                     # addressing; its counters describe only actual filter work.
                     self.assertEqual(runtime_filter["probe_rows"], 0)
                     self.assertEqual(runtime_filter["rejected_rows"], 0)
+                elif case_id.endswith(("_inner", "_right", "_semi")):
+                    # Inner/right/semi joins push build-side min/max + Bloom
+                    # filters into the probe scan, pruning non-matching probe
+                    # rows before post-key-validation join probing.
+                    self.assertGreaterEqual(runtime_filter["probe_rows"], 2)
+                    self.assertLessEqual(runtime_filter["probe_rows"], 10)
+                    if extension == "vortex":
+                        delivered = [
+                            row["delivered_rows"]
+                            for row in evidence(fields, "file_scans")["contracts"]
+                        ]
+                        self.assertEqual(sorted(delivered), [2, 198])
                 else:
                     self.assertEqual(runtime_filter["probe_rows"], 514)
                     self.assertGreater(runtime_filter["rejected_rows"], 450)
@@ -178,7 +190,7 @@ class NativeOptimizationActivationTests(unittest.TestCase):
                                     actual, report = execute(item.relation, sources, surface, **kwargs)
                             compare(expected, actual, item.contract)
                             self.assertTrue(report["complete_consumption"])
-                            self.check_work(report["fields"], requirement, extension)
+                            self.check_work(report["fields"], requirement, extension, item.id)
                             if (requirement, extension, surface) == ("cyclic", "vortex", "dataframe"):
                                 work = evidence(report["fields"], "join_work")["cyclic"]
                                 self.assertGreater(work["middle_payload_rows_validated"], 0)

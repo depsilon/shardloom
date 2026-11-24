@@ -15,6 +15,14 @@ introduce a competing current queue.
 Status words in historical sections below describe evidence recorded at the time of the original
 phase note. They are not active queue state and do not override `phased-execution-plan.md`.
 
+The November 23 [pure-AST SQL parser and canonical plan binder specification](../rfcs/0049-pure-ast-sql-parser-and-plan-binder.md)
+approves `sqlparser = "=0.64.0"` (`default-features = false, features = ["std"]`, `Apache-2.0`,
+`#! [forbid(unsafe_code)]`, `build = false`, isolated to `shardloom-plan`) and its companion
+[dependency review](../dependencies/sqlparser-dependency-review.md) under `E2E-ARCH-02`, replacing
+handwritten SQL splitters across `shardloom-cli` and `python/src/shardloom/query.py` while
+preserving RFCs 0011/0012/0021/0022, zero DataFusion/DuckDB/Spark/Polars/Velox crates in
+`Cargo.lock`, and independent proof obligations across CG-1 through CG-23.
+
 The November 21 [portable serverless worker and durable artifacts specification](../rfcs/0047-portable-serverless-worker-and-durable-artifacts.md)
 implements Deliveries 1 and 2 of the November 8
 [portable serverless execution queue](native-serverless-execution-2026-11-08.md) (`PortableWorker`,

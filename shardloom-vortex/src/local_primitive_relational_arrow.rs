@@ -121,6 +121,146 @@ impl PreparedVortexRelational {
         sampling.complete();
         Ok(result)
     }
+
+    /// Convert and serialize one bounded binary Arrow IPC batch at a time
+    /// without row/JSON cell materialization.
+    ///
+    /// # Errors
+    /// Propagates cancellation, invalid bounds, source changes, consumer
+    /// failures, unsupported Arrow representations, and shared-memory refusal.
+    pub fn for_each_arrow_ipc_batch(
+        &self,
+        cancellation: &CancellationToken,
+        batch_rows: usize,
+        max_batch_bytes: usize,
+        consume: impl FnMut(crate::resident_session::SerializedArrowIpcBatch) -> Result<()>,
+    ) -> Result<ExecutedVortexRelational> {
+        self.for_each_arrow_ipc_batch_with_input(
+            cancellation,
+            batch_rows,
+            max_batch_bytes,
+            None,
+            consume,
+        )
+    }
+
+    pub(super) fn for_each_arrow_ipc_batch_with_input(
+        &self,
+        cancellation: &CancellationToken,
+        batch_rows: usize,
+        max_batch_bytes: usize,
+        input: Option<super::batch_input::Provider<'_>>,
+        mut consume: impl FnMut(crate::resident_session::SerializedArrowIpcBatch) -> Result<()>,
+    ) -> Result<ExecutedVortexRelational> {
+        let sampling = self.sampling_failure_guard();
+        if batch_rows == 0
+            || batch_rows > super::BATCH_ROWS
+            || max_batch_bytes == 0
+            || max_batch_bytes > 8 * 1024 * 1024
+        {
+            return Err(failed(
+                "Arrow IPC batches require 1..=2,048 rows and 1..=8 MiB",
+            ));
+        }
+        let mut execution = self.for_each_batch_with_input(
+            cancellation,
+            batch_rows,
+            super::FileScanBatching::Output,
+            input,
+            |array, context| {
+                let batch = crate::resident_session::serialize_array_arrow_ipc(
+                    &array,
+                    max_batch_bytes,
+                    context,
+                )?;
+                consume(batch)
+            },
+        )?;
+        certify_arrow_ipc_delivery(
+            &mut execution.native_io_certificate,
+            execution.output_rows,
+            batch_rows,
+        )?;
+        execution.runtime = self.snapshot();
+        sampling.complete();
+        Ok(execution)
+    }
+}
+
+fn certify_arrow_ipc_delivery(
+    certificate: &mut shardloom_core::NativeIoCertificate,
+    rows: u64,
+    batch_rows: usize,
+) -> Result<()> {
+    use shardloom_core::{
+        NativeIoAdapterFidelityReport, NativeIoMaterializationBoundaryReport,
+        NativeIoRepresentationTransition, NativeIoSinkRequirementReport, RepresentationState,
+    };
+    if !certificate.is_certified() {
+        return Err(failed(
+            "Arrow IPC delivery requires certified native execution",
+        ));
+    }
+    let from_state = certificate
+        .representation_transitions
+        .last()
+        .map_or(RepresentationState::DecodedColumnar, |transition| {
+            transition.to_state
+        });
+    certificate
+        .representation_transitions
+        .push(NativeIoRepresentationTransition::new(
+            from_state,
+            RepresentationState::DecodedColumnar,
+            false,
+        ));
+    certificate.sink_requirement_report = NativeIoSinkRequirementReport {
+        target_format: "arrow_ipc_stream".into(),
+        accepts_encoded: false,
+        requires_decoded_columnar: true,
+        requires_rows: false,
+        preserves_metadata: false,
+        requires_ordering: true,
+        requires_partitioning: false,
+        requires_commit: false,
+        supports_streaming: true,
+        max_chunk_size: Some(batch_rows as u64),
+        backpressure_policy: "synchronous_consumer_controls_next_batch".into(),
+    };
+    certificate.adapter_fidelity_report = NativeIoAdapterFidelityReport {
+        adapter_id: "shardloom.resident_vortex.arrow_ipc_stream_sink.v1".into(),
+        source_kind: "vortex".into(),
+        sink_kind: "arrow_ipc".into(),
+        metadata_preserved: false,
+        statistics_preserved: false,
+        encoded_representation_preserved: false,
+        materialization_required: false,
+        fidelity_loss: "Arrow IPC stream preserves logical Arrow types and nullability without row/JSON materialization; Vortex physical encodings and statistics are not persisted".into(),
+        metadata_loss: "Vortex physical encodings, statistics and metadata not exported".into(),
+        fallback_attempted: false,
+    };
+    certificate
+        .materialization_boundaries
+        .push(NativeIoMaterializationBoundaryReport {
+        boundary_id: "resident_arrow_ipc_batch_sink".into(),
+        from_state,
+        to_state: RepresentationState::DecodedColumnar,
+        required_by: "explicit_arrow_ipc_batch_consumption".into(),
+        reason:
+            "explicit columnar Arrow IPC framing at worker boundary; no row/JSON cell conversion"
+                .into(),
+        bytes_decoded: 0,
+        rows_materialized: rows,
+        fidelity_loss:
+            "physical Vortex encodings, statistics and metadata are not part of Arrow IPC".into(),
+        fallback_attempted: false,
+    });
+    certificate.side_effects.data_decoded |= rows > 0;
+    certificate
+        .source_pushdown_report
+        .proof_basis
+        .push_str(";complete_native_batches_to_incremental_arrow_ipc;no_query_replay=true");
+    Ok(())
 }
 
 fn finish_delivery(

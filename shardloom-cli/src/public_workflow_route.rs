@@ -5671,94 +5671,18 @@ struct SqlSourceRefRange {
     quoted: bool,
 }
 
-#[derive(Default)]
-struct SqlSourceScope<'a> {
-    select: bool,
-    source_clause: bool,
-    expect_source: bool,
-    previous_word: &'a str,
-}
-
 /// Locate source tokens without touching values, comments or expression FROMs.
-/// Each parenthesized scope must introduce its own SELECT before admitting a
-/// source. The complete SQL parser still owns syntax and semantic admission.
+/// Backed by the canonical SQL tokenizer in `shardloom-plan`.
 fn sql_source_ref_ranges(statement: &str) -> Vec<SqlSourceRefRange> {
-    let mut ranges = Vec::new();
-    let mut scopes = vec![SqlSourceScope::default()];
-    let mut index = 0;
-    while index < statement.len() {
-        let remaining = trim_sql_leading_comments_and_whitespace(&statement[index..]);
-        index = statement.len() - remaining.len();
-        let Some(byte) = remaining.as_bytes().first().copied() else {
-            break;
-        };
-        let scope = scopes.last_mut().expect("root SQL scope is retained");
-        if byte == b'\'' || byte == b'"' {
-            let Some((value, consumed)) = leading_quoted_sql_literal_with_consumed(remaining)
-            else {
-                break;
-            };
-            if scope.expect_source {
-                ranges.push(SqlSourceRefRange {
-                    value,
-                    start: index,
-                    end: index + consumed,
-                    quoted: true,
-                });
-            }
-            scope.expect_source = false;
-            scope.previous_word = "";
-            index += consumed;
-        } else if byte.is_ascii_alphabetic() || byte == b'_' {
-            let consumed = remaining
-                .bytes()
-                .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
-                .count();
-            let word = &remaining[..consumed];
-            if scope.expect_source {
-                ranges.push(SqlSourceRefRange {
-                    value: word.to_string(),
-                    start: index,
-                    end: index + consumed,
-                    quoted: false,
-                });
-                scope.expect_source = false;
-            } else if word.eq_ignore_ascii_case("select") {
-                scope.select = true;
-                scope.source_clause = false;
-            } else if scope.select
-                && ((word.eq_ignore_ascii_case("from")
-                    && !scope.previous_word.eq_ignore_ascii_case("distinct"))
-                    || (word.eq_ignore_ascii_case("join") && scope.source_clause))
-            {
-                scope.source_clause = true;
-                scope.expect_source = true;
-            } else if ["where", "group", "having", "order", "limit", "offset"]
-                .iter()
-                .any(|keyword| word.eq_ignore_ascii_case(keyword))
-            {
-                scope.source_clause = false;
-            }
-            scope.previous_word = word;
-            index += consumed;
-        } else {
-            scope.expect_source = false;
-            scope.previous_word = "";
-            match byte {
-                b'(' => scopes.push(SqlSourceScope::default()),
-                b')' if scopes.len() > 1 => {
-                    scopes.pop();
-                }
-                _ => {}
-            }
-            index += remaining
-                .chars()
-                .next()
-                .expect("nonempty SQL tail")
-                .len_utf8();
-        }
-    }
-    ranges
+    shardloom_plan::sql_binder::extract_source_ref_spans(statement)
+        .into_iter()
+        .map(|span| SqlSourceRefRange {
+            value: span.value,
+            start: span.start,
+            end: span.end,
+            quoted: span.quoted,
+        })
+        .collect()
 }
 
 fn declared_sql_source_identifier_matches(source_ref: &str, old_ref: &str) -> bool {
@@ -8385,20 +8309,7 @@ fn infer_native_vortex_sql_payload(
 /// Lexical dispatch only; native parsing still admits the complete statement.
 /// Quoted paths and string values cannot select an execution family.
 fn native_relational_sql_candidate(statement: &str) -> bool {
-    let masked = sql_without_string_literal_contents(statement);
-    let mut selects = 0;
-    for token in masked.split(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '_')) {
-        if token.eq_ignore_ascii_case("select") {
-            selects += 1;
-        }
-        if ["join", "union", "intersect", "except", "over"]
-            .iter()
-            .any(|keyword| token.eq_ignore_ascii_case(keyword))
-        {
-            return true;
-        }
-    }
-    selects > 1
+    shardloom_plan::sql_binder::is_relational_sql_candidate(statement)
 }
 
 #[derive(Debug, Clone)]
@@ -8603,74 +8514,18 @@ fn infer_native_vortex_sql_primitive_payload(
 fn parse_native_vortex_sql_single_source_shape(
     statement: &str,
 ) -> Option<NativeVortexSqlSingleSourceShape> {
-    let normalized = statement.trim().trim_end_matches(';').trim();
-    if !sql_keyword_prefix(normalized, "SELECT") {
-        return None;
-    }
-    let select_body = normalized["SELECT".len()..].trim();
-    let mut start = 0;
-    let from_position = loop {
-        let position =
-            start + find_sql_keyword_outside_quotes_and_parens(&select_body[start..], "FROM")?;
-        let mut preceding = select_body[..position].split_whitespace().rev();
-        let distinct = preceding
-            .next()
-            .is_some_and(|word| word.eq_ignore_ascii_case("distinct"));
-        let modifier = preceding.next();
-        let null_safe = distinct
-            && (modifier.is_some_and(|word| word.eq_ignore_ascii_case("is"))
-                || (modifier.is_some_and(|word| word.eq_ignore_ascii_case("not"))
-                    && preceding
-                        .next()
-                        .is_some_and(|word| word.eq_ignore_ascii_case("is"))));
-        if !null_safe {
-            break position;
-        }
-        start = position + "FROM".len();
-    };
-    let projection = select_body[..from_position].trim();
-    let from_tail = select_body[from_position + "FROM".len()..].trim();
-    let (source_ref, consumed) = leading_sql_source_ref_with_consumed(from_tail)?;
-    let tail = from_tail[consumed..].trim();
-    let tail = parse_native_vortex_sql_allowed_tail(tail)?;
+    let shape = shardloom_plan::sql_binder::extract_single_source_shape(statement)?;
     Some(NativeVortexSqlSingleSourceShape {
-        projection: projection.to_string(),
-        source_ref,
-        source_is_identifier: !from_tail.starts_with(['\'', '"']),
-        where_clause: tail.where_clause,
-        group_by: tail.group_by,
-        having: tail.having,
-        order_by: tail.order_by,
-        limit: tail.limit,
-        offset: tail.offset,
+        projection: shape.projection,
+        source_ref: shape.source_ref,
+        source_is_identifier: shape.source_is_identifier,
+        where_clause: shape.where_clause,
+        group_by: shape.group_by,
+        having: shape.having,
+        order_by: shape.order_by,
+        limit: shape.limit,
+        offset: shape.offset,
     })
-}
-
-fn leading_sql_source_ref_with_consumed(value: &str) -> Option<(String, usize)> {
-    if let Some(quoted) = leading_quoted_sql_literal_with_consumed(value) {
-        return Some(quoted);
-    }
-    let trimmed = value.trim_start();
-    let leading_ws = value.len() - trimmed.len();
-    let consumed_identifier = trimmed
-        .char_indices()
-        .take_while(|(index, ch)| {
-            if *index == 0 {
-                *ch == '_' || ch.is_ascii_alphabetic()
-            } else {
-                *ch == '_' || ch.is_ascii_alphanumeric()
-            }
-        })
-        .map(|(index, ch)| index + ch.len_utf8())
-        .last()
-        .unwrap_or(0);
-    if consumed_identifier == 0 {
-        return None;
-    }
-    Some((
-        trimmed[..consumed_identifier].to_string(),
-        leading_ws + consumed_identifier,
-    ))
 }
 
 fn native_vortex_sql_source_ref_matches_request(
@@ -8686,114 +8541,6 @@ fn native_vortex_sql_source_ref_matches_request(
             uri == source_ref
                 || (source_is_identifier && declared_sql_source_identifier_matches(source_ref, uri))
         })
-}
-
-#[derive(Debug, Clone, Default)]
-struct NativeVortexSqlTailClauses {
-    where_clause: Option<String>,
-    group_by: Option<String>,
-    having: Option<String>,
-    order_by: Option<String>,
-    limit: Option<String>,
-    offset: Option<String>,
-}
-
-fn parse_native_vortex_sql_allowed_tail(tail: &str) -> Option<NativeVortexSqlTailClauses> {
-    let mut rest = tail.trim();
-    let mut clauses = NativeVortexSqlTailClauses::default();
-    if rest.is_empty() {
-        return Some(clauses);
-    }
-    if sql_keyword_prefix(rest, "WHERE") {
-        rest = rest["WHERE".len()..].trim();
-        let (clause, tail) =
-            take_sql_clause_until(rest, &["GROUP BY", "HAVING", "ORDER BY", "LIMIT", "OFFSET"]);
-        if clause.is_empty() {
-            return None;
-        }
-        clauses.where_clause = Some(clause.to_string());
-        rest = tail;
-    }
-    if sql_keyword_prefix(rest, "GROUP BY") {
-        rest = rest["GROUP BY".len()..].trim();
-        let (clause, tail) =
-            take_sql_clause_until(rest, &["HAVING", "ORDER BY", "LIMIT", "OFFSET"]);
-        if clause.is_empty() {
-            return None;
-        }
-        clauses.group_by = Some(clause.to_string());
-        rest = tail;
-    }
-    if sql_keyword_prefix(rest, "HAVING") {
-        rest = rest["HAVING".len()..].trim();
-        let (clause, tail) = take_sql_clause_until(rest, &["ORDER BY", "LIMIT", "OFFSET"]);
-        if clause.is_empty() {
-            return None;
-        }
-        clauses.having = Some(clause.to_string());
-        rest = tail;
-    }
-    if sql_keyword_prefix(rest, "ORDER BY") {
-        rest = rest["ORDER BY".len()..].trim();
-        let (clause, tail) = take_sql_clause_until(rest, &["LIMIT", "OFFSET"]);
-        if clause.is_empty() {
-            return None;
-        }
-        clauses.order_by = Some(clause.to_string());
-        rest = tail;
-    }
-    if sql_keyword_prefix(rest, "LIMIT") {
-        rest = rest["LIMIT".len()..].trim();
-        let (clause, tail) = take_sql_clause_until(rest, &["OFFSET"]);
-        clauses.limit = Some(parse_native_vortex_sql_limit_literal(clause)?);
-        rest = tail;
-    }
-    if sql_keyword_prefix(rest, "OFFSET") {
-        rest = rest["OFFSET".len()..].trim();
-        let (clause, tail) = take_sql_clause_until(rest, &[]);
-        clauses.offset = Some(parse_native_vortex_sql_limit_literal(clause)?);
-        rest = tail;
-    }
-    rest.trim().is_empty().then_some(clauses)
-}
-
-fn take_sql_clause_until<'a>(value: &'a str, keywords: &[&str]) -> (&'a str, &'a str) {
-    if keywords.is_empty() {
-        return (value.trim(), "");
-    }
-    let Some((position, _keyword)) =
-        find_first_sql_keyword_outside_quotes_and_parens(value, keywords)
-    else {
-        return (value.trim(), "");
-    };
-    (value[..position].trim(), value[position..].trim())
-}
-
-fn find_first_sql_keyword_outside_quotes_and_parens<'a>(
-    value: &str,
-    keywords: &'a [&str],
-) -> Option<(usize, &'a str)> {
-    keywords
-        .iter()
-        .filter_map(|keyword| {
-            find_sql_keyword_outside_quotes_and_parens(value, keyword)
-                .map(|position| (position, *keyword))
-        })
-        .min_by_key(|(position, _keyword)| *position)
-}
-
-fn parse_native_vortex_sql_limit_literal(value: &str) -> Option<String> {
-    let value = value.trim();
-    let digit_count = value
-        .as_bytes()
-        .iter()
-        .take_while(|byte| byte.is_ascii_digit())
-        .count();
-    if digit_count == 0 || !value[digit_count..].trim().is_empty() {
-        return None;
-    }
-    let limit = &value[..digit_count];
-    limit.parse::<usize>().ok().map(|_| limit.to_string())
 }
 
 fn normalize_sql_projection_columns(projection: &str) -> Option<String> {
@@ -9625,41 +9372,23 @@ fn normalize_sql_group_item(item: &str) -> Option<String> {
 }
 
 fn split_sql_projection_list(projection: &str) -> Vec<&str> {
-    let mut items = Vec::new();
-    let mut start = 0usize;
-    let mut depth = 0usize;
-    let mut in_single_quote = false;
-    let bytes = projection.as_bytes();
-    let mut index = 0usize;
-    while index < bytes.len() {
-        let byte = bytes[index];
-        match byte {
-            b'\'' => {
-                in_single_quote = !in_single_quote;
-            }
-            b'(' if !in_single_quote => depth = depth.saturating_add(1),
-            b')' if !in_single_quote => depth = depth.saturating_sub(1),
-            b',' if !in_single_quote && depth == 0 => {
-                items.push(projection[start..index].trim());
-                start = index + 1;
-            }
-            _ => {}
-        }
-        index += 1;
+    let trimmed = projection.trim();
+    if let Ok(items) = shardloom_plan::sql_binder::split_top_level_csv_slices(trimmed) {
+        return items.into_iter().filter(|item| !item.is_empty()).collect();
     }
-    items.push(projection[start..].trim());
-    items.into_iter().filter(|item| !item.is_empty()).collect()
+    if trimmed.is_empty() {
+        Vec::new()
+    } else {
+        vec![trimmed]
+    }
 }
 
 fn strip_sql_alias(item: &str) -> &str {
-    find_sql_keyword_outside_quotes_and_parens(item, "AS")
-        .map_or(item, |position| item[..position].trim())
+    shardloom_plan::sql_binder::split_sql_alias(item).0
 }
 
 fn sql_explicit_alias(item: &str) -> Option<&str> {
-    let position = find_sql_keyword_outside_quotes_and_parens(item, "AS")?;
-    let alias = item[position + "AS".len()..].trim();
-    (!alias.is_empty()).then_some(alias)
+    shardloom_plan::sql_binder::split_sql_alias(item).1
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -10757,29 +10486,11 @@ fn infer_native_vortex_basic_primitive_payload(
 }
 
 fn quoted_source_refs(value: &str) -> Vec<String> {
-    let mut refs = Vec::new();
-    let mut chars = value.char_indices().peekable();
-    while let Some((_, ch)) = chars.next() {
-        if ch != '\'' {
-            continue;
-        }
-        let mut current = String::new();
-        while let Some((_, inner)) = chars.next() {
-            if inner == '\'' {
-                if matches!(chars.peek(), Some((_, '\''))) {
-                    current.push('\'');
-                    chars.next();
-                    continue;
-                }
-                break;
-            }
-            current.push(inner);
-        }
-        if !current.is_empty() {
-            refs.push(current);
-        }
-    }
-    refs
+    shardloom_plan::sql_binder::extract_source_ref_spans(value)
+        .into_iter()
+        .filter(|span| span.quoted && !span.value.is_empty())
+        .map(|span| span.value)
+        .collect()
 }
 
 fn compact_ascii_lower(value: &str) -> String {
@@ -10788,29 +10499,6 @@ fn compact_ascii_lower(value: &str) -> String {
         .filter(|ch| !ch.is_whitespace())
         .flat_map(char::to_lowercase)
         .collect()
-}
-
-fn sql_without_string_literal_contents(value: &str) -> String {
-    let mut masked = String::with_capacity(value.len());
-    let mut chars = value.char_indices().peekable();
-    while let Some((_, ch)) = chars.next() {
-        if ch != '\'' {
-            masked.push(ch);
-            continue;
-        }
-        masked.push('\'');
-        while let Some((_, inner)) = chars.next() {
-            if inner == '\'' {
-                if matches!(chars.peek(), Some((_, '\''))) {
-                    chars.next();
-                    continue;
-                }
-                masked.push('\'');
-                break;
-            }
-        }
-    }
-    masked
 }
 
 fn summary_tiny_predicate_from_sql(value: &str) -> Option<String> {
@@ -10961,19 +10649,7 @@ fn parse_summary_in_predicate(value: &str) -> Option<(&str, Vec<String>, bool)> 
 }
 
 fn split_sql_conjunction_predicates(value: &str) -> Vec<&str> {
-    let mut out = Vec::new();
-    let mut rest = value.trim();
-    while let Some(position) = find_sql_keyword_outside_quotes_and_parens(rest, "AND") {
-        let head = rest[..position].trim();
-        if !head.is_empty() {
-            out.push(head);
-        }
-        rest = rest[position + "AND".len()..].trim();
-    }
-    if !rest.is_empty() {
-        out.push(rest);
-    }
-    out
+    shardloom_plan::sql_binder::split_top_level_conjunctions(value)
 }
 
 fn summary_sql_literal_to_tiny_scalar(value: &str) -> Option<String> {
@@ -13553,123 +13229,10 @@ fn plan_summary_has_limit(summary: &str) -> bool {
     summary.to_ascii_lowercase().contains("limit(")
 }
 
-fn sql_keyword_prefix(raw: &str, keyword: &str) -> bool {
-    let trimmed = trim_sql_leading_comments_and_whitespace(raw);
-    let Some(prefix) = trimmed.get(..keyword.len()) else {
-        return false;
-    };
-    prefix.eq_ignore_ascii_case(keyword)
-        && trimmed
-            .as_bytes()
-            .get(keyword.len())
-            .is_none_or(|byte| !byte.is_ascii_alphanumeric() && *byte != b'_')
-}
-
 fn find_sql_keyword_outside_quotes_and_parens(raw: &str, keyword: &str) -> Option<usize> {
-    let bytes = raw.as_bytes();
-    let keyword_bytes = keyword.as_bytes();
-    let mut quote_char: Option<u8> = None;
-    let mut paren_depth = 0usize;
-    let mut index = 0usize;
-    while index < bytes.len() {
-        if quote_char.is_none() {
-            if bytes[index] == b'-' && bytes.get(index + 1) == Some(&b'-') {
-                index += 2;
-                while index < bytes.len() && bytes[index] != b'\n' {
-                    index += 1;
-                }
-                continue;
-            }
-            if bytes[index] == b'/' && bytes.get(index + 1) == Some(&b'*') {
-                index += 2;
-                while index + 1 < bytes.len() && !(bytes[index] == b'*' && bytes[index + 1] == b'/')
-                {
-                    index += 1;
-                }
-                index = (index + 2).min(bytes.len());
-                continue;
-            }
-        }
-        match bytes[index] {
-            b'\'' | b'"' => {
-                let byte = bytes[index];
-                if quote_char == Some(byte) {
-                    if byte == b'\'' && index + 1 < bytes.len() && bytes[index + 1] == b'\'' {
-                        index += 2;
-                        continue;
-                    }
-                    quote_char = None;
-                } else if quote_char.is_none() {
-                    quote_char = Some(byte);
-                }
-            }
-            b'(' if quote_char.is_none() => paren_depth += 1,
-            b')' if quote_char.is_none() && paren_depth > 0 => paren_depth -= 1,
-            _ if quote_char.is_none()
-                && paren_depth == 0
-                && index + keyword_bytes.len() <= bytes.len()
-                && bytes[index..index + keyword_bytes.len()]
-                    .eq_ignore_ascii_case(keyword_bytes)
-                && index
-                    .checked_sub(1)
-                    .and_then(|before| bytes.get(before))
-                    .is_none_or(|byte| !byte.is_ascii_alphanumeric() && *byte != b'_')
-                && bytes
-                    .get(index + keyword_bytes.len())
-                    .is_none_or(|byte| !byte.is_ascii_alphanumeric() && *byte != b'_') =>
-            {
-                return Some(index);
-            }
-            _ => {}
-        }
-        index += 1;
-    }
-    None
-}
-
-fn trim_sql_leading_comments_and_whitespace(mut raw: &str) -> &str {
-    loop {
-        let trimmed = raw.trim_start();
-        if let Some(rest) = trimmed.strip_prefix("--") {
-            let next_line = rest.find('\n').map_or("", |index| &rest[index + 1..]);
-            raw = next_line;
-            continue;
-        }
-        if let Some(rest) = trimmed.strip_prefix("/*") {
-            let after_comment = rest.find("*/").map_or("", |index| &rest[index + 2..]);
-            raw = after_comment;
-            continue;
-        }
-        return trimmed;
-    }
-}
-
-fn leading_quoted_sql_literal_with_consumed(raw: &str) -> Option<(String, usize)> {
-    let raw = trim_sql_leading_comments_and_whitespace(raw);
-    let mut chars = raw.char_indices();
-    let (_, quote_char) = chars.next()?;
-    if quote_char != '\'' && quote_char != '"' {
-        return None;
-    }
-    let mut literal = String::new();
-    let mut last_index = quote_char.len_utf8();
-    while last_index < raw.len() {
-        let mut iter = raw[last_index..].char_indices();
-        let (relative_index, char) = iter.next()?;
-        let index = last_index + relative_index;
-        if char == quote_char {
-            let next_index = index + char.len_utf8();
-            if quote_char == '\'' && raw[next_index..].starts_with('\'') {
-                literal.push('\'');
-                last_index = next_index + 1;
-                continue;
-            }
-            return Some((literal, next_index));
-        }
-        literal.push(char);
-        last_index = index + char.len_utf8();
-    }
-    None
+    shardloom_plan::sql_binder::find_top_level_keyword(raw, keyword)
+        .ok()
+        .flatten()
 }
 
 #[cfg(test)]

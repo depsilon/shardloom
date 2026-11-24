@@ -60,6 +60,7 @@ fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<stream::NativeExecutionStream>()?;
     module.add_class::<stream::NativeColumnarBatch>()?;
     module.add_function(wrap_pyfunction!(command, module)?)?;
+    module.add_function(wrap_pyfunction!(inspect_sql_json, module)?)?;
     module.add_function(wrap_pyfunction!(scalar_function_catalog, module)?)?;
     adbc::register(module)?;
     Ok(())
@@ -91,6 +92,14 @@ fn scalar_function_catalog(py: Python<'_>) -> PyResult<Vec<Py<pyo3::types::PyDic
 #[pyfunction]
 fn command(py: Python<'_>, args: Vec<String>) -> PyResult<String> {
     py.detach(|| shardloom_runtime::native::command_json(args))
+        .map_err(native_error)
+}
+
+/// Inspect a SQL query's AST structure and source references via the canonical
+/// `shardloom-plan` binder without performing I/O or execution.
+#[pyfunction]
+fn inspect_sql_json(py: Python<'_>, sql: &str) -> PyResult<String> {
+    py.detach(|| shardloom_plan::sql_binder::inspect_sql_json(sql))
         .map_err(native_error)
 }
 

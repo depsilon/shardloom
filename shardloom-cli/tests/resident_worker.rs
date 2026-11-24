@@ -962,3 +962,188 @@ fn worker_preserves_file_keyed_source_across_all_query_families_and_version_call
 
     assert_worker_sql_and_join_reuse(&mut worker, path_str);
 }
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn build_ipc_worker_request(streaming: bool) -> Value {
+    let binding = json!({
+        "memory://ipc_src": {
+            "input_format": "memory",
+            "memory_input": {
+                "kind": "batches",
+                "schema": [["id", "int64"], ["name", "utf8"]],
+                "streaming": streaming,
+            }
+        }
+    })
+    .to_string();
+    json!({
+        "args": [
+            "run",
+            "sql",
+            "--source-bindings",
+            binding,
+            "--sql",
+            "SELECT id, name FROM 'memory://ipc_src' WHERE id >= 10 ORDER BY id",
+            "--request",
+            "collect",
+            "--bounded",
+            "true",
+            "--materialization-policy",
+            "bounded",
+            "--memory-gb",
+            "1",
+            "--max-parallelism",
+            "1"
+        ],
+        "stream_results": true,
+        "batch_rows": 2048,
+        "wire_format": "arrow_ipc",
+    })
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn encode_ipc_id_name_batch() -> Vec<u8> {
+    use arrow_array::{Int64Array, RecordBatch, StringArray};
+    use arrow_schema::{DataType, Field, Schema};
+    use std::sync::Arc;
+
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("id", DataType::Int64, true),
+        Field::new("name", DataType::Utf8, true),
+    ]));
+    let batch = RecordBatch::try_new(
+        Arc::clone(&schema),
+        vec![
+            Arc::new(Int64Array::from(vec![Some(5), Some(20), Some(10)])),
+            Arc::new(StringArray::from(vec![
+                Some("low"),
+                Some("high"),
+                Some("mid"),
+            ])),
+        ],
+    )
+    .unwrap();
+    let mut ipc_buf = Vec::new();
+    let mut writer = arrow_ipc::writer::StreamWriter::try_new(&mut ipc_buf, &schema).unwrap();
+    writer.write(&batch).unwrap();
+    writer.finish().unwrap();
+    ipc_buf
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn decode_ipc_id_name_batch(out_ipc: &[u8]) -> (Vec<i64>, Vec<Option<String>>) {
+    use arrow_array::{Array as _, RecordBatch, cast::AsArray as _};
+
+    let reader =
+        arrow_ipc::reader::StreamReader::try_new(std::io::Cursor::new(out_ipc), None).unwrap();
+    let out_batches: Vec<RecordBatch> = reader.map(|r| r.unwrap()).collect();
+    assert_eq!(out_batches.len(), 1);
+    let ids = out_batches[0]
+        .column(0)
+        .as_primitive::<arrow_array::types::Int64Type>()
+        .values()
+        .to_vec();
+    let names = out_batches[0].column(1).as_string_view_opt().map_or_else(
+        || {
+            let s = out_batches[0].column(1).as_string::<i32>();
+            (0..s.len())
+                .map(|i| (!s.is_null(i)).then(|| s.value(i).to_owned()))
+                .collect()
+        },
+        |view| {
+            (0..view.len())
+                .map(|i| (!view.is_null(i)).then(|| view.value(i).to_owned()))
+                .collect()
+        },
+    );
+    (ids, names)
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn assert_arrow_ipc_wire_format_roundtrip(streaming: bool) {
+    use std::io::Read as _;
+
+    let mut child = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["python-worker", "--batch-stream"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::inherit())
+        .spawn()
+        .unwrap();
+    let mut stdin = child.stdin.take().unwrap();
+    let mut stdout = BufReader::new(child.stdout.take().unwrap());
+
+    writeln!(stdin, "{}", build_ipc_worker_request(streaming)).unwrap();
+    stdin.flush().unwrap();
+
+    let mut header_line = String::new();
+    stdout.read_line(&mut header_line).unwrap();
+    let req0: Value = serde_json::from_str(header_line.trim_end()).unwrap();
+    assert_eq!(req0["kind"], "input");
+    assert_eq!(req0["uri"], "memory://ipc_src");
+    assert_eq!(req0["index"], 0);
+
+    let ipc_buf = encode_ipc_id_name_batch();
+    let rows_hdr = json!({
+        "kind": "rows_ipc",
+        "uri": "memory://ipc_src",
+        "index": 0,
+        "byte_len": ipc_buf.len(),
+    });
+    writeln!(stdin, "{rows_hdr}").unwrap();
+    stdin.write_all(&ipc_buf).unwrap();
+    stdin.flush().unwrap();
+
+    header_line.clear();
+    stdout.read_line(&mut header_line).unwrap();
+    let req1: Value = serde_json::from_str(header_line.trim_end()).unwrap();
+    assert_eq!(req1["kind"], "input");
+    assert_eq!(req1["index"], 1);
+    writeln!(
+        stdin,
+        "{{\"kind\":\"end\",\"uri\":\"memory://ipc_src\",\"index\":1}}"
+    )
+    .unwrap();
+    stdin.flush().unwrap();
+
+    header_line.clear();
+    stdout.read_line(&mut header_line).unwrap();
+    let batch_hdr: Value = serde_json::from_str(header_line.trim_end()).unwrap();
+    assert_eq!(batch_hdr["kind"], "batch_ipc", "{batch_hdr}");
+    assert_eq!(batch_hdr["index"], 0);
+    assert_eq!(batch_hdr["row_count"], 2);
+    let byte_len = usize::try_from(batch_hdr["byte_len"].as_u64().unwrap()).unwrap();
+    let mut out_ipc = vec![0_u8; byte_len];
+    stdout.read_exact(&mut out_ipc).unwrap();
+
+    let (ids, names) = decode_ipc_id_name_batch(&out_ipc);
+    assert_eq!(ids, vec![10, 20]);
+    let name_refs: Vec<Option<&str>> = names.iter().map(Option::as_deref).collect();
+    assert_eq!(name_refs, vec![Some("mid"), Some("high")]);
+
+    writeln!(stdin, "{{\"kind\":\"ack\",\"index\":0}}").unwrap();
+    stdin.flush().unwrap();
+
+    header_line.clear();
+    stdout.read_line(&mut header_line).unwrap();
+    let env: Value = serde_json::from_str(header_line.trim_end()).unwrap();
+    assert_eq!(env["status"], "success", "{env}");
+    assert_eq!(
+        field(&env, "native_batch_protocol"),
+        "shardloom.native_batches.arrow_ipc.v1"
+    );
+    assert_eq!(
+        field(&env, "result_materialization_boundary"),
+        "bounded_native_batches_to_incremental_arrow_ipc"
+    );
+    assert_eq!(field(&env, "output_row_count"), "2");
+    assert_eq!(field(&env, "native_result_batches_acknowledged"), "1");
+    assert!(child.wait().unwrap().success());
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[test]
+fn batch_stream_arrow_ipc_wire_format_roundtrips_inputs_and_results() {
+    assert_arrow_ipc_wire_format_roundtrip(false);
+    assert_arrow_ipc_wire_format_roundtrip(true);
+}

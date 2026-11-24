@@ -1048,6 +1048,12 @@ Fixtures are small and require no engine build.
 Every full-size run must remain blocked until its storage admission passes.
 Do not infer that the existing CloudDocs backlog is disposable from these checks.
 
+## Shared Cargo Target Reuse and In-Place Artifact Replacement
+
+- Root `Cargo.toml` sets `debug = 1` and `incremental = false` on `[profile.dev]` and `[profile.test]`, matching `[profile.ci-native]` so git worktrees never emit split `incremental/` caches or `.rcgu.o` explosion regardless of local config.
+- `.gitignore` excludes `.cargo/config.toml`; checkouts and worktrees share the non-synced `/Users/dylan/.cache/shardloom/cargo-target` directory rather than creating isolated `100+ GiB` per-worktree `target/` trees.
+- `scripts/maintain_shared_cargo_target.py` resolves Cargo's active `target_directory` via `cargo metadata` and prunes superseded `<crate>-<old_hash>` executables/rlibs and matching `.fingerprint` entries after builds (invoked automatically by `scripts/build_native_python.py`, whose `--output-dir` defaults to `<resolved_target_directory>/native-python-dev` for in-place atomic replacement).
+
 ## Provider References
 
 - [Cargo build-cache location configuration](https://doc.rust-lang.org/stable/cargo/reference/build-cache.html).

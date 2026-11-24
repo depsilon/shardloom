@@ -6591,6 +6591,28 @@
       ]
     },
     {
+      "name": "sqlparser",
+      "version": "0.64.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/apache/datafusion-sqlparser-rs",
+      "crate_checksum_sha256": "92e0d273b4f8ddd14a35ed36862acbc9cc96cec578e36ee1881a9d42e0e0f2c8",
+      "files": [
+        {
+          "text": "texts/a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2.txt",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
+          "bytes": 10847,
+          "crate_path": "LICENSE.TXT"
+        },
+        {
+          "text": "texts/bb3ca1682483387eb1f4e538b226f83856212488f11ebad1bd71bb928a44f5e9.txt",
+          "sha256": "bb3ca1682483387eb1f4e538b226f83856212488f11ebad1bd71bb928a44f5e9",
+          "bytes": 184,
+          "crate_path": "NOTICE.TXT"
+        }
+      ]
+    },
+    {
       "name": "stable_deref_trait",
       "version": "1.2.1",
       "source": "registry+https://github.com/rust-lang/crates.io-index",

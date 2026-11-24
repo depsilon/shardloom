@@ -400,3 +400,100 @@ def temporal_python_value(value: int, parts: tuple[str, str | None, str | None])
         return date.time() if family == "time" else date
     except OverflowError:
         return value
+
+
+def _needs_arrow_custom_conversion(dtype: ResultType) -> bool:
+    if temporal_parts(dtype.name) is not None or dtype.name == "uuid":
+        return True
+    if dtype.name in {"list", "fixed_size_list", "embedding", "fixed_shape_tensor", "variable_shape_tensor"}:
+        return _needs_arrow_custom_conversion(dtype.parameters[0])
+    if dtype.name in _vector.KINDS or dtype.name in _spatial.KINDS:
+        return _needs_arrow_custom_conversion(dtype.parameters[0])
+    if dtype.name == "struct":
+        return any(_needs_arrow_custom_conversion(child) for _, child in dtype.parameters)
+    return False
+
+
+def _arrow_array_python_values(array: Any, dtype: ResultType, pyarrow: Any) -> list[Any]:
+    if isinstance(array, pyarrow.ChunkedArray):
+        values: list[Any] = []
+        for chunk in array.chunks:
+            values.extend(_arrow_array_python_values(chunk, dtype, pyarrow))
+        return values
+    if not _needs_arrow_custom_conversion(dtype):
+        return array.to_pylist()
+    if isinstance(array, pyarrow.ExtensionArray):
+        array = array.storage
+    if dtype.name in {"variable_shape_tensor", *_vector.KINDS, *_spatial.KINDS}:
+        return _arrow_array_python_values(array, dtype.parameters[0], pyarrow)
+    if dtype.name == "uuid":
+        return [
+            None if raw is None else (raw if isinstance(raw, uuid.UUID) else uuid.UUID(bytes=raw))
+            for raw in array.to_pylist()
+        ]
+    if parts := temporal_parts(dtype.name):
+        if pyarrow.types.is_null(array.type):
+            return [None] * len(array)
+        int_type = pyarrow.int32() if array.type.bit_width == 32 else pyarrow.int64()
+        return [
+            None if raw is None else temporal_python_value(raw, parts)
+            for raw in array.view(int_type).to_pylist()
+        ]
+    if dtype.name == "list":
+        n = len(array)
+        if n == 0:
+            return []
+        offsets = array.offsets.to_pylist()
+        base = offsets[0]
+        child_slice = array.values.slice(base, offsets[-1] - base)
+        child_values = _arrow_array_python_values(child_slice, dtype.parameters[0], pyarrow)
+        valid = array.is_valid().to_pylist()
+        return [
+            None if not valid[idx] else child_values[offsets[idx] - base : offsets[idx + 1] - base]
+            for idx in range(n)
+        ]
+    if dtype.name in {"fixed_size_list", "embedding", "fixed_shape_tensor"}:
+        n = len(array)
+        if n == 0:
+            return []
+        size = dtype.parameters[1]
+        valid = array.is_valid().to_pylist()
+        if size == 0:
+            return [[] if ok else None for ok in valid]
+        child_slice = array.values.slice(array.offset * size, n * size)
+        child_values = _arrow_array_python_values(child_slice, dtype.parameters[0], pyarrow)
+        return [
+            None if not valid[idx] else child_values[idx * size : (idx + 1) * size]
+            for idx in range(n)
+        ]
+    if dtype.name == "struct":
+        n = len(array)
+        if n == 0:
+            return []
+        valid = array.is_valid().to_pylist()
+        children = [
+            (name, _arrow_array_python_values(array.field(idx), child, pyarrow))
+            for idx, (name, child) in enumerate(dtype.parameters)
+        ]
+        return [
+            None if not valid[row_idx] else {name: col_values[row_idx] for name, col_values in children}
+            for row_idx in range(n)
+        ]
+    return array.to_pylist()
+
+
+def arrow_table_python_rows(
+    table: Any,
+    fields: Sequence[tuple[str, ResultType]],
+    pyarrow: Any,
+) -> list[dict[str, Any]]:
+    if not any(_needs_arrow_custom_conversion(dtype) for _, dtype in fields):
+        return table.to_pylist()
+    columns = [
+        (name, _arrow_array_python_values(table.column(idx), dtype, pyarrow))
+        for idx, (name, dtype) in enumerate(fields)
+    ]
+    return [
+        {name: values[row_idx] for name, values in columns}
+        for row_idx in range(table.num_rows)
+    ]

@@ -467,7 +467,10 @@ fn columnar_compatibility_matches_full_legacy_and_independent_values_for_both_si
             assert_eq!(actual, expected);
             assert_eq!(actual, old);
             assert_eq!(schema, old_schema);
-            assert_eq!(result.work.native_batches > 1, count > 2048);
+            assert_eq!(
+                result.work.native_batches > 1,
+                count > DEFAULT_COMPAT_BATCH_ROWS
+            );
             assert!(result.work.admitted_arrow_expansion_bytes > 0);
             let evidence = result.report.evidence.native_array_sink.as_ref().unwrap();
             assert_eq!(evidence.scalar_values_materialized, 0);
@@ -593,21 +596,19 @@ fn columnar_compatibility_large_filtered_source_keeps_output_bounded() {
     let source = fixture.source(65_537);
     let mut query = request(&source);
     query.predicate = Some(predicate(65_536));
+    let limits = CompatibilityLimits {
+        output_rows: 65_536,
+        ..CompatibilityLimits::default()
+    };
     for format in [
         VortexLocalPrimitiveRowExportFormat::ArrowIpc,
         VortexLocalPrimitiveRowExportFormat::Parquet,
         VortexLocalPrimitiveRowExportFormat::Avro,
         VortexLocalPrimitiveRowExportFormat::Orc,
     ] {
-        let prepared = prepare(
-            &query,
-            &source,
-            format,
-            policy(),
-            CompatibilityLimits::default(),
-        )
-        .unwrap()
-        .unwrap();
+        let prepared = prepare(&query, &source, format, policy(), limits.clone())
+            .unwrap()
+            .unwrap();
         let output = fixture.0.join(format!("selected.{}", format.as_str()));
         let report = prepared.write(&output, false).unwrap();
         assert_eq!(report.report.rows_written, 1);
@@ -615,15 +616,9 @@ fn columnar_compatibility_large_filtered_source_keeps_output_bounded() {
 
         let mut excess = request(&source);
         excess.predicate = Some(predicate(0));
-        let prepared = prepare(
-            &excess,
-            &source,
-            format,
-            policy(),
-            CompatibilityLimits::default(),
-        )
-        .unwrap()
-        .unwrap();
+        let prepared = prepare(&excess, &source, format, policy(), limits.clone())
+            .unwrap()
+            .unwrap();
         let output = fixture.0.join(format!("excess.{}", format.as_str()));
         assert!(prepared.write(&output, false).is_err());
         assert!(!output.exists());
@@ -672,7 +667,10 @@ fn columnar_compatibility_pressure_and_expansion_fail_without_published_or_leake
                 "string" => limits.string_bytes = 1,
                 "expanded_batch" => limits.arrow_batch_bytes = 1024,
                 "file" => limits.file_bytes = 16,
-                "batch_count" => limits.batches = 1,
+                "batch_count" => {
+                    limits.batch_rows = 2048;
+                    limits.batches = 1;
+                }
                 "output_rows" => limits.output_rows = 1,
                 _ => unreachable!(),
             }
@@ -857,6 +855,35 @@ fn columnar_compatibility_output_cap_is_checked_before_forwarding() {
         assert!(writer.write_all(b"b").is_err());
     }
     assert_eq!(fs::read(path).unwrap(), b"a");
+}
+
+#[test]
+fn columnar_compatibility_default_limits_export_over_65536_rows() {
+    let fixture = Fixture::new();
+    let rows = 70_000_usize;
+    let source = fixture.source(rows);
+    let query = request(&source);
+    let expected = (0..rows).map(expected).collect::<Vec<_>>();
+    for format in [
+        VortexLocalPrimitiveRowExportFormat::Parquet,
+        VortexLocalPrimitiveRowExportFormat::ArrowIpc,
+    ] {
+        let prepared = prepare(
+            &query,
+            &source,
+            format,
+            policy(),
+            CompatibilityLimits::default(),
+        )
+        .unwrap()
+        .unwrap();
+        let output = fixture.0.join(format!("over-64k.{}", format.as_str()));
+        let result = prepared.write(&output, false).unwrap();
+        assert_eq!(result.report.rows_written, rows as u64);
+        assert!(result.work.native_batches > 1);
+        let (_, actual) = read(&output, format);
+        assert_eq!(actual, expected);
+    }
 }
 
 #[path = "local_primitive_columnar_compat_sink_bench.rs"]

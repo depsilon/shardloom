@@ -671,3 +671,42 @@ fn direct_columnar_decimal_validation_ignores_unreachable_nested_values() {
     drop(source);
     assert_eq!(session.snapshot().memory.reserved_bytes, 0);
 }
+
+#[test]
+fn arrow_ipc_stream_enforces_raw_plus_decoded_overlap_without_buffering_all_batches() {
+    let batch1 = batch(vec![("k", Arc::new(Int64Array::from(vec![1, 2, 3])))]);
+    let batch2 = batch(vec![("k", Arc::new(Int64Array::from(vec![4, 5, 6])))]);
+    let mut ipc_bytes = Vec::new();
+    {
+        let mut writer =
+            arrow_ipc::writer::StreamWriter::try_new(&mut ipc_bytes, &batch1.schema()).unwrap();
+        writer.write(&batch1).unwrap();
+        writer.write(&batch2).unwrap();
+        writer.finish().unwrap();
+    }
+
+    let generous = ResidentVortexSession::new(2 << 20, 1).unwrap();
+    let raw_lease = generous
+        .memory()
+        .reserve(u64::try_from(ipc_bytes.capacity()).unwrap())
+        .unwrap();
+    let loaded = generous
+        .with_native_execution_context(&CancellationToken::default(), |ctx| {
+            ResidentMemorySource::from_arrow_ipc_stream_in_context(&generous, &ipc_bytes, ctx, true)
+        })
+        .unwrap();
+    assert_eq!(loaded.row_count(), 6);
+    drop(raw_lease);
+    drop((loaded, generous));
+
+    // Tiny pool fails cleanly during streaming batch decode while raw IPC reservation is held,
+    // returning all credits to zero after release.
+    let tight = ResidentVortexSession::new(1024, 1).unwrap();
+    let held = tight.memory().reserve(512).unwrap();
+    let err = tight.with_native_execution_context(&CancellationToken::default(), |ctx| {
+        ResidentMemorySource::from_arrow_ipc_stream_in_context(&tight, &ipc_bytes, ctx, true)
+    });
+    assert!(err.is_err());
+    drop(held);
+    assert_eq!(tight.snapshot().memory.reserved_bytes, 0);
+}

@@ -156,6 +156,24 @@ impl<'a> Join<'a> {
         Ok(())
     }
 
+    pub(super) fn probe_runtime_filters(
+        &self,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Vec<super::native_relational_probe_filter::ProbeRuntimeFilter>> {
+        let (table, index) = match &self.membership {
+            Some(membership) => (membership.table(), membership.index()),
+            None => (&self.right, &self.index),
+        };
+        super::native_relational_probe_filter::build_probe_filters(
+            self.spec.kind,
+            self.spec.asof.is_some(),
+            &self.spec.left_keys,
+            table,
+            index,
+            context,
+        )
+    }
+
     pub(super) fn join_work(&self) -> Result<shardloom_core::native_join_work::NativeJoinWork> {
         match &self.membership {
             Some(membership) => membership.join_work(),

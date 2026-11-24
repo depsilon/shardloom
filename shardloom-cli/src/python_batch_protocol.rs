@@ -25,6 +25,14 @@ mod frames;
 
 type Result<T> = std::result::Result<T, ShardLoomError>;
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum WireFormat {
+    #[default]
+    Json,
+    ArrowIpc,
+}
+
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Request {
@@ -32,6 +40,8 @@ struct Request {
     args: Vec<String>,
     stream_results: bool,
     batch_rows: usize,
+    #[serde(default)]
+    wire_format: WireFormat,
 }
 
 enum Incoming {
@@ -39,6 +49,11 @@ enum Incoming {
         uri: String,
         index: u64,
         rows: Vec<MemoryRow>,
+    },
+    RowsIpc {
+        uri: String,
+        index: u64,
+        payload: shardloom_exec::live_memory::Budgeted<Vec<u8>>,
     },
     End {
         uri: String,
@@ -57,6 +72,7 @@ pub(crate) struct Transport {
     pub(crate) cancellation: CancellationToken,
     pub(crate) stream_results: bool,
     pub(crate) batch_rows: usize,
+    pub(crate) wire_format: WireFormat,
     pub(crate) input_batches: u64,
     pub(crate) input_sources: u64,
     pub(crate) input_rows: u64,
@@ -97,6 +113,12 @@ fn start() -> Result<ExitCode> {
             "batch transaction requires run arguments, 1..=2048 batch rows and native JSON framing",
         ));
     }
+    #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
+    if request.wire_format == WireFormat::ArrowIpc {
+        return Err(failed(
+            "arrow_ipc wire format requires vortex-write and universal-format-io",
+        ));
+    }
     let token = CancellationToken::default();
     let (sender, receiver) = mpsc::sync_channel(0);
     let mut transport = Transport {
@@ -106,6 +128,7 @@ fn start() -> Result<ExitCode> {
         cancellation: token,
         stream_results: request.stream_results,
         batch_rows: request.batch_rows,
+        wire_format: request.wire_format,
         input_batches: 0,
         input_sources: 0,
         input_rows: 0,
@@ -207,6 +230,9 @@ impl Transport {
             return crate::native_memory_rows::build_batch(schema, &[], session);
         }
         let mut builder = MemoryBatchSourceBuilder::new(session, self.cancellation.clone())?;
+        if self.wire_format == WireFormat::ArrowIpc {
+            crate::native_memory_rows::append_batch(schema, &[], &mut builder)?;
+        }
         add_count(&mut self.input_sources, 1)?;
         let mut index = 0;
         loop {
@@ -226,7 +252,10 @@ impl Transport {
                     uri: actual,
                     index: sequence,
                     rows,
-                } if actual == uri && *sequence == index => {
+                } if actual == uri
+                    && *sequence == index
+                    && self.wire_format == WireFormat::Json =>
+                {
                     crate::native_memory_rows::append_admitted_batch(
                         schema,
                         rows,
@@ -237,11 +266,34 @@ impl Transport {
                     add_count(&mut self.input_rows, rows.len() as u64)?;
                     add_count(&mut index, 1)?;
                 }
+                Incoming::RowsIpc {
+                    uri: actual,
+                    index: sequence,
+                    payload,
+                } if actual == uri
+                    && *sequence == index
+                    && self.wire_format == WireFormat::ArrowIpc =>
+                {
+                    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+                    {
+                        let rows = builder.push_arrow_ipc_stream(payload.value())?;
+                        add_count(&mut self.input_batches, 1)?;
+                        add_count(&mut self.input_rows, rows as u64)?;
+                        add_count(&mut index, 1)?;
+                    }
+                    #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
+                    {
+                        let _ = payload;
+                        return Err(failed(
+                            "arrow_ipc wire format requires vortex-write and universal-format-io",
+                        ));
+                    }
+                }
                 Incoming::End {
                     uri: actual,
                     index: sequence,
                 } if actual == uri && *sequence == index => {
-                    if index == 0 {
+                    if index == 0 && self.wire_format == WireFormat::Json {
                         crate::native_memory_rows::append_batch(schema, &[], &mut builder)?;
                     }
                     break;
@@ -294,7 +346,7 @@ impl Transport {
                 uri: actual,
                 index: sequence,
                 rows,
-            } if actual == uri && *sequence == index => {
+            } if actual == uri && *sequence == index && self.wire_format == WireFormat::Json => {
                 let source = crate::native_memory_rows::build_admitted_batch(
                     schema,
                     rows,
@@ -306,6 +358,9 @@ impl Transport {
                 add_count(&mut self.input_rows, rows.len() as u64)?;
                 Ok(Some(source))
             }
+            Incoming::RowsIpc { .. } => Err(failed(
+                "arrow_ipc streaming batch requires the in-context IPC provider",
+            )),
             Incoming::End {
                 uri: actual,
                 index: sequence,
@@ -314,6 +369,59 @@ impl Transport {
                 "input batch kind, source or sequence does not match native demand",
             )),
         }
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub(crate) fn next_source_batch_ipc(
+        &mut self,
+        uri: &str,
+        index: u64,
+        input: &MemoryInput,
+    ) -> Result<Option<shardloom_exec::live_memory::Budgeted<Vec<u8>>>> {
+        let MemoryInput::Batches {
+            schema,
+            streaming: true,
+        } = input
+        else {
+            return Err(failed(
+                "streaming demand requires an explicit streaming declaration",
+            ));
+        };
+        if self.wire_format != WireFormat::ArrowIpc {
+            return Err(failed(
+                "arrow_ipc streaming batch requires arrow_ipc wire format",
+            ));
+        }
+        self.cancellation.check()?;
+        send(
+            &serde_json::json!({"kind":"input", "uri":uri, "index":index, "max_rows":2048, "max_bytes":MAX_FRAME}),
+        )?;
+        if index == 0 {
+            add_count(&mut self.input_sources, 1)?;
+        }
+        let decoded = self.incoming(Some(schema.len()))?;
+        match decoded.value {
+            Incoming::RowsIpc {
+                uri: actual,
+                index: sequence,
+                payload,
+            } if actual == uri && sequence == index => {
+                add_count(&mut self.input_batches, 1)?;
+                Ok(Some(payload))
+            }
+            Incoming::End {
+                uri: actual,
+                index: sequence,
+            } if actual == uri && sequence == index => Ok(None),
+            _ => Err(failed(
+                "input batch kind, source or sequence does not match native demand",
+            )),
+        }
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub(crate) fn record_input_rows(&mut self, rows: usize) -> Result<()> {
+        add_count(&mut self.input_rows, rows as u64)
     }
 
     pub(crate) fn consume(&mut self, batch: &SerializedVortexResultBatch) -> Result<()> {
@@ -335,6 +443,35 @@ impl Transport {
             out.write_all(batch.result_schema_json.value().as_bytes())
                 .map_err(failed)?;
             out.write_all(b"}\n").map_err(failed)?;
+            out.flush().map_err(failed)?;
+        }
+        match self.incoming(None)?.value {
+            Incoming::Ack { index } if index == self.output_batches => {
+                add_count(&mut self.output_batches, 1)?;
+                self.cancellation.check()
+            }
+            _ => Err(failed("result batch requires its matching acknowledgement")),
+        }
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub(crate) fn consume_arrow_ipc(
+        &mut self,
+        batch: &shardloom_vortex::resident_session::SerializedArrowIpcBatch,
+    ) -> Result<()> {
+        self.cancellation.check()?;
+        {
+            let mut out = io::stdout().lock();
+            write!(
+                out,
+                "{{\"kind\":\"batch_ipc\",\"index\":{},\"row_count\":{},\"schema\":",
+                self.output_batches, batch.rows
+            )
+            .map_err(failed)?;
+            out.write_all(batch.result_schema_json.value().as_bytes())
+                .map_err(failed)?;
+            writeln!(out, ",\"byte_len\":{}}}", batch.ipc_bytes.value().len()).map_err(failed)?;
+            out.write_all(batch.ipc_bytes.value()).map_err(failed)?;
             out.flush().map_err(failed)?;
         }
         match self.incoming(None)?.value {
@@ -416,6 +553,24 @@ mod tests {
         assert!(
             serde_json::from_value::<Request>(json!({
                 "args":vec!["x";4097],"stream_results":true,"batch_rows":2048,
+            }))
+            .is_err()
+        );
+        let default_req: Request = serde_json::from_value(json!({
+            "args": ["run", "sql"], "stream_results": true, "batch_rows": 2048,
+        }))
+        .unwrap();
+        assert_eq!(default_req.wire_format, WireFormat::Json);
+        let ipc_req: Request = serde_json::from_value(json!({
+            "args": ["run", "sql"], "stream_results": true, "batch_rows": 2048,
+            "wire_format": "arrow_ipc",
+        }))
+        .unwrap();
+        assert_eq!(ipc_req.wire_format, WireFormat::ArrowIpc);
+        assert!(
+            serde_json::from_value::<Request>(json!({
+                "args": ["run", "sql"], "stream_results": true, "batch_rows": 2048,
+                "wire_format": "parquet",
             }))
             .is_err()
         );

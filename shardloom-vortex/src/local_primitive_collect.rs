@@ -345,6 +345,18 @@ impl PreparedVortexCollect {
         Ok(result)
     }
 
+    /// Execute the prepared projection/filter and return retained native arrays
+    /// under the caller's cancellation token, without serializing JSON rows.
+    ///
+    /// # Errors
+    /// Rejects cancellation, changed source generations, and collect bounds.
+    pub fn execute_native_result(
+        &self,
+        cancellation: &CancellationToken,
+    ) -> Result<OwnedVortexResultBatch> {
+        self.execute_arrays_with_cancellation(cancellation)
+    }
+
     /// Execute the prepared native scan and complete its bounded JSON sink.
     /// Output capacity is reserved as it grows and remains owned by the result.
     ///
@@ -1575,5 +1587,101 @@ mod tests {
         );
         assert!(result.err().unwrap().to_string().contains("65,536 rows"));
         std::fs::remove_file(&path).unwrap();
+    }
+
+    #[cfg(all(feature = "vortex-write", unix))]
+    #[test]
+    fn prepared_collect_native_result_writes_paths_and_promotes_owned_source() {
+        use shardloom_exec::compute_pool::CancellationToken;
+        use vortex::{
+            VortexSessionDefault as _,
+            array::{
+                IntoArray as _,
+                arrays::{PrimitiveArray, StructArray},
+                dtype::FieldNames,
+                validity::Validity,
+            },
+            file::WriteOptionsSessionExt as _,
+            io::{
+                runtime::{BlockingRuntime as _, current::CurrentThreadRuntime},
+                session::RuntimeSessionExt as _,
+            },
+            session::VortexSession,
+        };
+        let suffix = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let source_path =
+            std::env::temp_dir().join(format!("shardloom-collect-native-{suffix}.vortex"));
+        let out_vortex =
+            std::env::temp_dir().join(format!("shardloom-collect-native-out-{suffix}.vortex"));
+        let out_csv =
+            std::env::temp_dir().join(format!("shardloom-collect-native-out-{suffix}.csv"));
+        let array = StructArray::try_new(
+            FieldNames::from(["identifier"]),
+            vec![PrimitiveArray::new(vec![11_i64, 22, 33], Validity::NonNullable).into_array()],
+            3,
+            Validity::NonNullable,
+        )
+        .unwrap()
+        .into_array();
+        let runtime = CurrentThreadRuntime::new();
+        let writer_session = VortexSession::default().with_handle(runtime.handle());
+        let mut bytes = Vec::new();
+        runtime
+            .block_on(
+                writer_session
+                    .write_options()
+                    .write(&mut bytes, array.to_array_stream()),
+            )
+            .unwrap();
+        std::fs::write(&source_path, bytes).unwrap();
+
+        let session = ResidentVortexSession::new(32 << 20, 1).unwrap();
+        let request = VortexQueryPrimitiveRequest::project(
+            DatasetUri::new(source_path.display().to_string()).unwrap(),
+            ProjectionRequest::columns(vec![ColumnRef::new("identifier").unwrap()]),
+        );
+        let prepared = prepare_rows_in_session(&request, &session).unwrap();
+        let token = CancellationToken::default();
+
+        let batch = prepared.execute_native_result(&token).unwrap();
+        assert_eq!(batch.row_count(), 3);
+        let vortex_report = batch
+            .write_to_path(
+                &out_vortex,
+                crate::VortexLocalPrimitiveRowExportFormat::Vortex,
+                true,
+                &token,
+            )
+            .unwrap();
+        assert_eq!(vortex_report.rows_written, 3);
+
+        let batch_for_csv = prepared.execute_native_result(&token).unwrap();
+        let csv_report = batch_for_csv
+            .write_to_path(
+                &out_csv,
+                crate::VortexLocalPrimitiveRowExportFormat::Csv,
+                true,
+                &token,
+            )
+            .unwrap();
+        assert_eq!(csv_report.rows_written, 3);
+        assert!(std::fs::read_to_string(&out_csv).unwrap().contains("22"));
+
+        let batch_for_source = prepared.execute_native_result(&token).unwrap();
+        let owned_source = batch_for_source
+            .into_owned_array_source(
+                crate::owned_array_source::OwnedArraySourceBounds::default(),
+                &token,
+            )
+            .unwrap();
+        assert_eq!(owned_source.row_count(), 3);
+        drop((owned_source, prepared, session));
+
+        let _ = std::fs::remove_file(&source_path);
+        let _ = std::fs::remove_file(&out_vortex);
+        let _ = std::fs::remove_file(&out_csv);
     }
 }

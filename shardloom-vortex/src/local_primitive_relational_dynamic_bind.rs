@@ -35,6 +35,10 @@ impl<'a> Binder<'a> {
         for (uri, source) in &owner.memory_sources {
             binder.register_memory_source(uri.clone(), |_| Ok(source.clone()))?;
         }
+        #[cfg(feature = "vortex-write")]
+        for (uri, source) in &owner.owned_array_sources {
+            binder.register_owned_array_source(uri.clone(), source.clone())?;
+        }
         for source in &owner.batch_sources {
             #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
             if let Some(local) = &source.local {
@@ -121,6 +125,15 @@ impl<'a> Binder<'a> {
         }
         if self
             .memory_sources
+            .values
+            .iter()
+            .any(|(source, _)| source == uri)
+        {
+            return Ok(());
+        }
+        #[cfg(feature = "vortex-write")]
+        if self
+            .owned_array_sources
             .values
             .iter()
             .any(|(source, _)| source == uri)
