@@ -446,7 +446,7 @@ def build_variants(runner, target_dir, target):
             runner.step("merge", [report["profdata_path"], "merge", "-o", str(merged), *map(str, inputs)])
             report["merged_profile_artifact"] = file_record(merged)
             if getattr(args, "require_hot_symbol_coverage", False):
-                cov_out = runner.step("hot-symbol-coverage", [report["profdata_path"], "show", "--all-functions", "--covered", "--topn=250", str(merged)])
+                cov_out = runner.step("hot-symbol-coverage", [report["profdata_path"], "show", "--topn=250", str(merged)])
                 report["hot_symbol_coverage"] = parse_hot_symbol_coverage(cov_out.read_text())
 
 

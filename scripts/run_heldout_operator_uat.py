@@ -174,7 +174,7 @@ def cases(rows: list[dict]) -> list[dict]:
         case("nullable_group_distinct", "distinct", "SELECT cohort_code, COUNT(*) AS n, COUNT(DISTINCT optional_text) AS different FROM heldout GROUP BY cohort_code", distinct_groups),
         case("exact_integer_distinct_topk", "distinct", "SELECT cohort_code, COUNT(DISTINCT exact_identifier) AS different FROM heldout GROUP BY cohort_code ORDER BY different DESC, cohort_code ASC LIMIT 3 OFFSET 2", integer_distinct_topk("exact_identifier"), True),
         case("repeated_integer_distinct_topk", "distinct", "SELECT cohort_code, COUNT(DISTINCT metric_units) AS different FROM heldout GROUP BY cohort_code ORDER BY different DESC, cohort_code ASC LIMIT 3 OFFSET 2", integer_distinct_topk("metric_units"), True),
-        case("utf8_byte_length", "string_transform", "SELECT cohort_code, COUNT(*) AS n, SUM(length(category_text)) AS bytes_total FROM heldout WHERE category_text <> '' GROUP BY cohort_code", lengths),
+        case("utf8_byte_length", "string_transform", "SELECT cohort_code, COUNT(*) AS n, SUM(octet_length(category_text)) AS bytes_total FROM heldout WHERE category_text <> '' GROUP BY cohort_code", lengths),
         case("all_unique_group_topk", "string_group", "SELECT unique_text, COUNT(*) AS n FROM heldout GROUP BY unique_text ORDER BY n DESC, unique_text ASC LIMIT 12", unique, True),
         case("filtered_sort_offset", "relational_sort", "SELECT row_key, metric_units, optional_text, exact_identifier FROM heldout WHERE metric_units >= 5 AND cohort_code < 2 ORDER BY metric_units DESC, row_key ASC LIMIT 12 OFFSET 3", projected(filtered, ("row_key", "metric_units", "optional_text", "exact_identifier")), True),
         case("nullable_projection", "relational_collect", f"SELECT optional_text, exact_identifier, row_key FROM heldout WHERE row_key >= {len(rows) - 12}", projected(tail, ("optional_text", "exact_identifier", "row_key"))),
@@ -184,7 +184,7 @@ def cases(rows: list[dict]) -> list[dict]:
     result.append({"name": "checked_signed_group_overflow", "family": "overflow_diagnostic",
                    "sql": "SELECT exact_identifier - 1 AS shifted, COUNT(*) AS n FROM heldout GROUP BY shifted",
                    "expected_diagnostic_terms": ["overflow", "no fallback execution was attempted"],
-                   "expected_diagnostic_alternatives": ["direct int64 offset key overflowed", "additive group expression overflowed int64"],
+                   "expected_diagnostic_alternatives": ["direct int64 offset key overflowed", "additive group expression overflowed int64", "signed integer arithmetic overflow"],
                    "comparison": "explicit_native_overflow_diagnostic"})
     return result
 

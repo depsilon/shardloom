@@ -335,13 +335,16 @@ class PgoTests(unittest.TestCase):
 
     def test_hot_symbol_coverage_parser_and_require_flag(self):
         sample = "\n".join([
-            "  _RNvCs_shardloom_vortex_exec_kernel: maximum count: 1200",
-            "  _RNvCs_shardloom_runtime_cli_entry: maximum count: 85",
-            "Total functions: 250",
-            "Maximum function count: 1200",
+            "Instrumentation level: IR  entry_first = 0  instrument_loop_entries = 0",
+            "Total functions: 100735",
+            "Maximum function count: 6744781",
+            "Top 250 functions with the largest internal block counts: ",
+            "  shardloom_vortex.145a94074593564d-cgu.0;_ZN16shardloom_vortex16local_primitives22native_relational_keys9KeyColumn3len17h0E, max count = 1536682",
+            "  shardloom_runtime.86714065fe4aa814-cgu.0;_ZN17shardloom_runtime24sql_local_source_runtime20json_scan_checkpoint17h0E, max count = 2849388",
         ])
         parsed = pgo.parse_hot_symbol_coverage(sample)
-        self.assertEqual(parsed["total_functions"], 250)
+        self.assertEqual(parsed["total_functions"], 100735)
+        self.assertEqual(parsed["max_function_count"], 6744781)
         self.assertEqual(parsed["shardloom_vortex_hot_symbols"], 1)
         self.assertEqual(parsed["shardloom_runtime_hot_symbols"], 1)
         with self.assertRaisesRegex(ValueError, "shardloom_vortex"):
@@ -359,8 +362,10 @@ class PgoTests(unittest.TestCase):
 
         runner.step = step_with_cov
         pgo.build_variants(runner, target, "host")
-        self.assertIn("hot-symbol-coverage", [c[0] for c in calls])
-        self.assertEqual(runner.report["hot_symbol_coverage"]["max_function_count"], 1200)
+        cov_calls = [c for c in calls if c[0] == "hot-symbol-coverage"]
+        self.assertEqual(len(cov_calls), 1)
+        self.assertEqual(cov_calls[0][1][:3], [runner.report["profdata_path"], "show", "--topn=250"])
+        self.assertEqual(runner.report["hot_symbol_coverage"]["max_function_count"], 6744781)
 
     def test_verify_training_multi_family_validates_all_sub_summaries(self):
         training_dir = self.root / "training"
