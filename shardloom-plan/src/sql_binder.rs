@@ -2286,11 +2286,27 @@ pub fn bind_sql_authoritative(raw: &str) -> std::result::Result<BoundSqlPlan, Sq
     })
 }
 
+fn is_authoritative_diagnostic_feature(feature: &str) -> bool {
+    !matches!(
+        feature,
+        "sql.expression"
+            | "sql.dtype"
+            | "sql.literal"
+            | "sql.unary_operator"
+            | "sql.binary_operator"
+            | "sql.query_body"
+    )
+}
+
 fn classify_bind_err(diagnostics: &[Diagnostic], err: ShardLoomError) -> SqlBindErrorKind {
-    if diagnostics.is_empty() {
-        SqlBindErrorKind::SyntaxOrUnrecognized(err)
-    } else {
+    if diagnostics.iter().any(|diag| {
+        diag.feature
+            .as_deref()
+            .is_some_and(is_authoritative_diagnostic_feature)
+    }) {
         SqlBindErrorKind::AuthoritativeRejection(err)
+    } else {
+        SqlBindErrorKind::SyntaxOrUnrecognized(err)
     }
 }
 

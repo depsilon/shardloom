@@ -420,10 +420,16 @@ fn bind_extended_expr(
         }),
         SqlExpr::Collate { collation, .. } => {
             let msg = format!(
-                "SQL COLLATE ({collation}) is not admitted; UTF-8 comparisons remain codepoint comparisons"
+                "SQL COLLATE, ILIKE, and locale-aware collation/case-folding semantics are not admitted (found COLLATE {collation}); UTF-8 comparisons remain codepoint comparisons"
             );
             diagnostics.push(unsupported_diag("sql.collate", &msg));
             Err(unsupported_sql_error(&msg))
+        }
+        SqlExpr::AtTimeZone { .. } => {
+            let msg =
+                "timezone database semantics are not admitted; use UTC or naive timestamp_micros";
+            diagnostics.push(unsupported_diag("sql.timezone_dtype", msg));
+            Err(unsupported_sql_error(msg))
         }
         SqlExpr::AnyOp { .. } | SqlExpr::AllOp { .. } => Err(unsupported_sql_error(&format!(
             "quantified comparison `{expr}` requires specialized native subquery lowering"
@@ -1145,18 +1151,20 @@ fn format_decimal128_dtype(
 ) -> Result<String> {
     if !(1..=38).contains(&precision) || scale < 0 {
         let msg = format!(
-            "decimal128({precision},{scale}) requires 1 <= precision <= 38 and 0 <= scale <= precision"
+            "decimal CAST precision/scale must satisfy 1 <= precision <= 38 and 0 <= scale <= precision (got decimal128({precision},{scale}))"
         );
         diagnostics.push(unsupported_diag("sql.decimal_bounds", &msg));
         return Err(unsupported_sql_error(&msg));
     }
     let scale_u64 = u64::try_from(scale).map_err(|_| {
         unsupported_sql_error(&format!(
-            "decimal128({precision},{scale}) requires 1 <= precision <= 38 and 0 <= scale <= precision"
+            "decimal CAST precision/scale must satisfy 1 <= precision <= 38 and 0 <= scale <= precision (got decimal128({precision},{scale}))"
         ))
     })?;
     if scale_u64 > precision {
-        let msg = format!("decimal128({precision},{scale}) requires scale <= precision");
+        let msg = format!(
+            "decimal CAST precision/scale must satisfy 1 <= precision <= 38 and 0 <= scale <= precision (got decimal128({precision},{scale}))"
+        );
         diagnostics.push(unsupported_diag("sql.decimal_bounds", &msg));
         return Err(unsupported_sql_error(&msg));
     }
@@ -1241,33 +1249,54 @@ fn normalize_sql_dtype(dtype: &SqlDataType, diagnostics: &mut Vec<Diagnostic>) -
             ast::ExactNumberInfo::Precision(p) => format_decimal128_dtype(*p, 0, diagnostics),
             ast::ExactNumberInfo::None => Ok("decimal128(38,0)".to_string()),
         },
-        SqlDataType::Custom(..) => {
-            let raw = dtype.to_string();
-            if let Some(canon) = normalize_decimal128_label(&raw, diagnostics)? {
-                return Ok(canon);
-            }
-            if let Some(temporal) = shardloom_core::temporal::TemporalDType::parse_declaration(&raw)
-            {
-                return Ok(temporal.as_str().to_string());
-            }
-            match raw.trim().to_ascii_lowercase().as_str() {
-                "boolean" | "bool" => Ok("boolean".to_string()),
-                "int64" => Ok("int64".to_string()),
-                "uint64" => Ok("uint64".to_string()),
-                "float64" => Ok("float64".to_string()),
-                "utf8" => Ok("utf8".to_string()),
-                "binary" => Ok("binary".to_string()),
-                "date32" => Ok("date32".to_string()),
-                "timestamp_micros" => Ok("timestamp_micros".to_string()),
-                _ => {
-                    let msg = format!("unsupported SQL data type `{dtype}`");
-                    diagnostics.push(unsupported_diag("sql.dtype", &msg));
-                    Err(unsupported_sql_error(&msg))
-                }
-            }
+        SqlDataType::Union(_) => {
+            let msg = "union dtype casts are not admitted by the current complex dtype profile";
+            diagnostics.push(unsupported_diag("sql.union_dtype", msg));
+            Err(unsupported_sql_error(msg))
         }
+        SqlDataType::Custom(..) => normalize_custom_sql_dtype(dtype, diagnostics),
         other => {
             let msg = format!("unsupported SQL data type `{other}`");
+            diagnostics.push(unsupported_diag("sql.dtype", &msg));
+            Err(unsupported_sql_error(&msg))
+        }
+    }
+}
+
+fn normalize_custom_sql_dtype(
+    dtype: &SqlDataType,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<String> {
+    let raw = dtype.to_string();
+    if let Some(canon) = normalize_decimal128_label(&raw, diagnostics)? {
+        return Ok(canon);
+    }
+    if let Some(temporal) = shardloom_core::temporal::TemporalDType::parse_declaration(&raw) {
+        return Ok(temporal.as_str().to_string());
+    }
+    let lower = raw.trim().to_ascii_lowercase();
+    match lower.as_str() {
+        "boolean" | "bool" => Ok("boolean".to_string()),
+        "int64" => Ok("int64".to_string()),
+        "uint64" => Ok("uint64".to_string()),
+        "float64" => Ok("float64".to_string()),
+        "utf8" => Ok("utf8".to_string()),
+        "binary" => Ok("binary".to_string()),
+        "date32" => Ok("date32".to_string()),
+        "timestamp_micros" => Ok("timestamp_micros".to_string()),
+        "timestamptz" | "timestamp_tz" => {
+            let msg =
+                "timezone database semantics are not admitted; use UTC or naive timestamp_micros";
+            diagnostics.push(unsupported_diag("sql.timezone_dtype", msg));
+            Err(unsupported_sql_error(msg))
+        }
+        s if s == "union" || s.starts_with("union<") || s.starts_with("union(") => {
+            let msg = "union dtype casts are not admitted by the current complex dtype profile";
+            diagnostics.push(unsupported_diag("sql.union_dtype", msg));
+            Err(unsupported_sql_error(msg))
+        }
+        _ => {
+            let msg = format!("unsupported SQL data type `{dtype}`");
             diagnostics.push(unsupported_diag("sql.dtype", &msg));
             Err(unsupported_sql_error(&msg))
         }

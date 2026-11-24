@@ -712,6 +712,9 @@ fn binds_aggregate_only_order_by_and_classifies_authoritative_rejections() {
         "SELECT * FROM 'x.parquet', LATERAL (SELECT 1) AS sub",
         "SELECT * FROM 'x.parquet' TABLESAMPLE BERNOULLI (5)",
         "SELECT CAST(v AS DECIMAL(40, 2)) FROM 'x.parquet'",
+        "SELECT TIMESTAMP '2026-05-19T12:34:56Z' AT TIME ZONE 'America/Chicago' FROM 'x.parquet'",
+        "SELECT label COLLATE nocase FROM 'x.parquet'",
+        "SELECT CAST(payload AS union) FROM 'x.parquet'",
     ] {
         assert!(
             matches!(
@@ -721,4 +724,40 @@ fn binds_aggregate_only_order_by_and_classifies_authoritative_rejections() {
             "{auth_bad}"
         );
     }
+
+    assert!(matches!(
+        bind_sql_authoritative("SELECT id FROM 'x.parquet' WHERE label RLIKE '^a'"),
+        Err(SqlBindErrorKind::SyntaxOrUnrecognized(_))
+    ));
+    let at_tz = bind_sql_authoritative(
+        "SELECT TIMESTAMP '2026-05-19T12:34:56Z' AT TIME ZONE 'America/Chicago' FROM 'x.parquet'",
+    )
+    .err()
+    .unwrap()
+    .into_error()
+    .to_string();
+    assert!(
+        at_tz.contains("timezone database semantics are not admitted"),
+        "{at_tz}"
+    );
+    let collate = bind_sql_authoritative("SELECT label COLLATE nocase FROM 'x.parquet'")
+        .err()
+        .unwrap()
+        .into_error()
+        .to_string();
+    assert!(
+        collate.contains(
+            "SQL COLLATE, ILIKE, and locale-aware collation/case-folding semantics are not admitted"
+        ),
+        "{collate}"
+    );
+    let union_cast = bind_sql_authoritative("SELECT CAST(payload AS union) FROM 'x.parquet'")
+        .err()
+        .unwrap()
+        .into_error()
+        .to_string();
+    assert!(
+        union_cast.contains("union dtype casts are not admitted"),
+        "{union_cast}"
+    );
 }
