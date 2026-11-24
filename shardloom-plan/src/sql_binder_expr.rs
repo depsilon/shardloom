@@ -1072,47 +1072,124 @@ fn bind_window_type(
     }
 }
 
+fn format_decimal128_dtype(precision: u64, scale: i64) -> Result<String> {
+    if !(1..=38).contains(&precision) || scale < 0 {
+        return Err(unsupported_sql_error(&format!(
+            "decimal128({precision},{scale}) requires 1 <= precision <= 38 and 0 <= scale <= precision"
+        )));
+    }
+    let scale_u64 = u64::try_from(scale).map_err(|_| {
+        unsupported_sql_error(&format!(
+            "decimal128({precision},{scale}) requires 1 <= precision <= 38 and 0 <= scale <= precision"
+        ))
+    })?;
+    if scale_u64 > precision {
+        return Err(unsupported_sql_error(&format!(
+            "decimal128({precision},{scale}) requires scale <= precision"
+        )));
+    }
+    Ok(format!("decimal128({precision},{scale})"))
+}
+
+fn normalize_decimal128_label(raw: &str) -> Result<Option<String>> {
+    let normalized = raw
+        .chars()
+        .filter(|ch| !ch.is_whitespace())
+        .collect::<String>()
+        .to_ascii_lowercase();
+    let Some(rest) = normalized.strip_prefix("decimal128(") else {
+        return Ok(None);
+    };
+    let Some(args) = rest.strip_suffix(')') else {
+        return Err(unsupported_sql_error(
+            "decimal128 cast targets require decimal128(<precision>,<scale>)",
+        ));
+    };
+    let Some((p_raw, s_raw)) = args.split_once(',') else {
+        return Err(unsupported_sql_error(
+            "decimal128 cast targets require decimal128(<precision>,<scale>)",
+        ));
+    };
+    let precision = p_raw.parse::<u64>().map_err(|_| {
+        unsupported_sql_error("decimal128 precision must be an integer between 1 and 38")
+    })?;
+    let scale = s_raw.parse::<i64>().map_err(|_| {
+        unsupported_sql_error("decimal128 scale must be an integer between 0 and precision")
+    })?;
+    format_decimal128_dtype(precision, scale).map(Some)
+}
+
 fn normalize_sql_dtype(dtype: &SqlDataType, diagnostics: &mut Vec<Diagnostic>) -> Result<String> {
     match dtype {
         SqlDataType::Boolean | SqlDataType::Bool => Ok("boolean".to_string()),
-        SqlDataType::BigInt(_)
+        SqlDataType::BigInt(None)
         | SqlDataType::Int64
-        | SqlDataType::Int(_)
-        | SqlDataType::Integer(_)
-        | SqlDataType::SmallInt(_)
-        | SqlDataType::TinyInt(_) => Ok("int64".to_string()),
-        SqlDataType::BigIntUnsigned(_) | SqlDataType::UInt64 => Ok("uint64".to_string()),
-        SqlDataType::Double(_)
+        | SqlDataType::Int(None)
+        | SqlDataType::Integer(None) => Ok("int64".to_string()),
+        SqlDataType::BigIntUnsigned(None) | SqlDataType::UInt64 => Ok("uint64".to_string()),
+        SqlDataType::Double(ast::ExactNumberInfo::None)
         | SqlDataType::DoublePrecision
-        | SqlDataType::Float(_)
-        | SqlDataType::Float64
-        | SqlDataType::Real => Ok("float64".to_string()),
-        SqlDataType::Varchar(_)
-        | SqlDataType::Char(_)
-        | SqlDataType::Character(_)
-        | SqlDataType::Text
-        | SqlDataType::String(_) => Ok("utf8".to_string()),
-        SqlDataType::Binary(_)
-        | SqlDataType::Varbinary(_)
-        | SqlDataType::Blob(_)
+        | SqlDataType::Float(ast::ExactNumberInfo::None)
+        | SqlDataType::Float64 => Ok("float64".to_string()),
+        SqlDataType::Varchar(None) | SqlDataType::Text | SqlDataType::String(None) => {
+            Ok("utf8".to_string())
+        }
+        SqlDataType::Binary(None)
+        | SqlDataType::Varbinary(None)
+        | SqlDataType::Blob(None)
         | SqlDataType::Bytea => Ok("binary".to_string()),
         SqlDataType::Date => Ok("date32".to_string()),
-        SqlDataType::Timestamp(_, tz) => match tz {
-            ast::TimezoneInfo::None | ast::TimezoneInfo::WithoutTimeZone => {
-                Ok("timestamp_micros".to_string())
-            }
-            _ => {
+        SqlDataType::Timestamp(prec, tz) => {
+            if !matches!(
+                tz,
+                ast::TimezoneInfo::None | ast::TimezoneInfo::WithoutTimeZone
+            ) {
                 let msg = "timezone database semantics are not admitted; use UTC or naive timestamp_micros";
                 diagnostics.push(unsupported_diag("sql.timezone_dtype", msg));
-                Err(unsupported_sql_error(msg))
+                return Err(unsupported_sql_error(msg));
             }
-        },
+            match prec {
+                None | Some(6) => Ok("timestamp_micros".to_string()),
+                Some(p) => {
+                    let msg = format!(
+                        "SQL TIMESTAMP({p}) precision is not admitted; use TIMESTAMP or TIMESTAMP(6)"
+                    );
+                    diagnostics.push(unsupported_diag("sql.timestamp_precision", &msg));
+                    Err(unsupported_sql_error(&msg))
+                }
+            }
+        }
         SqlDataType::Decimal(info) | SqlDataType::Numeric(info) => match info {
-            ast::ExactNumberInfo::PrecisionAndScale(p, s) => Ok(format!("decimal128({p},{s})")),
-            ast::ExactNumberInfo::Precision(p) => Ok(format!("decimal128({p},0)")),
-            ast::ExactNumberInfo::None => Ok("decimal128(38,10)".to_string()),
+            ast::ExactNumberInfo::PrecisionAndScale(p, s) => format_decimal128_dtype(*p, *s),
+            ast::ExactNumberInfo::Precision(p) => format_decimal128_dtype(*p, 0),
+            ast::ExactNumberInfo::None => Ok("decimal128(38,0)".to_string()),
         },
-        other => Ok(other.to_string().to_ascii_lowercase()),
+        SqlDataType::Custom(..) => {
+            let raw = dtype.to_string();
+            if let Some(canon) = normalize_decimal128_label(&raw)? {
+                return Ok(canon);
+            }
+            if let Some(temporal) = shardloom_core::temporal::TemporalDType::parse_declaration(&raw)
+            {
+                return Ok(temporal.as_str().to_string());
+            }
+            match raw.trim().to_ascii_lowercase().as_str() {
+                "boolean" | "bool" => Ok("boolean".to_string()),
+                "int64" => Ok("int64".to_string()),
+                "uint64" => Ok("uint64".to_string()),
+                "float64" => Ok("float64".to_string()),
+                "utf8" => Ok("utf8".to_string()),
+                "binary" => Ok("binary".to_string()),
+                "date32" => Ok("date32".to_string()),
+                "timestamp_micros" => Ok("timestamp_micros".to_string()),
+                _ => Err(unsupported_sql_error(&format!(
+                    "unsupported SQL data type `{dtype}`"
+                ))),
+            }
+        }
+        other => Err(unsupported_sql_error(&format!(
+            "unsupported SQL data type `{other}`"
+        ))),
     }
 }
 
@@ -1122,6 +1199,12 @@ fn normalize_sql_dtype(dtype: &SqlDataType, diagnostics: &mut Vec<Diagnostic>) -
 /// Returns [`ShardLoomError::NotImplemented`] when `label` is not an admitted
 /// core dtype string.
 pub fn parse_core_dtype_label(label: &str) -> Result<LogicalDType> {
+    if let Some(canon) = normalize_decimal128_label(label)? {
+        return Ok(LogicalDType::Extension(canon));
+    }
+    if let Some(temporal) = shardloom_core::temporal::TemporalDType::parse_declaration(label) {
+        return Ok(temporal.logical());
+    }
     match label {
         "boolean" => Ok(LogicalDType::Boolean),
         "int64" => Ok(LogicalDType::Int64),
@@ -1131,7 +1214,6 @@ pub fn parse_core_dtype_label(label: &str) -> Result<LogicalDType> {
         "binary" => Ok(LogicalDType::Binary),
         "date32" => Ok(LogicalDType::Date32),
         "timestamp_micros" => Ok(LogicalDType::TimestampMicros),
-        other if other.starts_with("decimal128(") => Ok(LogicalDType::Extension(other.to_string())),
         other => Err(unsupported_sql_error(&format!(
             "unsupported cast target type `{other}`"
         ))),

@@ -1102,4 +1102,16 @@ fn canonical_order_by_named_windows_and_substring_for() {
             "rn": 1
         })]
     );
+
+    let bad_ts_prec_sql = format!(
+        "SELECT CAST(TIMESTAMP '2020-01-01T00:00:00.123456Z' AS TIMESTAMP(0)) AS t, ROW_NUMBER() OVER (ORDER BY id) AS rn FROM '{}'",
+        flags_path.display()
+    );
+    assert!(try_prepare_file_sql(&bad_ts_prec_sql).is_err());
+
+    let ok_ts_prec_sql = format!(
+        "SELECT id, CAST(TIMESTAMP '2020-01-01T00:00:00.123456Z' AS TIMESTAMP(6)) AS t, ROW_NUMBER() OVER (ORDER BY id) AS rn FROM '{}' ORDER BY id LIMIT 1",
+        flags_path.display()
+    );
+    assert_eq!(collect_rows(&prepare_file_sql(&ok_ts_prec_sql)).len(), 1);
 }

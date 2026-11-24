@@ -527,3 +527,40 @@ fn binds_substring_for_only_with_default_start() {
         }
     );
 }
+
+#[test]
+fn rejects_unsupported_timestamp_precision_and_parameterized_cast_dtypes() {
+    for ok_sql in [
+        "SELECT CAST(ts AS TIMESTAMP) FROM 'in.parquet'",
+        "SELECT CAST(ts AS TIMESTAMP(6)) FROM 'in.parquet'",
+    ] {
+        let bound = bind_sql(ok_sql).expect("TIMESTAMP / TIMESTAMP(6) should bind");
+        let LogicalRelation::Project { items, .. } = &bound.root else {
+            panic!("expected Project root");
+        };
+        let LogicalProjectionItem::Expr { expr, .. } = &items[0] else {
+            panic!("expected expression item");
+        };
+        assert!(matches!(
+            expr.as_ref(),
+            LogicalExpr::Cast { target_dtype, .. } if target_dtype == "timestamp_micros"
+        ));
+    }
+
+    for bad_sql in [
+        "SELECT CAST(ts AS TIMESTAMP(0)) FROM 'in.parquet'",
+        "SELECT CAST(ts AS TIMESTAMP(3)) FROM 'in.parquet'",
+        "SELECT CAST(ts AS TIMESTAMP(9)) FROM 'in.parquet'",
+        "SELECT CAST(v AS VARCHAR(2)) FROM 'in.parquet'",
+        "SELECT CAST(v AS CHAR(4)) FROM 'in.parquet'",
+        "SELECT CAST(v AS SMALLINT) FROM 'in.parquet'",
+        "SELECT CAST(v AS TINYINT) FROM 'in.parquet'",
+        "SELECT CAST(v AS REAL) FROM 'in.parquet'",
+        "SELECT CAST(v AS FLOAT(10)) FROM 'in.parquet'",
+        "SELECT CAST(v AS BINARY(4)) FROM 'in.parquet'",
+        "SELECT CAST(v AS DECIMAL(39, 2)) FROM 'in.parquet'",
+        "SELECT CAST(v AS DECIMAL(4, -1)) FROM 'in.parquet'",
+    ] {
+        assert!(bind_sql(bad_sql).is_err(), "{bad_sql}");
+    }
+}
