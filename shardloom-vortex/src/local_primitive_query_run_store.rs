@@ -40,6 +40,7 @@ use vortex::{
 pub(super) const MAX_LIVE_RUNS: usize = 64;
 pub(super) const OWNERSHIP_MARKER: &str = "owner.json";
 pub(super) const MARKER_BYTE_RESERVATION: u64 = 32 * 1024;
+const BOUNDED_HEAD_BYTES: usize = 4096;
 const CHECKSUM_SCRATCH_BYTES: usize = 64 * 1024;
 static NEXT_WORKSPACE: AtomicU64 = AtomicU64::new(0);
 
@@ -72,10 +73,11 @@ impl RunSourceGeneration {
         ))
     }
 
-    pub(super) fn verify_contents(
+    pub(super) fn verify_bounded_envelope(
         &self,
         _: (u64, u64),
         _: u64,
+        _: &[u8; 32],
         _: &[u8; 32],
         _: &mut [u8],
     ) -> Result<()> {
@@ -243,7 +245,10 @@ pub(super) struct NativeQueryRun {
     pub(super) bytes: u64,
     pub(super) block_rows: usize,
     identity: (u64, u64),
-    digest: [u8; 32],
+    head_digest: [u8; 32],
+    tail_digest: [u8; 32],
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(super) digest: [u8; 32],
     metadata: Arc<MemoryLease>,
 }
 
@@ -474,13 +479,7 @@ impl QueryRunStore {
             .quota_bytes
             .checked_sub(self.snapshot.live_disk_bytes)
             .ok_or_else(|| spill_error("sort spill quota exhausted"))?;
-        let mut writer = QuotaWriter {
-            file,
-            quota: Arc::clone(&self.quota),
-            remaining: available,
-            written: 0,
-            digest: Sha256::new(),
-        };
+        let mut writer = QuotaWriter::new(file, Arc::clone(&self.quota), available);
         let result = self.write_blocks(spec, max_chunks, blocks, runtime, session, &mut writer);
         // Include a partially written failed output. Inputs stay charged until
         // explicit removal, so compaction always admits input/output overlap.
@@ -499,16 +498,20 @@ impl QueryRunStore {
             .bytes = writer.written;
         result?;
         writer.flush().map_err(io_error)?;
+        let written = writer.written;
+        let (digest, head_digest, tail_digest) = writer.finish_digests();
         let run = NativeQueryRun {
             identity: file_identity(&path)?,
             path,
             rows: spec.rows,
-            bytes: writer.written,
-            digest: writer.digest.finalize().into(),
+            bytes: written,
+            head_digest,
+            tail_digest,
+            digest,
             metadata,
             block_rows: spec.block_rows,
         };
-        validate_run_bytes(&run)?;
+        validate_written_run(&run)?;
         self.snapshot.runs_written += 1;
         self.snapshot.runs_validated += 1;
         #[cfg(all(test, feature = "vortex-write", unix))]
@@ -628,7 +631,7 @@ impl QueryRunStore {
     fn remove_inner(&mut self, run: &NativeQueryRun) -> Result<()> {
         self.check_active()?;
         self.check_owned(run)?;
-        validate_run_bytes(run)?;
+        validate_run_identity_and_len(run)?;
         fs::remove_file(&run.path).map_err(io_error)?;
         self.quota.removed(run.bytes)?;
         self.owned.retain(|path| path != &run.path);
@@ -744,6 +747,70 @@ struct QuotaWriter {
     remaining: u64,
     written: u64,
     digest: Sha256,
+    head_digest: Sha256,
+    head_hashed: usize,
+    tail_ring: Box<[u8]>,
+    tail_pos: usize,
+}
+impl QuotaWriter {
+    fn new(file: File, quota: Arc<crate::query_spill_quota::Quota>, remaining: u64) -> Self {
+        #[cfg(unix)]
+        {
+            const _: () =
+                assert!(BOUNDED_HEAD_BYTES == crate::resident_session::BOUNDED_ENVELOPE_HEAD_BYTES);
+            const _: () = assert!(
+                CHECKSUM_SCRATCH_BYTES == crate::resident_session::BOUNDED_ENVELOPE_TAIL_BYTES
+            );
+        }
+        Self {
+            file,
+            quota,
+            remaining,
+            written: 0,
+            digest: Sha256::new(),
+            head_digest: Sha256::new(),
+            head_hashed: 0,
+            tail_ring: vec![0_u8; CHECKSUM_SCRATCH_BYTES].into_boxed_slice(),
+            tail_pos: 0,
+        }
+    }
+
+    fn record_tail(&mut self, chunk: &[u8]) {
+        if chunk.is_empty() {
+            return;
+        }
+        let capacity = self.tail_ring.len();
+        if chunk.len() >= capacity {
+            self.tail_ring
+                .copy_from_slice(&chunk[chunk.len() - capacity..]);
+            self.tail_pos = 0;
+            return;
+        }
+        let first = chunk.len().min(capacity - self.tail_pos);
+        self.tail_ring[self.tail_pos..self.tail_pos + first].copy_from_slice(&chunk[..first]);
+        if first < chunk.len() {
+            let rem = chunk.len() - first;
+            self.tail_ring[..rem].copy_from_slice(&chunk[first..]);
+        }
+        self.tail_pos = (self.tail_pos + chunk.len()) % capacity;
+    }
+
+    fn finish_digests(self) -> ([u8; 32], [u8; 32], [u8; 32]) {
+        let mut tail_digest = Sha256::new();
+        let capacity = self.tail_ring.len();
+        if self.written < capacity as u64 {
+            let valid = usize::try_from(self.written).unwrap_or(capacity);
+            tail_digest.update(&self.tail_ring[..valid]);
+        } else {
+            tail_digest.update(&self.tail_ring[self.tail_pos..]);
+            tail_digest.update(&self.tail_ring[..self.tail_pos]);
+        }
+        (
+            self.digest.finalize().into(),
+            self.head_digest.finalize().into(),
+            tail_digest.finalize().into(),
+        )
+    }
 }
 impl Write for QuotaWriter {
     fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
@@ -760,7 +827,14 @@ impl Write for QuotaWriter {
         pending
             .commit(count as u64)
             .map_err(std::io::Error::other)?;
-        self.digest.update(&bytes[..count]);
+        let chunk = &bytes[..count];
+        self.digest.update(chunk);
+        if self.head_hashed < BOUNDED_HEAD_BYTES {
+            let take = chunk.len().min(BOUNDED_HEAD_BYTES - self.head_hashed);
+            self.head_digest.update(&chunk[..take]);
+            self.head_hashed += take;
+        }
+        self.record_tail(chunk);
         self.remaining -= count as u64;
         self.written += count as u64;
         Ok(count)
@@ -770,9 +844,7 @@ impl Write for QuotaWriter {
     }
 }
 
-/// The 64 KiB checksum buffer is covered by the store's transferred scratch
-/// reservation. The same captured descriptor is used by every native read.
-fn validate_run_bytes(run: &NativeQueryRun) -> Result<Arc<RunSourceGeneration>> {
+fn validate_run_identity_and_len(run: &NativeQueryRun) -> Result<()> {
     if file_identity(&run.path)? != run.identity {
         return Err(spill_error("native sort run file identity changed"));
     }
@@ -780,9 +852,26 @@ fn validate_run_bytes(run: &NativeQueryRun) -> Result<Arc<RunSourceGeneration>> 
     if !metadata.is_file() || metadata.file_type().is_symlink() || metadata.len() != run.bytes {
         return Err(spill_error("native sort run type or byte length changed"));
     }
+    Ok(())
+}
+
+fn validate_written_run(run: &NativeQueryRun) -> Result<()> {
+    validate_run_identity_and_len(run)
+}
+
+/// The 64 KiB checksum buffer verifies the bounded head and tail envelopes on open
+/// without re-reading the entire run from disk.
+fn validate_run_envelope(run: &NativeQueryRun) -> Result<Arc<RunSourceGeneration>> {
+    validate_run_identity_and_len(run)?;
     let source = Arc::new(RunSourceGeneration::capture(&run.path)?);
     let mut buffer = vec![0_u8; CHECKSUM_SCRATCH_BYTES].into_boxed_slice();
-    source.verify_contents(run.identity, run.bytes, &run.digest, &mut buffer)?;
+    source.verify_bounded_envelope(
+        run.identity,
+        run.bytes,
+        &run.head_digest,
+        &run.tail_digest,
+        &mut buffer,
+    )?;
     if file_identity(&run.path)? != run.identity {
         return Err(spill_error(
             "native sort run file identity changed during verification",
@@ -830,7 +919,7 @@ impl QueryRunReader {
         namespace: RunNamespace,
     ) -> Result<Self> {
         use vortex::array::memory::HostMemorySessionExt as _;
-        let source = validate_run_bytes(run)?;
+        let source = validate_run_envelope(run)?;
         let file = runtime
             .block_on(
                 session

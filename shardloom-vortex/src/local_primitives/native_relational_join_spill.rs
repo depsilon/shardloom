@@ -165,10 +165,9 @@ fn build<'a>(
             add(&mut report.build_batches_detached, 1)?;
         }
         let input = Batch::new(array, &spec.right_keys, context)?;
-        for start in (0..input.array.len()).step_by(batch_rows.min(1024)) {
-            let end = start
-                .saturating_add(batch_rows.min(1024))
-                .min(input.array.len());
+        let step = build.block_rows().max(1);
+        for start in (0..input.array.len()).step_by(step) {
+            let end = start.saturating_add(step).min(input.array.len());
             build.build(
                 layout.record(&input, start..end, ordinal, context)?,
                 context,

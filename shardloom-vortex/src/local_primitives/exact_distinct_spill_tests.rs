@@ -269,6 +269,7 @@ fn exact_distinct_spill_quota_cancel_and_invalid_weight_cleanup_are_terminal() {
                         Arc::clone(&spill.work),
                         spill.policy.clone(),
                         0,
+                        FAN_IN,
                         &runtime,
                         &session,
                     )
@@ -360,7 +361,7 @@ fn exact_distinct_spill_checksum_and_valid_checksum_semantic_corruption_rejected
                 .as_mut()
                 .unwrap()
                 .write_arrays(
-                    &spec(u64::try_from(rows.len()).unwrap()).unwrap(),
+                    &spec(u64::try_from(rows.len()).unwrap(), BLOCK_ROWS).unwrap(),
                     [Ok(runs::array(&rows))].into_iter(),
                     &runtime,
                     &session,
@@ -493,4 +494,35 @@ fn exact_distinct_spill_empty_result_block_ownership_and_geometry_reservations()
             .unwrap()
             <= MERGE_BYTES
     );
+}
+
+#[test]
+fn high_memory_exact_distinct_spill_uses_large_blocks_and_sixteen_way_merge() {
+    let workspace = Workspace::new();
+    let (runtime, session) = runtime();
+    let mut policy = workspace.policy();
+    policy.memory_bytes = 16 << 20;
+    policy.quota_bytes = 128 << 20;
+    let memory = LiveMemoryPool::new(policy.memory_bytes).unwrap();
+    let mut spill = ExactDistinctSpill::new(policy, memory.clone(), false, false, 8).unwrap();
+    assert_eq!(spill.block_rows, 16_384);
+    assert_eq!(spill.fan_in, 16);
+    for run_index in 0..17_u64 {
+        for value in 0..4_u64 {
+            spill
+                .push(unsigned(10 + run_index, value), 1, &runtime, &session)
+                .unwrap();
+        }
+        spill.flush(&runtime, &session).unwrap();
+    }
+    assert_eq!(spill.evidence.merge_passes, 1);
+    assert_eq!(spill.runs.len(), 2);
+    assert_eq!(spill.runs[1].native.block_rows, 16_384);
+    let result = spill.finish(&runtime, &session).unwrap();
+    assert_eq!(result.evidence.groups, 17);
+    assert_eq!(result.evidence.runs_written, result.evidence.runs_validated);
+    assert!(result.evidence.peak_reserved_bytes <= memory.snapshot().limit_bytes);
+    drop(result);
+    workspace.assert_empty();
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
 }

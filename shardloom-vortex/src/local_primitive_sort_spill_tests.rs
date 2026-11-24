@@ -62,17 +62,17 @@ fn source_candidate(ordinal: usize, value: StatValue) -> SortRowCandidate {
 
 #[test]
 fn merge_geometry_covers_owned_overlap_and_retains_full_large_run_metadata_charge() {
-    // Eight resident row queues; three scalar columns during one refill; five
-    // row-width buffers for input, conversion and queued/active writer overlap.
-    // Keep a further factor of two within the reserved per-row allowance.
-    let owned_per_row = MERGE_FAN_IN * size_of::<SpillRow>()
-        + 3 * size_of::<StatValue>()
-        + 5 * size_of::<SpillRow>();
+    // Active zero-allocation column cursors share one decoded block tuple per
+    // reader plus overlapping writer output buffers within the per-row budget.
+    let owned_per_row = 3 * size_of::<u64>() + 5 * size_of::<SpillRow>();
     assert!(2 * owned_per_row as u64 <= MERGE_BYTES_PER_BLOCK_ROW);
     for (memory, expected) in [
         (1_u64 << 20, (256, 2)),
         (2 << 20, (256, 8)),
         (4 << 20, (1024, 8)),
+        (64 << 20, (16_384, 32)),
+        (128 << 20, (32_768, 32)),
+        (256 << 20, (65_536, 32)),
     ] {
         let (rows, fan_in) = merge_geometry(memory / 2).unwrap();
         assert_eq!((rows, fan_in), expected);
@@ -132,7 +132,13 @@ fn run_reader_refills_one_native_leaf_without_host_core_prefetch() {
             index as u64
         );
         assert_eq!(reader.reader.next_block_offset(), block_rows as u64);
-        assert!(reader.rows.len() < block_rows);
+        assert!(
+            reader
+                .block
+                .as_ref()
+                .map_or(0, |block| block.keys.len() - block.offset)
+                < block_rows
+        );
     }
     assert_eq!(
         reader.next_row(&runtime).unwrap().unwrap().source,
@@ -530,10 +536,11 @@ fn native_runs_merge_exact_signed_extremes_ties_and_large_offset_with_bounded_ha
                     .map(|(_, ordinal)| *ordinal)
                     .collect::<Vec<_>>()
             );
-            assert!(report.runs_written > MERGE_FAN_IN as u64);
+            let expected_fan_in = merge_geometry(policy.memory_bytes / 2).unwrap().1;
+            assert!(report.runs_written > expected_fan_in as u64);
             assert!(report.merge_passes >= 1);
             assert_eq!(report.runs_written, report.runs_validated);
-            assert!(report.max_open_runs <= MERGE_FAN_IN + 1);
+            assert!(report.max_open_runs <= expected_fan_in + 1);
             assert!(report.peak_reserved_bytes <= policy.memory_bytes);
             assert!(report.peak_disk_bytes <= policy.quota_bytes);
             assert!(report.owned_cleanup_completed);
@@ -939,5 +946,51 @@ fn symlink_workspaces_and_replaced_run_inodes_are_rejected_without_deleting_targ
     fs::remove_file(&path).unwrap();
     fs::rename(original, path).unwrap();
     drop(spill);
+    workspace.assert_empty();
+}
+
+#[test]
+fn high_memory_sort_spill_selects_large_blocks_and_thirty_two_way_merge() {
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let workspace = Workspace::new();
+    let policy = VortexSortSpillPolicy::new(&workspace.0, 128 << 20, 64 << 20).unwrap();
+    assert_eq!(
+        merge_geometry(policy.memory_bytes / 2).unwrap(),
+        (16_384, 32)
+    );
+    let mut spill =
+        NumericSortSpill::new(&policy, false, VortexSortTiePolicy::First, true, 1).unwrap();
+    assert_eq!(spill.report.run_block_rows, 16_384);
+    assert_eq!(spill.report.merge_fan_in, 32);
+    for run_index in 0..33_usize {
+        let rank = i64::try_from(run_index).unwrap();
+        let mut candidates = vec![
+            source_candidate(run_index * 2, StatValue::Int64(100 - rank * 2)),
+            source_candidate(run_index * 2 + 1, StatValue::Int64(100 - rank * 2 + 1)),
+        ];
+        spill.flush(&mut candidates, &runtime, &session).unwrap();
+    }
+    let (selected, report) = spill
+        .finish(&mut Vec::new(), 0, 66, &runtime, &session)
+        .unwrap();
+    let ordinals = selected
+        .iter()
+        .map(|row| row.source_ordinal)
+        .collect::<Vec<_>>();
+    let expected = (0..33_usize)
+        .rev()
+        .flat_map(|run_index| [run_index * 2, run_index * 2 + 1])
+        .collect::<Vec<_>>();
+    assert_eq!(ordinals, expected);
+    assert_eq!(report.run_block_rows, 16_384);
+    assert_eq!(report.merge_fan_in, 32);
+    assert!(report.merge_passes >= 1);
+    assert_eq!(report.runs_written, report.runs_validated);
+    assert!(report.max_open_runs <= 33);
+    assert!(report.owned_cleanup_completed);
     workspace.assert_empty();
 }

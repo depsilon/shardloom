@@ -52,6 +52,30 @@ impl RunWork {
     ) -> Result<WorkShape> {
         context.check_cancelled()?;
         let maximum = rows.min(self.validation_rows as u64);
+        let candidates = if maximum <= 1024 {
+            (1..=maximum).collect::<Vec<_>>()
+        } else {
+            let mut list = vec![1024, maximum];
+            list.extend(1_u64..=64);
+            let mut power = 128_u64;
+            while power < maximum {
+                list.push(power);
+                power = power.saturating_mul(2);
+            }
+            let window = self.validation_rows as u64;
+            for factor in 1_u64..=64 {
+                if window.is_multiple_of(factor) {
+                    let div = window / factor;
+                    if (1..=maximum).contains(&div) {
+                        list.push(div);
+                    }
+                }
+            }
+            list.retain(|&block| (1..=maximum).contains(&block));
+            list.sort_unstable();
+            list.dedup();
+            list
+        };
         self.sizing.select_candidates(
             "native_spill_write",
             context.memory().snapshot(),
@@ -60,7 +84,8 @@ impl RunWork {
                 max_units: maximum,
                 max_in_flight: 1,
             },
-            (1..=maximum)
+            candidates
+                .into_iter()
                 .map(|block| Ok((block, self.block_cost(spec, rows, block, other_workspace)?))),
         )
     }
@@ -290,6 +315,81 @@ pub(super) fn merge_reader_overlap(
         Ok::<_, shardloom_core::ShardLoomError>(peak.max(bytes))
     })?;
     Ok(peak.saturating_sub(held_payload_bytes))
+}
+
+/// General k-way reader payload overlap bound for `merge_runs`.
+/// Preserves the exact two-run quadratic sweep for small windows, and computes
+/// an `O(k log k)` upper bound for larger windows or multi-way merges.
+pub(super) fn merge_readers_overlap(
+    rows: usize,
+    runs: &[super::Run],
+    held_payload_bytes: u64,
+) -> Result<u64> {
+    for run in runs {
+        if run.native.block_rows == 0 {
+            return Err(failed("spill merge input block rows must be positive"));
+        }
+    }
+    if let [left, right] = runs
+        && rows <= 1024
+    {
+        return merge_reader_overlap(rows, left, right, held_payload_bytes);
+    }
+    let total_rows = runs.iter().try_fold(0_u64, |sum, run| {
+        sum.checked_add(run.native.rows).ok_or_else(capacity_error)
+    })?;
+    let bounded_rows = (rows as u64).min(total_rows);
+    let mut base_bytes = 0_u64;
+    let mut second_block_candidates = Vec::with_capacity(runs.len());
+    let mut extra_rates = Vec::with_capacity(runs.len());
+    let mut per_run_cap = Vec::with_capacity(runs.len());
+    for (index, run) in runs.iter().enumerate() {
+        let b = run.native.block_rows as u64;
+        let total_blocks = run.native.rows.div_ceil(b);
+        let max_bytes = run.maximum_block_bytes;
+        let cap = total_blocks
+            .checked_mul(max_bytes)
+            .ok_or_else(capacity_error)?;
+        per_run_cap.push(cap);
+        base_bytes = base_bytes
+            .checked_add(if total_blocks > 0 { max_bytes } else { 0 })
+            .ok_or_else(capacity_error)?;
+        if total_blocks >= 2 {
+            second_block_candidates.push(max_bytes);
+        }
+        if total_blocks >= 3 && bounded_rows > 1 {
+            extra_rates.push((index, max_bytes, b, (total_blocks - 2).saturating_mul(b)));
+        }
+    }
+    second_block_candidates.sort_unstable_by(|a, b| b.cmp(a));
+    let transitions = usize::try_from(bounded_rows).unwrap_or(usize::MAX);
+    let mut peak = base_bytes;
+    for bytes in second_block_candidates.into_iter().take(transitions) {
+        peak = peak.checked_add(bytes).ok_or_else(capacity_error)?;
+    }
+    extra_rates.sort_unstable_by(|a, b| {
+        u128::from(b.1)
+            .saturating_mul(u128::from(a.2))
+            .cmp(&u128::from(a.1).saturating_mul(u128::from(b.2)))
+    });
+    let mut remaining_rows = bounded_rows.saturating_sub(1);
+    for (index, max_bytes, block_rows, row_cap) in extra_rates {
+        if remaining_rows == 0 {
+            break;
+        }
+        let take_rows = remaining_rows.min(row_cap);
+        let extra_blocks = take_rows.div_ceil(block_rows);
+        let add_bytes = extra_blocks
+            .checked_mul(max_bytes)
+            .ok_or_else(capacity_error)?;
+        let _ = index;
+        peak = peak.checked_add(add_bytes).ok_or_else(capacity_error)?;
+        remaining_rows -= take_rows;
+    }
+    let total_cap = per_run_cap.into_iter().try_fold(0_u64, |sum, cap| {
+        sum.checked_add(cap).ok_or_else(capacity_error)
+    })?;
+    Ok(peak.min(total_cap).saturating_sub(held_payload_bytes))
 }
 
 impl<I: Iterator<Item = Result<ArrayRef>>> Iterator for Blocks<'_, I> {

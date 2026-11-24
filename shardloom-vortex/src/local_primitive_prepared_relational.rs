@@ -1906,6 +1906,16 @@ impl PreparedVortexRelational {
                 probe_filters,
                 consume,
             ),
+            NodeKind::Retained(binding) => self.run_retained_filtered(
+                binding,
+                None,
+                fields,
+                context,
+                metrics,
+                batch_rows,
+                probe_filters,
+                consume,
+            ),
             _ => self.run_aux_node_kind(
                 node, kind, fields, context, metrics, batch_rows, parameter, consume,
             ),
@@ -1973,9 +1983,6 @@ impl PreparedVortexRelational {
             NodeKind::Unadmitted => Err(failed(
                 "native_pipeline_missing_operator: no native implementation was admitted",
             )),
-            NodeKind::Retained(binding) => {
-                self.run_retained(binding, context, metrics, batch_rows, consume)
-            }
             NodeKind::Recursive { .. } => Err(failed(
                 "recursive relation must execute through its action-owned retention boundary",
             )),
@@ -2857,6 +2864,7 @@ fn declaration_accepts_probe_filters(kind: &NodeKind) -> bool {
                 _ => false,
             }) && declaration_accepts_probe_filters(&input.kind)
         }
+        NodeKind::Retained(binding) => !binding.definition.recursive(),
         _ => false,
     }
 }

@@ -7,8 +7,7 @@ use super::super::{
     vortex_error,
 };
 use super::{
-    Copies, FAN_IN, KeyOrder, Policy, QueryRunStore, Run, as_u64, block_rows_for_key, copy_text,
-    failed, reserved_vec,
+    Copies, KeyOrder, Policy, QueryRunStore, Run, as_u64, block_rows_for_key, failed, reserved_vec,
 };
 use shardloom_core::Result;
 use shardloom_exec::live_memory::MemoryLease;
@@ -117,51 +116,109 @@ pub(super) fn array<'a>(
     .into_array())
 }
 
-pub(super) fn blocks<'a>(
-    mut rows: impl Iterator<Item = Result<Row>> + 'a,
+fn copy_text_into(bytes: &[u8], out: &mut Vec<u8>) -> Result<()> {
+    out.clear();
+    if out.capacity() < bytes.len() {
+        out.try_reserve(bytes.len() - out.capacity())
+            .map_err(|_| failed("text copy allocation failed"))?;
+    }
+    out.extend_from_slice(bytes);
+    Ok(())
+}
+
+pub(super) fn blocks<'m, R: BlockingRuntime>(
+    merge: &'m mut RunMerge<'_, R>,
     block_rows: usize,
     signature: u8,
-    copies: &'a Copies,
-    session: &'a VortexSession,
-) -> impl Iterator<Item = Result<ArrayRef>> + 'a {
+    copies: &'m Copies,
+    session: &'m VortexSession,
+) -> impl Iterator<Item = Result<ArrayRef>> + 'm {
     let mut failed_once = false;
+    let mut scratch = Row {
+        number: 0,
+        text: Vec::new(),
+        weight: 0,
+    };
     std::iter::from_fn(move || {
         if failed_once {
             return None;
         }
-        let mut block = match reserved_vec(block_rows) {
-            Ok(block) => block,
+        match build_merged_block(merge, &mut scratch, block_rows, signature, copies, session) {
+            Ok(Some(value)) => Some(Ok(value)),
+            Ok(None) => None,
             Err(error) => {
                 failed_once = true;
-                return Some(Err(error));
-            }
-        };
-        while block.len() < block_rows {
-            match rows.next() {
-                Some(Ok(row)) => block.push(row),
-                Some(Err(error)) => {
-                    failed_once = true;
-                    return Some(Err(error));
-                }
-                None => break,
+                Some(Err(error))
             }
         }
-        if block.is_empty() {
-            return None;
-        }
-        let result = array(
-            block
-                .iter()
-                .map(|row| (row.number, row.text.as_slice(), row.weight)),
-            signature,
-            copies,
-            &mut session.create_execution_ctx(),
-        );
-        if result.is_err() {
-            failed_once = true;
-        }
-        Some(result)
     })
+}
+
+fn build_merged_block<R: BlockingRuntime>(
+    merge: &mut RunMerge<'_, R>,
+    scratch: &mut Row,
+    block_rows: usize,
+    signature: u8,
+    copies: &Copies,
+    session: &VortexSession,
+) -> Result<Option<ArrayRef>> {
+    let mut numbers = reserved_vec(block_rows)?;
+    let mut signatures = reserved_vec(block_rows)?;
+    let mut weights = reserved_vec(block_rows)?;
+    let mut offsets = reserved_vec(
+        block_rows
+            .checked_add(1)
+            .ok_or_else(|| failed("native offset capacity overflowed"))?,
+    )?;
+    let mut payload = Vec::new();
+    offsets.push(0_u64);
+    for _ in 0..block_rows {
+        if !merge.next_into(scratch)? {
+            break;
+        }
+        let next_len = payload
+            .len()
+            .checked_add(scratch.text.len())
+            .ok_or_else(|| failed("native block byte count overflowed"))?;
+        if payload.capacity() < next_len {
+            payload
+                .try_reserve(next_len - payload.len())
+                .map_err(|_| failed("native block payload allocation failed"))?;
+        }
+        numbers.push(scratch.number);
+        signatures.push(signature);
+        weights.push(scratch.weight);
+        payload.extend_from_slice(&scratch.text);
+        offsets.push(as_u64(payload.len())?);
+    }
+    if numbers.is_empty() {
+        return Ok(None);
+    }
+    let count = numbers.len();
+    Copies::add(&copies.encoded, payload.len())?;
+    let mut ctx = session.create_execution_ctx();
+    let text = VarBinArray::try_new(
+        PrimitiveArray::new(Buffer::from(offsets), Validity::NonNullable).into_array(),
+        Buffer::from(payload),
+        DType::Utf8(Nullability::NonNullable),
+        Validity::NonNullable,
+        &mut ctx,
+    )
+    .map_err(vortex_error)?;
+    Ok(Some(
+        StructArray::new(
+            ["integer_bits", "signature", "text", "weight"].into(),
+            [
+                PrimitiveArray::new(Buffer::from(numbers), Validity::NonNullable).into_array(),
+                PrimitiveArray::new(Buffer::from(signatures), Validity::NonNullable).into_array(),
+                text.into_array(),
+                PrimitiveArray::new(Buffer::from(weights), Validity::NonNullable).into_array(),
+            ],
+            count,
+            Validity::NonNullable,
+        )
+        .into_array(),
+    ))
 }
 
 struct ReadBlock {
@@ -204,12 +261,13 @@ impl ReadBlock {
             _owner: block,
         })
     }
-    fn next(
+    fn next_into(
         &mut self,
         max_key_bytes: usize,
         order: KeyOrder,
         copies: &Copies,
-    ) -> Result<Option<Row>> {
+        out_text: &mut Vec<u8>,
+    ) -> Result<Option<(u64, u64)>> {
         if self.offset == self.number.len() {
             return Ok(None);
         }
@@ -230,13 +288,9 @@ impl ReadBlock {
         }
         std::str::from_utf8(&text).map_err(|_| failed("native run UTF8 invalid"))?;
         Copies::add(&copies.heads, text.len())?;
-        let text = copy_text(&text)?;
+        copy_text_into(&text, out_text)?;
         self.offset += 1;
-        Ok(Some(Row {
-            number,
-            text,
-            weight,
-        }))
+        Ok(Some((number, weight)))
     }
 }
 struct RunReader {
@@ -255,26 +309,28 @@ impl RunReader {
         }
         self.reader.validate()
     }
-    fn next(
+    #[allow(clippy::too_many_arguments)]
+    fn next_into(
         &mut self,
         runtime: &impl BlockingRuntime,
         ctx: &mut ExecutionCtx,
         policy: &Policy,
         order: KeyOrder,
         copies: &Copies,
-        previous: Option<&Row>,
-    ) -> Result<Option<Row>> {
+        previous: Option<(u64, &[u8])>,
+        out: &mut Row,
+    ) -> Result<bool> {
         policy.check()?;
         if self.remaining == 0 {
             self.validate()?;
-            return Ok(None);
+            return Ok(false);
         }
         let cached = match self.block.as_mut() {
-            Some(block) => block.next(self.max_key_bytes, order, copies)?,
+            Some(block) => block.next_into(self.max_key_bytes, order, copies, &mut out.text)?,
             None => None,
         };
-        let row = if let Some(row) = cached {
-            row
+        let (number, weight) = if let Some(pair) = cached {
+            pair
         } else {
             self.block = None;
             let block = self
@@ -285,13 +341,15 @@ impl RunReader {
             self.block
                 .as_mut()
                 .expect("new block")
-                .next(self.max_key_bytes, order, copies)?
+                .next_into(self.max_key_bytes, order, copies, &mut out.text)?
                 .ok_or_else(|| failed("run yielded empty block"))?
         };
-        self.max_observed_key_bytes = self.max_observed_key_bytes.max(row.text.len());
-        if previous.is_some_and(|previous| {
+        out.number = number;
+        out.weight = weight;
+        self.max_observed_key_bytes = self.max_observed_key_bytes.max(out.text.len());
+        if previous.is_some_and(|(prev_num, prev_text)| {
             order
-                .compare((previous.number, &previous.text), (row.number, &row.text))
+                .compare((prev_num, prev_text), (out.number, &out.text))
                 .is_gt()
         }) {
             return Err(failed("native run complete key order regressed"));
@@ -299,7 +357,7 @@ impl RunReader {
         // The merge still owns its popped independent key during this read.
         // Borrow it for ordering without copying it or retaining a source block.
         self.remaining -= 1;
-        Ok(Some(row))
+        Ok(true)
     }
 }
 struct Head {
@@ -349,17 +407,21 @@ impl<'runtime, R: BlockingRuntime> RunMerge<'runtime, R> {
         policy: Policy,
         order: KeyOrder,
         copies: Arc<Copies>,
+        fan_in: usize,
+        target_block_bytes: usize,
+        max_block_rows: usize,
         runtime: &'runtime R,
         session: &VortexSession,
     ) -> Result<Self> {
         policy.check()?;
-        let mut readers = reserved_vec(FAN_IN)?;
+        let mut readers = reserved_vec(fan_in)?;
         for run in inputs {
-            if readers.len() == FAN_IN {
+            if readers.len() == fan_in {
                 return Err(failed("merge file-handle bound exceeded"));
             }
             if run.max_key_bytes > policy.max_key_bytes
-                || run.native.block_rows != block_rows_for_key(run.max_key_bytes)
+                || run.native.block_rows
+                    != block_rows_for_key(run.max_key_bytes, target_block_bytes, max_block_rows)
             {
                 return Err(failed("native run block geometry differs from descriptor"));
             }
@@ -374,13 +436,18 @@ impl<'runtime, R: BlockingRuntime> RunMerge<'runtime, R> {
         let mut ctx = session.create_execution_ctx();
         let mut heads = BinaryHeap::new();
         heads
-            .try_reserve_exact(FAN_IN)
+            .try_reserve_exact(fan_in)
             .map_err(|_| failed("merge head allocation failed"))?;
-        if heads.capacity() != FAN_IN {
+        if heads.capacity() != fan_in {
             return Err(failed("merge head allocation exceeded reservation"));
         }
         for (reader, input) in readers.iter_mut().enumerate() {
-            if let Some(row) = input.next(runtime, &mut ctx, &policy, order, &copies, None)? {
+            let mut row = Row {
+                number: 0,
+                text: Vec::new(),
+                weight: 0,
+            };
+            if input.next_into(runtime, &mut ctx, &policy, order, &copies, None, &mut row)? {
                 heads.push(Head { row, reader, order });
             }
         }
@@ -396,6 +463,45 @@ impl<'runtime, R: BlockingRuntime> RunMerge<'runtime, R> {
             failed: false,
         })
     }
+
+    pub(super) fn next_into(&mut self, out: &mut Row) -> Result<bool> {
+        if self.failed {
+            return Ok(false);
+        }
+        if let Err(error) = self.policy.check() {
+            self.failed = true;
+            return Err(error);
+        }
+        let Some(Head {
+            mut row,
+            reader,
+            order,
+        }) = self.heads.pop()
+        else {
+            return Ok(false);
+        };
+        std::mem::swap(&mut row.text, &mut out.text);
+        out.number = row.number;
+        out.weight = row.weight;
+        match self.readers[reader].next_into(
+            self.runtime,
+            &mut self.ctx,
+            &self.policy,
+            self.order,
+            &self.copies,
+            Some((out.number, &out.text)),
+            &mut row,
+        ) {
+            Ok(true) => self.heads.push(Head { row, reader, order }),
+            Ok(false) => {}
+            Err(error) => {
+                self.failed = true;
+                return Err(error);
+            }
+        }
+        Ok(true)
+    }
+
     pub(super) fn validate(&self) -> Result<()> {
         self.policy.check()?;
         for reader in &self.readers {
@@ -407,33 +513,15 @@ impl<'runtime, R: BlockingRuntime> RunMerge<'runtime, R> {
 impl<R: BlockingRuntime> Iterator for RunMerge<'_, R> {
     type Item = Result<Row>;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.failed {
-            return None;
+        let mut row = Row {
+            number: 0,
+            text: Vec::new(),
+            weight: 0,
+        };
+        match self.next_into(&mut row) {
+            Ok(true) => Some(Ok(row)),
+            Ok(false) => None,
+            Err(error) => Some(Err(error)),
         }
-        if let Err(error) = self.policy.check() {
-            self.failed = true;
-            return Some(Err(error));
-        }
-        let Head { row, reader, order } = self.heads.pop()?;
-        match self.readers[reader].next(
-            self.runtime,
-            &mut self.ctx,
-            &self.policy,
-            self.order,
-            &self.copies,
-            Some(&row),
-        ) {
-            Ok(Some(next)) => self.heads.push(Head {
-                row: next,
-                reader,
-                order,
-            }),
-            Ok(None) => {}
-            Err(error) => {
-                self.failed = true;
-                return Some(Err(error));
-            }
-        }
-        Some(Ok(row))
     }
 }

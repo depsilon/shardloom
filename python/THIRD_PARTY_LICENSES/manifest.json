@@ -3994,6 +3994,34 @@
       ]
     },
     {
+      "name": "libmimalloc-sys",
+      "version": "0.1.49",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "license": "MIT",
+      "repository": "https://github.com/purpleprotocol/mimalloc_rust/tree/master/libmimalloc-sys",
+      "crate_checksum_sha256": "6a45a52f43e1c16f667ccfe4dd8c85b7f7c204fd5e3bf46c5b0db9a5c3c0b8e9",
+      "files": [
+        {
+          "text": "texts/82ade5d7d9b029044b5fbbc326207fc47c2d44ee4dd71e8a559c36d728217de9.txt",
+          "sha256": "82ade5d7d9b029044b5fbbc326207fc47c2d44ee4dd71e8a559c36d728217de9",
+          "bytes": 1096,
+          "crate_path": "c_src/mimalloc/v2/LICENSE"
+        },
+        {
+          "text": "texts/82ade5d7d9b029044b5fbbc326207fc47c2d44ee4dd71e8a559c36d728217de9.txt",
+          "sha256": "82ade5d7d9b029044b5fbbc326207fc47c2d44ee4dd71e8a559c36d728217de9",
+          "bytes": 1096,
+          "crate_path": "c_src/mimalloc/v3/LICENSE"
+        },
+        {
+          "text": "texts/a08554fab028af3af047e8588d32d019662c1b1bf07959a195a2f75fe340726b.txt",
+          "sha256": "a08554fab028af3af047e8588d32d019662c1b1bf07959a195a2f75fe340726b",
+          "bytes": 1055,
+          "crate_path": "LICENSE.txt"
+        }
+      ]
+    },
+    {
       "name": "libsqlite3-sys",
       "version": "0.40.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
@@ -4254,6 +4282,22 @@
           "sha256": "7e12e5df4bae12cb21581ba157ced20e1986a0508dd10d0e8a4ab9a4cf94e85c",
           "bytes": 1211,
           "crate_path": "UNLICENSE"
+        }
+      ]
+    },
+    {
+      "name": "mimalloc",
+      "version": "0.1.52",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "license": "MIT",
+      "repository": "https://github.com/purpleprotocol/mimalloc_rust",
+      "crate_checksum_sha256": "2d4139bb28d14ad1facf21d5eb8825051b326e172d216b39f6d31df53cc97862",
+      "files": [
+        {
+          "text": "texts/a08554fab028af3af047e8588d32d019662c1b1bf07959a195a2f75fe340726b.txt",
+          "sha256": "a08554fab028af3af047e8588d32d019662c1b1bf07959a195a2f75fe340726b",
+          "bytes": 1055,
+          "crate_path": "LICENSE.txt"
         }
       ]
     },

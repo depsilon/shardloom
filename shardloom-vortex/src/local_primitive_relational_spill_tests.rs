@@ -670,3 +670,79 @@ fn native_relational_spill_large_single_row_uses_the_grant_and_missing_workspace
     assert_eq!(prepared.snapshot().completed_executions, 0);
     assert_clean(&fixture);
 }
+
+#[test]
+fn native_relational_spill_high_buffer_uses_large_blocks_and_k_way_merge() {
+    let rows = 54_000_u32;
+    let chunk = 4_500_usize;
+    let pad = "p".repeat(512);
+    let make_batch = |start: usize, end: usize| {
+        let ids = (start..end)
+            .map(|i| u64::from(rows - 1 - u32::try_from(i).unwrap()))
+            .collect::<Vec<_>>();
+        let labels = (start..end)
+            .map(|i| format!("{:06}-{pad}", rows - 1 - u32::try_from(i).unwrap()))
+            .collect::<Vec<_>>();
+        StructArray::try_new(
+            FieldNames::from(["id", "label"]),
+            vec![
+                PrimitiveArray::from_iter(ids).into_array(),
+                VarBinViewArray::from_iter_str(labels.iter().map(String::as_str)).into_array(),
+            ],
+            end - start,
+            Validity::NonNullable,
+        )
+        .unwrap()
+        .into_array()
+    };
+    let empty = make_batch(0, 0);
+    let fixture = Fixture::new(empty.clone(), chunk);
+    let runtime = CurrentThreadRuntime::new();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let mut file = fs::File::create(fixture.path()).unwrap();
+    let mut writer = session
+        .write_options()
+        .with_strategy(
+            crate::local_primitives::native_flat_layout::SequentialNativeFlatLayout::strategy(12),
+        )
+        .with_file_statistics(Vec::new())
+        .blocking(&runtime)
+        .writer(&mut file, empty.dtype().clone());
+    for start in (0..rows as usize).step_by(chunk) {
+        writer
+            .push(make_batch(start, (start + chunk).min(rows as usize)))
+            .unwrap();
+    }
+    writer.finish().unwrap();
+
+    let mut exec_policy = policy();
+    exec_policy.resource_envelope.memory_budget_bytes = 64 << 20;
+    let spill_policy = VortexRelationalSpillPolicy::new(&fixture.0, 256 << 20, 10 << 20).unwrap();
+    let prepared = prepare_relational(&sorted(fixture.scan(), vec![key("id", false)]), exec_policy)
+        .unwrap()
+        .with_spill(spill_policy)
+        .unwrap();
+    let mut count = 0_u64;
+    let mut prev_id = None;
+    let execution = prepared
+        .for_each_batch(&CancellationToken::default(), |batch, _| {
+            let array = logical_field_from_native_array(&batch, "id")?
+                .execute::<PrimitiveArray>(&mut session.create_execution_ctx())
+                .map_err(vortex_error)?;
+            for &id in array.as_slice::<u64>() {
+                assert!(prev_id.is_none_or(|prev| prev < id));
+                prev_id = Some(id);
+                count += 1;
+            }
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(count, u64::from(rows));
+    let report = execution.spill.as_ref().unwrap();
+    assert!(report.runs_written >= 3);
+    assert!(report.max_open_runs > 2);
+    assert!(report.run_block_rows > 1024);
+    assert_eq!(report.runs_written, report.runs_validated);
+    assert!(report.owned_cleanup_completed);
+    assert_clean(&fixture);
+}

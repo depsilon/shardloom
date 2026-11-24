@@ -73,6 +73,7 @@ hashbrown = { version = "0.17.1", default-features = false, features = ["inline-
 jiff = { version = "=0.2.39", default-features = false, features = ["std"] }
 jiff-tzdb = "=0.1.6"
 memchr = "2.8.3"
+mimalloc = { version = "=0.1.52", default-features = false }
 parquet = "=59.3.2"
 parquet-variant = "=59.3.2"
 pyo3 = "=0.29.3"

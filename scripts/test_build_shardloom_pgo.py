@@ -315,6 +315,80 @@ class PgoTests(unittest.TestCase):
         else:
             self.fail("owned descendant remained live after group cleanup")
 
+    def test_multi_family_corpus_plan_and_workspace_alias(self):
+        args = pgo.parse_args([
+            "--repo-root", str(self.repo),
+            "--workspace", str(self.root / "ws-pgo"),
+            "--training-corpus", "multi-family",
+            "--require-hot-symbol-coverage",
+            "--evaluate",
+        ])
+        plan = pgo.make_plan(args, {})
+        self.assertEqual(plan["run_dir"], str((self.root / "ws-pgo").resolve()))
+        self.assertEqual(plan["training_corpus"], "multi-family")
+        self.assertTrue(plan["require_hot_symbol_coverage"])
+        self.assertTrue(plan["evaluate_requested"])
+        self.assertFalse(plan["default_release_profile_changed"])
+        self.assertEqual(plan["claim_gate_status"], "not_claim_grade")
+        self.assertIn("--_train-multi-family", plan["training_command"])
+        self.assertEqual(plan["train_fixture"]["corpus"], "multi-family")
+
+    def test_hot_symbol_coverage_parser_and_require_flag(self):
+        sample = "\n".join([
+            "  _RNvCs_shardloom_vortex_exec_kernel: maximum count: 1200",
+            "  _RNvCs_shardloom_runtime_cli_entry: maximum count: 85",
+            "Total functions: 250",
+            "Maximum function count: 1200",
+        ])
+        parsed = pgo.parse_hot_symbol_coverage(sample)
+        self.assertEqual(parsed["total_functions"], 250)
+        self.assertEqual(parsed["shardloom_vortex_hot_symbols"], 1)
+        self.assertEqual(parsed["shardloom_runtime_hot_symbols"], 1)
+        with self.assertRaisesRegex(ValueError, "shardloom_vortex"):
+            pgo.parse_hot_symbol_coverage("Total functions: 10\nMaximum function count: 5\n")
+
+        self.args.require_hot_symbol_coverage = True
+        runner, target, calls = self.fake_runner()
+        orig_step = runner.step
+
+        def step_with_cov(name, command, env=None, timeout=None):
+            out = orig_step(name, command, env=env, timeout=timeout)
+            if name == "hot-symbol-coverage":
+                out.write_text(sample)
+            return out
+
+        runner.step = step_with_cov
+        pgo.build_variants(runner, target, "host")
+        self.assertIn("hot-symbol-coverage", [c[0] for c in calls])
+        self.assertEqual(runner.report["hot_symbol_coverage"]["max_function_count"], 1200)
+
+    def test_verify_training_multi_family_validates_all_sub_summaries(self):
+        training_dir = self.root / "training"
+        logs_dir = training_dir / "logs/heldout_operators_x"
+        logs_dir.mkdir(parents=True)
+        instr = self.root / "instrumented"
+        instr.write_bytes(b"instr-bin")
+        binary = pgo.file_record(instr)
+        heldout_sum = logs_dir / "summary.json"
+        heldout_sum.write_text(json.dumps({"status": "passed", "all_requested_acceptance_cases_passed": True}))
+        pq_sum = training_dir / "tpch_ssb_parquet_training.json"
+        vx_sum = training_dir / "tpch_ssb_vortex_training.json"
+        for p in (pq_sum, vx_sum):
+            p.write_text(json.dumps({"complete": True, "full_result_validation": True}))
+        manifest = training_dir / "multi_family_training_summary.json"
+        manifest.write_text(json.dumps({
+            "status": "passed",
+            "binary": binary["path"],
+            "binary_sha256": binary["sha256"],
+            "heldout_summary": str(heldout_sum),
+            "tpch_ssb_parquet_summary": str(pq_sum),
+            "tpch_ssb_vortex_summary": str(vx_sum),
+        }))
+        self.args.training_corpus = "multi-family"
+        runner = types.SimpleNamespace(output=self.root, args=self.args, report={})
+        pgo.verify_training(runner, binary)
+        self.assertEqual(runner.report["training_evidence"]["corpus"], "multi-family")
+
 
 if __name__ == "__main__":
     unittest.main()
