@@ -1506,7 +1506,7 @@ impl AggregateFunction {
         }
     }
 
-    const fn requires_secondary(self) -> bool {
+    pub(crate) const fn requires_secondary(self) -> bool {
         matches!(
             self,
             Self::CovarPop | Self::CovarSamp | Self::Corr | Self::ArgMin | Self::ArgMax
@@ -1517,11 +1517,11 @@ impl AggregateFunction {
         matches!(self, Self::First | Self::Last | Self::ArgMin | Self::ArgMax)
     }
 
-    const fn requires_separator(self) -> bool {
+    pub(crate) const fn requires_separator(self) -> bool {
         matches!(self, Self::StringAgg)
     }
 
-    const fn requires_quantile_level(self) -> bool {
+    pub(crate) const fn requires_quantile_level(self) -> bool {
         matches!(self, Self::QuantileCont | Self::QuantileDisc)
     }
 }

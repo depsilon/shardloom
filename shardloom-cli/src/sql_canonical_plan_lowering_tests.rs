@@ -1185,3 +1185,250 @@ fn canonical_projected_correlated_subqueries_and_quoted_wildcards() {
         vec![json!({"id": 1, "cnt": 1})]
     );
 }
+
+#[test]
+fn canonical_window_exclude_scopes_multi_def_and_subqueries() {
+    let dir = CanonicalTempDir::new("win_excl_scopes");
+    let data_path = dir.path().join("win.parquet");
+    write_parquet_rows(
+        &data_path,
+        &batch_i64(&[
+            ("id", vec![Some(1), Some(2), Some(3), Some(4)]),
+            ("k", vec![Some(1), Some(1), Some(2), Some(3)]),
+            ("v", vec![Some(10), Some(20), Some(30), Some(40)]),
+        ]),
+        4,
+    );
+
+    // 1. Derived subquery named window EXCLUDE + multi-definition WINDOW w1, w2 + outer same name `w`.
+    let sql = format!(
+        "WITH c AS ( \
+            SELECT id, \
+                   SUM(v) OVER w AS cte_excl, \
+                   SUM(v) OVER w2 AS cte_ties \
+            FROM '{}' \
+            WINDOW \
+              w AS (ORDER BY k ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING EXCLUDE CURRENT ROW), \
+              w2 AS (ORDER BY k ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING EXCLUDE TIES) \
+        ) \
+        SELECT d.id, d.sub_excl, d.cte_excl, d.cte_ties, SUM(d.id) OVER w AS outer_no_excl \
+        FROM ( \
+            SELECT id, cte_excl, cte_ties, SUM(cte_excl) OVER w AS sub_excl \
+            FROM c \
+            WINDOW w AS (ORDER BY id ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING EXCLUDE CURRENT ROW) \
+        ) AS d \
+        WINDOW w AS (ORDER BY d.id ROWS CURRENT ROW) \
+        ORDER BY d.id",
+        data_path.display()
+    );
+    // Rows sorted by k: (1,v=10), (2,v=20), (3,v=30), (4,v=40):
+    // For k: all rows except id=1/2 don't tie on k=1 -> for w2 (ORDER BY k):
+    //   id=1 (k=1): frame rows [1,2], ties to EXCLUDE={id=1,2}, so EXCLUDE TIES excludes peer 2 (keeps self 1) => 10.
+    //   id=2 (k=1): frame rows [1,2,3], peer 1 excluded by EXCLUDE TIES, keeps 2 & 3 => 20+30 = 50.
+    //   id=3 (k=2): frame [2,3,4], no ties => 20+30+40 = 90.
+    //   id=4 (k=3): frame [3,4], no ties => 30+40 = 70.
+    // For w (EXCLUDE CURRENT ROW):
+    //   cte_excl = [20, 40, 60, 30].
+    //   sub_excl (id=1..4, CURRENT ROW..1 FOLLOWING EXCLUDE CURRENT ROW of cte_excl) = [40, 60, 30, null].
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&sql)),
+        vec![
+            json!({"id": 1, "sub_excl": 40.0, "cte_excl": 20.0, "cte_ties": 10.0, "outer_no_excl": 1.0}),
+            json!({"id": 2, "sub_excl": 60.0, "cte_excl": 40.0, "cte_ties": 50.0, "outer_no_excl": 2.0}),
+            json!({"id": 3, "sub_excl": 30.0, "cte_excl": 60.0, "cte_ties": 90.0, "outer_no_excl": 3.0}),
+            json!({"id": 4, "sub_excl": null, "cte_excl": 30.0, "cte_ties": 70.0, "outer_no_excl": 4.0}),
+        ]
+    );
+
+    // 2. Scalar subquery with named window EXCLUDE GROUP alongside outer named window of same name.
+    let scalar_sub_sql = format!(
+        "SELECT o.id, \
+         (SELECT SUM(i.v) OVER w FROM '{}' AS i \
+          WINDOW w AS (ORDER BY i.k ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW EXCLUDE GROUP) \
+          ORDER BY i.id DESC LIMIT 1) AS sub_g, \
+         SUM(o.v) OVER w AS out_sum \
+         FROM '{}' AS o \
+         WINDOW w AS (ORDER BY o.id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) \
+         ORDER BY o.id",
+        data_path.display(),
+        data_path.display()
+    );
+    let scalar_rows = collect_rows(&prepare_file_sql(&scalar_sub_sql));
+    assert_eq!(
+        scalar_rows[0],
+        json!({"id": 1, "sub_g": 60.0, "out_sum": 10.0})
+    );
+    assert_eq!(
+        scalar_rows[3],
+        json!({"id": 4, "sub_g": 60.0, "out_sum": 100.0})
+    );
+
+    // 3. Frameless EXCLUDE fails cleanly via both prepare and NativeSqlDeclaration.
+    for bad in [
+        format!(
+            "SELECT SUM(v) OVER (ORDER BY id EXCLUDE CURRENT ROW) FROM '{}'",
+            data_path.display()
+        ),
+        format!(
+            "SELECT SUM(v) OVER w FROM '{}' WINDOW w AS (ORDER BY id EXCLUDE TIES)",
+            data_path.display()
+        ),
+    ] {
+        assert!(try_prepare_file_sql(&bad).is_err(), "{bad}");
+        assert!(
+            super::declaration::NativeSqlDeclaration::new(&bad, &[], BTreeMap::new()).is_err(),
+            "{bad}"
+        );
+    }
+}
+
+#[test]
+fn canonical_aggregate_only_order_by_and_authoritative_rejections_compose_cleanly() {
+    let dir = CanonicalTempDir::new("agg_order_auth");
+    let data_path = dir.path().join("t.parquet");
+    write_parquet_rows(
+        &data_path,
+        &batch_i64(&[
+            ("k", vec![Some(2), Some(1), Some(2)]),
+            ("v", vec![Some(5), Some(100), Some(15)]),
+        ]),
+        3,
+    );
+
+    // 1. Aggregate-only ORDER BY inside materialized CTE & grouped query.
+    let cte_agg_order = format!(
+        "WITH c AS MATERIALIZED (SELECT 1 AS one FROM '{}' ORDER BY SUM(v)) SELECT one FROM c",
+        data_path.display()
+    );
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&cte_agg_order)),
+        vec![json!({"one": 1})]
+    );
+
+    let grouped_agg_order = format!(
+        "SELECT k FROM '{}' GROUP BY k ORDER BY SUM(v) ASC",
+        data_path.display()
+    );
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&grouped_agg_order)),
+        vec![json!({"k": 2}), json!({"k": 1})]
+    );
+
+    // Ungrouped column combined with ORDER BY aggregate must fail explicitly.
+    let bad_ungrouped = format!("SELECT k FROM '{}' ORDER BY SUM(v)", data_path.display());
+    assert!(try_prepare_file_sql(&bad_ungrouped).is_err());
+
+    // 2. Authoritative rejections must preserve canonical diagnostics without legacy parser fallback.
+    let rejections = [
+        (
+            format!(
+                "SELECT k, v FROM '{}' UNION ALL BY NAME SELECT v, k FROM '{}'",
+                data_path.display(),
+                data_path.display()
+            ),
+            "BY NAME",
+        ),
+        (
+            format!(
+                "SELECT k, ROW_NUMBER() OVER (ORDER BY v) AS rn FROM '{}' QUALIFY rn = 1",
+                data_path.display()
+            ),
+            "QUALIFY",
+        ),
+        (
+            format!(
+                "SELECT FIRST_VALUE(v) IGNORE NULLS OVER (ORDER BY k) FROM '{}'",
+                data_path.display()
+            ),
+            "IGNORE NULLS",
+        ),
+        (
+            format!("SELECT * EXCLUDE (v) FROM '{}'", data_path.display()),
+            "wildcard modifiers",
+        ),
+        (
+            format!(
+                "SELECT * FROM '{}', LATERAL (SELECT 1) AS sub",
+                data_path.display()
+            ),
+            "LATERAL",
+        ),
+    ];
+    for (sql, expected_fragment) in rejections {
+        for err in [
+            try_prepare_file_sql(&sql).err().unwrap(),
+            super::declaration::NativeSqlDeclaration::new(&sql, &[], BTreeMap::new())
+                .err()
+                .unwrap(),
+            is_relational(&sql).err().unwrap(),
+        ] {
+            assert!(
+                err.to_string().contains(expected_fragment),
+                "expected `{expected_fragment}` in error `{err}` for `{sql}`"
+            );
+        }
+    }
+}
+
+#[test]
+fn canonical_quantile_windows_and_cte_grouped_aggregates() {
+    let dir = CanonicalTempDir::new("canon_quantiles");
+    let data_path = dir.path().join("q.parquet");
+    let batch = RecordBatch::try_new(
+        Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("fund", DataType::Utf8, false),
+            Field::new("number", DataType::Int64, false),
+        ])),
+        vec![
+            Arc::new(Int64Array::from(vec![1, 2, 3, 4])),
+            Arc::new(StringArray::from(vec!["A", "A", "A", "B"])),
+            Arc::new(Int64Array::from(vec![10, 20, 40, 100])),
+        ],
+    )
+    .unwrap();
+    write_parquet_rows(&data_path, &batch, 4);
+
+    let win_sql = format!(
+        "SELECT id, \
+         QUANTILE_CONT(number, 0.5) OVER (PARTITION BY fund ORDER BY id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) AS w_cont, \
+         QUANTILE_DISC(number, 0.5) OVER (PARTITION BY fund ORDER BY id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) AS w_disc \
+         FROM '{}' ORDER BY id",
+        data_path.display()
+    );
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&win_sql)),
+        vec![
+            json!({"id": 1, "w_cont": 15.0, "w_disc": 10}),
+            json!({"id": 2, "w_cont": 20.0, "w_disc": 20}),
+            json!({"id": 3, "w_cont": 30.0, "w_disc": 20}),
+            json!({"id": 4, "w_cont": 100.0, "w_disc": 100}),
+        ]
+    );
+
+    let cte_sql = format!(
+        "WITH base AS (SELECT fund, number FROM '{}') \
+         SELECT fund, QUANTILE_CONT(number, 0.25) AS c25, QUANTILE_DISC(number, 1.0) AS d100 \
+         FROM base GROUP BY fund ORDER BY fund",
+        data_path.display()
+    );
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&cte_sql)),
+        vec![
+            json!({"fund": "A", "c25": 15.0, "d100": 40}),
+            json!({"fund": "B", "c25": 100.0, "d100": 100}),
+        ]
+    );
+
+    // Out-of-range or single-arg quantiles fail admission cleanly.
+    let bad_level = format!(
+        "SELECT QUANTILE_CONT(number, 1.5) FROM '{}'",
+        data_path.display()
+    );
+    assert!(super::canonical::parse_canonical_plan(&bad_level).is_none());
+    let missing_level = format!(
+        "SELECT QUANTILE_DISC(number) FROM '{}'",
+        data_path.display()
+    );
+    assert!(super::canonical::parse_canonical_plan(&missing_level).is_none());
+}

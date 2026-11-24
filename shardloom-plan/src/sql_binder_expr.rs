@@ -16,7 +16,8 @@ use sqlparser::ast::{
 
 use crate::sql_binder::{
     LogicalRelation, LogicalSortKey, LogicalWindowFrame, LogicalWindowSpec, LogicalWindowUnits,
-    bind_ast_query, decode_object_name_value, decode_wildcard_qualifier, unsupported_sql_error,
+    WindowExclusions, bind_ast_query, decode_object_name_value, decode_wildcard_qualifier,
+    unsupported_sql_error,
 };
 
 /// Canonical AST-bound expression node independent of external engines.
@@ -208,6 +209,7 @@ impl LogicalExpr {
 pub(crate) fn bind_ast_expr(
     expr: &SqlExpr,
     diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<LogicalExpr> {
     match expr {
         SqlExpr::Identifier(ident) => Ok(LogicalExpr::Column {
@@ -215,11 +217,13 @@ pub(crate) fn bind_ast_expr(
             name: ident.value.clone(),
         }),
         SqlExpr::CompoundIdentifier(parts) => bind_compound_identifier(parts),
-        SqlExpr::Nested(inner) => bind_ast_expr(inner, diagnostics),
+        SqlExpr::Nested(inner) => bind_ast_expr(inner, diagnostics, exclusions),
         SqlExpr::Value(v) => bind_value(&v.value, diagnostics),
         SqlExpr::TypedString(ts) => bind_typed_string(ts, diagnostics),
-        SqlExpr::UnaryOp { op, expr } => bind_unary(*op, expr, diagnostics),
-        SqlExpr::BinaryOp { left, op, right } => bind_binary(left, op, right, diagnostics),
+        SqlExpr::UnaryOp { op, expr } => bind_unary(*op, expr, diagnostics, exclusions),
+        SqlExpr::BinaryOp { left, op, right } => {
+            bind_binary(left, op, right, diagnostics, exclusions)
+        }
         SqlExpr::Case {
             operand,
             conditions,
@@ -230,8 +234,9 @@ pub(crate) fn bind_ast_expr(
             conditions,
             else_result.as_deref(),
             diagnostics,
+            exclusions,
         ),
-        SqlExpr::Function(func) => bind_function(func, diagnostics),
+        SqlExpr::Function(func) => bind_function(func, diagnostics, exclusions),
         SqlExpr::IsNull(_)
         | SqlExpr::IsNotNull(_)
         | SqlExpr::IsTrue(_)
@@ -243,49 +248,53 @@ pub(crate) fn bind_ast_expr(
         | SqlExpr::Between { .. }
         | SqlExpr::In { .. }
         | SqlExpr::Like { .. }
-        | SqlExpr::ILike { .. } => bind_predicate_expr(expr, diagnostics),
-        _ => bind_extended_expr(expr, diagnostics),
+        | SqlExpr::ILike { .. } => bind_predicate_expr(expr, diagnostics, exclusions),
+        _ => bind_extended_expr(expr, diagnostics, exclusions),
     }
 }
 
-fn bind_predicate_expr(expr: &SqlExpr, diagnostics: &mut Vec<Diagnostic>) -> Result<LogicalExpr> {
+fn bind_predicate_expr(
+    expr: &SqlExpr,
+    diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
+) -> Result<LogicalExpr> {
     match expr {
         SqlExpr::IsNull(inner) => Ok(LogicalExpr::Unary {
             op: UnaryOp::IsNull,
-            expr: Box::new(bind_ast_expr(inner, diagnostics)?),
+            expr: Box::new(bind_ast_expr(inner, diagnostics, exclusions)?),
         }),
         SqlExpr::IsNotNull(inner) => Ok(LogicalExpr::Unary {
             op: UnaryOp::IsNotNull,
-            expr: Box::new(bind_ast_expr(inner, diagnostics)?),
+            expr: Box::new(bind_ast_expr(inner, diagnostics, exclusions)?),
         }),
         SqlExpr::IsTrue(inner) => Ok(LogicalExpr::IsDistinctFrom {
-            left: Box::new(bind_ast_expr(inner, diagnostics)?),
+            left: Box::new(bind_ast_expr(inner, diagnostics, exclusions)?),
             right: Box::new(LogicalExpr::Literal(ScalarValue::Boolean(true))),
             negated: true,
         }),
         SqlExpr::IsNotTrue(inner) => Ok(LogicalExpr::IsDistinctFrom {
-            left: Box::new(bind_ast_expr(inner, diagnostics)?),
+            left: Box::new(bind_ast_expr(inner, diagnostics, exclusions)?),
             right: Box::new(LogicalExpr::Literal(ScalarValue::Boolean(true))),
             negated: false,
         }),
         SqlExpr::IsFalse(inner) => Ok(LogicalExpr::IsDistinctFrom {
-            left: Box::new(bind_ast_expr(inner, diagnostics)?),
+            left: Box::new(bind_ast_expr(inner, diagnostics, exclusions)?),
             right: Box::new(LogicalExpr::Literal(ScalarValue::Boolean(false))),
             negated: true,
         }),
         SqlExpr::IsNotFalse(inner) => Ok(LogicalExpr::IsDistinctFrom {
-            left: Box::new(bind_ast_expr(inner, diagnostics)?),
+            left: Box::new(bind_ast_expr(inner, diagnostics, exclusions)?),
             right: Box::new(LogicalExpr::Literal(ScalarValue::Boolean(false))),
             negated: false,
         }),
         SqlExpr::IsDistinctFrom(left, right) => Ok(LogicalExpr::IsDistinctFrom {
-            left: Box::new(bind_ast_expr(left, diagnostics)?),
-            right: Box::new(bind_ast_expr(right, diagnostics)?),
+            left: Box::new(bind_ast_expr(left, diagnostics, exclusions)?),
+            right: Box::new(bind_ast_expr(right, diagnostics, exclusions)?),
             negated: false,
         }),
         SqlExpr::IsNotDistinctFrom(left, right) => Ok(LogicalExpr::IsDistinctFrom {
-            left: Box::new(bind_ast_expr(left, diagnostics)?),
-            right: Box::new(bind_ast_expr(right, diagnostics)?),
+            left: Box::new(bind_ast_expr(left, diagnostics, exclusions)?),
+            right: Box::new(bind_ast_expr(right, diagnostics, exclusions)?),
             negated: true,
         }),
         SqlExpr::Between {
@@ -294,9 +303,9 @@ fn bind_predicate_expr(expr: &SqlExpr, diagnostics: &mut Vec<Diagnostic>) -> Res
             low,
             high,
         } => Ok(LogicalExpr::Between {
-            expr: Box::new(bind_ast_expr(expr, diagnostics)?),
-            low: Box::new(bind_ast_expr(low, diagnostics)?),
-            high: Box::new(bind_ast_expr(high, diagnostics)?),
+            expr: Box::new(bind_ast_expr(expr, diagnostics, exclusions)?),
+            low: Box::new(bind_ast_expr(low, diagnostics, exclusions)?),
+            high: Box::new(bind_ast_expr(high, diagnostics, exclusions)?),
             negated: *negated,
         }),
         SqlExpr::In {
@@ -304,7 +313,7 @@ fn bind_predicate_expr(expr: &SqlExpr, diagnostics: &mut Vec<Diagnostic>) -> Res
             target,
             negated,
             global,
-        } => bind_in_expr(expr, target, *negated, *global, diagnostics),
+        } => bind_in_expr(expr, target, *negated, *global, diagnostics, exclusions),
         SqlExpr::Like {
             negated,
             any: false,
@@ -318,6 +327,7 @@ fn bind_predicate_expr(expr: &SqlExpr, diagnostics: &mut Vec<Diagnostic>) -> Res
             *negated,
             false,
             diagnostics,
+            exclusions,
         ),
         SqlExpr::ILike {
             negated,
@@ -332,6 +342,7 @@ fn bind_predicate_expr(expr: &SqlExpr, diagnostics: &mut Vec<Diagnostic>) -> Res
             *negated,
             true,
             diagnostics,
+            exclusions,
         ),
         other => {
             let msg = format!("unsupported SQL predicate expression syntax `{other}`");
@@ -341,7 +352,11 @@ fn bind_predicate_expr(expr: &SqlExpr, diagnostics: &mut Vec<Diagnostic>) -> Res
     }
 }
 
-fn bind_extended_expr(expr: &SqlExpr, diagnostics: &mut Vec<Diagnostic>) -> Result<LogicalExpr> {
+fn bind_extended_expr(
+    expr: &SqlExpr,
+    diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
+) -> Result<LogicalExpr> {
     match expr {
         SqlExpr::Cast {
             kind,
@@ -356,7 +371,7 @@ fn bind_extended_expr(expr: &SqlExpr, diagnostics: &mut Vec<Diagnostic>) -> Resu
             }
             let try_cast = matches!(kind, CastKind::TryCast | CastKind::SafeCast);
             Ok(LogicalExpr::Cast {
-                expr: Box::new(bind_ast_expr(expr, diagnostics)?),
+                expr: Box::new(bind_ast_expr(expr, diagnostics, exclusions)?),
                 target_dtype: normalize_sql_dtype(data_type, diagnostics)?,
                 try_cast,
             })
@@ -364,14 +379,15 @@ fn bind_extended_expr(expr: &SqlExpr, diagnostics: &mut Vec<Diagnostic>) -> Resu
         SqlExpr::Extract { .. }
         | SqlExpr::Trim { .. }
         | SqlExpr::Substring { .. }
-        | SqlExpr::Position { .. } => bind_text_special_expr(expr, diagnostics),
+        | SqlExpr::Position { .. } => bind_text_special_expr(expr, diagnostics, exclusions),
         SqlExpr::Exists { subquery, negated } => Ok(LogicalExpr::Exists {
-            subquery: Box::new(bind_ast_query(subquery, diagnostics)?),
+            subquery: Box::new(bind_ast_query(subquery, diagnostics, exclusions)?),
             negated: *negated,
         }),
         SqlExpr::Subquery(query) => Ok(LogicalExpr::ScalarSubquery(Box::new(bind_ast_query(
             query,
             diagnostics,
+            exclusions,
         )?))),
         SqlExpr::Interval(interval) => {
             let value = match interval.value.as_ref() {
@@ -389,13 +405,13 @@ fn bind_extended_expr(expr: &SqlExpr, diagnostics: &mut Vec<Diagnostic>) -> Resu
         SqlExpr::Array(arr) => Ok(LogicalExpr::Array(
             arr.elem
                 .iter()
-                .map(|e| bind_ast_expr(e, diagnostics))
+                .map(|e| bind_ast_expr(e, diagnostics, exclusions))
                 .collect::<Result<Vec<_>>>()?,
         )),
         SqlExpr::Tuple(items) => Ok(LogicalExpr::Tuple(
             items
                 .iter()
-                .map(|e| bind_ast_expr(e, diagnostics))
+                .map(|e| bind_ast_expr(e, diagnostics, exclusions))
                 .collect::<Result<Vec<_>>>()?,
         )),
         SqlExpr::Wildcard(_) => Ok(LogicalExpr::Wildcard { qualifier: None }),
@@ -409,6 +425,9 @@ fn bind_extended_expr(expr: &SqlExpr, diagnostics: &mut Vec<Diagnostic>) -> Resu
             diagnostics.push(unsupported_diag("sql.collate", &msg));
             Err(unsupported_sql_error(&msg))
         }
+        SqlExpr::AnyOp { .. } | SqlExpr::AllOp { .. } => Err(unsupported_sql_error(&format!(
+            "quantified comparison `{expr}` requires specialized native subquery lowering"
+        ))),
         other => {
             let msg = format!("unsupported SQL expression syntax `{other}`");
             diagnostics.push(unsupported_diag("sql.expression", &msg));
@@ -420,13 +439,14 @@ fn bind_extended_expr(expr: &SqlExpr, diagnostics: &mut Vec<Diagnostic>) -> Resu
 fn bind_text_special_expr(
     expr: &SqlExpr,
     diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<LogicalExpr> {
     match expr {
         SqlExpr::Extract { field, expr, .. } => Ok(LogicalExpr::Function {
             name: "extract".to_string(),
             args: vec![
                 LogicalExpr::Literal(ScalarValue::Utf8(field.to_string().to_ascii_lowercase())),
-                bind_ast_expr(expr, diagnostics)?,
+                bind_ast_expr(expr, diagnostics, exclusions)?,
             ],
             distinct: false,
             filter: None,
@@ -444,6 +464,7 @@ fn bind_text_special_expr(
             trim_what.as_deref(),
             trim_characters.as_deref(),
             diagnostics,
+            exclusions,
         ),
         SqlExpr::Substring {
             expr,
@@ -455,12 +476,13 @@ fn bind_text_special_expr(
             substring_from.as_deref(),
             substring_for.as_deref(),
             diagnostics,
+            exclusions,
         ),
         SqlExpr::Position { expr, r#in } => Ok(LogicalExpr::Function {
             name: "position".to_string(),
             args: vec![
-                bind_ast_expr(expr, diagnostics)?,
-                bind_ast_expr(r#in, diagnostics)?,
+                bind_ast_expr(expr, diagnostics, exclusions)?,
+                bind_ast_expr(r#in, diagnostics, exclusions)?,
             ],
             distinct: false,
             filter: None,
@@ -568,6 +590,7 @@ fn bind_unary(
     op: SqlUnaryOp,
     expr: &SqlExpr,
     diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<LogicalExpr> {
     if matches!(op, SqlUnaryOp::Minus)
         && let SqlExpr::Value(v) = expr
@@ -583,7 +606,7 @@ fn bind_unary(
             return Ok(LogicalExpr::Literal(ScalarValue::Float64(f)));
         }
     }
-    let inner = bind_ast_expr(expr, diagnostics)?;
+    let inner = bind_ast_expr(expr, diagnostics, exclusions)?;
     match op {
         SqlUnaryOp::Plus => Ok(inner),
         SqlUnaryOp::Minus => Ok(LogicalExpr::Unary {
@@ -607,9 +630,10 @@ fn bind_binary(
     op: &SqlBinaryOp,
     right: &SqlExpr,
     diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<LogicalExpr> {
-    let lhs = Box::new(bind_ast_expr(left, diagnostics)?);
-    let rhs = Box::new(bind_ast_expr(right, diagnostics)?);
+    let lhs = Box::new(bind_ast_expr(left, diagnostics, exclusions)?);
+    let rhs = Box::new(bind_ast_expr(right, diagnostics, exclusions)?);
     match op {
         SqlBinaryOp::Plus => Ok(LogicalExpr::Binary {
             left: lhs,
@@ -698,25 +722,26 @@ fn bind_in_expr(
     negated: bool,
     global: bool,
     diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<LogicalExpr> {
     if global {
         return Err(unsupported_sql_error(
             "GLOBAL IN modifier is not admitted; use ordinary IN",
         ));
     }
-    let lhs = Box::new(bind_ast_expr(expr, diagnostics)?);
+    let lhs = Box::new(bind_ast_expr(expr, diagnostics, exclusions)?);
     match target {
         InTarget::List(items) => Ok(LogicalExpr::InList {
             expr: lhs,
             list: items
                 .iter()
-                .map(|item| bind_ast_expr(item, diagnostics))
+                .map(|item| bind_ast_expr(item, diagnostics, exclusions))
                 .collect::<Result<Vec<_>>>()?,
             negated,
         }),
         InTarget::Subquery(query) => Ok(LogicalExpr::InSubquery {
             expr: lhs,
-            subquery: Box::new(bind_ast_query(query, diagnostics)?),
+            subquery: Box::new(bind_ast_query(query, diagnostics, exclusions)?),
             negated,
         }),
         other => Err(unsupported_sql_error(&format!(
@@ -732,6 +757,7 @@ fn bind_like_expr(
     negated: bool,
     case_insensitive: bool,
     diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<LogicalExpr> {
     let escape = match escape_char {
         Some(SqlExpr::Value(v)) => match &v.value {
@@ -742,8 +768,8 @@ fn bind_like_expr(
         None => None,
     };
     Ok(LogicalExpr::Like {
-        expr: Box::new(bind_ast_expr(expr, diagnostics)?),
-        pattern: Box::new(bind_ast_expr(pattern, diagnostics)?),
+        expr: Box::new(bind_ast_expr(expr, diagnostics, exclusions)?),
+        pattern: Box::new(bind_ast_expr(pattern, diagnostics, exclusions)?),
         escape,
         negated,
         case_insensitive,
@@ -755,21 +781,22 @@ fn bind_case(
     conditions: &[ast::CaseWhen],
     else_result: Option<&SqlExpr>,
     diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<LogicalExpr> {
     let operand = operand
-        .map(|expr| bind_ast_expr(expr, diagnostics).map(Box::new))
+        .map(|expr| bind_ast_expr(expr, diagnostics, exclusions).map(Box::new))
         .transpose()?;
     let when_then = conditions
         .iter()
         .map(|branch| {
             Ok((
-                bind_ast_expr(&branch.condition, diagnostics)?,
-                bind_ast_expr(&branch.result, diagnostics)?,
+                bind_ast_expr(&branch.condition, diagnostics, exclusions)?,
+                bind_ast_expr(&branch.result, diagnostics, exclusions)?,
             ))
         })
         .collect::<Result<Vec<_>>>()?;
     let else_expr = else_result
-        .map(|expr| bind_ast_expr(expr, diagnostics).map(Box::new))
+        .map(|expr| bind_ast_expr(expr, diagnostics, exclusions).map(Box::new))
         .transpose()?;
     Ok(LogicalExpr::Case {
         operand,
@@ -812,6 +839,7 @@ fn bind_function_arg_list(
     fn_lower: &str,
     has_over: bool,
     diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<(Vec<LogicalExpr>, bool, Vec<LogicalSortKey>)> {
     let distinct = matches!(
         list.duplicate_treatment,
@@ -819,14 +847,14 @@ fn bind_function_arg_list(
     );
     let mut args = Vec::with_capacity(list.args.len());
     for arg in &list.args {
-        args.push(bind_function_arg(arg, diagnostics)?);
+        args.push(bind_function_arg(arg, diagnostics, exclusions)?);
     }
     let mut order_by = Vec::new();
     for clause in &list.clauses {
         match clause {
             FunctionArgumentClause::OrderBy(keys) => {
                 for key in keys {
-                    order_by.push(bind_sort_key(key, diagnostics)?);
+                    order_by.push(bind_sort_key(key, diagnostics, exclusions)?);
                 }
             }
             FunctionArgumentClause::Separator(sep) => {
@@ -850,7 +878,11 @@ fn bind_function_arg_list(
     Ok((args, distinct, order_by))
 }
 
-fn bind_function(func: &ast::Function, diagnostics: &mut Vec<Diagnostic>) -> Result<LogicalExpr> {
+fn bind_function(
+    func: &ast::Function,
+    diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
+) -> Result<LogicalExpr> {
     if func.uses_odbc_syntax {
         return Err(unsupported_sql_error(
             "ODBC `{fn ...}` function syntax is not admitted",
@@ -877,26 +909,50 @@ fn bind_function(func: &ast::Function, diagnostics: &mut Vec<Diagnostic>) -> Res
             args.push(LogicalExpr::ScalarSubquery(Box::new(bind_ast_query(
                 query,
                 diagnostics,
+                exclusions,
             )?)));
         }
         FunctionArguments::List(list) => {
             (args, distinct, order_by) =
-                bind_function_arg_list(list, &fn_lower, has_over, diagnostics)?;
+                bind_function_arg_list(list, &fn_lower, has_over, diagnostics, exclusions)?;
         }
     }
     let filter = func
         .filter
         .as_deref()
-        .map(|expr| bind_ast_expr(expr, diagnostics).map(Box::new))
+        .map(|expr| bind_ast_expr(expr, diagnostics, exclusions).map(Box::new))
         .transpose()?;
     for key in &func.within_group {
-        order_by.push(bind_sort_key(key, diagnostics)?);
+        order_by.push(bind_sort_key(key, diagnostics, exclusions)?);
     }
-    let over = func
+    let fn_start_loc = func.name.0.first().map(|part| match part {
+        ast::ObjectNamePart::Identifier(ident) => ident.span.start,
+        ast::ObjectNamePart::Function(fn_part) => fn_part.name.span.start,
+    });
+    let mut over = func
         .over
         .as_ref()
-        .map(|window| bind_window_type(window, diagnostics))
+        .map(|window| bind_window_type(window, diagnostics, exclusions))
         .transpose()?;
+    if let Some(label) = fn_start_loc.and_then(|loc| exclusions.consume_inline(loc)) {
+        let has_local_frame = matches!(
+            &func.over,
+            Some(WindowType::WindowSpec(raw_spec)) if raw_spec.window_frame.is_some()
+        );
+        let Some(frame) = over.as_mut().and_then(|spec| spec.frame.as_mut()) else {
+            let msg =
+                "window EXCLUDE clause requires an explicit ROWS, RANGE, or GROUPS window frame";
+            diagnostics.push(unsupported_diag("sql.window_exclude", msg));
+            return Err(unsupported_sql_error(msg));
+        };
+        if !has_local_frame {
+            let msg =
+                "window EXCLUDE clause requires an explicit ROWS, RANGE, or GROUPS window frame";
+            diagnostics.push(unsupported_diag("sql.window_exclude", msg));
+            return Err(unsupported_sql_error(msg));
+        }
+        frame.exclusion = Some(label);
+    }
     Ok(LogicalExpr::Function {
         name: fn_name,
         args,
@@ -910,10 +966,11 @@ fn bind_function(func: &ast::Function, diagnostics: &mut Vec<Diagnostic>) -> Res
 pub(crate) fn bind_function_arg(
     arg: &FunctionArg,
     diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<LogicalExpr> {
     match arg {
         FunctionArg::Unnamed(expr) => match expr {
-            FunctionArgExpr::Expr(e) => bind_ast_expr(e, diagnostics),
+            FunctionArgExpr::Expr(e) => bind_ast_expr(e, diagnostics, exclusions),
             FunctionArgExpr::Wildcard => Ok(LogicalExpr::Wildcard { qualifier: None }),
             FunctionArgExpr::WildcardWithOptions(opts) => {
                 crate::sql_binder::validate_wildcard_options(opts, diagnostics)?;
@@ -923,9 +980,11 @@ pub(crate) fn bind_function_arg(
                 qualifier: Some(decode_wildcard_qualifier(name)?),
             }),
         },
-        FunctionArg::Named { .. } | FunctionArg::ExprNamed { .. } => Err(unsupported_sql_error(
-            "named SQL function arguments are not admitted; pass positional arguments",
-        )),
+        FunctionArg::Named { .. } | FunctionArg::ExprNamed { .. } => {
+            let msg = "named SQL function arguments are not admitted; pass positional arguments";
+            diagnostics.push(unsupported_diag("sql.function", msg));
+            Err(unsupported_sql_error(msg))
+        }
     }
 }
 
@@ -935,18 +994,19 @@ fn bind_trim(
     trim_what: Option<&SqlExpr>,
     trim_characters: Option<&[SqlExpr]>,
     diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<LogicalExpr> {
     let fn_name = match trim_where {
         Some(TrimWhereField::Leading) => "ltrim",
         Some(TrimWhereField::Trailing) => "rtrim",
         Some(TrimWhereField::Both) | None => "trim",
     };
-    let mut args = vec![bind_ast_expr(expr, diagnostics)?];
+    let mut args = vec![bind_ast_expr(expr, diagnostics, exclusions)?];
     if let Some(what) = trim_what {
-        args.push(bind_ast_expr(what, diagnostics)?);
+        args.push(bind_ast_expr(what, diagnostics, exclusions)?);
     } else if let Some(chars) = trim_characters {
         for ch in chars {
-            args.push(bind_ast_expr(ch, diagnostics)?);
+            args.push(bind_ast_expr(ch, diagnostics, exclusions)?);
         }
     }
     Ok(LogicalExpr::Function {
@@ -964,20 +1024,21 @@ fn bind_substring(
     from: Option<&SqlExpr>,
     len: Option<&SqlExpr>,
     diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<LogicalExpr> {
-    let mut args = vec![bind_ast_expr(expr, diagnostics)?];
+    let mut args = vec![bind_ast_expr(expr, diagnostics, exclusions)?];
     match (from, len) {
         (Some(from), Some(len)) => {
-            args.push(bind_ast_expr(from, diagnostics)?);
-            args.push(bind_ast_expr(len, diagnostics)?);
+            args.push(bind_ast_expr(from, diagnostics, exclusions)?);
+            args.push(bind_ast_expr(len, diagnostics, exclusions)?);
         }
         (Some(from), None) => {
-            args.push(bind_ast_expr(from, diagnostics)?);
+            args.push(bind_ast_expr(from, diagnostics, exclusions)?);
         }
         (None, Some(len)) => {
             // SQL `SUBSTRING(str FOR len)` omits `FROM`, so default start is 1-based offset 1.
             args.push(LogicalExpr::Literal(ScalarValue::Int64(1)));
-            args.push(bind_ast_expr(len, diagnostics)?);
+            args.push(bind_ast_expr(len, diagnostics, exclusions)?);
         }
         (None, None) => {
             return Err(unsupported_sql_error(
@@ -998,21 +1059,24 @@ fn bind_substring(
 pub(crate) fn bind_sort_key(
     key: &ast::OrderByExpr,
     diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<LogicalSortKey> {
     if key.with_fill.is_some() {
-        return Err(unsupported_sql_error("ORDER BY WITH FILL is not admitted"));
+        let msg = "ORDER BY WITH FILL is not admitted";
+        diagnostics.push(unsupported_diag("sql.order_by", msg));
+        return Err(unsupported_sql_error(msg));
     }
     let descending = match &key.options.sort {
         None | Some(ast::OrderBySort::Asc) => false,
         Some(ast::OrderBySort::Desc) => true,
         Some(ast::OrderBySort::Using(op)) => {
-            return Err(unsupported_sql_error(&format!(
-                "ORDER BY USING `{op}` is not admitted"
-            )));
+            let msg = format!("ORDER BY USING `{op}` is not admitted");
+            diagnostics.push(unsupported_diag("sql.order_by", &msg));
+            return Err(unsupported_sql_error(&msg));
         }
     };
     Ok(LogicalSortKey {
-        expr: bind_ast_expr(&key.expr, diagnostics)?,
+        expr: bind_ast_expr(&key.expr, diagnostics, exclusions)?,
         descending,
         nulls_first: key.options.nulls_first,
     })
@@ -1021,16 +1085,17 @@ pub(crate) fn bind_sort_key(
 pub(crate) fn bind_window_spec_ast(
     spec: &ast::WindowSpec,
     diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<LogicalWindowSpec> {
     let partition_by = spec
         .partition_by
         .iter()
-        .map(|e| bind_ast_expr(e, diagnostics))
+        .map(|e| bind_ast_expr(e, diagnostics, exclusions))
         .collect::<Result<Vec<_>>>()?;
     let order_by = spec
         .order_by
         .iter()
-        .map(|k| bind_sort_key(k, diagnostics))
+        .map(|k| bind_sort_key(k, diagnostics, exclusions))
         .collect::<Result<Vec<_>>>()?;
     let frame = spec
         .window_frame
@@ -1060,9 +1125,10 @@ pub(crate) fn bind_window_spec_ast(
 fn bind_window_type(
     window: &WindowType,
     diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<LogicalWindowSpec> {
     match window {
-        WindowType::WindowSpec(spec) => bind_window_spec_ast(spec, diagnostics),
+        WindowType::WindowSpec(spec) => bind_window_spec_ast(spec, diagnostics, exclusions),
         WindowType::NamedWindow(ident) => Ok(LogicalWindowSpec {
             name: Some(ident.value.clone()),
             partition_by: Vec::new(),
@@ -1072,11 +1138,17 @@ fn bind_window_type(
     }
 }
 
-fn format_decimal128_dtype(precision: u64, scale: i64) -> Result<String> {
+fn format_decimal128_dtype(
+    precision: u64,
+    scale: i64,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<String> {
     if !(1..=38).contains(&precision) || scale < 0 {
-        return Err(unsupported_sql_error(&format!(
+        let msg = format!(
             "decimal128({precision},{scale}) requires 1 <= precision <= 38 and 0 <= scale <= precision"
-        )));
+        );
+        diagnostics.push(unsupported_diag("sql.decimal_bounds", &msg));
+        return Err(unsupported_sql_error(&msg));
     }
     let scale_u64 = u64::try_from(scale).map_err(|_| {
         unsupported_sql_error(&format!(
@@ -1084,14 +1156,17 @@ fn format_decimal128_dtype(precision: u64, scale: i64) -> Result<String> {
         ))
     })?;
     if scale_u64 > precision {
-        return Err(unsupported_sql_error(&format!(
-            "decimal128({precision},{scale}) requires scale <= precision"
-        )));
+        let msg = format!("decimal128({precision},{scale}) requires scale <= precision");
+        diagnostics.push(unsupported_diag("sql.decimal_bounds", &msg));
+        return Err(unsupported_sql_error(&msg));
     }
     Ok(format!("decimal128({precision},{scale})"))
 }
 
-fn normalize_decimal128_label(raw: &str) -> Result<Option<String>> {
+fn normalize_decimal128_label(
+    raw: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<Option<String>> {
     let normalized = raw
         .chars()
         .filter(|ch| !ch.is_whitespace())
@@ -1116,7 +1191,7 @@ fn normalize_decimal128_label(raw: &str) -> Result<Option<String>> {
     let scale = s_raw.parse::<i64>().map_err(|_| {
         unsupported_sql_error("decimal128 scale must be an integer between 0 and precision")
     })?;
-    format_decimal128_dtype(precision, scale).map(Some)
+    format_decimal128_dtype(precision, scale, diagnostics).map(Some)
 }
 
 fn normalize_sql_dtype(dtype: &SqlDataType, diagnostics: &mut Vec<Diagnostic>) -> Result<String> {
@@ -1138,7 +1213,7 @@ fn normalize_sql_dtype(dtype: &SqlDataType, diagnostics: &mut Vec<Diagnostic>) -
         | SqlDataType::Varbinary(None)
         | SqlDataType::Blob(None)
         | SqlDataType::Bytea => Ok("binary".to_string()),
-        SqlDataType::Date => Ok("date32".to_string()),
+        SqlDataType::Date | SqlDataType::Date32 => Ok("date32".to_string()),
         SqlDataType::Timestamp(prec, tz) => {
             if !matches!(
                 tz,
@@ -1160,13 +1235,15 @@ fn normalize_sql_dtype(dtype: &SqlDataType, diagnostics: &mut Vec<Diagnostic>) -
             }
         }
         SqlDataType::Decimal(info) | SqlDataType::Numeric(info) => match info {
-            ast::ExactNumberInfo::PrecisionAndScale(p, s) => format_decimal128_dtype(*p, *s),
-            ast::ExactNumberInfo::Precision(p) => format_decimal128_dtype(*p, 0),
+            ast::ExactNumberInfo::PrecisionAndScale(p, s) => {
+                format_decimal128_dtype(*p, *s, diagnostics)
+            }
+            ast::ExactNumberInfo::Precision(p) => format_decimal128_dtype(*p, 0, diagnostics),
             ast::ExactNumberInfo::None => Ok("decimal128(38,0)".to_string()),
         },
         SqlDataType::Custom(..) => {
             let raw = dtype.to_string();
-            if let Some(canon) = normalize_decimal128_label(&raw)? {
+            if let Some(canon) = normalize_decimal128_label(&raw, diagnostics)? {
                 return Ok(canon);
             }
             if let Some(temporal) = shardloom_core::temporal::TemporalDType::parse_declaration(&raw)
@@ -1182,14 +1259,18 @@ fn normalize_sql_dtype(dtype: &SqlDataType, diagnostics: &mut Vec<Diagnostic>) -
                 "binary" => Ok("binary".to_string()),
                 "date32" => Ok("date32".to_string()),
                 "timestamp_micros" => Ok("timestamp_micros".to_string()),
-                _ => Err(unsupported_sql_error(&format!(
-                    "unsupported SQL data type `{dtype}`"
-                ))),
+                _ => {
+                    let msg = format!("unsupported SQL data type `{dtype}`");
+                    diagnostics.push(unsupported_diag("sql.dtype", &msg));
+                    Err(unsupported_sql_error(&msg))
+                }
             }
         }
-        other => Err(unsupported_sql_error(&format!(
-            "unsupported SQL data type `{other}`"
-        ))),
+        other => {
+            let msg = format!("unsupported SQL data type `{other}`");
+            diagnostics.push(unsupported_diag("sql.dtype", &msg));
+            Err(unsupported_sql_error(&msg))
+        }
     }
 }
 
@@ -1199,7 +1280,8 @@ fn normalize_sql_dtype(dtype: &SqlDataType, diagnostics: &mut Vec<Diagnostic>) -
 /// Returns [`ShardLoomError::NotImplemented`] when `label` is not an admitted
 /// core dtype string.
 pub fn parse_core_dtype_label(label: &str) -> Result<LogicalDType> {
-    if let Some(canon) = normalize_decimal128_label(label)? {
+    let mut diagnostics = Vec::new();
+    if let Some(canon) = normalize_decimal128_label(label, &mut diagnostics)? {
         return Ok(LogicalDType::Extension(canon));
     }
     if let Some(temporal) = shardloom_core::temporal::TemporalDType::parse_declaration(label) {

@@ -18,7 +18,7 @@ use std::{
     fmt::Write as _,
     ops::Range,
     sync::{
-        Arc,
+        Arc, Mutex,
         atomic::{AtomicU64, Ordering},
     },
 };
@@ -88,101 +88,49 @@ impl ZoneIndex {
     fn build(
         array: &ArrayRef,
         row_count: u64,
+        max_metadata_bytes: u64,
         context: &NativeExecutionContext<'_>,
     ) -> Result<(Self, MemoryLease)> {
-        let mut lease = context.memory().reserve(256)?;
-        if row_count == 0 || !matches!(array.dtype(), DType::Struct(_, Nullability::NonNullable)) {
-            return Ok((Self::default(), lease));
+        if row_count == 0 {
+            return Ok((Self::default(), context.memory().reserve(0)?));
         }
         let DType::Struct(fields, Nullability::NonNullable) = array.dtype() else {
-            unreachable!();
+            return Ok((Self::default(), context.memory().reserve(0)?));
         };
-        if fields.nfields() == 0 {
-            return Ok((Self::default(), lease));
-        }
         let total_rows =
             usize::try_from(row_count).map_err(|_| failed("owned row count overflow"))?;
         let split_rows = usize::try_from(SPLIT_ROWS).map_err(|_| failed("split size overflow"))?;
         let split_count = total_rows.div_ceil(split_rows);
+        let mut columns: HashMap<FieldName, Vec<SplitZoneStats>> = HashMap::new();
+        for (name, dtype) in fields.names().iter().zip(fields.fields()) {
+            if is_prunable_zone_dtype(&dtype) {
+                columns.insert(name.clone(), Vec::with_capacity(split_count));
+            }
+        }
+        if columns.is_empty() {
+            return Ok((Self::default(), context.memory().reserve(0)?));
+        }
         let estimated_bytes = u64::try_from(split_count)
             .ok()
-            .and_then(|s| s.checked_mul(u64::try_from(fields.nfields()).ok()?))
+            .and_then(|s| s.checked_mul(u64::try_from(columns.len()).ok()?))
             .and_then(|n| n.checked_mul(128))
             .and_then(|b| b.checked_add(256))
             .ok_or_else(|| failed("zone index metadata size overflow"))?;
-        lease.resize(estimated_bytes)?;
-
-        let mut columns: HashMap<FieldName, Vec<SplitZoneStats>> = HashMap::new();
-        for (name, dtype) in fields.names().iter().zip(fields.fields()) {
-            if !is_prunable_zone_dtype(&dtype) {
-                continue;
-            }
-            columns.insert(name.clone(), Vec::with_capacity(split_count));
+        if estimated_bytes > max_metadata_bytes {
+            return Err(failed("owned array zone-map metadata bound exceeded"));
         }
-        if columns.is_empty() {
-            return Ok((Self::default(), lease));
-        }
-
-        let null_fn = NullCount.bind(EmptyOptions);
-        let nan_fn = NanCount.bind(EmptyOptions);
-        let min_fn = Min.bind(NumericalAggregateOpts::skip_nans());
-        let max_fn = Max.bind(NumericalAggregateOpts::skip_nans());
-        let mut exec_ctx = context.native_session().create_execution_ctx();
-        let mut scalar_bytes = estimated_bytes;
-
-        for split_idx in 0..split_count {
-            context.check_cancelled()?;
-            let start = split_idx * split_rows;
-            let end = (start + split_rows).min(total_rows);
-            let slice_len =
-                u64::try_from(end - start).map_err(|_| failed("split length overflow"))?;
-            let chunk = array
-                .slice(start..end)
-                .map_err(|err| failed(&err.to_string()))?
-                .execute::<StructArray>(&mut exec_ctx)
-                .map_err(|err| failed(&err.to_string()))?;
-
-            for ((name, dtype), col) in fields
-                .names()
-                .iter()
-                .zip(fields.fields())
-                .zip(chunk.iter_unmasked_fields())
-            {
-                let Some(entry) = columns.get_mut(name) else {
-                    continue;
-                };
-                let null_count = aggregate_u64(col, &null_fn, &mut exec_ctx).unwrap_or(0);
-                let nan_count = if matches!(
-                    dtype,
-                    DType::Primitive(PType::F16 | PType::F32 | PType::F64, _)
-                ) {
-                    aggregate_u64(col, &nan_fn, &mut exec_ctx).unwrap_or(0)
-                } else {
-                    0
-                };
-                let (min, min_bytes) = if null_count == slice_len {
-                    (None, 0)
-                } else {
-                    bounded_stat_scalar(col, &min_fn, &mut exec_ctx)
-                };
-                let (max, max_bytes) = if null_count == slice_len {
-                    (None, 0)
-                } else {
-                    bounded_stat_scalar(col, &max_fn, &mut exec_ctx)
-                };
-                scalar_bytes = scalar_bytes
-                    .saturating_add(min_bytes)
-                    .saturating_add(max_bytes);
-                entry.push(SplitZoneStats {
-                    row_count: slice_len,
-                    null_count,
-                    nan_count,
-                    min,
-                    max,
-                });
-            }
-        }
-        lease.resize(scalar_bytes)?;
+        let mut lease = context.memory().reserve(estimated_bytes)?;
+        populate_zone_splits(
+            array,
+            fields,
+            total_rows,
+            split_rows,
+            split_count,
+            max_metadata_bytes,
+            &mut columns,
+            &mut lease,
+            context,
+        )?;
         Ok((
             Self {
                 columns,
@@ -191,6 +139,89 @@ impl ZoneIndex {
             lease,
         ))
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn populate_zone_splits(
+    array: &ArrayRef,
+    fields: &vortex::array::dtype::StructFields,
+    total_rows: usize,
+    split_rows: usize,
+    split_count: usize,
+    max_metadata_bytes: u64,
+    columns: &mut HashMap<FieldName, Vec<SplitZoneStats>>,
+    lease: &mut MemoryLease,
+    context: &NativeExecutionContext<'_>,
+) -> Result<()> {
+    let null_fn = NullCount.bind(EmptyOptions);
+    let nan_fn = NanCount.bind(EmptyOptions);
+    let min_fn = Min.bind(NumericalAggregateOpts::skip_nans());
+    let max_fn = Max.bind(NumericalAggregateOpts::skip_nans());
+    let mut exec_ctx = context.native_session().create_execution_ctx();
+    let mut scalar_bytes = lease.bytes();
+
+    for split_idx in 0..split_count {
+        context.check_cancelled()?;
+        let start = split_idx * split_rows;
+        let end = (start + split_rows).min(total_rows);
+        let slice_len = u64::try_from(end - start).map_err(|_| failed("split length overflow"))?;
+        let chunk = array
+            .slice(start..end)
+            .map_err(|err| failed(&err.to_string()))?
+            .execute::<StructArray>(&mut exec_ctx)
+            .map_err(|err| failed(&err.to_string()))?;
+
+        for ((name, dtype), col) in fields
+            .names()
+            .iter()
+            .zip(fields.fields())
+            .zip(chunk.iter_unmasked_fields())
+        {
+            let Some(entry) = columns.get_mut(name) else {
+                continue;
+            };
+            let null_count = aggregate_u64(col, &null_fn, &mut exec_ctx).unwrap_or(0);
+            let nan_count = if matches!(
+                dtype,
+                DType::Primitive(PType::F16 | PType::F32 | PType::F64, _)
+            ) {
+                aggregate_u64(col, &nan_fn, &mut exec_ctx).unwrap_or(0)
+            } else {
+                0
+            };
+            let (min, min_bytes) = if null_count == slice_len {
+                (None, 0)
+            } else {
+                bounded_stat_scalar(col, &min_fn, &mut exec_ctx)
+            };
+            let (max, max_bytes) = if null_count == slice_len {
+                (None, 0)
+            } else {
+                bounded_stat_scalar(col, &max_fn, &mut exec_ctx)
+            };
+            let extra = min_bytes
+                .checked_add(max_bytes)
+                .ok_or_else(|| failed("zone index metadata size overflow"))?;
+            let next_bytes = scalar_bytes
+                .checked_add(extra)
+                .ok_or_else(|| failed("zone index metadata size overflow"))?;
+            if next_bytes > max_metadata_bytes {
+                return Err(failed("owned array zone-map metadata bound exceeded"));
+            }
+            if extra > 0 {
+                lease.resize(next_bytes)?;
+                scalar_bytes = next_bytes;
+            }
+            entry.push(SplitZoneStats {
+                row_count: slice_len,
+                null_count,
+                nan_count,
+                min,
+                max,
+            });
+        }
+    }
+    Ok(())
 }
 
 fn is_prunable_zone_dtype(dtype: &DType) -> bool {
@@ -306,6 +337,9 @@ impl OwnedArraySource {
         };
         composition.storage.max_metadata_bytes = bounds.max_metadata_bytes;
         let array = composition_array(&result, composition, context)?;
+        let remaining_metadata_bytes = bounds
+            .max_metadata_bytes
+            .saturating_sub(array.reserved_bytes());
         let id = NEXT_SOURCE
             .try_update(Ordering::Relaxed, Ordering::Relaxed, |id| id.checked_add(1))
             .map_err(|_| failed("source identity exhausted"))?;
@@ -313,8 +347,12 @@ impl OwnedArraySource {
             "memory://shardloom/{}/owned-array/{id}.vortex",
             std::process::id()
         ))?;
-        let (zone_index, zone_lease) =
-            ZoneIndex::build(array.value(), result.row_count(), context)?;
+        let (zone_index, zone_lease) = ZoneIndex::build(
+            array.value(),
+            result.row_count(),
+            remaining_metadata_bytes,
+            context,
+        )?;
         context.check_cancelled()?;
         Ok(Self(Arc::new(Owner {
             array,
@@ -371,14 +409,24 @@ impl OwnedArraySource {
     }
 
     pub(crate) fn scan(&self, session: &VortexSession) -> ScanBuilder<ArrayRef> {
-        ScanBuilder::new(
+        self.scan_with_stats(session).0
+    }
+
+    pub(crate) fn scan_with_stats(
+        &self,
+        session: &VortexSession,
+    ) -> (ScanBuilder<ArrayRef>, Arc<OwnedScanPruningStats>) {
+        let scan_stats = Arc::new(OwnedScanPruningStats::new(self.row_count()));
+        let scan = ScanBuilder::new(
             session.clone(),
             Arc::new(Reader {
                 owner: self.clone(),
                 session: session.clone(),
                 name: Arc::from("owned_array"),
+                scan_stats: Arc::clone(&scan_stats),
             }),
-        )
+        );
+        (scan, scan_stats)
     }
 
     pub(crate) fn annotate(&self, certificate: &mut NativeIoCertificate) -> Result<()> {
@@ -402,10 +450,88 @@ impl OwnedArraySource {
     }
 }
 
+/// Per-scan unique 8,192-row zone exclusion tracker so sub-zone split sizes
+/// (`SplitBy::RowCount(<8192)`) and concurrent scans never overcount or mix certificates.
+pub(crate) struct OwnedScanPruningStats {
+    row_count: u64,
+    tracker: Mutex<ScanZoneTracker>,
+}
+
+struct ScanZoneTracker {
+    pruned_ranges: Vec<Vec<(u64, u64)>>,
+    excluded_zones: Vec<bool>,
+    excluded_zone_count: u64,
+}
+
+impl OwnedScanPruningStats {
+    fn new(row_count: u64) -> Self {
+        let split_count = usize::try_from(row_count.div_ceil(SPLIT_ROWS)).unwrap_or(0);
+        Self {
+            row_count,
+            tracker: Mutex::new(ScanZoneTracker {
+                pruned_ranges: vec![Vec::new(); split_count],
+                excluded_zones: vec![false; split_count],
+                excluded_zone_count: 0,
+            }),
+        }
+    }
+
+    pub(crate) fn excluded_zones(&self) -> u64 {
+        self.tracker
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .excluded_zone_count
+    }
+
+    fn record_pruned_zone_slice(&self, zone_idx: usize, z_start: u64, z_end: u64) -> (bool, u64) {
+        let zone_lo = (zone_idx as u64) * SPLIT_ROWS;
+        let zone_hi = ((zone_idx as u64 + 1) * SPLIT_ROWS).min(self.row_count);
+        let start = z_start.max(zone_lo);
+        let end = z_end.min(zone_hi);
+        if start >= end {
+            return (false, 0);
+        }
+        let mut tracker = self
+            .tracker
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let Some(already) = tracker.excluded_zones.get(zone_idx).copied() else {
+            return (false, 0);
+        };
+        if already {
+            return (false, 0);
+        }
+        let ranges = &mut tracker.pruned_ranges[zone_idx];
+        let prev_covered: u64 = ranges.iter().map(|(lo, hi)| hi - lo).sum();
+        ranges.push((start, end));
+        ranges.sort_unstable();
+        let mut merged: Vec<(u64, u64)> = Vec::with_capacity(ranges.len());
+        for &(lo, hi) in ranges.iter() {
+            if let Some(last) = merged.last_mut()
+                && lo <= last.1
+            {
+                last.1 = last.1.max(hi);
+                continue;
+            }
+            merged.push((lo, hi));
+        }
+        *ranges = merged;
+        let new_covered: u64 = ranges.iter().map(|(lo, hi)| hi - lo).sum();
+        let delta_rows = new_covered.saturating_sub(prev_covered);
+        let newly_excluded = ranges.len() == 1 && ranges[0] == (zone_lo, zone_hi);
+        if newly_excluded {
+            tracker.excluded_zones[zone_idx] = true;
+            tracker.excluded_zone_count += 1;
+        }
+        (newly_excluded, delta_rows)
+    }
+}
+
 struct Reader {
     owner: OwnedArraySource,
     session: VortexSession,
     name: Arc<str>,
+    scan_stats: Arc<OwnedScanPruningStats>,
 }
 
 impl Reader {
@@ -477,8 +603,18 @@ impl LayoutReader for Reader {
             let pruned = can_prune_split(expr, zone_idx, zones);
             builder.append_n(!pruned, z_len_usize);
             if pruned {
-                self.owner.0.pruned_splits.fetch_add(1, Ordering::Relaxed);
-                self.owner.0.pruned_rows.fetch_add(z_len, Ordering::Relaxed);
+                let (newly_excluded, delta_rows) = self
+                    .scan_stats
+                    .record_pruned_zone_slice(zone_idx, z_start, z_end);
+                if newly_excluded {
+                    self.owner.0.pruned_splits.fetch_add(1, Ordering::Relaxed);
+                }
+                if delta_rows > 0 {
+                    self.owner
+                        .0
+                        .pruned_rows
+                        .fetch_add(delta_rows, Ordering::Relaxed);
+                }
             }
         }
         let zone_mask = Mask::from(builder.freeze());

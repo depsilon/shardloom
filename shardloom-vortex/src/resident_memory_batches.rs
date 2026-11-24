@@ -204,6 +204,9 @@ impl MemoryBatchSourceBuilder {
                     memory_error("Arrow IPC input stream exceeds 2,048 rows per batch")
                 })?;
             saw_batch = true;
+            let _decoded_credit = self.reserve_scratch(
+                u64::try_from(batch.get_array_memory_size()).map_err(native_error)?,
+            )?;
             self.push_arrow(batch)?;
         }
         if !saw_batch {

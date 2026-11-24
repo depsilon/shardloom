@@ -399,3 +399,167 @@ fn prepared_collect_owned_array_multi_step_relational_chain_zero_serialization()
     ));
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
+
+#[test]
+fn owned_scan_sub_zone_batches_and_concurrent_scans_isolate_pruning_certificates() {
+    use crate::{
+        local_primitives::prepared_relational::prepare_relational_with_schema_in_session,
+        relational_query::{VortexRelationalPlan, VortexRelationalScan},
+    };
+    use shardloom_core::{
+        ColumnRef, ComparisonOp, DatasetUri, PredicateExpr, StatValue,
+        native_io_decisions::NativeIoCapability,
+    };
+    use shardloom_plan::ProjectionRequest;
+
+    let bytes = 16 << 20;
+    let session = ResidentVortexSession::new(bytes, 2).unwrap();
+    let memory = session.memory().clone();
+    let input = kv_memory_source(&session, 8_192, |k| k);
+    let batch = input
+        .prepare_projection(&["k", "v"], None, None)
+        .unwrap()
+        .execute_arrays()
+        .unwrap();
+    let source = batch
+        .into_owned_array_source(
+            OwnedArraySourceBounds::default(),
+            &CancellationToken::default(),
+        )
+        .unwrap();
+    drop(input);
+
+    // Concurrent scans with disjoint pruning filters must report exact per-scan
+    // excluded_regions <= regions without cross-scan accumulation or sub-8192 overcounting.
+    let policy = VortexLocalPrimitiveExecutionPolicy::from_resources(
+        shardloom_core::ExecutionResources::from_bytes(
+            bytes,
+            2,
+            shardloom_core::ExecutionResourceOrigin::Context,
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let uri = DatasetUri::new("memory://owned-concurrent-prune").unwrap();
+    let run_scan = |threshold: i64| {
+        let prep = prepare_relational_with_schema_in_session(policy, &session, |schemas| {
+            schemas.register_owned_array_source(uri.clone(), source.clone())?;
+            Ok(VortexRelationalPlan::Scan(VortexRelationalScan {
+                source_uri: uri.clone(),
+                projection: ProjectionRequest::Columns(vec![ColumnRef::new("k").unwrap()]),
+                predicate: Some(PredicateExpr::Compare {
+                    column: ColumnRef::new("k").unwrap(),
+                    op: ComparisonOp::GtEq,
+                    value: StatValue::Int64(threshold),
+                }),
+            }))
+        })
+        .unwrap();
+        let out = prep.execute_native(&CancellationToken::default()).unwrap();
+        let entry = *out
+            .execution
+            .native_io_certificate
+            .capability_decisions
+            .get(NativeIoCapability::RegionExclusion)
+            .expect("RegionExclusion decision");
+        (out.execution.output_rows, entry)
+    };
+    let (res_pruned, res_kept) = std::thread::scope(|s| {
+        let h1 = s.spawn(|| run_scan(99_999));
+        let h2 = s.spawn(|| run_scan(0));
+        (h1.join().unwrap(), h2.join().unwrap())
+    });
+    assert_eq!(res_pruned.0, 0);
+    assert_eq!(res_pruned.1.observed.regions, Some(1));
+    assert_eq!(res_pruned.1.observed.excluded_regions, Some(1));
+    assert_eq!(res_kept.0, 8_192);
+    assert_eq!(res_kept.1.observed.regions, Some(1));
+    assert_eq!(res_kept.1.observed.excluded_regions, Some(0));
+
+    // Also verify sub-zone SplitBy::RowCount(2048) never overcounts per-scan excluded_zones.
+    let (chunks, excluded_zones) = session
+        .with_native_session(|vortex_session, runtime| {
+            let (scan, stats) = source.scan_with_stats(vortex_session);
+            let expr = vortex::array::expr::lt(
+                vortex::array::expr::get_item("k", vortex::array::expr::root()),
+                vortex::array::expr::lit(0_i64),
+            )
+            .bind(source.dtype())
+            .map_err(|e| shardloom_core::ShardLoomError::InvalidOperation(e.to_string()))?;
+            let chunks: Vec<_> = scan
+                .with_split_by(vortex::layout::scan::split_by::SplitBy::RowCount(2048))
+                .with_filter(expr)
+                .into_array_iter(runtime)
+                .map_err(|e| shardloom_core::ShardLoomError::InvalidOperation(e.to_string()))?
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(|e| shardloom_core::ShardLoomError::InvalidOperation(e.to_string()))?;
+            Ok((chunks, stats.excluded_zones()))
+        })
+        .unwrap();
+    assert!(chunks.iter().all(vortex::array::ArrayRef::is_empty));
+    assert_eq!(excluded_zones, 1);
+
+    drop((chunks, source, session));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn owned_zone_index_respects_max_metadata_bytes_and_skips_non_prunable_only_schemas() {
+    use arrow_array::types::Int64Type;
+    use arrow_array::{ArrayRef as ArrowArrayRef, ListArray, StringArray};
+
+    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    // Schema with only a List column (non-prunable): ZoneIndex reserves 0 bytes.
+    let list_col: ArrowArrayRef =
+        Arc::new(ListArray::from_iter_primitive::<Int64Type, _, _>(vec![
+            Some(vec![Some(1), Some(2)]),
+            Some(vec![Some(3)]),
+        ]));
+    let list_batch = arrow_array::RecordBatch::try_from_iter(vec![("items", list_col)]).unwrap();
+    let list_src = ResidentMemorySource::from_arrow_record_batch(
+        &session,
+        list_batch,
+        &CancellationToken::default(),
+    )
+    .unwrap();
+    let list_out = list_src
+        .prepare_projection(&["items"], None, None)
+        .unwrap()
+        .execute_arrays()
+        .unwrap();
+    let list_owned = list_out
+        .into_owned_array_source(
+            OwnedArraySourceBounds::default(),
+            &CancellationToken::default(),
+        )
+        .unwrap();
+    assert!(!list_owned.has_zone_maps());
+
+    // Tight max_metadata_bytes fails deterministically before retaining string extrema.
+    let strings: ArrowArrayRef = Arc::new(StringArray::from(vec![Some("a".repeat(200))]));
+    let str_batch = arrow_array::RecordBatch::try_from_iter(vec![("s", strings)]).unwrap();
+    let str_src = ResidentMemorySource::from_arrow_record_batch(
+        &session,
+        str_batch,
+        &CancellationToken::default(),
+    )
+    .unwrap();
+    let str_out = str_src
+        .prepare_projection(&["s"], None, None)
+        .unwrap()
+        .execute_arrays()
+        .unwrap();
+    let tight = OwnedArraySourceBounds {
+        max_metadata_bytes: 512,
+        ..OwnedArraySourceBounds::default()
+    };
+    assert!(
+        str_out
+            .into_owned_array_source(tight, &CancellationToken::default())
+            .is_err()
+    );
+
+    drop((list_owned, list_src, str_src, session));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}

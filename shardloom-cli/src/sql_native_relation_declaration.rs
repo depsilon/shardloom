@@ -53,7 +53,11 @@ impl NativeSqlDeclaration {
         parameters: BTreeMap<String, Expression>,
     ) -> NativeResult<Self> {
         super::parameters::validate(raw, &parameters)?;
-        let canonical_candidate = super::canonical::parse_canonical_plan(raw);
+        let canonical_candidate = match super::canonical::classify_canonical_sql(raw) {
+            super::canonical::CanonicalSqlRoute::Admitted(plan) => Some(plan),
+            super::canonical::CanonicalSqlRoute::LegacyNative => None,
+            super::canonical::CanonicalSqlRoute::Rejected(err) => return Err(err),
+        };
         if let Some(plan) = canonical_candidate
             .as_ref()
             .filter(|plan| super::canonical::prefers_canonical_lowering(plan, names))

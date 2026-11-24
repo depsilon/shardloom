@@ -605,3 +605,37 @@ fn native_arrow_ipc_stream_roundtrips_batches_empty_and_cancels_cleanly() {
     drop((empty_result, empty_session));
     assert_eq!(empty_memory.snapshot().reserved_bytes, 0);
 }
+
+#[test]
+fn bounded_ipc_vec_accounts_for_capacity_and_reallocation_overlap() {
+    use std::io::Write as _;
+
+    let pool = LiveMemoryPool::new(512).unwrap();
+    let mut vec_sink = BoundedIpcVec {
+        bytes: Vec::new(),
+        lease: pool.reserve(0).unwrap(),
+        max_bytes: 256,
+    };
+    vec_sink.write_all(&[1_u8; 60]).unwrap();
+    let first_cap = vec_sink.bytes.capacity() as u64;
+    assert!(first_cap >= 60);
+    assert_eq!(vec_sink.lease.bytes(), first_cap);
+    assert_eq!(pool.snapshot().reserved_bytes, first_cap);
+
+    // Growing requires reserving old + new capacity during reallocation, which is bounded
+    // against max_bytes and the shared LiveMemoryPool peak.
+    vec_sink.write_all(&[2_u8; 60]).unwrap();
+    let second_cap = vec_sink.bytes.capacity() as u64;
+    assert!(second_cap >= 120);
+    assert_eq!(vec_sink.lease.bytes(), second_cap);
+    assert!(pool.snapshot().peak_reserved_bytes >= first_cap + second_cap);
+
+    // Tight pool denies growth whose reallocation overlap would exceed pool capacity.
+    let occupied = pool
+        .reserve(pool.snapshot().limit_bytes - pool.snapshot().reserved_bytes)
+        .unwrap();
+    assert!(vec_sink.write_all(&[3_u8; 100]).is_err());
+    assert_eq!(vec_sink.lease.bytes(), second_cap);
+    drop((vec_sink, occupied));
+    assert_eq!(pool.snapshot().reserved_bytes, 0);
+}

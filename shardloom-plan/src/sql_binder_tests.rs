@@ -612,3 +612,113 @@ fn decodes_quoted_identifiers_in_wildcards_and_object_names() {
 
     assert!(bind_sql("SELECT a.b.* FROM 'in.parquet'").is_err());
 }
+
+#[test]
+fn scopes_named_and_inline_window_exclusions_across_subqueries_and_multi_defs() {
+    // 1. Multi-definition WINDOW clause preserves second window's EXCLUDE TIES.
+    let multi = bind_sql(
+        "SELECT id, SUM(v) OVER w1 AS s1, SUM(v) OVER w2 AS s2 FROM 'in.parquet' \
+         WINDOW w1 AS (ORDER BY id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING), \
+         w2 AS (ORDER BY id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING EXCLUDE TIES)",
+    )
+    .expect("multi-definition WINDOW binds");
+    let LogicalRelation::Project { items, .. } = &multi.root else {
+        panic!("expected Project");
+    };
+    let extract_excl = |idx: usize| -> Option<String> {
+        let LogicalProjectionItem::Expr { expr, .. } = &items[idx] else {
+            return None;
+        };
+        let LogicalExpr::Function {
+            over: Some(spec), ..
+        } = expr.as_ref()
+        else {
+            return None;
+        };
+        spec.frame.as_ref().and_then(|f| f.exclusion.clone())
+    };
+    assert_eq!(extract_excl(1), None);
+    assert_eq!(extract_excl(2), Some("TIES".to_string()));
+
+    // 2. Derived subquery named window EXCLUDE is preserved and isolated from same-named outer `w`.
+    let scoped = bind_sql(
+        "WITH c AS (SELECT id, SUM(v) OVER w AS c_s FROM 'in.parquet' \
+         WINDOW w AS (ORDER BY id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING EXCLUDE CURRENT ROW)) \
+         SELECT id, SUM(v) OVER w AS o_s FROM (SELECT id, c_s AS v FROM c \
+         WINDOW w AS (ORDER BY id ROWS CURRENT ROW)) AS d \
+         WINDOW w AS (ORDER BY id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)",
+    )
+    .expect("isolated same-name scopes bind");
+    let LogicalRelation::WithCte { ctes, body, .. } = &scoped.root else {
+        panic!("expected WithCte");
+    };
+    let LogicalRelation::Project { items: c_items, .. } = ctes[0].query.as_ref() else {
+        panic!("expected CTE Project");
+    };
+    assert!(matches!(
+        &c_items[1],
+        LogicalProjectionItem::Expr { expr, .. }
+            if matches!(expr.as_ref(), LogicalExpr::Function { over: Some(s), .. }
+                if s.frame.as_ref().and_then(|f| f.exclusion.as_deref()) == Some("CURRENT ROW"))
+    ));
+    let LogicalRelation::Project { items: o_items, .. } = body.as_ref() else {
+        panic!("expected outer Project");
+    };
+    assert!(matches!(
+        &o_items[1],
+        LogicalProjectionItem::Expr { expr, .. }
+            if matches!(expr.as_ref(), LogicalExpr::Function { over: Some(s), .. }
+                if s.frame.as_ref().and_then(|f| f.exclusion.as_deref()).is_none())
+    ));
+
+    // 3. Frameless EXCLUDE fails cleanly instead of silently dropping the exclusion.
+    for bad_sql in [
+        "SELECT SUM(v) OVER (ORDER BY id EXCLUDE CURRENT ROW) FROM 'in.parquet'",
+        "SELECT SUM(v) OVER w FROM 'in.parquet' WINDOW w AS (ORDER BY id EXCLUDE TIES)",
+        "SELECT SUM(v) OVER (w EXCLUDE GROUP) FROM 'in.parquet' WINDOW w AS (ORDER BY id ROWS UNBOUNDED PRECEDING)",
+        "SELECT SUM(v) OVER (ORDER BY id ROWS CURRENT ROW EXCLUDE UNKNOWN) FROM 'in.parquet'",
+    ] {
+        assert!(
+            matches!(
+                bind_sql_authoritative(bad_sql),
+                Err(SqlBindErrorKind::AuthoritativeRejection(_))
+            ),
+            "{bad_sql}"
+        );
+    }
+}
+
+#[test]
+fn binds_aggregate_only_order_by_and_classifies_authoritative_rejections() {
+    let agg_order = bind_sql("SELECT 1 AS one FROM 'in.parquet' ORDER BY SUM(v) DESC")
+        .expect("aggregate-only ORDER BY binds");
+    let LogicalRelation::Sort { input, keys } = &agg_order.root else {
+        panic!("expected Sort root");
+    };
+    let LogicalRelation::Project { input: agg_rel, .. } = input.as_ref() else {
+        panic!("expected Project under Sort");
+    };
+    assert!(matches!(
+        agg_rel.as_ref(),
+        LogicalRelation::Aggregate { aggregates, .. } if aggregates.len() == 1
+    ));
+    assert_eq!(keys.len(), 1);
+
+    for auth_bad in [
+        "SELECT a FROM 'x.parquet' UNION ALL BY NAME SELECT a FROM 'y.parquet'",
+        "SELECT id, ROW_NUMBER() OVER (ORDER BY id) AS rn FROM 'x.parquet' QUALIFY rn = 1",
+        "SELECT FIRST_VALUE(v) IGNORE NULLS OVER (ORDER BY id) FROM 'x.parquet'",
+        "SELECT * EXCLUDE (v) FROM 'x.parquet'",
+        "SELECT * FROM 'x.parquet', LATERAL (SELECT 1) AS sub",
+        "SELECT * FROM 'x.parquet' TABLESAMPLE BERNOULLI (5)",
+        "SELECT CAST(v AS DECIMAL(40, 2)) FROM 'x.parquet'",
+    ] {
+        assert!(
+            matches!(
+                bind_sql_authoritative(auth_bad),
+                Err(SqlBindErrorKind::AuthoritativeRejection(_))
+            ),
+            "{auth_bad}"
+        );
+    }
+}

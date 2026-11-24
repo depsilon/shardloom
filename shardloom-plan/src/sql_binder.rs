@@ -1832,16 +1832,74 @@ fn validate_simple_ident(name: &str) -> Result<()> {
 // Canonical AST Parsing + Binding (ASOF LEFT JOIN / TOLERANCE token adapter)
 // ============================================================================
 
+/// Error classification distinguishing authoritative SQL policy rejections
+/// (which must fail deterministically rather than falling back to legacy parsers)
+/// from syntax forms handled by specialized native routes.
+#[derive(Debug)]
+pub enum SqlBindErrorKind {
+    AuthoritativeRejection(ShardLoomError),
+    SyntaxOrUnrecognized(ShardLoomError),
+}
+
+impl SqlBindErrorKind {
+    #[must_use]
+    pub fn into_error(self) -> ShardLoomError {
+        match self {
+            Self::AuthoritativeRejection(err) | Self::SyntaxOrUnrecognized(err) => err,
+        }
+    }
+}
+
+/// Token-span-keyed window `EXCLUDE` clauses scoped cleanly per `OVER (...)` call
+/// and per `WINDOW w AS (...)` definition, preventing leakage or loss across subqueries/CTEs.
+#[derive(Debug, Default)]
+pub(crate) struct WindowExclusions {
+    inline_over: BTreeMap<Location, (String, bool)>,
+    named_defs: BTreeMap<Location, (String, bool)>,
+}
+
+impl WindowExclusions {
+    pub(crate) fn consume_inline(&mut self, func_name_loc: Location) -> Option<String> {
+        let entry = self.inline_over.get_mut(&func_name_loc)?;
+        entry.1 = true;
+        Some(entry.0.clone())
+    }
+
+    pub(crate) fn consume_named(&mut self, ident_loc: Location) -> Option<String> {
+        let entry = self.named_defs.get_mut(&ident_loc)?;
+        entry.1 = true;
+        Some(entry.0.clone())
+    }
+
+    fn verify_all_consumed(&self, diagnostics: &mut Vec<Diagnostic>) -> Result<()> {
+        if let Some((_, (label, _))) = self
+            .inline_over
+            .iter()
+            .chain(self.named_defs.iter())
+            .find(|(_, (_, consumed))| !*consumed)
+        {
+            let msg = format!(
+                "window EXCLUDE {label} clause requires an explicit window specification with a ROWS, RANGE, or GROUPS frame"
+            );
+            diagnostics.push(expr::unsupported_diag("sql.window_exclude", &msg));
+            return Err(unsupported_sql_error(&msg));
+        }
+        Ok(())
+    }
+}
+
 struct AsofModifiers {
     left_join_indexes: Vec<usize>,
     tolerances: Vec<Option<u64>>,
-    over_exclusions: Vec<Option<String>>,
-    named_window_exclusions: BTreeMap<String, String>,
+    exclusions: WindowExclusions,
 }
 
-fn parse_single_ast_statement_with_asof(raw: &str) -> Result<(Statement, AsofModifiers)> {
+fn parse_single_ast_statement_with_asof(
+    raw: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<(Statement, AsofModifiers)> {
     let tokens = tokenize_with_spans(raw)?;
-    let (adapted, modifiers) = adapt_shardloom_tokens(tokens)?;
+    let (adapted, modifiers) = adapt_shardloom_tokens(tokens, diagnostics)?;
     let raw_for_parser: Vec<TokenWithSpan> = adapted
         .into_iter()
         .map(|bt| TokenWithSpan {
@@ -1859,18 +1917,22 @@ fn parse_single_ast_statement_with_asof(raw: &str) -> Result<(Statement, AsofMod
         return Err(unsupported_sql_error("SQL statement must not be empty"));
     }
     if statements.len() > 1 {
-        return Err(unsupported_sql_error(
-            "SQL local-source runtime admits a single statement only",
-        ));
+        let msg = "SQL local-source runtime admits a single statement only";
+        diagnostics.push(expr::unsupported_diag("sql.multi_statement", msg));
+        return Err(unsupported_sql_error(msg));
     }
     Ok((statements.remove(0), modifiers))
 }
 
 fn parse_single_ast_statement(raw: &str) -> Result<Statement> {
-    parse_single_ast_statement_with_asof(raw).map(|(stmt, _)| stmt)
+    let mut diagnostics = Vec::new();
+    parse_single_ast_statement_with_asof(raw, &mut diagnostics).map(|(stmt, _)| stmt)
 }
 
-fn adapt_shardloom_tokens(tokens: Vec<ByteToken>) -> Result<(Vec<ByteToken>, AsofModifiers)> {
+fn adapt_shardloom_tokens(
+    tokens: Vec<ByteToken>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<(Vec<ByteToken>, AsofModifiers)> {
     let sig_indices: Vec<usize> = tokens
         .iter()
         .enumerate()
@@ -1958,8 +2020,7 @@ fn adapt_shardloom_tokens(tokens: Vec<ByteToken>) -> Result<(Vec<ByteToken>, Aso
         s += 1;
     }
 
-    let (over_exclusions, named_window_exclusions) =
-        extract_window_exclusions(&tokens, &sig_indices, &mut drop_mask);
+    let exclusions = extract_window_exclusions(&tokens, &sig_indices, &mut drop_mask, diagnostics)?;
 
     let kept = tokens
         .into_iter()
@@ -1971,8 +2032,7 @@ fn adapt_shardloom_tokens(tokens: Vec<ByteToken>) -> Result<(Vec<ByteToken>, Aso
         AsofModifiers {
             left_join_indexes,
             tolerances,
-            over_exclusions,
-            named_window_exclusions,
+            exclusions,
         },
     ))
 }
@@ -2008,7 +2068,9 @@ fn extract_trailing_exclude(
     sig: &[usize],
     open_sig: usize,
     drop_mask: &mut [bool],
-) -> Option<String> {
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<(usize, Option<String>)> {
+    let inner_depth = tokens[sig[open_sig]].paren_depth + 1;
     let mut depth = 0usize;
     let mut k = open_sig;
     while k < sig.len() {
@@ -2019,86 +2081,200 @@ fn extract_trailing_exclude(
                 if depth == 0 {
                     for start in [k.saturating_sub(3), k.saturating_sub(2)] {
                         if start > open_sig
+                            && tokens[sig[start]].paren_depth == inner_depth
                             && let Some((count, label)) = match_exclude_clause(tokens, sig, start)
                             && start + count == k
                         {
                             for offset in 0..count {
                                 drop_mask[sig[start + offset]] = true;
                             }
-                            return Some(label);
+                            return Ok((k, Some(label)));
                         }
                     }
-                    return None;
+                    let malformed_two = k >= open_sig + 3
+                        && tokens[sig[k - 2]].paren_depth == inner_depth
+                        && word_eq(&tokens[sig[k - 2]], "exclude");
+                    let malformed_three = k >= open_sig + 4
+                        && tokens[sig[k - 3]].paren_depth == inner_depth
+                        && word_eq(&tokens[sig[k - 3]], "exclude");
+                    if malformed_two || malformed_three {
+                        let msg = "unsupported window EXCLUDE mode; expected CURRENT ROW, GROUP, TIES, or NO OTHERS";
+                        diagnostics.push(expr::unsupported_diag("sql.window_exclude", msg));
+                        return Err(unsupported_sql_error(msg));
+                    }
+                    return Ok((k, None));
                 }
             }
             _ => {}
         }
         k += 1;
     }
-    None
+    Ok((k, None))
+}
+
+fn locate_over_function_start(
+    tokens: &[ByteToken],
+    sig: &[usize],
+    over_sig: usize,
+) -> Option<Location> {
+    let base_depth = tokens[sig[over_sig]].paren_depth;
+    let mut p = over_sig.checked_sub(1)?;
+    if p >= 1
+        && tokens[sig[p]].paren_depth == base_depth
+        && word_eq(&tokens[sig[p]], "nulls")
+        && (word_eq(&tokens[sig[p - 1]], "ignore") || word_eq(&tokens[sig[p - 1]], "respect"))
+    {
+        p = p.checked_sub(2)?;
+    }
+    while matches!(tokens[sig[p]].token, Token::RParen) && tokens[sig[p]].paren_depth == base_depth
+    {
+        let mut depth = 1usize;
+        while depth > 0 {
+            p = p.checked_sub(1)?;
+            if tokens[sig[p]].paren_depth >= base_depth {
+                match tokens[sig[p]].token {
+                    Token::RParen if tokens[sig[p]].paren_depth == base_depth => depth += 1,
+                    Token::LParen if tokens[sig[p]].paren_depth == base_depth => depth -= 1,
+                    _ => {}
+                }
+            }
+        }
+        p = p.checked_sub(1)?;
+        if tokens[sig[p]].paren_depth == base_depth && word_eq(&tokens[sig[p]], "filter") {
+            p = p.checked_sub(1)?;
+            continue;
+        }
+        if p >= 1
+            && tokens[sig[p]].paren_depth == base_depth
+            && word_eq(&tokens[sig[p]], "group")
+            && word_eq(&tokens[sig[p - 1]], "within")
+        {
+            p = p.checked_sub(2)?;
+            continue;
+        }
+        if matches!(tokens[sig[p]].token, Token::RParen) && tokens[sig[p]].paren_depth == base_depth
+        {
+            continue;
+        }
+        break;
+    }
+    while p >= 2
+        && tokens[sig[p - 1]].paren_depth == base_depth
+        && matches!(tokens[sig[p - 1]].token, Token::Period)
+    {
+        p -= 2;
+    }
+    Some(tokens[sig[p]].raw_span.start)
 }
 
 fn extract_window_exclusions(
     tokens: &[ByteToken],
     sig: &[usize],
     drop_mask: &mut [bool],
-) -> (Vec<Option<String>>, BTreeMap<String, String>) {
-    let mut over_exclusions = Vec::new();
-    let mut named = BTreeMap::new();
-    for s in 0..sig.len() {
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<WindowExclusions> {
+    let mut exclusions = WindowExclusions::default();
+    let mut s = 0usize;
+    while s < sig.len() {
         let ti = sig[s];
         if word_eq(&tokens[ti], "over") {
             if let Some(&next) = sig.get(s + 1)
                 && matches!(tokens[next].token, Token::LParen)
             {
-                over_exclusions.push(extract_trailing_exclude(tokens, sig, s + 1, drop_mask));
-            } else {
-                over_exclusions.push(None);
+                let (close_sig, maybe_label) =
+                    extract_trailing_exclude(tokens, sig, s + 1, drop_mask, diagnostics)?;
+                if let Some(label) = maybe_label {
+                    let Some(fn_loc) = locate_over_function_start(tokens, sig, s) else {
+                        let msg = "window EXCLUDE clause requires an owning window function call";
+                        diagnostics.push(expr::unsupported_diag("sql.window_exclude", msg));
+                        return Err(unsupported_sql_error(msg));
+                    };
+                    exclusions.inline_over.insert(fn_loc, (label, false));
+                }
+                let _ = close_sig;
             }
-        } else if word_eq(&tokens[ti], "window")
-            && let (Some(&name_idx), Some(&as_idx), Some(&lparen_idx)) =
-                (sig.get(s + 1), sig.get(s + 2), sig.get(s + 3))
-            && word_eq(&tokens[as_idx], "as")
-            && matches!(tokens[lparen_idx].token, Token::LParen)
-            && let Token::Word(w) = &tokens[name_idx].token
-            && let Some(label) = extract_trailing_exclude(tokens, sig, s + 3, drop_mask)
-        {
-            named.insert(w.value.to_ascii_lowercase(), label);
+            s += 1;
+            continue;
         }
+        if word_eq(&tokens[ti], "window") {
+            let clause_depth = tokens[ti].paren_depth;
+            let mut cur = s + 1;
+            while cur + 2 < sig.len() && tokens[sig[cur]].paren_depth == clause_depth {
+                let Token::Word(_) = &tokens[sig[cur]].token else {
+                    break;
+                };
+                if !word_eq(&tokens[sig[cur + 1]], "as") {
+                    break;
+                }
+                let name_loc = tokens[sig[cur]].raw_span.start;
+                if matches!(tokens[sig[cur + 2]].token, Token::LParen)
+                    && tokens[sig[cur + 2]].paren_depth == clause_depth
+                {
+                    let (close_sig, maybe_label) =
+                        extract_trailing_exclude(tokens, sig, cur + 2, drop_mask, diagnostics)?;
+                    if let Some(label) = maybe_label {
+                        exclusions.named_defs.insert(name_loc, (label, false));
+                    }
+                    cur = close_sig + 1;
+                } else if matches!(tokens[sig[cur + 2]].token, Token::Word(_))
+                    && tokens[sig[cur + 2]].paren_depth == clause_depth
+                {
+                    cur += 3;
+                } else {
+                    break;
+                }
+                if cur < sig.len()
+                    && tokens[sig[cur]].paren_depth == clause_depth
+                    && matches!(tokens[sig[cur]].token, Token::Comma)
+                {
+                    cur += 1;
+                } else {
+                    break;
+                }
+            }
+            s = cur;
+            continue;
+        }
+        s += 1;
     }
-    (over_exclusions, named)
+    Ok(exclusions)
 }
 
-/// Parses and binds a SQL statement into a canonical [`BoundSqlPlan`].
+/// Parses and binds a SQL statement into a canonical [`BoundSqlPlan`], distinguishing
+/// authoritative SQL policy rejections from syntax forms that belong to specialized native routes.
 ///
 /// # Errors
-/// Returns [`ShardLoomError::InvalidOperation`] or [`ShardLoomError::NotImplemented`]
-/// with explicit `RFC 0012` diagnostics when SQL is malformed, positional-parameterized,
-/// DML/DDL, or uses unsupported syntax. Never delegates to external engines.
-pub fn bind_sql(raw: &str) -> Result<BoundSqlPlan> {
+/// Returns [`SqlBindErrorKind`] with explicit `RFC 0012` diagnostics when SQL is malformed,
+/// positional-parameterized, DML/DDL, or uses unsupported syntax.
+pub fn bind_sql_authoritative(raw: &str) -> std::result::Result<BoundSqlPlan, SqlBindErrorKind> {
     let trimmed = raw.trim().trim_end_matches(';').trim();
     if trimmed.is_empty() {
-        return Err(unsupported_sql_error("SQL statement must not be empty"));
+        return Err(SqlBindErrorKind::AuthoritativeRejection(
+            unsupported_sql_error("SQL statement must not be empty"),
+        ));
     }
-    let named_parameters = extract_named_parameters(trimmed)?;
-    let (statement, modifiers) = parse_single_ast_statement_with_asof(trimmed)?;
+    let named_parameters =
+        extract_named_parameters(trimmed).map_err(SqlBindErrorKind::AuthoritativeRejection)?;
     let mut diagnostics = Vec::new();
+    let (statement, mut modifiers) =
+        parse_single_ast_statement_with_asof(trimmed, &mut diagnostics)
+            .map_err(|err| classify_bind_err(&diagnostics, err))?;
     let Statement::Query(query) = statement else {
         let msg = format!(
             "ShardLoom admits read-only SQL queries only; statement `{statement}` is not admitted"
         );
         diagnostics.push(expr::unsupported_diag("sql.non_query_statement", &msg));
-        return Err(unsupported_sql_error(&msg));
+        return Err(SqlBindErrorKind::AuthoritativeRejection(
+            unsupported_sql_error(&msg),
+        ));
     };
-    let mut root = bind_ast_query_with_window_exclusions(
-        &query,
-        &modifiers.named_window_exclusions,
-        &mut diagnostics,
-    )?;
+    let mut root = bind_ast_query(&query, &mut diagnostics, &mut modifiers.exclusions)
+        .map_err(|err| classify_bind_err(&diagnostics, err))?;
+    modifiers
+        .exclusions
+        .verify_all_consumed(&mut diagnostics)
+        .map_err(|err| classify_bind_err(&diagnostics, err))?;
     apply_asof_modifiers(&mut root, &modifiers, &mut 0);
-    if modifiers.over_exclusions.iter().any(Option::is_some) {
-        apply_window_exclusions_rel(&mut root, &modifiers, &mut 0);
-    }
     let mut source_refs = Vec::new();
     collect_bound_sources(&root, &mut source_refs);
     Ok(BoundSqlPlan {
@@ -2108,6 +2284,24 @@ pub fn bind_sql(raw: &str) -> Result<BoundSqlPlan> {
         source_refs,
         diagnostics,
     })
+}
+
+fn classify_bind_err(diagnostics: &[Diagnostic], err: ShardLoomError) -> SqlBindErrorKind {
+    if diagnostics.is_empty() {
+        SqlBindErrorKind::SyntaxOrUnrecognized(err)
+    } else {
+        SqlBindErrorKind::AuthoritativeRejection(err)
+    }
+}
+
+/// Parses and binds a SQL statement into a canonical [`BoundSqlPlan`].
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] or [`ShardLoomError::NotImplemented`]
+/// with explicit `RFC 0012` diagnostics when SQL is malformed, positional-parameterized,
+/// DML/DDL, or uses unsupported syntax. Never delegates to external engines.
+pub fn bind_sql(raw: &str) -> Result<BoundSqlPlan> {
+    bind_sql_authoritative(raw).map_err(SqlBindErrorKind::into_error)
 }
 
 fn apply_asof_modifiers(rel: &mut LogicalRelation, mods: &AsofModifiers, cursor: &mut usize) {
@@ -2156,219 +2350,6 @@ fn apply_asof_modifiers(rel: &mut LogicalRelation, mods: &AsofModifiers, cursor:
             for arg in args {
                 if let LogicalTableArg::Subquery(sub) = arg {
                     apply_asof_modifiers(sub, mods, cursor);
-                }
-            }
-        }
-        LogicalRelation::Source { .. } | LogicalRelation::Values { .. } | LogicalRelation::Unit => {
-        }
-    }
-}
-
-fn apply_window_exclusions_fn(
-    args: &mut [LogicalExpr],
-    filter: Option<&mut LogicalExpr>,
-    order_by: &mut [LogicalSortKey],
-    over: Option<&mut LogicalWindowSpec>,
-    mods: &AsofModifiers,
-    cursor: &mut usize,
-) {
-    for arg in args {
-        apply_window_exclusions_expr(arg, mods, cursor);
-    }
-    if let Some(f) = filter {
-        apply_window_exclusions_expr(f, mods, cursor);
-    }
-    for key in order_by {
-        apply_window_exclusions_expr(&mut key.expr, mods, cursor);
-    }
-    let Some(spec) = over else {
-        return;
-    };
-    for p in &mut spec.partition_by {
-        apply_window_exclusions_expr(p, mods, cursor);
-    }
-    for key in &mut spec.order_by {
-        apply_window_exclusions_expr(&mut key.expr, mods, cursor);
-    }
-    let idx = *cursor;
-    *cursor += 1;
-    let excl = mods
-        .over_exclusions
-        .get(idx)
-        .and_then(Clone::clone)
-        .or_else(|| {
-            spec.name.as_ref().and_then(|n| {
-                mods.named_window_exclusions
-                    .get(&n.to_ascii_lowercase())
-                    .cloned()
-            })
-        });
-    if let (Some(frame), Some(label)) = (&mut spec.frame, excl)
-        && frame.exclusion.is_none()
-    {
-        frame.exclusion = Some(label);
-    }
-}
-
-fn apply_window_exclusions_expr(expr: &mut LogicalExpr, mods: &AsofModifiers, cursor: &mut usize) {
-    match expr {
-        LogicalExpr::Function {
-            args,
-            filter,
-            order_by,
-            over,
-            ..
-        } => apply_window_exclusions_fn(
-            args,
-            filter.as_deref_mut(),
-            order_by,
-            over.as_mut(),
-            mods,
-            cursor,
-        ),
-        LogicalExpr::Unary { expr: inner, .. } | LogicalExpr::Cast { expr: inner, .. } => {
-            apply_window_exclusions_expr(inner, mods, cursor);
-        }
-        LogicalExpr::Binary { left, right, .. }
-        | LogicalExpr::Compare { left, right, .. }
-        | LogicalExpr::IsDistinctFrom { left, right, .. }
-        | LogicalExpr::Like {
-            expr: left,
-            pattern: right,
-            ..
-        } => {
-            apply_window_exclusions_expr(left, mods, cursor);
-            apply_window_exclusions_expr(right, mods, cursor);
-        }
-        LogicalExpr::Between {
-            expr, low, high, ..
-        } => {
-            apply_window_exclusions_expr(expr, mods, cursor);
-            apply_window_exclusions_expr(low, mods, cursor);
-            apply_window_exclusions_expr(high, mods, cursor);
-        }
-        LogicalExpr::InList { expr, list, .. } => {
-            apply_window_exclusions_expr(expr, mods, cursor);
-            for item in list {
-                apply_window_exclusions_expr(item, mods, cursor);
-            }
-        }
-        LogicalExpr::Case {
-            operand,
-            when_then,
-            else_expr,
-        } => {
-            if let Some(op) = operand {
-                apply_window_exclusions_expr(op, mods, cursor);
-            }
-            for (w, t) in when_then {
-                apply_window_exclusions_expr(w, mods, cursor);
-                apply_window_exclusions_expr(t, mods, cursor);
-            }
-            if let Some(e) = else_expr {
-                apply_window_exclusions_expr(e, mods, cursor);
-            }
-        }
-        LogicalExpr::InSubquery { expr, subquery, .. } => {
-            apply_window_exclusions_expr(expr, mods, cursor);
-            apply_window_exclusions_rel(subquery, mods, cursor);
-        }
-        LogicalExpr::Exists { subquery, .. } | LogicalExpr::ScalarSubquery(subquery) => {
-            apply_window_exclusions_rel(subquery, mods, cursor);
-        }
-        LogicalExpr::Array(items) | LogicalExpr::Tuple(items) => {
-            for item in items {
-                apply_window_exclusions_expr(item, mods, cursor);
-            }
-        }
-        _ => {}
-    }
-}
-
-fn apply_window_exclusions_rel(
-    rel: &mut LogicalRelation,
-    mods: &AsofModifiers,
-    cursor: &mut usize,
-) {
-    match rel {
-        LogicalRelation::WithCte { ctes, body, .. } => {
-            for cte in ctes {
-                apply_window_exclusions_rel(&mut cte.query, mods, cursor);
-            }
-            apply_window_exclusions_rel(body, mods, cursor);
-        }
-        LogicalRelation::Project { input, items, .. } => {
-            for item in items.iter_mut() {
-                if let LogicalProjectionItem::Expr { expr, .. } = item {
-                    apply_window_exclusions_expr(expr, mods, cursor);
-                }
-            }
-            apply_window_exclusions_rel(input, mods, cursor);
-            if let LogicalRelation::Window { windows, .. } = input.as_mut() {
-                windows.clear();
-                for item in items.iter() {
-                    if let LogicalProjectionItem::Expr { expr, .. } = item {
-                        collect_windows(expr, windows);
-                    }
-                }
-            }
-        }
-        LogicalRelation::Window { input, windows } => {
-            apply_window_exclusions_rel(input, mods, cursor);
-            let _ = windows;
-        }
-        LogicalRelation::Filter { input, predicate } => {
-            apply_window_exclusions_rel(input, mods, cursor);
-            apply_window_exclusions_expr(predicate, mods, cursor);
-        }
-        LogicalRelation::Aggregate {
-            input,
-            group_by,
-            having,
-            ..
-        } => {
-            apply_window_exclusions_rel(input, mods, cursor);
-            for expr in group_by {
-                apply_window_exclusions_expr(expr, mods, cursor);
-            }
-            if let Some(expr) = having {
-                apply_window_exclusions_expr(expr, mods, cursor);
-            }
-        }
-        LogicalRelation::Join {
-            left, right, on, ..
-        } => {
-            apply_window_exclusions_rel(left, mods, cursor);
-            apply_window_exclusions_rel(right, mods, cursor);
-            if let Some(expr) = on {
-                apply_window_exclusions_expr(expr, mods, cursor);
-            }
-        }
-        LogicalRelation::SetOperation { left, right, .. } => {
-            apply_window_exclusions_rel(left, mods, cursor);
-            apply_window_exclusions_rel(right, mods, cursor);
-        }
-        LogicalRelation::Sort { input, keys } => {
-            apply_window_exclusions_rel(input, mods, cursor);
-            let mut order_windows = Vec::new();
-            for k in keys {
-                apply_window_exclusions_expr(&mut k.expr, mods, cursor);
-                collect_windows(&k.expr, &mut order_windows);
-            }
-            attach_order_windows(input, order_windows);
-        }
-        LogicalRelation::Subquery { input, .. } | LogicalRelation::Limit { input, .. } => {
-            apply_window_exclusions_rel(input, mods, cursor);
-        }
-        LogicalRelation::TableFunction { args, .. } => {
-            for arg in args {
-                match arg {
-                    LogicalTableArg::Subquery(sub) => {
-                        apply_window_exclusions_rel(sub, mods, cursor);
-                    }
-                    LogicalTableArg::Expr(e) => {
-                        apply_window_exclusions_expr(e, mods, cursor);
-                    }
                 }
             }
         }
@@ -2614,15 +2595,7 @@ pub(crate) fn decode_object_name_value(name: &ast::ObjectName) -> String {
 pub(crate) fn bind_ast_query(
     query: &Query,
     diagnostics: &mut Vec<Diagnostic>,
-) -> Result<LogicalRelation> {
-    let empty = BTreeMap::new();
-    bind_ast_query_with_window_exclusions(query, &empty, diagnostics)
-}
-
-fn bind_ast_query_with_window_exclusions(
-    query: &Query,
-    named_window_exclusions: &BTreeMap<String, String>,
-    diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<LogicalRelation> {
     if !query.locks.is_empty()
         || query.for_clause.is_some()
@@ -2630,16 +2603,25 @@ fn bind_ast_query_with_window_exclusions(
         || query.format_clause.is_some()
         || !query.pipe_operators.is_empty()
     {
-        return Err(unsupported_sql_error(
-            "unsupported query-level modifier clause (FOR/LOCKS/SETTINGS/FORMAT/PIPE)",
-        ));
+        let msg = "unsupported query-level modifier clause (FOR/LOCKS/SETTINGS/FORMAT/PIPE)";
+        diagnostics.push(expr::unsupported_diag("sql.query_modifier", msg));
+        return Err(unsupported_sql_error(msg));
     }
-    let (mut plan, named_windows) =
-        bind_set_expr(&query.body, named_window_exclusions, diagnostics)?;
-    if let Some(order_by) = &query.order_by {
-        plan = bind_query_order_by(plan, order_by, &named_windows, diagnostics)?;
+    let (mut plan, named_windows, select_handled_order) = match query.body.as_ref() {
+        SetExpr::Select(select) => {
+            let (rel, named_windows) =
+                bind_select(select, query.order_by.as_ref(), diagnostics, exclusions)?;
+            (rel, named_windows, true)
+        }
+        other => {
+            let (rel, named_windows) = bind_set_expr(other, diagnostics, exclusions)?;
+            (rel, named_windows, false)
+        }
+    };
+    if !select_handled_order && let Some(order_by) = &query.order_by {
+        plan = bind_query_order_by(plan, order_by, &named_windows, diagnostics, exclusions)?;
     }
-    if let Some((limit, offset)) = bind_limit_and_fetch(query, diagnostics)? {
+    if let Some((limit, offset)) = bind_limit_and_fetch(query, diagnostics, exclusions)? {
         plan = LogicalRelation::Limit {
             input: Box::new(plan),
             limit,
@@ -2666,11 +2648,7 @@ fn bind_ast_query_with_window_exclusions(
                 name: cte.alias.name.value.clone(),
                 columns,
                 materialized,
-                query: Box::new(bind_ast_query_with_window_exclusions(
-                    &cte.query,
-                    named_window_exclusions,
-                    diagnostics,
-                )?),
+                query: Box::new(bind_ast_query(&cte.query, diagnostics, exclusions)?),
             });
         }
         plan = LogicalRelation::WithCte {
@@ -2682,31 +2660,44 @@ fn bind_ast_query_with_window_exclusions(
     Ok(plan)
 }
 
+fn bind_order_by_keys(
+    order_by: &ast::OrderBy,
+    named_windows: &BTreeMap<String, LogicalWindowSpec>,
+    diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
+) -> Result<Vec<LogicalSortKey>> {
+    if order_by.interpolate.is_some() {
+        let msg = "ORDER BY INTERPOLATE is not admitted";
+        diagnostics.push(expr::unsupported_diag("sql.order_by", msg));
+        return Err(unsupported_sql_error(msg));
+    }
+    let mut keys = match &order_by.kind {
+        OrderByKind::Expressions(exprs) => exprs
+            .iter()
+            .map(|k| expr::bind_sort_key(k, diagnostics, exclusions))
+            .collect::<Result<Vec<_>>>()?,
+        OrderByKind::All(_) => {
+            let msg = "ORDER BY ALL is not admitted; list explicit ordering columns";
+            diagnostics.push(expr::unsupported_diag("sql.all_modifier", msg));
+            return Err(unsupported_sql_error(msg));
+        }
+    };
+    for key in &mut keys {
+        resolve_expr_named_windows(&mut key.expr, named_windows)?;
+    }
+    Ok(keys)
+}
+
 fn bind_query_order_by(
     mut plan: LogicalRelation,
     order_by: &ast::OrderBy,
     named_windows: &BTreeMap<String, LogicalWindowSpec>,
     diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<LogicalRelation> {
-    if order_by.interpolate.is_some() {
-        return Err(unsupported_sql_error(
-            "ORDER BY INTERPOLATE is not admitted",
-        ));
-    }
-    let mut keys = match &order_by.kind {
-        OrderByKind::Expressions(exprs) => exprs
-            .iter()
-            .map(|k| expr::bind_sort_key(k, diagnostics))
-            .collect::<Result<Vec<_>>>()?,
-        OrderByKind::All(_) => {
-            return Err(unsupported_sql_error(
-                "ORDER BY ALL is not admitted; list explicit ordering columns",
-            ));
-        }
-    };
+    let keys = bind_order_by_keys(order_by, named_windows, diagnostics, exclusions)?;
     let mut order_windows = Vec::new();
-    for key in &mut keys {
-        resolve_expr_named_windows(&mut key.expr, named_windows)?;
+    for key in &keys {
         collect_windows(&key.expr, &mut order_windows);
     }
     attach_order_windows(&mut plan, order_windows);
@@ -2748,6 +2739,7 @@ fn attach_order_windows(
 fn bind_limit_and_fetch(
     query: &Query,
     diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<Option<(Option<LogicalExpr>, Option<LogicalExpr>)>> {
     let (mut limit_expr, offset_expr) = match &query.limit_clause {
         Some(LimitClause::LimitOffset {
@@ -2756,22 +2748,24 @@ fn bind_limit_and_fetch(
             limit_by,
         }) => {
             if !limit_by.is_empty() {
-                return Err(unsupported_sql_error("LIMIT BY is not admitted"));
+                let msg = "LIMIT BY is not admitted";
+                diagnostics.push(expr::unsupported_diag("sql.limit_by", msg));
+                return Err(unsupported_sql_error(msg));
             }
             (
                 limit
                     .as_ref()
-                    .map(|e| expr::bind_ast_expr(e, diagnostics))
+                    .map(|e| expr::bind_ast_expr(e, diagnostics, exclusions))
                     .transpose()?,
                 offset
                     .as_ref()
-                    .map(|o| expr::bind_ast_expr(&o.value, diagnostics))
+                    .map(|o| expr::bind_ast_expr(&o.value, diagnostics, exclusions))
                     .transpose()?,
             )
         }
         Some(LimitClause::OffsetCommaLimit { offset, limit }) => (
-            Some(expr::bind_ast_expr(limit, diagnostics)?),
-            Some(expr::bind_ast_expr(offset, diagnostics)?),
+            Some(expr::bind_ast_expr(limit, diagnostics, exclusions)?),
+            Some(expr::bind_ast_expr(offset, diagnostics, exclusions)?),
         ),
         None => (None, None),
     };
@@ -2787,7 +2781,7 @@ fn bind_limit_and_fetch(
             ));
         }
         let fetch_limit = match &fetch.quantity {
-            Some(qty) => expr::bind_ast_expr(qty, diagnostics)?,
+            Some(qty) => expr::bind_ast_expr(qty, diagnostics, exclusions)?,
             None => LogicalExpr::Literal(ScalarValue::Int64(1)),
         };
         limit_expr = Some(fetch_limit);
@@ -2797,13 +2791,13 @@ fn bind_limit_and_fetch(
 
 fn bind_set_expr(
     body: &SetExpr,
-    named_window_exclusions: &BTreeMap<String, String>,
     diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<(LogicalRelation, BTreeMap<String, LogicalWindowSpec>)> {
     match body {
-        SetExpr::Select(select) => bind_select(select, named_window_exclusions, diagnostics),
+        SetExpr::Select(select) => bind_select(select, None, diagnostics, exclusions),
         SetExpr::Query(inner) => Ok((
-            bind_ast_query_with_window_exclusions(inner, named_window_exclusions, diagnostics)?,
+            bind_ast_query(inner, diagnostics, exclusions)?,
             BTreeMap::new(),
         )),
         SetExpr::Values(values) => {
@@ -2813,7 +2807,7 @@ fn bind_set_expr(
                 .map(|row| {
                     row.content
                         .iter()
-                        .map(|e| expr::bind_ast_expr(e, diagnostics))
+                        .map(|e| expr::bind_ast_expr(e, diagnostics, exclusions))
                         .collect::<Result<Vec<_>>>()
                 })
                 .collect::<Result<Vec<_>>>()?;
@@ -2833,7 +2827,9 @@ fn bind_set_expr(
                 SetOperator::Intersect => LogicalSetOp::Intersect,
                 SetOperator::Except => LogicalSetOp::Except,
                 SetOperator::Minus => {
-                    return Err(unsupported_sql_error("MINUS is not admitted; use EXCEPT"));
+                    let msg = "MINUS is not admitted; use EXCEPT";
+                    diagnostics.push(expr::unsupported_diag("sql.set_operation", msg));
+                    return Err(unsupported_sql_error(msg));
                 }
             };
             let distinct = match set_quantifier {
@@ -2849,8 +2845,8 @@ fn bind_set_expr(
             };
             Ok((
                 LogicalRelation::SetOperation {
-                    left: Box::new(bind_set_expr(left, named_window_exclusions, diagnostics)?.0),
-                    right: Box::new(bind_set_expr(right, named_window_exclusions, diagnostics)?.0),
+                    left: Box::new(bind_set_expr(left, diagnostics, exclusions)?.0),
+                    right: Box::new(bind_set_expr(right, diagnostics, exclusions)?.0),
                     op: logical_op,
                     distinct,
                 },
@@ -2872,7 +2868,9 @@ fn validate_select_modifiers(select: &Select, diagnostics: &mut Vec<Diagnostic>)
         return Err(unsupported_sql_error(msg));
     }
     if matches!(select.distinct, Some(ast::Distinct::On(_))) {
-        return Err(unsupported_sql_error("SELECT DISTINCT ON is not admitted"));
+        let msg = "SELECT DISTINCT ON is not admitted";
+        diagnostics.push(expr::unsupported_diag("sql.distinct_on", msg));
+        return Err(unsupported_sql_error(msg));
     }
     if select.top.is_some()
         || select.into.is_some()
@@ -2883,9 +2881,9 @@ fn validate_select_modifiers(select: &Select, diagnostics: &mut Vec<Diagnostic>)
         || !select.sort_by.is_empty()
         || !select.connect_by.is_empty()
     {
-        return Err(unsupported_sql_error(
-            "unsupported SELECT modifier clause (TOP/INTO/PREWHERE/LATERAL/CLUSTER/DISTRIBUTE/SORT BY/CONNECT BY)",
-        ));
+        let msg = "unsupported SELECT modifier clause (TOP/INTO/PREWHERE/LATERAL/CLUSTER/DISTRIBUTE/SORT BY/CONNECT BY)";
+        diagnostics.push(expr::unsupported_diag("sql.select_modifier", msg));
+        return Err(unsupported_sql_error(msg));
     }
     Ok(())
 }
@@ -2913,10 +2911,11 @@ fn bind_select_item(
     named_windows: &BTreeMap<String, LogicalWindowSpec>,
     windows: &mut Vec<(String, LogicalWindowSpec)>,
     diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<LogicalProjectionItem> {
     match item {
         SelectItem::UnnamedExpr(e) => {
-            let mut bound = expr::bind_ast_expr(e, diagnostics)?;
+            let mut bound = expr::bind_ast_expr(e, diagnostics, exclusions)?;
             resolve_expr_named_windows(&mut bound, named_windows)?;
             collect_windows(&bound, windows);
             Ok(LogicalProjectionItem::Expr {
@@ -2925,7 +2924,7 @@ fn bind_select_item(
             })
         }
         SelectItem::ExprWithAlias { expr: e, alias } => {
-            let mut bound = expr::bind_ast_expr(e, diagnostics)?;
+            let mut bound = expr::bind_ast_expr(e, diagnostics, exclusions)?;
             resolve_expr_named_windows(&mut bound, named_windows)?;
             collect_windows(&bound, windows);
             Ok(LogicalProjectionItem::Expr {
@@ -2961,14 +2960,14 @@ fn bind_select_item(
 
 fn bind_named_windows(
     defs: &[ast::NamedWindowDefinition],
-    named_window_exclusions: &BTreeMap<String, String>,
     diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<BTreeMap<String, LogicalWindowSpec>> {
     let mut named_windows = BTreeMap::new();
     for ast::NamedWindowDefinition(ident, def) in defs {
         let mut resolved = match def {
             ast::NamedWindowExpr::WindowSpec(spec) => {
-                expr::bind_window_spec_ast(spec, diagnostics)?
+                expr::bind_window_spec_ast(spec, diagnostics, exclusions)?
             }
             ast::NamedWindowExpr::NamedWindow(parent) => LogicalWindowSpec {
                 name: Some(parent.value.clone()),
@@ -2991,10 +2990,22 @@ fn bind_named_windows(
                 ident.value
             )));
         }
-        if let (Some(frame), Some(label)) = (&mut resolved.frame, named_window_exclusions.get(&key))
-            && frame.exclusion.is_none()
-        {
-            frame.exclusion = Some(label.clone());
+        if let Some(label) = exclusions.consume_named(ident.span.start) {
+            let has_local_frame = matches!(
+                def,
+                ast::NamedWindowExpr::WindowSpec(raw_spec) if raw_spec.window_frame.is_some()
+            );
+            let Some(frame) = resolved.frame.as_mut() else {
+                let msg = "window EXCLUDE clause requires an explicit ROWS, RANGE, or GROUPS window frame";
+                diagnostics.push(expr::unsupported_diag("sql.window_exclude", msg));
+                return Err(unsupported_sql_error(msg));
+            };
+            if !has_local_frame {
+                let msg = "window EXCLUDE clause requires an explicit ROWS, RANGE, or GROUPS window frame";
+                diagnostics.push(expr::unsupported_diag("sql.window_exclude", msg));
+                return Err(unsupported_sql_error(msg));
+            }
+            frame.exclusion = Some(label);
         }
         resolved.name = None;
         named_windows.insert(key, resolved);
@@ -3004,24 +3015,24 @@ fn bind_named_windows(
 
 fn bind_select(
     select: &Select,
-    named_window_exclusions: &BTreeMap<String, String>,
+    query_order_by: Option<&ast::OrderBy>,
     diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<(LogicalRelation, BTreeMap<String, LogicalWindowSpec>)> {
     validate_select_modifiers(select, diagnostics)?;
     let mut input = if select.from.is_empty() {
         LogicalRelation::Unit
     } else {
-        bind_from_list(&select.from, diagnostics)?
+        bind_from_list(&select.from, diagnostics, exclusions)?
     };
     if let Some(selection) = &select.selection {
         input = LogicalRelation::Filter {
             input: Box::new(input),
-            predicate: expr::bind_ast_expr(selection, diagnostics)?,
+            predicate: expr::bind_ast_expr(selection, diagnostics, exclusions)?,
         };
     }
 
-    let named_windows =
-        bind_named_windows(&select.named_window, named_window_exclusions, diagnostics)?;
+    let named_windows = bind_named_windows(&select.named_window, diagnostics, exclusions)?;
     if let LogicalRelation::Filter { predicate, .. } = &mut input {
         resolve_expr_named_windows(predicate, &named_windows)?;
     }
@@ -3034,26 +3045,38 @@ fn bind_select(
             &named_windows,
             &mut windows,
             diagnostics,
+            exclusions,
         )?);
     }
 
-    let (mut group_by, grouping_sets) = bind_group_by(&select.group_by, diagnostics)?;
+    let (mut group_by, grouping_sets) = bind_group_by(&select.group_by, diagnostics, exclusions)?;
     for gb in &mut group_by {
         resolve_expr_named_windows(gb, &named_windows)?;
     }
     let mut having = select
         .having
         .as_ref()
-        .map(|h| expr::bind_ast_expr(h, diagnostics))
+        .map(|h| expr::bind_ast_expr(h, diagnostics, exclusions))
         .transpose()?;
     if let Some(ref mut h) = having {
         resolve_expr_named_windows(h, &named_windows)?;
     }
+    let order_keys = query_order_by
+        .map(|ob| bind_order_by_keys(ob, &named_windows, diagnostics, exclusions))
+        .transpose()?
+        .unwrap_or_default();
+
     let mut aggregates = Vec::new();
     for item in &items {
         if let LogicalProjectionItem::Expr { expr: e, alias } = item {
             collect_aggregates(e, alias.clone(), &mut aggregates);
         }
+    }
+    if let Some(h) = &having {
+        collect_aggregates(h, None, &mut aggregates);
+    }
+    for key in &order_keys {
+        collect_aggregates(&key.expr, None, &mut aggregates);
     }
     if !group_by.is_empty() || grouping_sets.is_some() || having.is_some() || !aggregates.is_empty()
     {
@@ -3066,6 +3089,9 @@ fn bind_select(
         };
     }
 
+    for key in &order_keys {
+        collect_windows(&key.expr, &mut windows);
+    }
     if !windows.is_empty() {
         input = LogicalRelation::Window {
             input: Box::new(input),
@@ -3074,27 +3100,32 @@ fn bind_select(
     }
 
     let distinct = matches!(select.distinct, Some(ast::Distinct::Distinct));
-    Ok((
-        LogicalRelation::Project {
-            input: Box::new(input),
-            items,
-            distinct,
-        },
-        named_windows,
-    ))
+    let mut result = LogicalRelation::Project {
+        input: Box::new(input),
+        items,
+        distinct,
+    };
+    if !order_keys.is_empty() {
+        result = LogicalRelation::Sort {
+            input: Box::new(result),
+            keys: order_keys,
+        };
+    }
+    Ok((result, named_windows))
 }
 
 fn bind_from_list(
     from: &[ast::TableWithJoins],
     diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<LogicalRelation> {
     let mut iter = from.iter();
     let first = iter
         .next()
         .ok_or_else(|| unsupported_sql_error("missing FROM relation"))?;
-    let mut current = bind_table_with_joins(first, diagnostics)?;
+    let mut current = bind_table_with_joins(first, diagnostics, exclusions)?;
     for next in iter {
-        let right = bind_table_with_joins(next, diagnostics)?;
+        let right = bind_table_with_joins(next, diagnostics, exclusions)?;
         current = LogicalRelation::Join {
             left: Box::new(current),
             right: Box::new(right),
@@ -3110,10 +3141,11 @@ fn bind_from_list(
 fn bind_table_with_joins(
     twj: &ast::TableWithJoins,
     diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<LogicalRelation> {
-    let mut left = bind_table_factor(&twj.relation, diagnostics)?;
+    let mut left = bind_table_factor(&twj.relation, diagnostics, exclusions)?;
     for join in &twj.joins {
-        left = bind_join(left, join, diagnostics)?;
+        left = bind_join(left, join, diagnostics, exclusions)?;
     }
     Ok(left)
 }
@@ -3122,8 +3154,9 @@ fn bind_join(
     left: LogicalRelation,
     join: &Join,
     diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<LogicalRelation> {
-    let right = bind_table_factor(&join.relation, diagnostics)?;
+    let right = bind_table_factor(&join.relation, diagnostics, exclusions)?;
     let (join_type, constraint, match_condition) = match &join.join_operator {
         JoinOperator::Join(c) | JoinOperator::Inner(c) => (LogicalJoinType::Inner, c, None),
         JoinOperator::Left(c) | JoinOperator::LeftOuter(c) => (LogicalJoinType::LeftOuter, c, None),
@@ -3140,7 +3173,11 @@ fn bind_join(
         } => (
             LogicalJoinType::AsOfInner,
             constraint,
-            Some(expr::bind_ast_expr(match_condition, diagnostics)?),
+            Some(expr::bind_ast_expr(
+                match_condition,
+                diagnostics,
+                exclusions,
+            )?),
         ),
         other => {
             return Err(unsupported_sql_error(&format!(
@@ -3149,7 +3186,7 @@ fn bind_join(
         }
     };
     let on = match constraint {
-        JoinConstraint::On(e) => Some(expr::bind_ast_expr(e, diagnostics)?),
+        JoinConstraint::On(e) => Some(expr::bind_ast_expr(e, diagnostics, exclusions)?),
         JoinConstraint::None => None,
         other => {
             return Err(unsupported_sql_error(&format!(
@@ -3167,14 +3204,17 @@ fn bind_join(
     })
 }
 
-fn bind_simple_table_alias(alias: Option<&ast::TableAlias>) -> Result<Option<String>> {
+fn bind_simple_table_alias(
+    alias: Option<&ast::TableAlias>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<Option<String>> {
     let Some(a) = alias else {
         return Ok(None);
     };
     if !a.columns.is_empty() || a.at.is_some() {
-        return Err(unsupported_sql_error(
-            "table alias column lists `AS t(c1, ...)` and `AT` modifiers are not admitted; alias columns in SELECT",
-        ));
+        let msg = "table alias column lists `AS t(c1, ...)` and `AT` modifiers are not admitted; alias columns in SELECT";
+        diagnostics.push(expr::unsupported_diag("sql.table_alias", msg));
+        return Err(unsupported_sql_error(msg));
     }
     Ok(Some(a.name.value.clone()))
 }
@@ -3182,6 +3222,7 @@ fn bind_simple_table_alias(alias: Option<&ast::TableAlias>) -> Result<Option<Str
 fn bind_table_factor(
     factor: &TableFactor,
     diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<LogicalRelation> {
     match factor {
         TableFactor::Table {
@@ -3206,20 +3247,20 @@ fn bind_table_factor(
                 || !index_directives.is_empty()
                 || inheritance.is_some()
             {
-                return Err(unsupported_sql_error(
-                    "unsupported FROM table modifier (TABLESAMPLE/VERSION/WITH ORDINALITY/PARTITION/HINTS/ONLY)",
-                ));
+                let msg = "unsupported FROM table modifier (TABLESAMPLE/VERSION/WITH ORDINALITY/PARTITION/HINTS/ONLY)";
+                diagnostics.push(expr::unsupported_diag("sql.table_modifier", msg));
+                return Err(unsupported_sql_error(msg));
             }
-            let alias_name = bind_simple_table_alias(alias.as_ref())?;
+            let alias_name = bind_simple_table_alias(alias.as_ref(), diagnostics)?;
             if let Some(tf_args) = args {
                 if tf_args.settings.is_some() {
-                    return Err(unsupported_sql_error(
-                        "table function SETTINGS clause is not admitted",
-                    ));
+                    let msg = "table function SETTINGS clause is not admitted";
+                    diagnostics.push(expr::unsupported_diag("sql.table_modifier", msg));
+                    return Err(unsupported_sql_error(msg));
                 }
                 let mut bound_args = Vec::with_capacity(tf_args.args.len());
                 for arg in &tf_args.args {
-                    bound_args.push(bind_table_arg(arg, diagnostics)?);
+                    bound_args.push(bind_table_arg(arg, diagnostics, exclusions)?);
                 }
                 Ok(LogicalRelation::TableFunction {
                     name: decode_object_name_value(name),
@@ -3246,13 +3287,13 @@ fn bind_table_factor(
             sample,
         } => {
             if *lateral || sample.is_some() {
-                return Err(unsupported_sql_error(
-                    "LATERAL derived subqueries and TABLESAMPLE are not admitted",
-                ));
+                let msg = "LATERAL derived subqueries and TABLESAMPLE are not admitted";
+                diagnostics.push(expr::unsupported_diag("sql.lateral_or_sample", msg));
+                return Err(unsupported_sql_error(msg));
             }
-            let alias_name = bind_simple_table_alias(alias.as_ref())?;
+            let alias_name = bind_simple_table_alias(alias.as_ref(), diagnostics)?;
             Ok(LogicalRelation::Subquery {
-                input: Box::new(bind_ast_query(subquery, diagnostics)?),
+                input: Box::new(bind_ast_query(subquery, diagnostics, exclusions)?),
                 alias: alias_name,
             })
         }
@@ -3260,8 +3301,8 @@ fn bind_table_factor(
             table_with_joins,
             alias,
         } => {
-            let alias_name = bind_simple_table_alias(alias.as_ref())?;
-            let inner = bind_table_with_joins(table_with_joins, diagnostics)?;
+            let alias_name = bind_simple_table_alias(alias.as_ref(), diagnostics)?;
+            let inner = bind_table_with_joins(table_with_joins, diagnostics, exclusions)?;
             if let Some(a) = alias_name {
                 Ok(LogicalRelation::Subquery {
                     input: Box::new(inner),
@@ -3280,28 +3321,34 @@ fn bind_table_factor(
 fn bind_table_arg(
     arg: &ast::FunctionArg,
     diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<LogicalTableArg> {
     if let ast::FunctionArg::Unnamed(ast::FunctionArgExpr::Expr(SqlExpr::Subquery(subquery))) = arg
     {
         return Ok(LogicalTableArg::Subquery(Box::new(bind_ast_query(
             subquery,
             diagnostics,
+            exclusions,
         )?)));
     }
     Ok(LogicalTableArg::Expr(Box::new(expr::bind_function_arg(
         arg,
         diagnostics,
+        exclusions,
     )?)))
 }
 
 fn bind_group_by(
     group_by: &GroupByExpr,
     diagnostics: &mut Vec<Diagnostic>,
+    exclusions: &mut WindowExclusions,
 ) -> Result<(Vec<LogicalExpr>, Option<LogicalGroupingSpec>)> {
     match group_by {
-        GroupByExpr::All(_) => Err(unsupported_sql_error(
-            "GROUP BY ALL is not admitted; list explicit grouping columns",
-        )),
+        GroupByExpr::All(_) => {
+            let msg = "GROUP BY ALL is not admitted; list explicit grouping columns";
+            diagnostics.push(expr::unsupported_diag("sql.all_modifier", msg));
+            Err(unsupported_sql_error(msg))
+        }
         GroupByExpr::Expressions(exprs, modifiers) => {
             let mut keys = Vec::new();
             let mut spec = None;
@@ -3311,7 +3358,7 @@ fn bind_group_by(
                         spec = Some(LogicalGroupingSpec::Rollup);
                         for set in sets {
                             for e in set {
-                                keys.push(expr::bind_ast_expr(e, diagnostics)?);
+                                keys.push(expr::bind_ast_expr(e, diagnostics, exclusions)?);
                             }
                         }
                     }
@@ -3319,7 +3366,7 @@ fn bind_group_by(
                         spec = Some(LogicalGroupingSpec::Cube);
                         for set in sets {
                             for e in set {
-                                keys.push(expr::bind_ast_expr(e, diagnostics)?);
+                                keys.push(expr::bind_ast_expr(e, diagnostics, exclusions)?);
                             }
                         }
                     }
@@ -3328,13 +3375,13 @@ fn bind_group_by(
                             .iter()
                             .map(|set| {
                                 set.iter()
-                                    .map(|e| expr::bind_ast_expr(e, diagnostics))
+                                    .map(|e| expr::bind_ast_expr(e, diagnostics, exclusions))
                                     .collect::<Result<Vec<_>>>()
                             })
                             .collect::<Result<Vec<_>>>()?;
                         spec = Some(LogicalGroupingSpec::GroupingSets(bound_sets));
                     }
-                    other => keys.push(expr::bind_ast_expr(other, diagnostics)?),
+                    other => keys.push(expr::bind_ast_expr(other, diagnostics, exclusions)?),
                 }
             }
             for modifier in modifiers {

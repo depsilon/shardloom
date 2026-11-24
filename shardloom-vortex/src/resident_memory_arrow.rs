@@ -89,7 +89,8 @@ impl ResidentMemorySource {
             .map_err(native_error)?;
         let schema = reader.schema();
         let mut total_rows = 0usize;
-        let mut batches = Vec::new();
+        let mut first_batch: Option<(RecordBatch, shardloom_exec::live_memory::MemoryLease)> = None;
+        let mut builder: Option<super::batches::MemoryBatchSourceBuilder> = None;
         for batch in reader {
             context.check_cancelled()?;
             let batch = batch.map_err(native_error)?;
@@ -99,21 +100,35 @@ impl ResidentMemorySource {
                 .ok_or_else(|| {
                     memory_error("Arrow IPC input stream exceeds 2,048 rows per batch")
                 })?;
-            batches.push(batch);
+            let batch_bytes = u64::try_from(batch.get_array_memory_size()).map_err(native_error)?;
+            let batch_credit = context.memory().reserve(batch_bytes)?;
+            if let Some(active) = builder.as_mut() {
+                active.push_arrow_in_context(batch, context)?;
+                drop(batch_credit);
+            } else if let Some((prev, prev_credit)) = first_batch.take() {
+                let mut active = super::batches::MemoryBatchSourceBuilder::new(
+                    session,
+                    context.cancellation().clone(),
+                )?;
+                active.set_is_batch(is_batch);
+                active.push_arrow_in_context(prev, context)?;
+                drop(prev_credit);
+                active.push_arrow_in_context(batch, context)?;
+                drop(batch_credit);
+                builder = Some(active);
+            } else {
+                first_batch = Some((batch, batch_credit));
+            }
         }
-        if batches.len() <= 1 {
-            let batch = batches
-                .pop()
-                .unwrap_or_else(|| RecordBatch::new_empty(schema));
-            return Self::from_arrow_in_context(session, batch, context, is_batch);
+        if let Some(active) = builder {
+            return active.finish();
         }
-        let mut builder =
-            super::batches::MemoryBatchSourceBuilder::new(session, context.cancellation().clone())?;
-        builder.set_is_batch(is_batch);
-        for batch in batches {
-            builder.push_arrow_in_context(batch, context)?;
+        if let Some((single, single_credit)) = first_batch {
+            let source = Self::from_arrow_in_context(session, single, context, is_batch)?;
+            drop(single_credit);
+            return Ok(source);
         }
-        builder.finish()
+        Self::from_arrow_in_context(session, RecordBatch::new_empty(schema), context, is_batch)
     }
 
     /// Reuse the source consumer's already admitted execution context. A private

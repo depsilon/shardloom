@@ -496,8 +496,8 @@ fn run_owned_array(
     if source.row_count() == 0 {
         return Ok(());
     }
-    let mut scan = source
-        .scan(context.native_session())
+    let (mut scan, scan_stats) = source.scan_with_stats(context.native_session());
+    scan = scan
         .with_ordered(true)
         .with_concurrency(1)
         .with_split_by(SplitBy::RowCount(scan_rows.max(1)));
@@ -515,7 +515,6 @@ fn run_owned_array(
             .map_err(vortex_error)?;
         scan = scan.with_projection(bound);
     }
-    let pruned_before = source.pruned_splits();
     let mut delivered = 0_u64;
     let iter = scan
         .into_array_iter(context.runtime())
@@ -530,9 +529,10 @@ fn run_owned_array(
             accept(array)?;
         }
     }
-    let pruned_splits = source.pruned_splits().saturating_sub(pruned_before);
+    let pruned_splits = scan_stats.excluded_zones();
     if plan.filter.is_some() && source.has_zone_maps() {
         let regions = source.row_count().div_ceil(8192);
+        debug_assert!(pruned_splits <= regions);
         context.record_capability_decision(
             NativeIoCapability::RegionExclusion,
             if pruned_splits > 0 {

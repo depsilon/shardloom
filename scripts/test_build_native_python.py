@@ -71,6 +71,11 @@ class NativePythonStagingTests(unittest.TestCase):
                         stage_library(invalid, output)
                     self.assertFalse(output.exists())
 
+    def test_build_module_suspends_automatic_target_pruning(self):
+        import build_native_python
+
+        self.assertFalse(hasattr(build_native_python, "prune_superseded_artifacts"))
+
 
 if __name__ == "__main__":
     unittest.main()

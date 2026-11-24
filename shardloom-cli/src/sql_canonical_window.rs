@@ -671,6 +671,16 @@ fn build_framed_window_aggregate(
         unsupported_sql_error(&format!("unsupported window function {display_name:?}"))
     })?;
     let native_name = agg_fn.native_name(effective_distinct)?;
+    let expected = 1 + usize::from(
+        agg_fn.requires_secondary()
+            || agg_fn.requires_quantile_level()
+            || agg_fn.requires_separator(),
+    );
+    if args.len() != expected {
+        return Err(unsupported_sql_error(&format!(
+            "window aggregate {display_name:?} requires {expected} argument(s)"
+        )));
+    }
     let col = if args.len() == 1 && matches!(args[0], LogicalExpr::Wildcard { .. }) {
         None
     } else {
@@ -679,7 +689,15 @@ fn build_framed_window_aggregate(
     let mut measure =
         VortexSimpleAggregateMeasure::new(native_name, col, format!("__win_agg_{native_name}"));
     if let Some(second) = args.get(1) {
-        measure.secondary_column = Some(resolve_input_col(second)?);
+        if agg_fn.requires_quantile_level() {
+            measure.quantile_level = Some(super::extract_quantile_level_literal(second)?);
+        } else if agg_fn.requires_secondary() {
+            measure.secondary_column = Some(resolve_input_col(second)?);
+        } else {
+            return Err(unsupported_sql_error(&format!(
+                "window aggregate {display_name:?} does not admit separator arguments"
+            )));
+        }
     }
     Ok(NativeWindowFunction::Framed(FrameFunction::Aggregate(
         Box::new(measure),

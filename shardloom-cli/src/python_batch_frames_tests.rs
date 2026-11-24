@@ -234,20 +234,26 @@ fn rows_ipc_binary_framing_tracks_credit_and_rejects_truncation_and_bad_headers(
         .unwrap()
         .unwrap();
     assert!(pool.snapshot().reserved_bytes >= payload.len() as u64);
-    let decoded = first.decode(Some(1)).unwrap();
-    match &decoded.value {
+    let retained_payload = match first.decode(Some(1)).unwrap().value {
         Incoming::RowsIpc {
             uri,
             index,
             payload: got,
         } => {
             assert_eq!(uri, "memory://ipc");
-            assert_eq!(*index, 3);
-            assert_eq!(got, &payload);
+            assert_eq!(index, 3);
+            assert_eq!(got.value(), &payload);
+            assert!(got.reserved_bytes() >= got.value().capacity() as u64);
+            assert!(pool.snapshot().reserved_bytes >= got.reserved_bytes());
+            got
         }
         _ => panic!("expected Incoming::RowsIpc"),
-    }
-    drop(decoded);
+    };
+    assert_eq!(
+        pool.snapshot().reserved_bytes,
+        retained_payload.reserved_bytes()
+    );
+    drop(retained_payload);
     assert_eq!(pool.snapshot().reserved_bytes, 0);
 
     let second = read(&mut cursor, &mut scratch, &CancellationToken::default())

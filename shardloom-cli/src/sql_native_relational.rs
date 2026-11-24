@@ -172,7 +172,11 @@ fn prepare_with_owner(
             .map_err(|_| unsupported_sql_error("SQL parser metadata size overflow"))?,
     )?;
     parameters::validate(raw, &BTreeMap::<String, Expression>::new())?;
-    let canonical_candidate = canonical::parse_canonical_plan(raw);
+    let canonical_candidate = match canonical::classify_canonical_sql(raw) {
+        canonical::CanonicalSqlRoute::Admitted(bound) => Some(bound),
+        canonical::CanonicalSqlRoute::LegacyNative => None,
+        canonical::CanonicalSqlRoute::Rejected(err) => return Err(err),
+    };
     if let Some(bound) = canonical_candidate
         .as_ref()
         .filter(|bound| canonical::prefers_canonical_lowering(bound, &[]))
@@ -226,9 +230,31 @@ fn prepare_with_owner(
             cancellation,
         );
     }
+    lower_legacy_prepared_relational(
+        &parsed,
+        policy,
+        session,
+        inputs,
+        resolve_source,
+        cancellation,
+    )
+}
+
+#[cfg(test)]
+fn lower_legacy_prepared_relational(
+    parsed: &ParsedRelationQuery,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &shardloom_vortex::resident_session::ResidentVortexSession,
+    inputs: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> NativeResult<()>,
+    mut resolve_source: impl FnMut(
+        &ParsedRelationLeaf,
+        Option<&shardloom_exec::live_memory::LiveMemoryPool>,
+    ) -> NativeResult<Vec<DatasetUri>>,
+    cancellation: &shardloom_exec::compute_pool::CancellationToken,
+) -> NativeResult<PreparedVortexRelational> {
     let lower = |schemas: &mut VortexRelationalPreparation<'_>| {
         cancellation.check()?;
-        register_sql_memory_inputs(&parsed, schemas)?;
+        register_sql_memory_inputs(parsed, schemas)?;
         inputs(schemas)?;
         let mut memo = LoweringMemo::new(schemas)?;
         let mut lowerer = Lowerer {
@@ -244,7 +270,7 @@ fn prepare_with_owner(
             memo: &mut memo,
             frontier: None,
         };
-        let mut query = lowerer.query(&parsed)?;
+        let mut query = lowerer.query(parsed)?;
         lowerer.prune(&mut query.plan, None, &mut BTreeSet::new())?;
         Ok(query.plan)
     };
@@ -302,10 +328,14 @@ fn prepare_canonical_with_owner(
 
 /// Shape discovery is syntax-only. File/type/resource admission happens at prepare.
 pub(crate) fn is_relational(raw: &str) -> NativeResult<bool> {
+    let route = canonical::classify_canonical_sql(raw);
+    if let canonical::CanonicalSqlRoute::Rejected(err) = route {
+        return Err(err);
+    }
     let parsed = match parsed_native_query(raw) {
         Ok(parsed) => parsed,
         Err(legacy_err) => {
-            return if canonical::parse_canonical_plan(raw).is_some() {
+            return if matches!(route, canonical::CanonicalSqlRoute::Admitted(_)) {
                 Ok(true)
             } else {
                 Err(legacy_err)
@@ -335,10 +365,14 @@ pub(crate) fn is_relational(raw: &str) -> NativeResult<bool> {
 
 /// Ordinary local SELECT discovery is inert, including on absent source paths.
 pub(crate) fn is_plain_select(raw: &str) -> NativeResult<bool> {
+    let route = canonical::classify_canonical_sql(raw);
+    if let canonical::CanonicalSqlRoute::Rejected(err) = route {
+        return Err(err);
+    }
     let parsed = match parsed_native_query(raw) {
         Ok(parsed) => parsed,
         Err(legacy_err) => {
-            return if canonical::parse_canonical_plan(raw).is_some() {
+            return if matches!(route, canonical::CanonicalSqlRoute::Admitted(_)) {
                 Ok(false)
             } else {
                 Err(legacy_err)
@@ -359,10 +393,14 @@ pub(crate) fn source_count(raw: &str) -> NativeResult<usize> {
 }
 
 pub(crate) fn source_leaves(raw: &str) -> NativeResult<BTreeSet<ParsedRelationLeaf>> {
+    let route = canonical::classify_canonical_sql(raw);
+    if let canonical::CanonicalSqlRoute::Rejected(err) = route {
+        return Err(err);
+    }
     let parsed = match parsed_native_query(raw) {
         Ok(parsed) => parsed,
         Err(legacy_err) => {
-            if let Some(bound) = canonical::parse_canonical_plan(raw) {
+            if let canonical::CanonicalSqlRoute::Admitted(bound) = route {
                 return canonical::extract_source_leaves(&bound);
             }
             return Err(legacy_err);

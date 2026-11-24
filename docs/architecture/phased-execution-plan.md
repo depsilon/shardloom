@@ -849,7 +849,7 @@ with `CG-1` through `CG-23` open and `claim_gate_status=not_claim_grade`.
   - V1 scope classification: `required_for_v1`.
   - Execution checklist:
     - [x] Foundational native windows, subqueries, and set ops landed (`NATIVE-WINDOW-PRESSURE`, `NATIVE-SCALAR-SUBQUERIES`, `NATIVE-STREAM-SETS`).
-    - [x] Converge arbitrary AST-bound windows, uncapped set operations, reusable `OwnedArraySource` CTEs, and decorrelated semi/anti/scalar subqueries onto native `shardloom-vortex` execution, retiring `sql_local_source_runtime.rs` `MAX_LIMIT_ROWS = 10_000` (`line 103`) row-map fallback paths.
+    - [x] Converge arbitrary AST-bound windows, uncapped set operations, reusable materialized CTEs (`Plan::Materialized` retained-relation replay with `AS NOT MATERIALIZED` override and native spill preservation; `OwnedArraySource` scan-backed CTE pruning deferred), and decorrelated semi/anti/scalar subqueries onto native `shardloom-vortex` execution, retiring `sql_local_source_runtime.rs` `MAX_LIMIT_ROWS = 10_000` (`line 103`) row-map fallback paths.
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 

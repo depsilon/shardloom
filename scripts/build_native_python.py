@@ -19,7 +19,7 @@ import sys
 import tempfile
 
 from local_uat_storage import require_local_path
-from maintain_shared_cargo_target import prune_superseded_artifacts, resolve_cargo_target_dir
+from maintain_shared_cargo_target import resolve_cargo_target_dir
 
 
 def native_artifact(messages: list[dict[str, object]]) -> Path:
@@ -98,7 +98,6 @@ def build_native_binding(repo_root: Path, output_dir: Path | None = None, *, rel
     if target.resolve() not in artifact.resolve().parents:
         raise ValueError("Cargo artifact is outside its resolved target directory")
     destination = stage_library(artifact, output_dir)
-    prune_report = prune_superseded_artifacts(target, keep_workspace_hashes=2, keep_dep_hashes=3)
     digest = hashlib.sha256()
     with destination.open("rb") as stream:
         for block in iter(lambda: stream.read(1 << 20), b""):
@@ -110,7 +109,6 @@ def build_native_binding(repo_root: Path, output_dir: Path | None = None, *, rel
         "library_sha256": digest.hexdigest(), "python_abi": "cp310-abi3",
         "package_version": next(package["version"] for package in metadata["packages"]
                                 if package["name"] == "shardloom-python"),
-        "pruned_superseded_artifacts": prune_report,
         "installed": False, "published": False,
     }
 

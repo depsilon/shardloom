@@ -53,7 +53,7 @@ enum Incoming {
     RowsIpc {
         uri: String,
         index: u64,
-        payload: Vec<u8>,
+        payload: shardloom_exec::live_memory::Budgeted<Vec<u8>>,
     },
     End {
         uri: String,
@@ -276,7 +276,7 @@ impl Transport {
                 {
                     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
                     {
-                        let rows = builder.push_arrow_ipc_stream(payload)?;
+                        let rows = builder.push_arrow_ipc_stream(payload.value())?;
                         add_count(&mut self.input_batches, 1)?;
                         add_count(&mut self.input_rows, rows as u64)?;
                         add_count(&mut index, 1)?;
@@ -377,7 +377,7 @@ impl Transport {
         uri: &str,
         index: u64,
         input: &MemoryInput,
-    ) -> Result<Option<Vec<u8>>> {
+    ) -> Result<Option<shardloom_exec::live_memory::Budgeted<Vec<u8>>>> {
         let MemoryInput::Batches {
             schema,
             streaming: true,

@@ -6,7 +6,11 @@ use serde::{
     Deserialize,
     de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor},
 };
-use shardloom_exec::{compute_pool::CancellationToken, live_memory::MemoryLease};
+use shardloom_core::ShardLoomError;
+use shardloom_exec::{
+    compute_pool::CancellationToken,
+    live_memory::{Budgeted, MemoryLease},
+};
 use std::{
     cell::RefCell,
     fmt,
@@ -55,6 +59,17 @@ impl Scratch {
 
     pub(super) fn branch(&mut self) -> Result<Self> {
         Ok(Self::new(self.lease.split(0)?, Arc::clone(&self.stats)))
+    }
+
+    pub(super) fn split_budgeted_lease(&mut self, bytes: u64) -> Result<MemoryLease> {
+        let _transition = self
+            .stats
+            .transitions
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let child = self.lease.split(bytes)?;
+        self.stats.live.fetch_sub(bytes, Ordering::AcqRel);
+        Ok(child)
     }
 
     pub(super) fn resize(&mut self, bytes: u64) -> Result<()> {
@@ -319,7 +334,15 @@ impl Frame {
 
     pub(super) fn decode(mut self, width: Option<usize>) -> Result<Decoded> {
         let _parser = self.parser_scratch()?;
-        let payload = self.payload.take();
+        let payload = self
+            .payload
+            .take()
+            .map(|bytes| {
+                let cap = u64::try_from(bytes.capacity()).map_err(failed)?;
+                let lease = self.scratch.split_budgeted_lease(cap)?;
+                Ok::<Budgeted<Vec<u8>>, ShardLoomError>(Budgeted::new(bytes, lease))
+            })
+            .transpose()?;
         let budget = RefCell::new(self.scratch.branch()?);
         let mut deserializer = serde_json::Deserializer::from_str(&self.text);
         let value = MessageSeed {
@@ -502,7 +525,7 @@ impl<'de> Visitor<'de> for RowsSeed<'_> {
 
 struct MessageSeed<'a> {
     width: Option<usize>,
-    payload: RefCell<Option<Vec<u8>>>,
+    payload: RefCell<Option<Budgeted<Vec<u8>>>>,
     budget: &'a RefCell<Scratch>,
 }
 impl<'de> DeserializeSeed<'de> for MessageSeed<'_> {
@@ -575,7 +598,7 @@ impl<'de> Visitor<'de> for MessageSeed<'_> {
                 Ok(Incoming::Rows { uri, index, rows })
             }
             (Some(Kind::RowsIpc), Some(uri), Some(index), None, Some(byte_len), Some(payload))
-                if payload.len() == byte_len =>
+                if payload.value().len() == byte_len =>
             {
                 let _ = self
                     .width

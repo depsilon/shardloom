@@ -193,12 +193,30 @@ impl std::io::Write for BoundedIpcVec {
                     "Arrow IPC batch exceeds byte bound",
                 )
             })?;
-        self.lease
-            .resize(u64::try_from(next).map_err(std::io::Error::other)?)
-            .map_err(|error| std::io::Error::other(error.to_string()))?;
-        self.bytes
-            .try_reserve(buf.len())
-            .map_err(|error| std::io::Error::other(error.to_string()))?;
+        if next > self.bytes.capacity() {
+            let current_cap = self.bytes.capacity();
+            let target_cap = current_cap
+                .max(4)
+                .checked_mul(2)
+                .unwrap_or(self.max_bytes)
+                .max(next)
+                .min(self.max_bytes);
+            let overlap = u64::try_from(current_cap)
+                .ok()
+                .and_then(|c| c.checked_add(u64::try_from(target_cap).ok()?))
+                .ok_or_else(|| std::io::Error::other("Arrow IPC capacity overflow"))?;
+            self.lease
+                .resize(overlap)
+                .map_err(|error| std::io::Error::other(error.to_string()))?;
+            if let Err(error) = self.bytes.try_reserve_exact(target_cap - self.bytes.len()) {
+                let _ = self.lease.resize(u64::try_from(current_cap).unwrap_or(0));
+                return Err(std::io::Error::other(error.to_string()));
+            }
+            let actual_cap = u64::try_from(self.bytes.capacity()).map_err(std::io::Error::other)?;
+            self.lease
+                .resize(actual_cap)
+                .map_err(|error| std::io::Error::other(error.to_string()))?;
+        }
         self.bytes.extend_from_slice(buf);
         Ok(buf.len())
     }

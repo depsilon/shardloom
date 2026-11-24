@@ -114,8 +114,11 @@ type ArrowSources<'a> =
     dyn FnMut(&shardloom_core::DatasetUri, u64) -> Result<Option<arrow_array::RecordBatch>> + 'a;
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-type ArrowIpcSources<'a> =
-    dyn FnMut(&shardloom_core::DatasetUri, u64) -> Result<Option<Vec<u8>>> + 'a;
+type ArrowIpcSources<'a> = dyn FnMut(
+        &shardloom_core::DatasetUri,
+        u64,
+    ) -> Result<Option<shardloom_exec::live_memory::Budgeted<Vec<u8>>>>
+    + 'a;
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 type ArrowIpcRowObserver<'a> = dyn FnMut(usize) -> Result<()> + 'a;
@@ -160,10 +163,14 @@ impl Provider<'_> {
                 .transpose(),
             #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
             Self::ArrowIpcSources { input, on_rows } => input(uri, ordinal)?
-                .map(|bytes| {
+                .map(|budgeted_bytes| {
                     let source = ResidentMemorySource::from_arrow_ipc_stream_in_context(
-                        session, &bytes, context, true,
+                        session,
+                        budgeted_bytes.value(),
+                        context,
+                        true,
                     )?;
+                    drop(budgeted_bytes);
                     on_rows(source.row_count())?;
                     Ok(source)
                 })

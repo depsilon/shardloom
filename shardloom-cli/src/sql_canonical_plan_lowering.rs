@@ -17,11 +17,11 @@ use super::{
     VortexSimpleAggregateMeasure, Window, WindowExpression, append_equality_keys, column,
     unsupported_sql_error, validate_sql_identifier,
 };
-use shardloom_core::{BinaryOp, ComparisonOp, ScalarValue, UnaryOp};
+use shardloom_core::{BinaryOp, ComparisonOp, ScalarValue, ShardLoomError, UnaryOp};
 use shardloom_plan::sql_binder::{
     BoundSqlPlan, LogicalAggregateSpec, LogicalCte, LogicalExpr, LogicalJoinType,
     LogicalProjectionItem, LogicalRelation, LogicalSetOp, LogicalSortKey, LogicalWindowSpec,
-    bind_sql, expr::parse_core_dtype_label,
+    expr::parse_core_dtype_label,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
@@ -133,11 +133,43 @@ impl ScopedRelation {
     }
 }
 
+/// Route outcome separating canonical plans, specialized non-canonical native
+/// SQL forms, and authoritative canonical SQL policy rejections.
+pub(super) enum CanonicalSqlRoute {
+    Admitted(Box<BoundSqlPlan>),
+    LegacyNative,
+    Rejected(ShardLoomError),
+}
+
+/// Classifies SQL through the canonical `shardloom-plan` binder so policy
+/// rejections fail cleanly rather than falling back to legacy syntax errors.
+#[inline(never)]
+pub(super) fn classify_canonical_sql(raw: &str) -> CanonicalSqlRoute {
+    match shardloom_plan::sql_binder::bind_sql_authoritative(raw) {
+        Ok(bound) => {
+            if can_lower_canonically(&bound) {
+                CanonicalSqlRoute::Admitted(Box::new(bound))
+            } else {
+                CanonicalSqlRoute::LegacyNative
+            }
+        }
+        Err(shardloom_plan::sql_binder::SqlBindErrorKind::AuthoritativeRejection(err)) => {
+            CanonicalSqlRoute::Rejected(err)
+        }
+        Err(shardloom_plan::sql_binder::SqlBindErrorKind::SyntaxOrUnrecognized(_)) => {
+            CanonicalSqlRoute::LegacyNative
+        }
+    }
+}
+
 /// Parses SQL with the canonical `shardloom-plan` binder if this slice can execute it natively.
+#[cfg(test)]
 #[inline(never)]
 pub(super) fn parse_canonical_plan(raw: &str) -> Option<Box<BoundSqlPlan>> {
-    let bound = bind_sql(raw).ok()?;
-    can_lower_canonically(&bound).then(|| Box::new(bound))
+    match classify_canonical_sql(raw) {
+        CanonicalSqlRoute::Admitted(bound) => Some(bound),
+        CanonicalSqlRoute::LegacyNative | CanonicalSqlRoute::Rejected(_) => None,
+    }
 }
 
 /// Checks whether a canonical `BoundSqlPlan` lies within the canonical native lowering slice.
@@ -750,6 +782,23 @@ fn window_spec_supported(spec: &LogicalWindowSpec, forbidden_sources: &BTreeSet<
             .is_none_or(|frame| window::convert_window_frame(frame).is_ok())
 }
 
+pub(super) fn extract_quantile_level_literal(
+    expr: &LogicalExpr,
+) -> NativeResult<shardloom_vortex::query_primitive::VortexQuantileLevel> {
+    let level = match expr {
+        LogicalExpr::Literal(ScalarValue::Float64(value)) => *value,
+        LogicalExpr::Literal(ScalarValue::Int64(0) | ScalarValue::UInt64(0)) => 0.0,
+        LogicalExpr::Literal(ScalarValue::Int64(1) | ScalarValue::UInt64(1)) => 1.0,
+        _ => {
+            return Err(unsupported_sql_error(
+                "quantile level must be a finite numeric literal between 0 and 1 inclusive",
+            ));
+        }
+    };
+    shardloom_vortex::query_primitive::VortexQuantileLevel::new(level)
+        .map_err(|err| unsupported_sql_error(&err.to_string()))
+}
+
 fn agg_call_admitted(name: &str, args: &[LogicalExpr], distinct: bool) -> bool {
     let lower_name = name.to_ascii_lowercase();
     let (fn_name, effective_distinct) = match lower_name.as_str() {
@@ -769,7 +818,26 @@ fn agg_call_admitted(name: &str, args: &[LogicalExpr], distinct: bool) -> bool {
     if has_wildcard && (effective_distinct || !matches!(agg_fn, AggregateFunction::Count)) {
         return false;
     }
-    !args.is_empty() && args.len() <= 2
+    let expected = 1 + usize::from(
+        agg_fn.requires_secondary()
+            || agg_fn.requires_quantile_level()
+            || agg_fn.requires_separator(),
+    );
+    if args.len() != expected {
+        return false;
+    }
+    if agg_fn.requires_quantile_level() {
+        return args
+            .get(1)
+            .is_some_and(|arg| extract_quantile_level_literal(arg).is_ok());
+    }
+    if agg_fn.requires_separator() {
+        return matches!(
+            args.get(1),
+            Some(LogicalExpr::Literal(ScalarValue::Utf8(_)))
+        );
+    }
+    true
 }
 
 fn agg_spec_supported(spec: &LogicalAggregateSpec, forbidden_sources: &BTreeSet<String>) -> bool {
@@ -2333,8 +2401,21 @@ impl CanonicalLowering<'_, '_, '_> {
             pre_projections,
         )?;
 
+        let expected_args = 1 + usize::from(
+            agg_fn.requires_secondary()
+                || agg_fn.requires_quantile_level()
+                || agg_fn.requires_separator(),
+        );
+        if spec.args.len() != expected_args {
+            return Err(unsupported_sql_error(&format!(
+                "aggregate function {:?} requires {expected_args} argument(s)",
+                spec.name
+            )));
+        }
+
         let mut arg_col = None;
         let mut secondary_col = None;
+        let mut quantile_level = None;
         let mut separator = None;
 
         if let Some(first) = spec.args.first()
@@ -2350,9 +2431,13 @@ impl CanonicalLowering<'_, '_, '_> {
             arg_col = Some(ColumnRef::new(col)?);
         }
         if let Some(second) = spec.args.get(1) {
-            if matches!(agg_fn, AggregateFunction::StringAgg) {
+            if agg_fn.requires_separator() {
                 separator = Some(self.extract_utf8_literal(second, "STRING_AGG separator")?);
-            } else if !matches!(second, LogicalExpr::Wildcard { qualifier: None }) {
+            } else if agg_fn.requires_quantile_level() {
+                quantile_level = Some(extract_quantile_level_literal(second)?);
+            } else if agg_fn.requires_secondary()
+                && !matches!(second, LogicalExpr::Wildcard { qualifier: None })
+            {
                 let col = self.lower_filtered_agg_expr(
                     second,
                     filter_guard.as_ref(),
@@ -2362,12 +2447,6 @@ impl CanonicalLowering<'_, '_, '_> {
                 )?;
                 secondary_col = Some(ColumnRef::new(col)?);
             }
-        }
-        if spec.args.len() > 2 {
-            return Err(unsupported_sql_error(&format!(
-                "aggregate function {:?} accepts at most two arguments",
-                spec.name
-            )));
         }
 
         let mut order_keys = Vec::with_capacity(spec.order_by.len());
@@ -2385,6 +2464,7 @@ impl CanonicalLowering<'_, '_, '_> {
         let mut measure =
             VortexSimpleAggregateMeasure::new(native_name, arg_col, alias.to_string());
         measure.secondary_column = secondary_col;
+        measure.quantile_level = quantile_level;
         measure.filter_column = filter_col;
         measure.separator = separator;
         measure.order_by = order_keys;

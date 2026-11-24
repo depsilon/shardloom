@@ -70,6 +70,32 @@ impl ColumnarColumn {
         self.len() == 0
     }
 
+    /// Validates that internal validity buffers match value vector lengths.
+    ///
+    /// # Errors
+    /// Returns [`ShardLoomError::InvalidOperation`] if `valid.len() != values.len()`.
+    pub fn validate(&self) -> Result<()> {
+        let valid_len = match self {
+            Self::Bool { valid, .. }
+            | Self::Int64 { valid, .. }
+            | Self::UInt64 { valid, .. }
+            | Self::Float64 { valid, .. }
+            | Self::Utf8 { valid, .. }
+            | Self::Date32 { valid, .. }
+            | Self::TimestampMicros { valid, .. } => valid.len(),
+            Self::ScalarFallback { .. } => return Ok(()),
+        };
+        if valid_len != self.len() {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "columnar {} column has {} values but {} validity flags",
+                self.dtype().as_str(),
+                self.len(),
+                valid_len
+            )));
+        }
+        Ok(())
+    }
+
     #[must_use]
     pub fn dtype(&self) -> LogicalDType {
         match self {
@@ -93,36 +119,59 @@ impl ColumnarColumn {
             | Self::Float64 { valid, .. }
             | Self::Utf8 { valid, .. }
             | Self::Date32 { valid, .. }
-            | Self::TimestampMicros { valid, .. } => !valid[row],
-            Self::ScalarFallback { values, .. } => values[row].is_null(),
+            | Self::TimestampMicros { valid, .. } => !valid.get(row).copied().unwrap_or(false),
+            Self::ScalarFallback { values, .. } => values.get(row).is_none_or(ScalarValue::is_null),
         }
     }
 
     #[must_use]
     pub fn get(&self, row: usize) -> ScalarValue {
         match self {
-            Self::Bool { values, valid } => valid[row]
-                .then_some(values[row])
+            Self::Bool { values, valid } => valid
+                .get(row)
+                .copied()
+                .filter(|v| *v)
+                .and_then(|_| values.get(row).copied())
                 .map_or(ScalarValue::Null, ScalarValue::Boolean),
-            Self::Int64 { values, valid } => valid[row]
-                .then_some(values[row])
+            Self::Int64 { values, valid } => valid
+                .get(row)
+                .copied()
+                .filter(|v| *v)
+                .and_then(|_| values.get(row).copied())
                 .map_or(ScalarValue::Null, ScalarValue::Int64),
-            Self::UInt64 { values, valid } => valid[row]
-                .then_some(values[row])
+            Self::UInt64 { values, valid } => valid
+                .get(row)
+                .copied()
+                .filter(|v| *v)
+                .and_then(|_| values.get(row).copied())
                 .map_or(ScalarValue::Null, ScalarValue::UInt64),
-            Self::Float64 { values, valid } => valid[row]
-                .then_some(values[row])
+            Self::Float64 { values, valid } => valid
+                .get(row)
+                .copied()
+                .filter(|v| *v)
+                .and_then(|_| values.get(row).copied())
                 .map_or(ScalarValue::Null, ScalarValue::Float64),
-            Self::Utf8 { values, valid } => valid[row]
-                .then(|| values[row].clone())
+            Self::Utf8 { values, valid } => valid
+                .get(row)
+                .copied()
+                .filter(|v| *v)
+                .and_then(|_| values.get(row).cloned())
                 .map_or(ScalarValue::Null, ScalarValue::Utf8),
-            Self::Date32 { values, valid } => valid[row]
-                .then_some(values[row])
+            Self::Date32 { values, valid } => valid
+                .get(row)
+                .copied()
+                .filter(|v| *v)
+                .and_then(|_| values.get(row).copied())
                 .map_or(ScalarValue::Null, ScalarValue::Date32),
-            Self::TimestampMicros { values, valid } => valid[row]
-                .then_some(values[row])
+            Self::TimestampMicros { values, valid } => valid
+                .get(row)
+                .copied()
+                .filter(|v| *v)
+                .and_then(|_| values.get(row).copied())
                 .map_or(ScalarValue::Null, ScalarValue::TimestampMicros),
-            Self::ScalarFallback { values, .. } => values[row].clone(),
+            Self::ScalarFallback { values, .. } => {
+                values.get(row).cloned().unwrap_or(ScalarValue::Null)
+            }
         }
     }
 
@@ -196,9 +245,13 @@ impl ColumnarBatch {
     /// Builds a validated `ColumnarBatch` from named columnar vectors.
     ///
     /// # Errors
-    /// Returns [`ShardLoomError::InvalidOperation`] if any column's row count mismatches `rows`.
+    /// Returns [`ShardLoomError::InvalidOperation`] if any column's row count mismatches `rows`
+    /// or its internal validity buffer length mismatches its value vector length.
     pub fn new(rows: usize, columns: BTreeMap<String, ColumnarColumn>) -> Result<Self> {
         for (name, column) in &columns {
+            column.validate().map_err(|err| {
+                ShardLoomError::InvalidOperation(format!("column {name:?}: {err}"))
+            })?;
             if column.len() != rows {
                 return Err(ShardLoomError::InvalidOperation(format!(
                     "column {name:?} has {} rows, expected {rows}",
@@ -290,6 +343,18 @@ pub fn evaluate_expression_batch_with_policy(
     batch: &ColumnarBatch,
     float_policy: FloatPolicy,
 ) -> Result<ColumnarColumn> {
+    for (name, column) in &batch.columns {
+        column
+            .validate()
+            .map_err(|err| ShardLoomError::InvalidOperation(format!("column {name:?}: {err}")))?;
+        if column.len() != batch.rows {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "column {name:?} has {} rows, expected {}",
+                column.len(),
+                batch.rows
+            )));
+        }
+    }
     eval_batch_inner(expression, batch, float_policy).map_err(|failure| failure_to_error(&failure))
 }
 
@@ -1762,5 +1827,46 @@ mod tests {
             vec![ScalarValue::Null]
         );
         assert_parity(&not_null_typed, &[null_i_row]);
+    }
+
+    #[test]
+    fn columnar_column_validity_mismatch_is_rejected_without_panicking() {
+        let malformed = vec![
+            ColumnarColumn::Bool {
+                values: vec![true, false],
+                valid: vec![true],
+            },
+            ColumnarColumn::Int64 {
+                values: vec![1, 2],
+                valid: vec![true],
+            },
+            ColumnarColumn::UInt64 {
+                values: vec![1, 2],
+                valid: vec![true, false, true],
+            },
+            ColumnarColumn::Float64 {
+                values: vec![1.0, 2.0],
+                valid: Vec::new(),
+            },
+            ColumnarColumn::Utf8 {
+                values: vec!["a".into(), "b".into()],
+                valid: vec![true],
+            },
+            ColumnarColumn::Date32 {
+                values: vec![1, 2],
+                valid: vec![true],
+            },
+            ColumnarColumn::TimestampMicros {
+                values: vec![1, 2],
+                valid: vec![true],
+            },
+        ];
+        for column in malformed {
+            assert!(column.validate().is_err());
+            assert!(column.is_null_at(1));
+            assert_eq!(column.get(1), ScalarValue::Null);
+            let err = ColumnarBatch::new(2, BTreeMap::from([("c".to_string(), column)]));
+            assert!(err.is_err());
+        }
     }
 }
