@@ -354,7 +354,7 @@ fn survivor_admission_complete_sparse_join_chain_work() {
     let counts = observer.finish();
     assert_eq!(json_rows(&result), expected);
     assert!(counts.key_columns > 16);
-    assert_eq!(result.execution.output_batches, 16);
+    assert_eq!(result.execution.output_batches, 4);
     assert_eq!(counts.join_output_rows, 32);
     assert!(result.execution.native_io_certificate.is_certified());
     assert!(

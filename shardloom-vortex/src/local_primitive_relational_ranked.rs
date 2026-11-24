@@ -19,7 +19,7 @@ impl PreparedVortexRelational {
     #[allow(clippy::too_many_arguments)] // Existing native operator callback contract.
     pub(super) fn run_ranked_sort(
         &self,
-        node: &Node,
+        kind: &NodeKind,
         context: &NativeExecutionContext<'_>,
         metrics: &Metrics<'_>,
         batch_rows: usize,
@@ -30,7 +30,7 @@ impl PreparedVortexRelational {
             input,
             spec,
             output_prefix: Some(prefix),
-        } = &node.kind
+        } = kind
         else {
             return Ok(false);
         };

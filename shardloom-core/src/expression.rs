@@ -12,6 +12,12 @@ pub mod builtins;
 #[path = "expression_decimal_output.rs"]
 mod explicit_decimal;
 
+#[path = "expression_batch.rs"]
+mod batch;
+pub use batch::{
+    ColumnarBatch, ColumnarColumn, evaluate_expression_batch, evaluate_expression_batch_with_policy,
+};
+
 use regex::Regex;
 
 use crate::{

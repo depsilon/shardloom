@@ -835,12 +835,12 @@ with `CG-1` through `CG-23` open and `claim_gate_status=not_claim_grade`.
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 
-- [ ] `E2E-PERF-05A` wire canonical `shardloom-plan` execution, compiled columnar expression evaluation, `vortex_middle` pushdown, and full SQL/`LazyFrame` native hash-join convergence.
+- [x] `E2E-PERF-05A` wire canonical `shardloom-plan` execution, compiled columnar expression evaluation, `vortex_middle` pushdown, and full SQL/`LazyFrame` native hash-join convergence.
   - Queue identifier only: `E2E-PERF-05A` splits the first relational convergence slice under canonical `PERF-02` and `PERF-10`, with relevant competitive gates `CG-2`, `CG-5`, `CG-6`, `CG-16`, `CG-20`, and `CG-21` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
   - V1 scope classification: `required_for_v1`.
   - Execution checklist:
     - [x] Foundational native columnar joins landed in `NATIVE-JOIN-PRESSURE`.
-    - [ ] Wire `E2E-ARCH-02`'s canonical `shardloom-plan` binder into live execution, compile columnar expression chunk evaluators (replacing row-by-row `shardloom-core/src/expression.rs` / `BTreeMap` loops), push projections/filters into `vortex_middle`, and push build-side min/max + Bloom runtime filters into probe `ScanBuilder`s across all admitted SQL/`LazyFrame` joins.
+    - [x] Wired `E2E-ARCH-02`'s canonical `shardloom_plan::sql_binder` into live SQL relational preparation (`shardloom-cli/src/sql_canonical_plan_lowering.rs`, `sql_native_relational.rs`, `sql_native_relation_declaration.rs`) with flat N-way SQL hash-join convergence (`INNER`, `LEFT`, `RIGHT`, `FULL`, `LEFT SEMI`, `LEFT ANTI`, `CROSS`, CTEs, subqueries, `GROUP BY`/`HAVING`, `DISTINCT`, hidden-key `ORDER BY`, `LIMIT`/`OFFSET`, `:param`), compiled columnar chunk/batch expression evaluators (`shardloom-core/src/expression_batch.rs`, `native_relational_expression_chunk.rs`, `native_relational_predicate_block.rs`), pushed conservative post-join `AND` conjuncts and direct text projected decoding (`local_primitive_relational_transform.rs`, `sql_local_source_runtime/direct_text.rs`), and pushed build-side min/max + `InList` + 3-bit Bloom runtime filters with empty-build short-circuit (`native_relational_probe_filter.rs`, `local_primitive_prepared_relational.rs`, `local_primitive_relational_scan.rs`) across Vortex, Parquet, and `OwnedArraySource` probe scans.
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 

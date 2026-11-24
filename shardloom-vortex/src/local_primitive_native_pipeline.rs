@@ -22,7 +22,7 @@ pub(super) const NAME: &str = "native_operator_pipeline";
 pub(super) struct FileKernel {
     pub(super) operation: provider::Prepared,
     pub(super) admission_reason: &'static str,
-    declaration: Box<NodeKind>,
+    pub(super) declaration: Box<NodeKind>,
 }
 
 impl FileKernel {

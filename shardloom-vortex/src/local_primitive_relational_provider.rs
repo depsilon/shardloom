@@ -28,7 +28,7 @@ mod plan;
 mod source_facts;
 #[path = "local_primitive_relational_provider_view.rs"]
 mod view;
-pub(super) use plan::{conjoin, scan_predicate};
+pub(super) use plan::{conjoin, predicate_preserves_typed_semantics, scan_predicate};
 
 pub(super) fn single_file(node: &Node) -> Option<usize> {
     view::View::Node(node).single_file()
@@ -401,6 +401,10 @@ fn provider_fields(request: &Request, source: &DType) -> Result<Vec<(String, DTy
 }
 
 impl Prepared {
+    pub(super) fn is_projection(&self) -> bool {
+        matches!(self.strategy, Strategy::Projection { .. })
+    }
+
     pub(super) fn consume(
         &self,
         context: &NativeExecutionContext<'_>,

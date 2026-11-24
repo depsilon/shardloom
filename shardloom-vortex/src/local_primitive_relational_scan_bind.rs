@@ -3,14 +3,18 @@
 
 use super::super::{PipelineKind, PipelineStage, SubqueryRelation};
 use super::{Binder, DType, Node, NodeKind, Result, Side, failed, field};
-use crate::local_primitives::{
-    self as native,
-    native_relational_expression::{Expression as BoundExpression, Kind},
-    prepared_relational::{ScanSource, provider},
+use crate::{
+    local_primitives::{
+        self as native,
+        native_relational_expression::{Expression as BoundExpression, Kind},
+        prepared_relational::{ScanSource, provider},
+    },
+    relational_query::VortexRelationalJoinKind as JoinKind,
 };
-use shardloom_core::{ColumnRef, PredicateExpr};
+use shardloom_core::{BinaryOp, ColumnRef, PredicateExpr};
 use shardloom_plan::ProjectionRequest;
 use std::collections::{BTreeMap, BTreeSet};
+use vortex::array::dtype::Nullability;
 
 impl Binder<'_> {
     pub(super) fn narrow_join_inputs(
@@ -536,12 +540,102 @@ impl Binder<'_> {
             })
             .collect::<Result<Vec<_>>>()?;
         narrowed.filter = plan.filter.take();
+        narrowed.pushdown_predicate = plan.pushdown_predicate.take();
         narrowed.embedded_derived_column_rewrites =
             std::mem::take(&mut plan.embedded_derived_column_rewrites);
         columns.clone_from(&narrowed.projected_columns);
         *plan = narrowed;
         input.fields = fields;
         self.refresh_batch_projection(source, columns, plan)?;
+        Ok(())
+    }
+
+    pub(super) fn push_join_filter(
+        &mut self,
+        input: &mut Node,
+        predicate: BoundExpression,
+        predicate_metadata: u64,
+    ) -> Result<Option<BoundExpression>> {
+        let NodeKind::Join { left, right, spec } = &mut input.kind else {
+            return Ok(Some(predicate));
+        };
+        let mut conjuncts = Vec::new();
+        predicate.split_conjuncts(&mut conjuncts);
+        let mut remaining = Vec::new();
+        for conjunct in conjuncts {
+            let mut referenced = BTreeSet::new();
+            conjunct.visit_columns(&mut |name| {
+                referenced.insert(name.to_owned());
+                Ok(())
+            })?;
+            let Some(side) = join_pushdown_side(spec, &referenced) else {
+                remaining.push(conjunct);
+                continue;
+            };
+            let mut mapped = conjunct;
+            let column_map = join_side_column_map(spec, side, &referenced);
+            if !mapped.remap_columns(&column_map) {
+                return Err(failed("join filter pushdown referenced an unmapped column"));
+            }
+            let target = match side {
+                Side::Left => left.as_mut(),
+                Side::Right => right.as_mut(),
+            };
+            if let Some(unpushed) = self.push_into_join_child(target, mapped, predicate_metadata)? {
+                let Some(restored) = restore_join_output_columns(unpushed, &column_map) else {
+                    return Err(failed("failed to restore join filter output columns"));
+                };
+                remaining.push(restored);
+            }
+        }
+        Ok(conjoin_bound_expressions(remaining))
+    }
+
+    fn push_into_join_child(
+        &mut self,
+        child: &mut Node,
+        predicate: BoundExpression,
+        predicate_metadata: u64,
+    ) -> Result<Option<BoundExpression>> {
+        let infallible = predicate.is_infallible_for_join_pushdown(true);
+        if matches!(child.kind, NodeKind::Join { .. }) {
+            if !infallible {
+                return Ok(Some(predicate));
+            }
+            if let Some(unpushed) = self.push_join_filter(child, predicate, predicate_metadata)? {
+                self.wrap_node_with_filter(child, unpushed)?;
+            }
+            return Ok(None);
+        }
+        if self.push_scan_filter(child, &predicate, predicate_metadata)? {
+            return Ok(None);
+        }
+        if infallible {
+            self.wrap_node_with_filter(child, predicate)?;
+            return Ok(None);
+        }
+        Ok(Some(predicate))
+    }
+
+    fn wrap_node_with_filter(
+        &mut self,
+        child: &mut Node,
+        predicate: BoundExpression,
+    ) -> Result<()> {
+        self.charge_named_fields(&child.fields)?;
+        let placeholder = Node {
+            fields: Vec::new(),
+            kind: NodeKind::Unadmitted,
+        };
+        let inner = std::mem::replace(child, placeholder);
+        let fields = inner.fields.clone();
+        *child = Node {
+            fields,
+            kind: NodeKind::Filter {
+                input: Box::new(inner),
+                predicate,
+            },
+        };
         Ok(())
     }
 
@@ -684,6 +778,84 @@ impl Binder<'_> {
         }
         Ok(())
     }
+}
+
+fn join_pushdown_side(
+    spec: &native::native_relational_join::Spec,
+    referenced: &BTreeSet<String>,
+) -> Option<Side> {
+    if referenced.is_empty() {
+        return None;
+    }
+    let (allow_left, allow_right) = match spec.kind {
+        JoinKind::Inner | JoinKind::Cross => (true, spec.asof.is_none()),
+        JoinKind::Left | JoinKind::LeftSemi | JoinKind::LeftAnti => (true, false),
+        JoinKind::Right => (false, spec.asof.is_none()),
+        JoinKind::Full => (false, false),
+    };
+    let mut side: Option<Side> = None;
+    for col_name in referenced {
+        let found_side = spec
+            .fields
+            .iter()
+            .zip(&spec.columns)
+            .enumerate()
+            .find(|(idx, ((out_name, _), _))| spec.retains(*idx) && out_name == col_name)
+            .map(|(_, (_, (col_side, _)))| *col_side)?;
+        match side {
+            Some(prev) if prev != found_side => return None,
+            Some(_) => {}
+            None => side = Some(found_side),
+        }
+    }
+    side.filter(|s| match s {
+        Side::Left => allow_left,
+        Side::Right => allow_right,
+    })
+}
+
+fn join_side_column_map(
+    spec: &native::native_relational_join::Spec,
+    side: Side,
+    referenced: &BTreeSet<String>,
+) -> BTreeMap<String, String> {
+    let mut map = BTreeMap::new();
+    for (idx, ((out_name, _), (col_side, src_name))) in
+        spec.fields.iter().zip(&spec.columns).enumerate()
+    {
+        if spec.retains(idx) && *col_side == side && referenced.contains(out_name) {
+            map.insert(out_name.clone(), src_name.clone());
+        }
+    }
+    map
+}
+
+fn restore_join_output_columns(
+    mut expr: BoundExpression,
+    forward_map: &BTreeMap<String, String>,
+) -> Option<BoundExpression> {
+    let reverse: BTreeMap<String, String> = forward_map
+        .iter()
+        .map(|(out_name, src_name)| (src_name.clone(), out_name.clone()))
+        .collect();
+    expr.remap_columns(&reverse).then_some(expr)
+}
+
+fn conjoin_bound_expressions(exprs: Vec<BoundExpression>) -> Option<BoundExpression> {
+    let mut iter = exprs.into_iter();
+    let first = iter.next()?;
+    Some(iter.fold(first, |acc, next| {
+        let nullable = acc.dtype.is_nullable() || next.dtype.is_nullable();
+        let dtype = DType::Bool(if nullable {
+            Nullability::Nullable
+        } else {
+            Nullability::NonNullable
+        });
+        BoundExpression::new(
+            dtype,
+            Kind::Binary(Box::new(acc), BinaryOp::And, Box::new(next)),
+        )
+    }))
 }
 
 fn predicate_uses_column(predicate: &PredicateExpr, name: &str) -> bool {

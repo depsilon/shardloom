@@ -553,6 +553,19 @@ pub(super) trait Input {
         consume: &mut dyn FnMut(&ArrayRef) -> Result<()>,
     ) -> Result<()>;
 
+    fn run_with_probe_filters(
+        &self,
+        index: usize,
+        probe_filters: &[super::super::native_relational_probe_filter::ProbeRuntimeFilter],
+        residual_present: bool,
+        context: &NativeExecutionContext<'_>,
+        metrics: &Metrics<'_>,
+        consume: &mut dyn FnMut(&ArrayRef) -> Result<()>,
+    ) -> Result<()> {
+        let _ = (probe_filters, residual_present);
+        self.run(index, context, metrics, consume)
+    }
+
     /// Optional source capability, independent of input format. Ranking remains
     /// in the common native consumer; the source owns positions and read phases.
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -1114,6 +1127,51 @@ impl Input for Execution<'_, '_> {
         current.extend(usage);
         state.usage.set(current);
         Ok(())
+    }
+
+    fn run_with_probe_filters(
+        &self,
+        index: usize,
+        probe_filters: &[super::super::native_relational_probe_filter::ProbeRuntimeFilter],
+        residual_present: bool,
+        context: &NativeExecutionContext<'_>,
+        metrics: &Metrics<'_>,
+        consume: &mut dyn FnMut(&ArrayRef) -> Result<()>,
+    ) -> Result<()> {
+        #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+        if !probe_filters.is_empty()
+            && let (Some(state), Some(declaration)) = (
+                self.states.values.get(index),
+                self.prepared.batch_sources.get(index),
+            )
+            && !state.started.get()
+            && state.usage.get().admits_independent_read()
+            && let Some(source) = &declaration.local
+        {
+            let dtype = declaration.schema.dtype();
+            let empty = !residual_present
+                && super::scan::has_infallible_empty_build(probe_filters, &mut |name| {
+                    dtype.as_struct_fields_opt()?.field(name)
+                });
+            let runtime_pred = (!empty)
+                .then(|| super::scan::admitted_runtime_predicate(probe_filters, dtype))
+                .flatten();
+            if empty || runtime_pred.is_some() {
+                context.check_cancelled()?;
+                {
+                    let mut owner = state
+                        .local_reader
+                        .try_borrow_mut()
+                        .map_err(|_| failed("local source reader is already active"))?;
+                    *owner =
+                        Some(source.open_with_runtime_filters(runtime_pred, empty, context)?);
+                }
+                return self.run_producer(index, context, metrics, Consumption::Query, consume);
+            }
+        }
+        #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
+        let _ = (probe_filters, residual_present);
+        self.run(index, context, metrics, consume)
     }
 
     fn run(

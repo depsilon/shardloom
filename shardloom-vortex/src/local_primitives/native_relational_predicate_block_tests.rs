@@ -1,14 +1,11 @@
 use super::*;
-use crate::resident_session::ResidentVortexSession;
+use crate::{local_primitives::result_batch::Value, resident_session::ResidentVortexSession};
 use shardloom_exec::compute_pool::CancellationToken;
 use vortex::{
     VortexSessionDefault as _,
     array::{
         IntoArray as _, VortexSessionExecute as _,
-        arrays::{
-            BoolArray, ChunkedArray, ConstantArray, DictArray, PrimitiveArray, StructArray,
-            bool::BoolArrayExt as _,
-        },
+        arrays::{BoolArray, ChunkedArray, ConstantArray, DictArray, PrimitiveArray, StructArray},
         dtype::{FieldNames, Nullability},
         scalar::Scalar,
         validity::Validity,
@@ -350,7 +347,16 @@ fn pure_predicate_blocks_bound_recipe_work_and_reuse_only_identical_nodes() {
     assert_eq!(recipe.visits, 63);
     assert_eq!(recipe.instruction_count, 6);
     assert!(Recipe::compile(&tree(6)).is_none());
-    assert!(Recipe::compile(&cmp("a", ComparisonOp::Eq, 0, true, false)).is_none());
+    // Single comparison now compiles cleanly in generalized FilterRecipe.
+    assert!(Recipe::compile(&cmp("a", ComparisonOp::Eq, 0, true, false)).is_some());
+    // Bare root column remains zero-copy pass-through outside FilterRecipe.
+    assert!(
+        Recipe::compile(&Expression::new(
+            DType::Bool(Nullability::Nullable),
+            Kind::Column("flag".into()),
+        ))
+        .is_none()
+    );
     let ordered = binary(
         binary(
             cmp("a", ComparisonOp::Lt, 0, true, false),
@@ -406,6 +412,139 @@ fn pure_predicate_prepared_recipe_owns_bounded_names_without_expression_borrows(
     assert!(rejected.filter_recipe().is_none());
 }
 
+#[test]
+fn generalized_predicate_blocks_handle_all_widths_floats_bools_null_checks_and_col_comparisons() {
+    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let i32_col = || {
+        Expression::new(
+            DType::Primitive(PType::I32, Nullability::Nullable),
+            Kind::Column("i32c".into()),
+        )
+    };
+    let i32_lit = Expression::new(
+        DType::Primitive(PType::I32, Nullability::NonNullable),
+        Kind::Literal(Scalar::from(10_i32)),
+    );
+    let f64_col = || {
+        Expression::new(
+            DType::Primitive(PType::F64, Nullability::Nullable),
+            Kind::Column("f64c".into()),
+        )
+    };
+    let make_f64_lit = || {
+        Expression::new(
+            DType::Primitive(PType::F64, Nullability::NonNullable),
+            Kind::Literal(Scalar::from(2.5_f64)),
+        )
+    };
+    let bool_col = Expression::new(
+        DType::Bool(Nullability::Nullable),
+        Kind::Column("flag".into()),
+    );
+    let expr = binary(
+        binary(
+            comparison(i32_col(), ComparisonOp::Lt, col("a", true)),
+            BinaryOp::And,
+            comparison(f64_col(), ComparisonOp::GtEq, make_f64_lit()),
+        ),
+        BinaryOp::And,
+        binary(
+            bool_col,
+            BinaryOp::Or,
+            Expression::new(
+                DType::Bool(Nullability::NonNullable),
+                Kind::Unary(UnaryOp::IsNotNull, Box::new(i32_lit)), // literal IsNotNull stays general
+            ),
+        ),
+    );
+    assert!(Recipe::compile(&expr).is_none());
+
+    let valid_expr = binary(
+        binary(
+            comparison(i32_col(), ComparisonOp::Lt, col("a", true)),
+            BinaryOp::And,
+            comparison(f64_col(), ComparisonOp::GtEq, make_f64_lit()),
+        ),
+        BinaryOp::And,
+        binary(
+            Expression::new(
+                DType::Bool(Nullability::Nullable),
+                Kind::Column("flag".into()),
+            ),
+            BinaryOp::And,
+            Expression::new(
+                DType::Bool(Nullability::NonNullable),
+                Kind::Unary(UnaryOp::IsNotNull, Box::new(i32_col())),
+            ),
+        ),
+    );
+    let input = batch(&[
+        (
+            "a",
+            PrimitiveArray::from_option_iter([Some(20_i64), Some(5), Some(10), Some(100)])
+                .into_array(),
+        ),
+        (
+            "i32c",
+            PrimitiveArray::from_option_iter([Some(10_i32), Some(8), None, Some(10)]).into_array(),
+        ),
+        (
+            "f64c",
+            PrimitiveArray::from_option_iter([Some(2.5_f64), Some(3.0), Some(4.0), Some(1.0)])
+                .into_array(),
+        ),
+        (
+            "flag",
+            BoolArray::from_iter([Some(true), Some(true), Some(true), None]).into_array(),
+        ),
+    ]);
+    check(
+        &valid_expr,
+        &input,
+        &[Some(true), Some(false), Some(false), Some(false)],
+        &session,
+    );
+}
+
+#[test]
+fn generalized_predicate_blocks_enforce_strict_and_extended_float_policies() {
+    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let f64_col = Expression::new(
+        DType::Primitive(PType::F64, Nullability::Nullable),
+        Kind::Column("f64c".into()),
+    );
+    let f64_lit = Expression::new(
+        DType::Primitive(PType::F64, Nullability::NonNullable),
+        Kind::Literal(Scalar::from(2.5_f64)),
+    );
+    // Strict float policy rejects active NaN in FilterRecipe just like scalar comparison.
+    let nan_input = batch(&[(
+        "f64c",
+        PrimitiveArray::from_option_iter([Some(f64::NAN), Some(3.0)]).into_array(),
+    )]);
+    let f64_cmp = comparison(f64_col, ComparisonOp::Gt, f64_lit);
+    assert!(Recipe::compile(&f64_cmp).is_some());
+    assert!(
+        session
+            .with_native_execution_context(&CancellationToken::default(), |ctx| {
+                f64_cmp.evaluate(&nan_input, ctx)
+            })
+            .is_err()
+    );
+    let ext_session = ResidentVortexSession::new_with_float_policy(
+        1 << 20,
+        1,
+        shardloom_core::FloatPolicy::Extended,
+    )
+    .unwrap();
+    check(
+        &f64_cmp,
+        &nan_input,
+        &[Some(true), Some(true)],
+        &ext_session,
+    );
+}
+
 fn divided_compare() -> Expression {
     comparison(
         Expression::new(
@@ -418,7 +557,7 @@ fn divided_compare() -> Expression {
 }
 
 #[test]
-fn pure_predicate_blocks_reject_outside_typed_column_literal_contract() {
+fn pure_predicate_blocks_reject_outside_typed_predicate_contract() {
     let nullable_i64 = DType::Primitive(PType::I64, Nullability::Nullable);
     let null_literal = Expression::new(
         nullable_i64.clone(),
@@ -444,13 +583,7 @@ fn pure_predicate_blocks_reject_outside_typed_column_literal_contract() {
         Kind::Literal(Scalar::primitive(1_i64, Nullability::Nullable)),
     );
     let mismatched_comparison = comparison(col("a", true), ComparisonOp::Eq, mismatched_literal);
-    for other in [
-        null_comparison,
-        column_comparison,
-        i32_comparison,
-        bool_column,
-        mismatched_comparison,
-    ] {
+    for other in [null_comparison, mismatched_comparison] {
         assert!(
             Recipe::compile(&binary(
                 cmp("a", ComparisonOp::Eq, 1, true, false),
@@ -460,7 +593,22 @@ fn pure_predicate_blocks_reject_outside_typed_column_literal_contract() {
             .is_none()
         );
     }
-    assert!(Recipe::compile(&not(cmp("a", ComparisonOp::Eq, 1, true, false))).is_none());
+    for supported in [
+        column_comparison,
+        i32_comparison,
+        bool_column,
+        not(cmp("a", ComparisonOp::Eq, 1, true, false)),
+    ] {
+        assert!(
+            Recipe::compile(&binary(
+                cmp("a", ComparisonOp::Eq, 1, true, false),
+                BinaryOp::Or,
+                supported,
+            ))
+            .is_some()
+        );
+    }
+    assert!(Recipe::compile(&not(cmp("a", ComparisonOp::Eq, 1, true, false))).is_some());
 }
 
 #[test]

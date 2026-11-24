@@ -399,7 +399,7 @@ fn native_dynamic_pivot_correlated_state_uses_each_parameter_once_and_releases_i
                 {"entity":2,"category":"a","amount":11,"present":true},
             ])
         );
-        assert_eq!(result.execution.scan_rows_delivered, 20);
+        assert_eq!(result.execution.scan_rows_delivered, 12);
         assert_eq!(result.execution.runtime.completed_executions, call);
         assert!(
             result

@@ -1418,7 +1418,10 @@ fn set_expr_is_relational(body: &SetExpr) -> bool {
             if select.from.len() != 1 || !select.from[0].joins.is_empty() {
                 return true;
             }
-            if !matches!(select.from[0].relation, TableFactor::Table { .. }) {
+            if !matches!(
+                select.from[0].relation,
+                TableFactor::Table { args: None, .. }
+            ) {
                 return true;
             }
             select.projection.iter().any(|item| match item {
@@ -1434,17 +1437,51 @@ fn set_expr_is_relational(body: &SetExpr) -> bool {
     }
 }
 
+fn function_arg_is_relational(arg: &ast::FunctionArg) -> bool {
+    match arg {
+        ast::FunctionArg::Unnamed(ast::FunctionArgExpr::Expr(e))
+        | ast::FunctionArg::Named {
+            arg: ast::FunctionArgExpr::Expr(e),
+            ..
+        }
+        | ast::FunctionArg::ExprNamed {
+            arg: ast::FunctionArgExpr::Expr(e),
+            ..
+        } => expr_is_relational(e),
+        _ => false,
+    }
+}
+
 fn expr_is_relational(expr: &SqlExpr) -> bool {
     match expr {
-        SqlExpr::Function(f) => f.over.is_some(),
+        SqlExpr::Function(f) => {
+            f.over.is_some()
+                || f.filter.as_deref().is_some_and(expr_is_relational)
+                || match &f.args {
+                    ast::FunctionArguments::Subquery(_) => true,
+                    ast::FunctionArguments::List(list) => {
+                        list.args.iter().any(function_arg_is_relational)
+                    }
+                    ast::FunctionArguments::None => false,
+                }
+        }
         SqlExpr::Subquery(_) | SqlExpr::Exists { .. } => true,
-        SqlExpr::In { target, .. } => matches!(target, InTarget::Subquery(_)),
-        SqlExpr::BinaryOp { left, right, .. } => {
+        SqlExpr::In { expr, target, .. } => {
+            expr_is_relational(expr) || matches!(target, InTarget::Subquery(_))
+        }
+        SqlExpr::BinaryOp { left, right, .. }
+        | SqlExpr::IsDistinctFrom(left, right)
+        | SqlExpr::IsNotDistinctFrom(left, right) => {
             expr_is_relational(left) || expr_is_relational(right)
         }
-        SqlExpr::UnaryOp { expr, .. } | SqlExpr::Nested(expr) | SqlExpr::Cast { expr, .. } => {
-            expr_is_relational(expr)
-        }
+        SqlExpr::Between {
+            expr, low, high, ..
+        } => expr_is_relational(expr) || expr_is_relational(low) || expr_is_relational(high),
+        SqlExpr::UnaryOp { expr, .. }
+        | SqlExpr::Nested(expr)
+        | SqlExpr::Cast { expr, .. }
+        | SqlExpr::IsNull(expr)
+        | SqlExpr::IsNotNull(expr) => expr_is_relational(expr),
         SqlExpr::Case {
             operand,
             conditions,

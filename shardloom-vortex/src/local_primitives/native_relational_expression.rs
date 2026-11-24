@@ -9,6 +9,7 @@ use super::{
 };
 use crate::resident_session::NativeExecutionContext;
 use shardloom_core::{BinaryOp, ComparisonOp, FloatPolicy, Result, UnaryOp};
+use std::collections::BTreeMap;
 use vortex::array::{
     ArrayRef, IntoArray, VortexSessionExecute as _,
     arrays::{ChunkedArray, ConstantArray, ListArray, StructArray},
@@ -38,6 +39,9 @@ mod reuse;
 #[path = "native_relational_expression_numeric.rs"]
 mod numeric;
 
+#[path = "native_relational_expression_chunk.rs"]
+mod chunk;
+
 pub(super) use predicate_block::Recipe as FilterRecipe;
 
 pub(super) const PREPARATION_BYTES: usize = 4096;
@@ -46,7 +50,8 @@ pub(super) struct Expression {
     pub(super) dtype: DType,
     pub(super) kind: Kind,
     recipe: Option<Box<FilterRecipe>>,
-    reuse_output: Option<usize>,
+    chunk_program: Option<Box<chunk::NumericChunkProgram>>,
+    pub(super) reuse_output: Option<usize>,
 }
 
 // Each bound expression already owns this admission credit. The finite program
@@ -84,14 +89,129 @@ impl Expression {
             dtype,
             kind,
             recipe: None,
+            chunk_program: None,
             reuse_output: None,
         };
-        expression.recipe = FilterRecipe::compile(&expression).map(Box::new);
+        expression.recompile();
         expression
+    }
+
+    fn recompile(&mut self) {
+        self.recipe = FilterRecipe::compile(self).map(Box::new);
+        self.chunk_program = if self.recipe.is_none() {
+            chunk::NumericChunkProgram::compile(self).map(Box::new)
+        } else {
+            None
+        };
+    }
+
+    pub(in crate::local_primitives) fn split_conjuncts(self, out: &mut Vec<Self>) {
+        if let Kind::Binary(left, BinaryOp::And, right) = self.kind {
+            left.split_conjuncts(out);
+            right.split_conjuncts(out);
+        } else {
+            out.push(self);
+        }
+    }
+
+    pub(in crate::local_primitives) fn remap_columns(
+        &mut self,
+        map: &BTreeMap<String, String>,
+    ) -> bool {
+        let mapped = match &mut self.kind {
+            Kind::Column(name) => {
+                let Some(target) = map.get(name.as_str()) else {
+                    return false;
+                };
+                name.clone_from(target);
+                true
+            }
+            Kind::Literal(_) => true,
+            Kind::Unary(_, child) | Kind::Cast { input: child, .. } => child.remap_columns(map),
+            Kind::Binary(left, _, right)
+            | Kind::Compare(left, _, right)
+            | Kind::NullIf(left, right) => left.remap_columns(map) && right.remap_columns(map),
+            Kind::Conditional(condition, yes, no) => {
+                condition.remap_columns(map) && yes.remap_columns(map) && no.remap_columns(map)
+            }
+            Kind::List(children)
+            | Kind::Struct(children)
+            | Kind::Coalesce(children)
+            | Kind::Function { args: children, .. } => {
+                children.iter_mut().all(|child| child.remap_columns(map))
+            }
+        };
+        if mapped {
+            self.recompile();
+        }
+        mapped
+    }
+
+    pub(in crate::local_primitives) fn is_infallible_for_join_pushdown(
+        &self,
+        strict_floats: bool,
+    ) -> bool {
+        match &self.kind {
+            Kind::Column(_) | Kind::Literal(_) => true,
+            Kind::Unary(UnaryOp::Not, child) => {
+                child.is_infallible_for_join_pushdown(strict_floats)
+            }
+            Kind::Unary(UnaryOp::IsNull | UnaryOp::IsNotNull, child) => {
+                (!strict_floats || !matches!(child.dtype, DType::Primitive(p, _) if p.is_float()))
+                    && child.is_infallible_for_join_pushdown(strict_floats)
+            }
+            Kind::Binary(left, BinaryOp::And | BinaryOp::Or, right) => {
+                left.is_infallible_for_join_pushdown(strict_floats)
+                    && right.is_infallible_for_join_pushdown(strict_floats)
+            }
+            Kind::Compare(left, _, right) => {
+                if strict_floats
+                    && (matches!(left.dtype, DType::Primitive(p, _) if p.is_float())
+                        || matches!(right.dtype, DType::Primitive(p, _) if p.is_float()))
+                {
+                    return false;
+                }
+                left.is_infallible_for_join_pushdown(strict_floats)
+                    && right.is_infallible_for_join_pushdown(strict_floats)
+            }
+            Kind::Function {
+                function: scalar::Function::Contains,
+                args,
+            } => args
+                .iter()
+                .all(|arg| arg.is_infallible_for_join_pushdown(strict_floats)),
+            _ => false,
+        }
     }
 
     pub(super) fn filter_recipe(&self) -> Option<&FilterRecipe> {
         self.recipe.as_deref()
+    }
+
+    fn has_descendant_reuse(&self) -> bool {
+        if self.reuse_output.is_some() {
+            return true;
+        }
+        match &self.kind {
+            Kind::Column(_) | Kind::Literal(_) => false,
+            Kind::Unary(_, child) | Kind::Cast { input: child, .. } => child.has_descendant_reuse(),
+            Kind::Binary(left, _, right)
+            | Kind::Compare(left, _, right)
+            | Kind::NullIf(left, right) => {
+                left.has_descendant_reuse() || right.has_descendant_reuse()
+            }
+            Kind::Conditional(condition, yes, no) => {
+                condition.has_descendant_reuse()
+                    || yes.has_descendant_reuse()
+                    || no.has_descendant_reuse()
+            }
+            Kind::List(children)
+            | Kind::Struct(children)
+            | Kind::Coalesce(children)
+            | Kind::Function { args: children, .. } => {
+                children.iter().any(Self::has_descendant_reuse)
+            }
+        }
     }
 
     pub(super) fn visit_columns(&self, visit: &mut impl FnMut(&str) -> Result<()>) -> Result<()> {
@@ -154,6 +274,22 @@ impl Expression {
             let result = recipe.evaluate(self, input, context)?;
             return self.checked_result(result, input.len(), context);
         }
+        if let Some(program) = &self.chunk_program
+            && (completed.is_none() || !self.has_descendant_reuse())
+        {
+            let result = program.evaluate(self, input, context)?;
+            return self.checked_result(result, input.len(), context);
+        }
+        let result = self.evaluate_kind(input, context, completed)?;
+        self.checked_result(result, input.len(), context)
+    }
+
+    fn evaluate_kind(
+        &self,
+        input: &ArrayRef,
+        context: &NativeExecutionContext<'_>,
+        completed: Option<&[ArrayRef]>,
+    ) -> Result<ArrayRef> {
         let result = match &self.kind {
             Kind::Column(name) => super::logical_field_from_native_array(input, name)?,
             Kind::Literal(scalar) => self.literal_array(scalar, input.len(), context)?,
@@ -161,45 +297,25 @@ impl Expression {
                 self.construct(input, context, children)?
             }
             Kind::Unary(op, expression) => {
-                let array = expression.evaluate_in_scope(input, context, completed)?;
-                if super::native_payload::is_nested(array.dtype())
-                    && matches!(op, UnaryOp::IsNull | UnaryOp::IsNotNull)
-                {
-                    let valid = parent_validity(&array, context)?;
-                    self.build(input.len(), context, |row| {
-                        Ok(Value::Bool(valid.value(row) == (*op == UnaryOp::IsNotNull)))
-                    })?
-                } else {
-                    let values = keys(&array, context)?;
-                    self.build(input.len(), context, |row| {
-                        unary(*op, values.raw_cell(row)?)
-                    })?
-                }
+                self.evaluate_unary(input, context, completed, *op, expression)?
             }
             Kind::Binary(left, op, right) => {
                 self.evaluate_binary(input, context, completed, left, *op, right)?
             }
             Kind::Compare(left, op, right) => {
-                let left = keys(&left.evaluate_in_scope(input, context, completed)?, context)?;
-                let right = keys(
-                    &right.evaluate_in_scope(input, context, completed)?,
-                    context,
-                )?;
-                self.build(input.len(), context, |row| {
-                    if left.is_null(row)? || right.is_null(row)? {
-                        return Ok(Value::Null);
-                    }
-                    Ok(Value::Bool(compare(
-                        left.compare_at(row, &right, row)?,
-                        *op,
-                    )))
-                })?
+                self.evaluate_compare(input, context, completed, left, *op, right)?
             }
             Kind::Conditional(condition, yes, no) => {
-                let condition = keys(&condition.evaluate(input, context)?, context)?;
-                self.select(input, context, yes, no, |row| {
-                    Ok(condition.cell(row)? == Cell::Boolean(true))
-                })?
+                if let Some(output) =
+                    chunk::evaluate_conditional_fast(self, condition, yes, no, input, context)?
+                {
+                    output
+                } else {
+                    let condition = keys(&condition.evaluate(input, context)?, context)?;
+                    self.select(input, context, yes, no, |row| {
+                        Ok(condition.cell(row)? == Cell::Boolean(true))
+                    })?
+                }
             }
             Kind::Coalesce(expressions) => {
                 if let Some(output) = numeric::coalesce(self, input, context, expressions)? {
@@ -214,24 +330,89 @@ impl Expression {
                 tolerant,
                 temporal,
             } => {
-                let values = keys(&expression.evaluate(input, context)?, context)?;
-                let mut scratch = context.memory().reserve(0)?;
-                self.build(input.len(), context, |row| {
-                    scalar::cast(
-                        values.raw_cell(row)?,
-                        &self.dtype,
-                        *tolerant,
-                        temporal.as_deref(),
-                        &mut scratch,
-                        context.float_policy(),
-                    )
-                })?
+                if let Some(output) = chunk::evaluate_cast_fast(
+                    self,
+                    expression,
+                    *tolerant,
+                    temporal.as_deref(),
+                    input,
+                    context,
+                )? {
+                    output
+                } else {
+                    let values = keys(&expression.evaluate(input, context)?, context)?;
+                    let mut scratch = context.memory().reserve(0)?;
+                    self.build(input.len(), context, |row| {
+                        scalar::cast(
+                            values.raw_cell(row)?,
+                            &self.dtype,
+                            *tolerant,
+                            temporal.as_deref(),
+                            &mut scratch,
+                            context.float_policy(),
+                        )
+                    })?
+                }
             }
             Kind::Function { function, args } => {
                 self.evaluate_function(input, context, function, args, completed)?
             }
         };
-        self.checked_result(result, input.len(), context)
+        Ok(result)
+    }
+
+    fn evaluate_unary(
+        &self,
+        input: &ArrayRef,
+        context: &NativeExecutionContext<'_>,
+        completed: Option<&[ArrayRef]>,
+        op: UnaryOp,
+        expression: &Self,
+    ) -> Result<ArrayRef> {
+        if let Some(output) =
+            chunk::evaluate_unary_fast(self, op, expression, input, context, completed)?
+        {
+            return Ok(output);
+        }
+        let array = expression.evaluate_in_scope(input, context, completed)?;
+        if super::native_payload::is_nested(array.dtype())
+            && matches!(op, UnaryOp::IsNull | UnaryOp::IsNotNull)
+        {
+            let valid = parent_validity(&array, context)?;
+            self.build(input.len(), context, |row| {
+                Ok(Value::Bool(valid.value(row) == (op == UnaryOp::IsNotNull)))
+            })
+        } else {
+            let values = keys(&array, context)?;
+            self.build(input.len(), context, |row| unary(op, values.raw_cell(row)?))
+        }
+    }
+
+    fn evaluate_compare(
+        &self,
+        input: &ArrayRef,
+        context: &NativeExecutionContext<'_>,
+        completed: Option<&[ArrayRef]>,
+        left: &Self,
+        op: ComparisonOp,
+        right: &Self,
+    ) -> Result<ArrayRef> {
+        if let Some(output) =
+            chunk::evaluate_compare_fast(self, left, op, right, input, context, completed)?
+        {
+            return Ok(output);
+        }
+        let left = keys(&left.evaluate_in_scope(input, context, completed)?, context)?;
+        let right = keys(
+            &right.evaluate_in_scope(input, context, completed)?,
+            context,
+        )?;
+        self.build(input.len(), context, |row| {
+            if left.is_null(row)? || right.is_null(row)? {
+                return Ok(Value::Null);
+            }
+            Ok(Value::Bool(compare(left.compare_at(row, &right, row)?, op)))
+        })
     }
 
     fn evaluate_binary(

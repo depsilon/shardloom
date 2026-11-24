@@ -122,7 +122,7 @@ fn join_cost_nested_producer_and_consumer_keep_distinct_owners() {
     );
     assert_eq!(
         (child.build_rows, child.probe_rows, child.output_rows),
-        (3, 3, 2)
+        (3, 1, 2)
     );
     assert!(parent.calls[Phase::Downstream as usize] > 0);
     assert!(child.calls[Phase::Downstream as usize] > 0);
@@ -152,7 +152,7 @@ fn join_cost_membership_build_reports_original_input_rows() {
     assert!(node.membership_only);
     assert_eq!(
         (node.build_rows, node.probe_rows, node.output_rows),
-        (3, 3, 1)
+        (3, 1, 1)
     );
     assert!(node.calls[Phase::BuildKeys as usize] > 0);
     drop(result);

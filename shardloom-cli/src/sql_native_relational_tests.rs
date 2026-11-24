@@ -7,6 +7,8 @@ use shardloom_vortex::resident_session::ResidentVortexSession;
 mod aggregate_expression_tests;
 #[path = "sql_native_relational_aggregate_filter_tests.rs"]
 mod aggregate_filter_tests;
+#[path = "sql_canonical_plan_lowering_tests.rs"]
+mod canonical_plan_lowering_tests;
 #[path = "sql_native_relational_dynamic_tests.rs"]
 mod dynamic_tests;
 #[path = "sql_native_relational_grouping_tests.rs"]

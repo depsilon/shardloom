@@ -282,4 +282,12 @@ impl<'a> RowSet<'a> {
         context.check_cancelled()?;
         Ok(selected.values.len() as u64)
     }
+
+    pub(super) fn table(&self) -> &Table {
+        &self.table
+    }
+
+    pub(super) fn index(&self) -> &RowIndex {
+        &self.index
+    }
 }

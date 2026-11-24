@@ -269,3 +269,16 @@ fn handles_single_source_shape_bounds_aliases_from_skipping_and_csv_slices() {
         vec!["a", "COALESCE(b, 'x,y')", "c"]
     );
 }
+
+#[test]
+fn relational_candidate_detects_table_functions_and_nested_subqueries() {
+    assert!(is_relational_sql_candidate(
+        "SELECT * FROM SAMPLE((SELECT * FROM MELT((SELECT * FROM PIVOT((SELECT * FROM 'in.vortex' WHERE amount IS NOT NULL), '{}')) AS m)), '{}') AS sampled"
+    ));
+    assert!(is_relational_sql_candidate(
+        "SELECT COALESCE((SELECT x FROM 'b.vortex'), 0) FROM 'a.vortex'"
+    ));
+    assert!(!is_relational_sql_candidate(
+        "SELECT id, amount FROM 'in.vortex' WHERE amount > 0 LIMIT 5"
+    ));
+}

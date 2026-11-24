@@ -295,6 +295,26 @@ fn eligible_fields(prepared: &PreparedColumnarSource) -> bool {
 }
 
 impl ColumnarReader {
+    fn next_selected_group(&mut self) -> Option<SourceGroup> {
+        while let Some(&group) = self.prepared.row_groups.get(self.next_group) {
+            if let Some(pred) = &self.runtime_predicate {
+                let file = &self.prepared.source.files[group.file];
+                if super::statistics::excluded(
+                    &file.metadata,
+                    group.index,
+                    pred,
+                    &self.prepared.source.schema(),
+                    &self.prepared.source.collection.files[group.file].partitions,
+                ) {
+                    self.next_group += 1;
+                    continue;
+                }
+            }
+            return Some(group);
+        }
+        None
+    }
+
     pub(super) fn next_parquet_native(
         &mut self,
         session: &ResidentVortexSession,
@@ -345,7 +365,7 @@ impl ColumnarReader {
                         .ok_or_else(|| failed("native coverage accounting lock is poisoned"))?,
                 );
             }
-            let Some(&group) = self.prepared.row_groups.get(self.next_group) else {
+            let Some(group) = self.next_selected_group() else {
                 self.input.take();
                 self.ended = true;
                 if !self.decisions_recorded {

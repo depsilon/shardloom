@@ -897,6 +897,10 @@ impl Reader {
         }
     }
 
+    pub(super) fn mark_ended(&mut self) {
+        self.ended = true;
+    }
+
     pub(super) fn report(
         &self,
         prepared: &PreparedColumnarSource,

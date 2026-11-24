@@ -2129,8 +2129,13 @@ fn public_route_rejects_native_vortex_sql_non_where_limit_tail() {
     ]);
 
     assert!(stdout.contains("\"command\":\"route\""));
-    assert!(stdout.contains("\"status\":\"unsupported\""));
-    assert!(stdout.contains(&field("route_id", "blocked")));
+    if cfg!(all(feature = "vortex-local-primitives", unix)) {
+        assert!(stdout.contains("\"status\":\"success\""));
+        assert!(stdout.contains(&field("route_id", "native_vortex_relational_collect")));
+    } else {
+        assert!(stdout.contains("\"status\":\"unsupported\""));
+        assert!(stdout.contains(&field("route_id", "blocked")));
+    }
     assert!(!stdout.contains(&field("route_id", "native_vortex_project")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));

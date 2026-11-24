@@ -1005,7 +1005,12 @@ fn normalize_sql_dtype(dtype: &SqlDataType, diagnostics: &mut Vec<Diagnostic>) -
     }
 }
 
-fn parse_core_dtype_label(label: &str) -> Result<LogicalDType> {
+/// Parses a normalized core `DType` label into a [`LogicalDType`].
+///
+/// # Errors
+/// Returns [`ShardLoomError::NotImplemented`] when `label` is not an admitted
+/// core dtype string.
+pub fn parse_core_dtype_label(label: &str) -> Result<LogicalDType> {
     match label {
         "boolean" => Ok(LogicalDType::Boolean),
         "int64" => Ok(LogicalDType::Int64),

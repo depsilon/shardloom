@@ -330,6 +330,16 @@ impl RowIndex {
             .map(|(entry, value)| (entry, value.first))
     }
 
+    pub(super) fn representative_rows_with_hashes(
+        &self,
+    ) -> impl ExactSizeIterator<Item = (usize, usize, u64)> {
+        self.entries
+            .values
+            .iter()
+            .enumerate()
+            .map(|(entry, value)| (entry, value.first, value.hash))
+    }
+
     pub(super) fn has_adaptive_headroom(&self, bytes: u64) -> bool {
         adaptive::has_headroom(&self.memory, bytes)
     }

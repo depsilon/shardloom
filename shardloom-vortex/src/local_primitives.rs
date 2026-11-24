@@ -225,6 +225,9 @@ mod native_relational_order;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_output_buffer.rs"]
 mod native_relational_output_buffer;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_relational_probe_filter.rs"]
+mod native_relational_probe_filter;
 #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
 #[path = "local_primitives/native_relational_record_output.rs"]
 mod native_relational_record_output;

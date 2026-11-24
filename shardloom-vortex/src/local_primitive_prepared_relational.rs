@@ -11,7 +11,7 @@ use super::{
     native_payload::detach as detach_batch,
     native_relational_aggregate,
     native_relational_batch::{failed, index_array, take_column},
-    native_relational_expression, native_relational_join,
+    native_relational_expression, native_relational_join, native_relational_probe_filter,
     native_relational_set::RowSet,
     native_relational_sort, native_relational_subquery, native_relational_window,
     prepared_unary::{BoundUnary, CompletedPivot, PivotSpillReport},
@@ -1772,7 +1772,6 @@ impl PreparedVortexRelational {
         ))
     }
 
-    #[allow(clippy::too_many_lines)] // Keep the exhaustive dispatch table together; native kernels own the algorithms.
     fn run(
         &self,
         node: &Node,
@@ -1782,23 +1781,198 @@ impl PreparedVortexRelational {
         parameter: Option<&ArrayRef>,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<()> {
+        self.run_with_probe_filters(node, context, metrics, batch_rows, parameter, &[], consume)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn run_with_probe_filters(
+        &self,
+        node: &Node,
+        context: &NativeExecutionContext<'_>,
+        metrics: &Metrics<'_>,
+        batch_rows: usize,
+        parameter: Option<&ArrayRef>,
+        probe_filters: &[native_relational_probe_filter::ProbeRuntimeFilter],
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<()> {
         context.check_cancelled()?;
         native_pipeline::record_operator(metrics)?;
-        match &node.kind {
+        self.run_node_kind(
+            Some(node),
+            &node.kind,
+            &node.fields,
+            context,
+            metrics,
+            batch_rows,
+            parameter,
+            probe_filters,
+            consume,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn run_node_kind(
+        &self,
+        node: Option<&Node>,
+        kind: &NodeKind,
+        fields: &[(String, DType)],
+        context: &NativeExecutionContext<'_>,
+        metrics: &Metrics<'_>,
+        batch_rows: usize,
+        parameter: Option<&ArrayRef>,
+        probe_filters: &[native_relational_probe_filter::ProbeRuntimeFilter],
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<()> {
+        match kind {
+            NodeKind::FileKernel(kernel) => self.run_file_kernel_node(
+                kernel,
+                fields,
+                context,
+                metrics,
+                batch_rows,
+                parameter,
+                probe_filters,
+                consume,
+            ),
+            NodeKind::Unary { input, operation } => self.run_unary_node(
+                input, operation, context, metrics, batch_rows, parameter, consume,
+            ),
+            NodeKind::Aggregate {
+                input,
+                spec,
+                expansion,
+                count_partial,
+            } => self.run_aggregate_node(
+                input,
+                spec,
+                expansion.as_deref(),
+                *count_partial,
+                context,
+                metrics,
+                batch_rows,
+                parameter,
+                consume,
+            ),
+            NodeKind::Project { .. }
+            | NodeKind::Filter { .. }
+            | NodeKind::Sort { .. }
+            | NodeKind::Limit { .. } => self.run_transform(
+                kind,
+                fields,
+                context,
+                metrics,
+                batch_rows,
+                parameter,
+                probe_filters,
+                consume,
+            ),
+            NodeKind::Pipeline { input, stages } => self.run_pipeline(
+                input,
+                stages,
+                context,
+                metrics,
+                batch_rows,
+                parameter,
+                probe_filters,
+                consume,
+            ),
+            NodeKind::Scan { .. } => self.run_scan_node(
+                kind,
+                fields,
+                context,
+                metrics,
+                batch_rows,
+                probe_filters,
+                consume,
+            ),
+            NodeKind::Join { left, right, spec } => self.run_join_node(
+                left,
+                right,
+                spec,
+                context,
+                metrics,
+                batch_rows,
+                parameter,
+                probe_filters,
+                consume,
+            ),
+            NodeKind::Set { .. } => self.run_set(
+                kind,
+                fields,
+                context,
+                metrics,
+                batch_rows,
+                parameter,
+                probe_filters,
+                consume,
+            ),
+            _ => self.run_aux_node_kind(
+                node, kind, fields, context, metrics, batch_rows, parameter, consume,
+            ),
+        }
+    }
+
+    #[inline(never)]
+    #[allow(clippy::too_many_arguments)]
+    fn run_scan_node(
+        &self,
+        kind: &NodeKind,
+        fields: &[(String, DType)],
+        context: &NativeExecutionContext<'_>,
+        metrics: &Metrics<'_>,
+        batch_rows: usize,
+        probe_filters: &[native_relational_probe_filter::ProbeRuntimeFilter],
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<()> {
+        let NodeKind::Scan {
+            source,
+            plan,
+            columns,
+            residual,
+            finite_float_predicate,
+            ..
+        } = kind
+        else {
+            unreachable!("run_scan_node requires NodeKind::Scan")
+        };
+        scan::run(
+            source,
+            &self.sources,
+            #[cfg(feature = "vortex-write")]
+            &self.owned_array_sources,
+            plan,
+            columns,
+            residual.as_ref(),
+            probe_filters,
+            fields,
+            context,
+            metrics,
+            batch_rows,
+            consume,
+        )?;
+        if *finite_float_predicate {
+            add(&metrics.pipeline.finite_float_scans, 1)?;
+        }
+        Ok(())
+    }
+
+    #[inline(never)]
+    #[allow(clippy::too_many_arguments)]
+    fn run_aux_node_kind(
+        &self,
+        node: Option<&Node>,
+        kind: &NodeKind,
+        fields: &[(String, DType)],
+        context: &NativeExecutionContext<'_>,
+        metrics: &Metrics<'_>,
+        batch_rows: usize,
+        parameter: Option<&ArrayRef>,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<()> {
+        match kind {
             NodeKind::Unadmitted => Err(failed(
                 "native_pipeline_missing_operator: no native implementation was admitted",
             )),
-            NodeKind::FileKernel(kernel) => {
-                let executed = kernel
-                    .operation
-                    .consume(context, metrics, batch_rows, consume)?;
-                if kernel.uses_finite_float_predicate() {
-                    add(&metrics.pipeline.finite_float_scans, 1)?;
-                }
-                metrics
-                    .pipeline
-                    .record(executed, kernel.admission_reason, context)
-            }
             NodeKind::Retained(binding) => {
                 self.run_retained(binding, context, metrics, batch_rows, consume)
             }
@@ -1826,439 +2000,533 @@ impl PreparedVortexRelational {
                 )?;
                 metrics.record_pivot_spill(report)
             }
-            NodeKind::Unary { input, operation } => {
-                #[cfg(all(feature = "vortex-write", unix))]
-                if let Some(spill) = &metrics.spill
-                    && operation.sampling_spill_supported(input.upper_rows(&self.sources))
-                {
-                    let (usage, report) = operation.consume_relation_sampling(
-                        context,
-                        spill,
-                        batch_rows,
-                        |accept| self.run(input, context, metrics, batch_rows, parameter, accept),
-                        consume,
-                    )?;
-                    metrics.record_unary(usage.items, usage.all_input_retained)?;
-                    add(&metrics.spillable_sampling_stages, 1)?;
-                    add(&metrics.spillable_sampling_input_rows, report.input_rows)?;
-                    add(
-                        &metrics.spillable_sampling_population_rows,
-                        report.population_rows,
-                    )?;
-                    add(&metrics.spillable_sampling_output_rows, report.output_rows)?;
-                    add(
-                        &metrics.spillable_sampling_replacement_draws,
-                        report.replacement_draws,
-                    )?;
-                    return add(
-                        &metrics.spillable_sampling_lookup_blocks,
-                        report.lookup_blocks,
-                    );
-                }
-                #[cfg(all(feature = "vortex-write", unix))]
-                if let Some(spill) = &metrics.spill
-                    && operation.membership_spill_supported()
-                {
-                    let (usage, report) = operation.consume_relation_membership(
-                        context,
-                        spill,
-                        batch_rows,
-                        |accept| self.run(input, context, metrics, batch_rows, parameter, accept),
-                        consume,
-                    )?;
-                    metrics.record_unary(usage.items, usage.all_input_retained)?;
-                    add(&metrics.spillable_unary_membership_stages, 1)?;
-                    add(&metrics.spillable_unary_input_rows, report.input_rows)?;
-                    add(&metrics.spillable_unary_observed_rows, report.observed_rows)?;
-                    add(&metrics.spillable_unary_groups, report.groups)?;
-                    add(&metrics.spillable_unary_identity_rows, report.identity_rows)?;
-                    add(&metrics.spillable_unary_output_rows, report.output_rows)?;
-                    add(&metrics.spillable_unary_lookup_blocks, report.lookup_blocks)?;
-                    return add(&metrics.spillable_unary_reader_opens, report.reader_opens);
-                }
-                let usage = operation.consume_relation(
-                    context,
-                    input.upper_rows(&self.sources),
-                    batch_rows,
-                    |accept| self.run(input, context, metrics, batch_rows, parameter, accept),
-                    consume,
-                )?;
-                metrics.record_unary(usage.items, usage.all_input_retained)
-            }
             NodeKind::Outer => {
                 let array = parameter.ok_or_else(|| failed("outer row binding is absent"))?;
                 if array.len() != 1
-                    || array.dtype()
-                        != &DType::struct_(node.fields.clone(), Nullability::NonNullable)
+                    || array.dtype() != &DType::struct_(fields.to_vec(), Nullability::NonNullable)
                 {
                     return Err(failed("outer row binding changed its prepared schema"));
                 }
                 consume(array.clone())
             }
-            NodeKind::Aggregate {
-                input,
-                spec,
-                expansion,
-                count_partial,
-            } => {
-                #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-                if expansion.is_none()
-                    && spec.is_scalar_count_all()
-                    && parameter.is_none()
-                    && let Some(rows) = metadata_count::source_count(input, metrics, context)?
-                {
-                    let mut aggregate =
-                        native_relational_aggregate::Aggregate::new(spec, context.memory())?;
-                    aggregate.add_metadata_count(rows, context)?;
-                    return aggregate.finish(context, batch_rows, consume);
-                }
-                let produce = |accept: &mut dyn FnMut(ArrayRef) -> Result<()>| {
-                    grouping::produce(
-                        expansion.as_deref(),
-                        context,
-                        |accept| self.run(input, context, metrics, batch_rows, parameter, accept),
-                        accept,
-                    )
-                };
-                #[cfg(feature = "vortex-write")]
-                if let Some(spill) = &metrics.spill {
-                    let report = super::native_relational_aggregate_spill::run(
-                        spec,
-                        expansion
-                            .as_ref()
-                            .map_or(&input.fields, |spec| &spec.fields),
-                        spill,
-                        context,
-                        batch_rows,
-                        produce,
-                        consume,
-                    )?;
-                    add(&metrics.ordered_aggregate_stages, 1)?;
-                    add(&metrics.ordered_aggregate_input_rows, report.input_rows)?;
-                    add(
-                        &metrics.ordered_aggregate_distinct_rows,
-                        report.distinct_rows,
-                    )?;
-                    add(
-                        &metrics.ordered_aggregate_quantile_rows,
-                        report.quantile_rows,
-                    )?;
-                    return Ok(());
-                }
-                let mut aggregate =
-                    native_relational_aggregate::Aggregate::new(spec, context.memory())?;
-                if expansion.is_none()
-                    && parameter.is_none()
-                    && let Some(plan) = join_aggregate::Plan::admit(input, spec, context)?
-                {
-                    plan.run(
-                        self,
-                        &mut aggregate,
-                        context,
-                        metrics,
-                        batch_rows,
-                        *count_partial,
-                    )?;
-                    return aggregate.finish(context, batch_rows, consume);
-                }
-                produce(&mut |array| {
-                    if *count_partial {
-                        aggregate.consume_reordered_count(&array, context, batch_rows)
-                    } else {
-                        aggregate.consume(&array, context, batch_rows)
-                    }
-                })?;
-                aggregate.finish(context, batch_rows, consume)
-            }
-            NodeKind::Project { .. }
-            | NodeKind::Filter { .. }
-            | NodeKind::Sort { .. }
-            | NodeKind::Limit { .. } => {
-                self.run_transform(node, context, metrics, batch_rows, parameter, consume)
-            }
-            NodeKind::Pipeline { input, stages } => self.run_pipeline(
-                input, stages, context, metrics, batch_rows, parameter, consume,
+            NodeKind::Subquery { .. } => self.run_subquery(
+                node.ok_or_else(|| failed("subquery node is absent"))?,
+                context,
+                metrics,
+                batch_rows,
+                parameter,
+                consume,
             ),
-            NodeKind::Scan {
-                source,
-                plan,
-                columns,
-                residual,
-                finite_float_predicate,
-                ..
-            } => {
-                scan::run(
-                    source,
-                    &self.sources,
-                    #[cfg(feature = "vortex-write")]
-                    &self.owned_array_sources,
-                    plan,
-                    columns,
-                    residual.as_ref(),
-                    &node.fields,
-                    context,
-                    metrics,
-                    batch_rows,
-                    consume,
-                )?;
-                if *finite_float_predicate {
-                    add(&metrics.pipeline.finite_float_scans, 1)?;
-                }
-                Ok(())
-            }
-            NodeKind::Subquery { .. } => {
-                self.run_subquery(node, context, metrics, batch_rows, parameter, consume)
-            }
-            NodeKind::GapFill { input, spec } => {
-                let mut fill = super::native_relational_gap_fill::GapFill::new(spec);
-                let mut output = super::native_relational_output_buffer::OutputBuffer::new(
-                    spec.dtype.clone(),
-                    batch_rows,
-                    super::native_payload::CopyPolicy::ValidateValues,
-                    context,
-                )?;
-                let mut emit = |array| output.push(array, context, consume);
-                self.run(
-                    input,
-                    context,
-                    metrics,
-                    batch_rows,
-                    parameter,
-                    &mut |array| fill.build(array, context, batch_rows, &mut emit),
-                )?;
-                fill.finish(context, batch_rows, &mut emit)?;
-                output.flush(context, consume)
-            }
-            NodeKind::Window { input, spec } => {
-                #[cfg(feature = "vortex-write")]
-                if let Some(spill) = &metrics.spill {
-                    let report = native_relational_window::spill::run(
-                        spec,
-                        &input.fields,
-                        spill,
-                        context,
-                        batch_rows,
-                        |accept| self.run(input, context, metrics, batch_rows, parameter, accept),
-                        consume,
-                    )?;
-                    add(&metrics.ordered_window_stages, 1)?;
-                    add(&metrics.ordered_window_input_rows, report.input_rows)?;
-                    add(&metrics.ordered_window_groups, report.groups)?;
-                    add(&metrics.ordered_window_partitions, report.partitions)?;
-                    add(&metrics.ordered_window_peer_records, report.peer_records)?;
-                    add(&metrics.ordered_window_bounds_rows, report.bounds_rows)?;
-                    add(
-                        &metrics.ordered_window_distinct_intervals,
-                        report.distinct_intervals,
-                    )?;
-                    add(
-                        &metrics.ordered_window_distinct_events,
-                        report.distinct_events,
-                    )?;
-                    add(
-                        &metrics.ordered_window_extrema_summary_rows,
-                        report.extrema_summary_rows,
-                    )?;
-                    add(&metrics.ordered_window_lookup_blocks, report.lookup_blocks)?;
-                    if metrics.input.is_some() {
-                        add(
-                            &metrics.window_batches_detached,
-                            report.input_batches_detached,
-                        )?;
-                        add(&metrics.window_rows_detached, report.input_rows)?;
-                    }
-                    return Ok(());
-                }
-                let mut window = native_relational_window::Window::new(spec, context.memory())?;
-                self.run(
-                    input,
-                    context,
-                    metrics,
-                    batch_rows,
-                    parameter,
-                    &mut |array| {
-                        window.build(metrics.detach_window_input(array, context)?, context)
-                    },
-                )?;
-                window.finish(context, batch_rows, consume)
-            }
-            NodeKind::Join { left, right, spec } => {
-                #[cfg(feature = "vortex-write")]
-                if let Some(spill) = &metrics.spill {
-                    #[cfg(test)]
-                    let _cost = join_cost::scope(JoinPhase::OrderedExcluded);
-                    let report = if spec.asof.is_some() {
-                        native_relational_join::asof::spill::run(
-                            spec,
-                            &right.fields,
-                            spill,
-                            context,
-                            batch_rows,
-                            |accept| {
-                                self.run(right, context, metrics, batch_rows, parameter, accept)
-                            },
-                            |accept| {
-                                self.run(left, context, metrics, batch_rows, parameter, accept)
-                            },
-                            consume,
-                        )?
-                    } else {
-                        native_relational_join::spill::run(
-                            spec,
-                            &right.fields,
-                            spill,
-                            context,
-                            batch_rows,
-                            |accept| {
-                                self.run(right, context, metrics, batch_rows, parameter, accept)
-                            },
-                            |accept| {
-                                self.run(left, context, metrics, batch_rows, parameter, accept)
-                            },
-                            consume,
-                        )?
-                    };
-                    add(&metrics.ordered_join_stages, 1)?;
-                    add(&metrics.ordered_join_build_rows, report.build_rows)?;
-                    add(&metrics.ordered_join_probe_rows, report.probe_rows)?;
-                    add(&metrics.ordered_join_candidate_rows, report.candidate_rows)?;
-                    add(&metrics.ordered_join_match_records, report.match_records)?;
-                    add(&metrics.ordered_join_lookup_blocks, report.lookup_blocks)?;
-                    if metrics.input.is_some() {
-                        add(
-                            &metrics.join_build_batches_detached,
-                            report.build_batches_detached,
-                        )?;
-                        add(&metrics.join_build_rows_detached, report.build_rows)?;
-                    }
-                    return Ok(());
-                }
-                if spec.asof.is_some() {
-                    #[cfg(test)]
-                    let _cost = join_cost::scope(JoinPhase::AsOfExcluded);
-                    let mut join = native_relational_join::asof::Join::new(spec, context.memory())?;
-                    self.run(
-                        right,
-                        context,
-                        metrics,
-                        batch_rows,
-                        parameter,
-                        &mut |array| {
-                            join.build(metrics.detach_join_build(array, context)?, context)
-                        },
-                    )?;
-                    join.seal(context)?;
-                    return self.run(
-                        left,
-                        context,
-                        metrics,
-                        batch_rows,
-                        parameter,
-                        &mut |array| join.consume(array, context, batch_rows, consume),
-                    );
-                }
-                if let Some(cyclic) = cyclic_exists::Plan::admit(left, right, spec, self) {
-                    #[cfg(test)]
-                    let _cost = join_cost::scope(JoinPhase::CyclicExcluded);
-                    return cyclic.run(self, context, metrics, batch_rows, parameter, consume);
-                }
-                #[cfg(test)]
-                let cost = {
-                    use crate::relational_query::VortexRelationalJoinKind as Kind;
-                    let kind = match spec.kind {
-                        Kind::Inner => "inner",
-                        Kind::Left => "left",
-                        Kind::Right => "right",
-                        Kind::Full => "full",
-                        Kind::LeftSemi => "left_semi",
-                        Kind::LeftAnti => "left_anti",
-                        Kind::Cross => "cross",
-                    };
-                    join_cost::node(
-                        kind,
-                        spec.right_keys.len(),
-                        matches!(spec.kind, Kind::LeftSemi | Kind::LeftAnti)
-                            && spec.condition.is_none()
-                            && !spec.right_keys.is_empty(),
-                        spec.condition.is_some(),
-                    )
-                };
-                #[cfg(test)]
-                let setup_cost = cost.scope(JoinPhase::Setup);
-                let mut join = native_relational_join::Join::new(spec, context.memory())?;
-                #[cfg(test)]
-                drop(setup_cost);
-                #[cfg(test)]
-                let build_input_cost = cost.scope(JoinPhase::BuildInput);
-                self.run(
-                    right,
-                    context,
-                    metrics,
-                    batch_rows,
-                    parameter,
-                    &mut |array| {
-                        #[cfg(test)]
-                        cost.input(true, array.len());
-                        #[cfg(test)]
-                        let _build_cost = cost.scope(JoinPhase::BuildState);
-                        join.build(
-                            {
-                                #[cfg(test)]
-                                let _detach_cost = cost.scope(JoinPhase::BuildDetach);
-                                metrics.detach_join_build(array, context)?
-                            },
-                            context,
-                            batch_rows,
-                        )
-                    },
-                )?;
-                #[cfg(test)]
-                drop(build_input_cost);
-                #[cfg(test)]
-                let seal_cost = cost.scope(JoinPhase::Seal);
-                join.finish_build(context)?;
-                #[cfg(test)]
-                drop(seal_cost);
-                #[cfg(test)]
-                let probe_input_cost = cost.scope(JoinPhase::ProbeInput);
-                self.run(
-                    left,
-                    context,
-                    metrics,
-                    batch_rows,
-                    parameter,
-                    &mut |array| {
-                        #[cfg(test)]
-                        cost.input(false, array.len());
-                        #[cfg(test)]
-                        let _probe_cost = cost.scope(JoinPhase::ProbeMatch);
-                        join.consume(array, context, batch_rows, consume)
-                            .map(|_| ())
-                    },
-                )?;
-                #[cfg(test)]
-                drop(probe_input_cost);
-                #[cfg(test)]
-                let finish_cost = cost.scope(JoinPhase::OuterFinish);
-                join.finish(context, batch_rows, consume)?;
-                #[cfg(test)]
-                drop(finish_cost);
-                context.record_native_join_work(&join.join_work()?)
-            }
-            NodeKind::Set { .. } => {
-                self.run_set(node, context, metrics, batch_rows, parameter, consume)
-            }
+            NodeKind::GapFill { input, spec } => self.run_gap_fill_node(
+                input, spec, context, metrics, batch_rows, parameter, consume,
+            ),
+            NodeKind::Window { input, spec } => self.run_window_node(
+                input, spec, context, metrics, batch_rows, parameter, consume,
+            ),
+            _ => unreachable!("all other NodeKind variants dispatch directly in run_node_kind"),
         }
     }
 
-    #[allow(clippy::too_many_lines)] // Keep streaming, authorized spill and resident membership under the same alignment boundary.
-    fn run_set(
+    #[inline(never)]
+    #[allow(clippy::too_many_arguments)]
+    fn run_file_kernel_node(
         &self,
-        node: &Node,
+        kernel: &native_pipeline::FileKernel,
+        fields: &[(String, DType)],
         context: &NativeExecutionContext<'_>,
         metrics: &Metrics<'_>,
         batch_rows: usize,
         parameter: Option<&ArrayRef>,
+        probe_filters: &[native_relational_probe_filter::ProbeRuntimeFilter],
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<()> {
+        if !probe_filters.is_empty()
+            && kernel.operation.is_projection()
+            && declaration_accepts_probe_filters(&kernel.declaration)
+        {
+            self.run_node_kind(
+                None,
+                &kernel.declaration,
+                fields,
+                context,
+                metrics,
+                batch_rows,
+                parameter,
+                probe_filters,
+                consume,
+            )?;
+            return metrics.pipeline.record(
+                provider::Executed {
+                    report: None,
+                    certificate: None,
+                },
+                kernel.admission_reason,
+                context,
+            );
+        }
+        let executed = kernel
+            .operation
+            .consume(context, metrics, batch_rows, consume)?;
+        if kernel.uses_finite_float_predicate() {
+            add(&metrics.pipeline.finite_float_scans, 1)?;
+        }
+        metrics
+            .pipeline
+            .record(executed, kernel.admission_reason, context)
+    }
+
+    #[inline(never)]
+    #[allow(clippy::too_many_arguments)]
+    fn run_unary_node(
+        &self,
+        input: &Node,
+        operation: &BoundUnary,
+        context: &NativeExecutionContext<'_>,
+        metrics: &Metrics<'_>,
+        batch_rows: usize,
+        parameter: Option<&ArrayRef>,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<()> {
+        #[cfg(all(feature = "vortex-write", unix))]
+        if let Some(spill) = &metrics.spill
+            && operation.sampling_spill_supported(input.upper_rows(&self.sources))
+        {
+            let (usage, report) = operation.consume_relation_sampling(
+                context,
+                spill,
+                batch_rows,
+                |accept| self.run(input, context, metrics, batch_rows, parameter, accept),
+                consume,
+            )?;
+            metrics.record_unary(usage.items, usage.all_input_retained)?;
+            add(&metrics.spillable_sampling_stages, 1)?;
+            add(&metrics.spillable_sampling_input_rows, report.input_rows)?;
+            add(
+                &metrics.spillable_sampling_population_rows,
+                report.population_rows,
+            )?;
+            add(&metrics.spillable_sampling_output_rows, report.output_rows)?;
+            add(
+                &metrics.spillable_sampling_replacement_draws,
+                report.replacement_draws,
+            )?;
+            return add(
+                &metrics.spillable_sampling_lookup_blocks,
+                report.lookup_blocks,
+            );
+        }
+        #[cfg(all(feature = "vortex-write", unix))]
+        if let Some(spill) = &metrics.spill
+            && operation.membership_spill_supported()
+        {
+            let (usage, report) = operation.consume_relation_membership(
+                context,
+                spill,
+                batch_rows,
+                |accept| self.run(input, context, metrics, batch_rows, parameter, accept),
+                consume,
+            )?;
+            metrics.record_unary(usage.items, usage.all_input_retained)?;
+            add(&metrics.spillable_unary_membership_stages, 1)?;
+            add(&metrics.spillable_unary_input_rows, report.input_rows)?;
+            add(&metrics.spillable_unary_observed_rows, report.observed_rows)?;
+            add(&metrics.spillable_unary_groups, report.groups)?;
+            add(&metrics.spillable_unary_identity_rows, report.identity_rows)?;
+            add(&metrics.spillable_unary_output_rows, report.output_rows)?;
+            add(&metrics.spillable_unary_lookup_blocks, report.lookup_blocks)?;
+            return add(&metrics.spillable_unary_reader_opens, report.reader_opens);
+        }
+        let usage = operation.consume_relation(
+            context,
+            input.upper_rows(&self.sources),
+            batch_rows,
+            |accept| self.run(input, context, metrics, batch_rows, parameter, accept),
+            consume,
+        )?;
+        metrics.record_unary(usage.items, usage.all_input_retained)
+    }
+
+    #[inline(never)]
+    #[allow(clippy::too_many_arguments)]
+    fn run_aggregate_node(
+        &self,
+        input: &Node,
+        spec: &native_relational_aggregate::Spec,
+        expansion: Option<&grouping::Spec>,
+        count_partial: bool,
+        context: &NativeExecutionContext<'_>,
+        metrics: &Metrics<'_>,
+        batch_rows: usize,
+        parameter: Option<&ArrayRef>,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<()> {
+        #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+        if expansion.is_none()
+            && spec.is_scalar_count_all()
+            && parameter.is_none()
+            && let Some(rows) = metadata_count::source_count(input, metrics, context)?
+        {
+            let mut aggregate =
+                native_relational_aggregate::Aggregate::new(spec, context.memory())?;
+            aggregate.add_metadata_count(rows, context)?;
+            return aggregate.finish(context, batch_rows, consume);
+        }
+        let produce = |accept: &mut dyn FnMut(ArrayRef) -> Result<()>| {
+            grouping::produce(
+                expansion,
+                context,
+                |accept| self.run(input, context, metrics, batch_rows, parameter, accept),
+                accept,
+            )
+        };
+        #[cfg(feature = "vortex-write")]
+        if let Some(spill) = &metrics.spill {
+            let report = super::native_relational_aggregate_spill::run(
+                spec,
+                expansion.map_or(&input.fields, |spec| &spec.fields),
+                spill,
+                context,
+                batch_rows,
+                produce,
+                consume,
+            )?;
+            add(&metrics.ordered_aggregate_stages, 1)?;
+            add(&metrics.ordered_aggregate_input_rows, report.input_rows)?;
+            add(
+                &metrics.ordered_aggregate_distinct_rows,
+                report.distinct_rows,
+            )?;
+            add(
+                &metrics.ordered_aggregate_quantile_rows,
+                report.quantile_rows,
+            )?;
+            return Ok(());
+        }
+        let mut aggregate = native_relational_aggregate::Aggregate::new(spec, context.memory())?;
+        if expansion.is_none()
+            && parameter.is_none()
+            && let Some(plan) = join_aggregate::Plan::admit(input, spec, context)?
+        {
+            plan.run(
+                self,
+                &mut aggregate,
+                context,
+                metrics,
+                batch_rows,
+                count_partial,
+            )?;
+            return aggregate.finish(context, batch_rows, consume);
+        }
+        produce(&mut |array| {
+            if count_partial {
+                aggregate.consume_reordered_count(&array, context, batch_rows)
+            } else {
+                aggregate.consume(&array, context, batch_rows)
+            }
+        })?;
+        aggregate.finish(context, batch_rows, consume)
+    }
+
+    #[inline(never)]
+    #[allow(clippy::too_many_arguments)]
+    fn run_gap_fill_node(
+        &self,
+        input: &Node,
+        spec: &super::native_relational_gap_fill::Spec,
+        context: &NativeExecutionContext<'_>,
+        metrics: &Metrics<'_>,
+        batch_rows: usize,
+        parameter: Option<&ArrayRef>,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<()> {
+        let mut fill = super::native_relational_gap_fill::GapFill::new(spec);
+        let mut output = super::native_relational_output_buffer::OutputBuffer::new(
+            spec.dtype.clone(),
+            batch_rows,
+            super::native_payload::CopyPolicy::ValidateValues,
+            context,
+        )?;
+        let mut emit = |array| output.push(array, context, consume);
+        self.run(
+            input,
+            context,
+            metrics,
+            batch_rows,
+            parameter,
+            &mut |array| fill.build(array, context, batch_rows, &mut emit),
+        )?;
+        fill.finish(context, batch_rows, &mut emit)?;
+        output.flush(context, consume)
+    }
+
+    #[inline(never)]
+    #[allow(clippy::too_many_arguments)]
+    fn run_window_node(
+        &self,
+        input: &Node,
+        spec: &native_relational_window::Spec,
+        context: &NativeExecutionContext<'_>,
+        metrics: &Metrics<'_>,
+        batch_rows: usize,
+        parameter: Option<&ArrayRef>,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<()> {
+        #[cfg(feature = "vortex-write")]
+        if let Some(spill) = &metrics.spill {
+            let report = native_relational_window::spill::run(
+                spec,
+                &input.fields,
+                spill,
+                context,
+                batch_rows,
+                |accept| self.run(input, context, metrics, batch_rows, parameter, accept),
+                consume,
+            )?;
+            add(&metrics.ordered_window_stages, 1)?;
+            add(&metrics.ordered_window_input_rows, report.input_rows)?;
+            add(&metrics.ordered_window_groups, report.groups)?;
+            add(&metrics.ordered_window_partitions, report.partitions)?;
+            add(&metrics.ordered_window_peer_records, report.peer_records)?;
+            add(&metrics.ordered_window_bounds_rows, report.bounds_rows)?;
+            add(
+                &metrics.ordered_window_distinct_intervals,
+                report.distinct_intervals,
+            )?;
+            add(
+                &metrics.ordered_window_distinct_events,
+                report.distinct_events,
+            )?;
+            add(
+                &metrics.ordered_window_extrema_summary_rows,
+                report.extrema_summary_rows,
+            )?;
+            add(&metrics.ordered_window_lookup_blocks, report.lookup_blocks)?;
+            if metrics.input.is_some() {
+                add(
+                    &metrics.window_batches_detached,
+                    report.input_batches_detached,
+                )?;
+                add(&metrics.window_rows_detached, report.input_rows)?;
+            }
+            return Ok(());
+        }
+        let mut window = native_relational_window::Window::new(spec, context.memory())?;
+        self.run(
+            input,
+            context,
+            metrics,
+            batch_rows,
+            parameter,
+            &mut |array| window.build(metrics.detach_window_input(array, context)?, context),
+        )?;
+        window.finish(context, batch_rows, consume)
+    }
+
+    #[inline(never)]
+    #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+    fn run_join_node(
+        &self,
+        left: &Node,
+        right: &Node,
+        spec: &native_relational_join::Spec,
+        context: &NativeExecutionContext<'_>,
+        metrics: &Metrics<'_>,
+        batch_rows: usize,
+        parameter: Option<&ArrayRef>,
+        probe_filters: &[native_relational_probe_filter::ProbeRuntimeFilter],
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<()> {
+        #[cfg(feature = "vortex-write")]
+        if let Some(spill) = &metrics.spill {
+            #[cfg(test)]
+            let _cost = join_cost::scope(JoinPhase::OrderedExcluded);
+            let report = if spec.asof.is_some() {
+                native_relational_join::asof::spill::run(
+                    spec,
+                    &right.fields,
+                    spill,
+                    context,
+                    batch_rows,
+                    |accept| self.run(right, context, metrics, batch_rows, parameter, accept),
+                    |accept| self.run(left, context, metrics, batch_rows, parameter, accept),
+                    consume,
+                )?
+            } else {
+                native_relational_join::spill::run(
+                    spec,
+                    &right.fields,
+                    spill,
+                    context,
+                    batch_rows,
+                    |accept| self.run(right, context, metrics, batch_rows, parameter, accept),
+                    |accept| self.run(left, context, metrics, batch_rows, parameter, accept),
+                    consume,
+                )?
+            };
+            add(&metrics.ordered_join_stages, 1)?;
+            add(&metrics.ordered_join_build_rows, report.build_rows)?;
+            add(&metrics.ordered_join_probe_rows, report.probe_rows)?;
+            add(&metrics.ordered_join_candidate_rows, report.candidate_rows)?;
+            add(&metrics.ordered_join_match_records, report.match_records)?;
+            add(&metrics.ordered_join_lookup_blocks, report.lookup_blocks)?;
+            if metrics.input.is_some() {
+                add(
+                    &metrics.join_build_batches_detached,
+                    report.build_batches_detached,
+                )?;
+                add(&metrics.join_build_rows_detached, report.build_rows)?;
+            }
+            return Ok(());
+        }
+        if spec.asof.is_some() {
+            #[cfg(test)]
+            let _cost = join_cost::scope(JoinPhase::AsOfExcluded);
+            let mut join = native_relational_join::asof::Join::new(spec, context.memory())?;
+            self.run(
+                right,
+                context,
+                metrics,
+                batch_rows,
+                parameter,
+                &mut |array| join.build(metrics.detach_join_build(array, context)?, context),
+            )?;
+            join.seal(context)?;
+            return self.run(
+                left,
+                context,
+                metrics,
+                batch_rows,
+                parameter,
+                &mut |array| join.consume(array, context, batch_rows, consume),
+            );
+        }
+        if let Some(cyclic) = cyclic_exists::Plan::admit(left, right, spec, self) {
+            #[cfg(test)]
+            let _cost = join_cost::scope(JoinPhase::CyclicExcluded);
+            return cyclic.run(self, context, metrics, batch_rows, parameter, consume);
+        }
+        #[cfg(test)]
+        let cost = {
+            use crate::relational_query::VortexRelationalJoinKind as Kind;
+            let kind = match spec.kind {
+                Kind::Inner => "inner",
+                Kind::Left => "left",
+                Kind::Right => "right",
+                Kind::Full => "full",
+                Kind::LeftSemi => "left_semi",
+                Kind::LeftAnti => "left_anti",
+                Kind::Cross => "cross",
+            };
+            join_cost::node(
+                kind,
+                spec.right_keys.len(),
+                matches!(spec.kind, Kind::LeftSemi | Kind::LeftAnti)
+                    && spec.condition.is_none()
+                    && !spec.right_keys.is_empty(),
+                spec.condition.is_some(),
+            )
+        };
+        #[cfg(test)]
+        let setup_cost = cost.scope(JoinPhase::Setup);
+        let mut join = native_relational_join::Join::new(spec, context.memory())?;
+        #[cfg(test)]
+        drop(setup_cost);
+        #[cfg(test)]
+        let build_input_cost = cost.scope(JoinPhase::BuildInput);
+        self.run(
+            right,
+            context,
+            metrics,
+            batch_rows,
+            parameter,
+            &mut |array| {
+                #[cfg(test)]
+                cost.input(true, array.len());
+                #[cfg(test)]
+                let _build_cost = cost.scope(JoinPhase::BuildState);
+                join.build(
+                    {
+                        #[cfg(test)]
+                        let _detach_cost = cost.scope(JoinPhase::BuildDetach);
+                        metrics.detach_join_build(array, context)?
+                    },
+                    context,
+                    batch_rows,
+                )
+            },
+        )?;
+        #[cfg(test)]
+        drop(build_input_cost);
+        #[cfg(test)]
+        let seal_cost = cost.scope(JoinPhase::Seal);
+        join.finish_build(context)?;
+        #[cfg(test)]
+        drop(seal_cost);
+        let mut left_filters = join.probe_runtime_filters(context)?;
+        if !probe_filters.is_empty()
+            && matches!(
+                spec.kind,
+                crate::relational_query::VortexRelationalJoinKind::Inner
+                    | crate::relational_query::VortexRelationalJoinKind::LeftSemi
+                    | crate::relational_query::VortexRelationalJoinKind::Left
+                    | crate::relational_query::VortexRelationalJoinKind::LeftAnti
+            )
+        {
+            for filter in probe_filters {
+                if let Some(remapped) = filter.remap(|name| {
+                    spec.fields
+                        .iter()
+                        .zip(&spec.columns)
+                        .find_map(|(field, (side, input_col))| {
+                            (*side == crate::relational_query::VortexRelationalSide::Left
+                                && field.0 == name)
+                                .then(|| input_col.clone())
+                        })
+                }) {
+                    left_filters.push(remapped);
+                }
+            }
+        }
+        #[cfg(test)]
+        let probe_input_cost = cost.scope(JoinPhase::ProbeInput);
+        self.run_with_probe_filters(
+            left,
+            context,
+            metrics,
+            batch_rows,
+            parameter,
+            &left_filters,
+            &mut |array| {
+                #[cfg(test)]
+                cost.input(false, array.len());
+                #[cfg(test)]
+                let _probe_cost = cost.scope(JoinPhase::ProbeMatch);
+                join.consume(array, context, batch_rows, consume)
+                    .map(|_| ())
+            },
+        )?;
+        #[cfg(test)]
+        drop(probe_input_cost);
+        #[cfg(test)]
+        let finish_cost = cost.scope(JoinPhase::OuterFinish);
+        join.finish(context, batch_rows, consume)?;
+        #[cfg(test)]
+        drop(finish_cost);
+        context.record_native_join_work(&join.join_work()?)
+    }
+
+    #[inline(never)]
+    #[allow(clippy::too_many_lines)] // Keep streaming, authorized spill and resident membership under the same alignment boundary.
+    #[allow(clippy::too_many_arguments)]
+    fn run_set(
+        &self,
+        kind: &NodeKind,
+        fields: &[(String, DType)],
+        context: &NativeExecutionContext<'_>,
+        metrics: &Metrics<'_>,
+        batch_rows: usize,
+        parameter: Option<&ArrayRef>,
+        probe_filters: &[native_relational_probe_filter::ProbeRuntimeFilter],
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<()> {
         let NodeKind::Set {
@@ -2266,19 +2534,21 @@ impl PreparedVortexRelational {
             right,
             kind,
             names,
-        } = &node.kind
+        } = kind
         else {
             return Err(failed("set execution requires a bound set node"));
         };
         if *kind == SetKind::UnionAll {
             for input in [left, right] {
-                self.run(
+                let branch_filters = remap_set_probe_filters(fields, &input.fields, probe_filters);
+                self.run_with_probe_filters(
                     input,
                     context,
                     metrics,
                     batch_rows,
                     parameter,
-                    &mut |array| consume(cast_batch(&array, &input.fields, &node.fields, context)?),
+                    &branch_filters,
+                    &mut |array| consume(cast_batch(&array, &input.fields, fields, context)?),
                 )?;
             }
             return Ok(());
@@ -2287,7 +2557,7 @@ impl PreparedVortexRelational {
         if let Some(spill) = &metrics.spill {
             let report = super::native_relational_set_spill::run(
                 *kind,
-                &node.fields,
+                fields,
                 spill,
                 context,
                 batch_rows,
@@ -2299,9 +2569,7 @@ impl PreparedVortexRelational {
                         metrics,
                         batch_rows,
                         parameter,
-                        &mut |array| {
-                            accept(cast_batch(&array, &input.fields, &node.fields, context)?)
-                        },
+                        &mut |array| accept(cast_batch(&array, &input.fields, fields, context)?),
                     )
                 },
                 consume,
@@ -2312,7 +2580,7 @@ impl PreparedVortexRelational {
             add(&metrics.ordered_set_output_rows, report.output_rows)?;
             return Ok(());
         }
-        let mut output = RowSet::new(&node.fields, names, context.memory())?;
+        let mut output = RowSet::new(fields, names, context.memory())?;
         if *kind == SetKind::UnionDistinct {
             for input in [left, right] {
                 self.run(
@@ -2322,7 +2590,7 @@ impl PreparedVortexRelational {
                     batch_rows,
                     parameter,
                     &mut |array| {
-                        let array = cast_batch(&array, &input.fields, &node.fields, context)?;
+                        let array = cast_batch(&array, &input.fields, fields, context)?;
                         output
                             .insert_batch(array, None, context, batch_rows, Some(consume))
                             .map(|_| ())
@@ -2330,7 +2598,7 @@ impl PreparedVortexRelational {
                 )?;
             }
         } else {
-            let mut membership = RowSet::new(&node.fields, names, context.memory())?;
+            let mut membership = RowSet::new(fields, names, context.memory())?;
             self.run(
                 right,
                 context,
@@ -2338,7 +2606,7 @@ impl PreparedVortexRelational {
                 batch_rows,
                 parameter,
                 &mut |array| {
-                    let array = cast_batch(&array, &right.fields, &node.fields, context)?;
+                    let array = cast_batch(&array, &right.fields, fields, context)?;
                     membership
                         .insert_batch(array, None, context, batch_rows, None)
                         .map(|_| ())
@@ -2351,7 +2619,7 @@ impl PreparedVortexRelational {
                 batch_rows,
                 parameter,
                 &mut |array| {
-                    let array = cast_batch(&array, &left.fields, &node.fields, context)?;
+                    let array = cast_batch(&array, &left.fields, fields, context)?;
                     output
                         .insert_batch(
                             array,
@@ -2514,7 +2782,7 @@ fn select_batch(
     project_selected_batch(&selected, fields, context)
 }
 
-fn project_selected_batch(
+pub(super) fn project_selected_batch(
     selected: &ArrayRef,
     fields: &[(String, DType)],
     context: &NativeExecutionContext<'_>,
@@ -2569,4 +2837,45 @@ fn cast_batch(
     )
     .map_err(vortex_error)
     .map(vortex::array::IntoArray::into_array)
+}
+
+fn declaration_accepts_probe_filters(kind: &NodeKind) -> bool {
+    match kind {
+        NodeKind::Scan { .. } => true,
+        NodeKind::Project { input, expressions } => {
+            transform::column_projection(expressions)
+                && declaration_accepts_probe_filters(&input.kind)
+        }
+        NodeKind::Filter { input, predicate } => {
+            predicate.is_infallible_for_join_pushdown(true)
+                && declaration_accepts_probe_filters(&input.kind)
+        }
+        NodeKind::Pipeline { input, stages } => {
+            stages.iter().all(|stage| match &stage.kind {
+                PipelineKind::Project(expressions) => transform::column_projection(expressions),
+                PipelineKind::Filter(predicate) => predicate.is_infallible_for_join_pushdown(true),
+                _ => false,
+            }) && declaration_accepts_probe_filters(&input.kind)
+        }
+        _ => false,
+    }
+}
+
+fn remap_set_probe_filters(
+    node_fields: &[(String, DType)],
+    input_fields: &[(String, DType)],
+    probe_filters: &[native_relational_probe_filter::ProbeRuntimeFilter],
+) -> Vec<native_relational_probe_filter::ProbeRuntimeFilter> {
+    probe_filters
+        .iter()
+        .filter_map(|filter| {
+            filter.remap(|name| {
+                node_fields.iter().zip(input_fields).find_map(
+                    |((out_name, out_dtype), (in_name, in_dtype))| {
+                        (out_name == name && out_dtype == in_dtype).then(|| in_name.clone())
+                    },
+                )
+            })
+        })
+        .collect()
 }

@@ -1,16 +1,142 @@
 //! Ordered source delivery preserves native payload until an operator consumes it.
 
+use super::super::native_relational_probe_filter::{
+    ProbeRuntimeFilter, apply_bloom_mask, is_infallible_key_dtype,
+};
 use super::{
     ArrayRef, DType, LocalSelection, LocalVortexScanPlan, MaterializedPredicateEvaluator, Metrics,
     NativeExecutionContext, PreparedVortexSource, Result, ScanSource, add, failed, vortex_error,
 };
 use crate::native_work_sizing::{Owner, Rows};
-use shardloom_core::native_io_decisions::{
-    NativeIoCapability, NativeIoDecisionOutcome, NativeIoDecisionReason, NativeIoObservedWork,
+use shardloom_core::{
+    PredicateExpr,
+    native_io_decisions::{
+        NativeIoCapability, NativeIoDecisionOutcome, NativeIoDecisionReason, NativeIoObservedWork,
+    },
 };
-use vortex::io::runtime::BlockingRuntime as _;
+use vortex::{io::runtime::BlockingRuntime as _, mask::Mask};
 
 const SCAN_ROWS: usize = 8192;
+
+pub(super) fn has_infallible_empty_build(
+    probe_filters: &[ProbeRuntimeFilter],
+    field_dtype: &mut impl FnMut(&str) -> Option<DType>,
+) -> bool {
+    probe_filters.iter().any(|filter| {
+        filter.empty_build
+            && !filter.probe_columns.is_empty()
+            && filter
+                .probe_columns
+                .iter()
+                .all(|name| field_dtype(name).is_some_and(|dtype| is_infallible_key_dtype(&dtype)))
+    })
+}
+
+pub(super) fn admitted_runtime_predicate(
+    probe_filters: &[ProbeRuntimeFilter],
+    source_dtype: &DType,
+) -> Option<PredicateExpr> {
+    let mut combined: Option<PredicateExpr> = None;
+    for filter in probe_filters {
+        let Some(pred) = &filter.key_predicate else {
+            continue;
+        };
+        if super::provider::predicate_preserves_typed_semantics(pred, source_dtype)
+            && super::super::predicate_to_vortex_expr(
+                pred,
+                source_dtype,
+                super::super::VortexQueryPrimitiveKind::FilterAndProject,
+            )
+            .is_ok()
+        {
+            combined = Some(super::provider::conjoin(combined, pred.clone()));
+        }
+    }
+    combined
+}
+
+fn plan_with_runtime_predicate(
+    plan: &LocalVortexScanPlan,
+    predicate: PredicateExpr,
+    source_dtype: &DType,
+) -> Result<LocalVortexScanPlan> {
+    let expr = super::super::predicate_to_vortex_expr(
+        &predicate,
+        source_dtype,
+        super::super::VortexQueryPrimitiveKind::FilterAndProject,
+    )?;
+    let mut updated = plan.clone();
+    updated.filter = Some(match updated.filter.take() {
+        Some(prior) => vortex::array::expr::and_collect(
+            vortex::expr::forms::conjuncts(&prior)
+                .into_iter()
+                .chain(std::iter::once(expr)),
+        )
+        .expect("runtime filter conjunction always contains an expression"),
+        None => expr,
+    });
+    updated.pushdown_predicate = Some(super::provider::conjoin(
+        updated.pushdown_predicate.take(),
+        predicate,
+    ));
+    Ok(updated)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn accept_scan_batch(
+    array: &ArrayRef,
+    columns: &[String],
+    residual: Option<&MaterializedPredicateEvaluator>,
+    probe_filters: &[ProbeRuntimeFilter],
+    fields: &[(String, DType)],
+    context: &NativeExecutionContext<'_>,
+    metrics: &Metrics<'_>,
+    batch_rows: usize,
+    consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+) -> Result<()> {
+    if array.len() > SCAN_ROWS {
+        return Err(failed("scan exceeded its admitted batch size"));
+    }
+    add(&metrics.scan_rows, array.len() as u64)?;
+    add(&metrics.scan_batches, 1)?;
+    let bloom_mask = if probe_filters.is_empty() {
+        None
+    } else {
+        apply_bloom_mask(array, probe_filters, context)?
+    };
+    if bloom_mask.as_ref().is_some_and(Mask::all_false) {
+        return Ok(());
+    }
+    if residual.is_none() {
+        if let Some(mask) = bloom_mask {
+            return LocalSelection::from_mask(&mask, context)?
+                .for_each_batch(array, fields, batch_rows, context, consume);
+        }
+        return emit_unfiltered_scan_batch(array, fields, batch_rows, context, consume);
+    }
+    let mut selection = LocalSelection::new(array.len(), context)?;
+    let mut values = residual
+        .map(|_| {
+            add(&metrics.residual_batches, 1)?;
+            super::super::prepared_unary::values::NativeBatch::new(array, columns, context)
+        })
+        .transpose()?;
+    for row in 0..array.len() {
+        if row.is_multiple_of(1024) {
+            context.check_cancelled()?;
+        }
+        if bloom_mask.as_ref().is_some_and(|mask| !mask.value(row)) {
+            continue;
+        }
+        if let (Some(predicate), Some(values)) = (residual, values.as_mut())
+            && !predicate.matches_with(&mut |column| values.stat(column, row))?
+        {
+            continue;
+        }
+        selection.push(row)?;
+    }
+    selection.for_each_batch(array, fields, batch_rows, context, consume)
+}
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn run(
@@ -23,6 +149,7 @@ pub(super) fn run(
     plan: &LocalVortexScanPlan,
     columns: &[String],
     residual: Option<&MaterializedPredicateEvaluator>,
+    probe_filters: &[ProbeRuntimeFilter],
     fields: &[(String, DType)],
     context: &NativeExecutionContext<'_>,
     metrics: &Metrics<'_>,
@@ -30,99 +157,228 @@ pub(super) fn run(
     consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
 ) -> Result<()> {
     let mut accept = |array: ArrayRef| {
-        if array.len() > SCAN_ROWS {
-            return Err(failed("scan exceeded its admitted batch size"));
-        }
-        add(&metrics.scan_rows, array.len() as u64)?;
-        add(&metrics.scan_batches, 1)?;
-        let mut selection = LocalSelection::new(array.len(), context)?;
-        let mut values = residual
-            .map(|_| {
-                add(&metrics.residual_batches, 1)?;
-                super::super::prepared_unary::values::NativeBatch::new(&array, columns, context)
-            })
-            .transpose()?;
-        for row in 0..array.len() {
-            if row.is_multiple_of(1024) {
-                context.check_cancelled()?;
-            }
-            if let (Some(predicate), Some(values)) = (residual, values.as_mut())
-                && !predicate.matches_with(&mut |column| values.stat(column, row))?
-            {
-                continue;
-            }
-            selection.push(row)?;
-        }
-        selection.for_each_batch(&array, fields, batch_rows, context, consume)
-    };
-    match source {
-        ScanSource::File(index) => run_file(
-            &files[*index],
-            plan,
+        accept_scan_batch(
+            &array,
+            columns,
+            residual,
+            probe_filters,
             fields,
             context,
             metrics,
-            match metrics.file_scan_batching.get() {
-                super::FileScanBatching::Native => SCAN_ROWS,
-                super::FileScanBatching::Output => batch_rows.min(SCAN_ROWS),
-            },
+            batch_rows,
+            consume,
+        )
+    };
+    let scan_batches = match metrics.file_scan_batching.get() {
+        super::FileScanBatching::Native => SCAN_ROWS,
+        super::FileScanBatching::Output => batch_rows.min(SCAN_ROWS),
+    };
+    match source {
+        ScanSource::File(index) => {
+            let source_file = &files[*index];
+            if residual.is_none()
+                && has_infallible_empty_build(probe_filters, &mut |name| {
+                    source_file.dtype().as_struct_fields_opt()?.field(name)
+                })
+            {
+                prune_empty_file(source_file, plan, context, metrics)
+            } else if let Some(pred) =
+                admitted_runtime_predicate(probe_filters, source_file.dtype())
+            {
+                let updated = plan_with_runtime_predicate(plan, pred, source_file.dtype())?;
+                run_file(
+                    source_file,
+                    &updated,
+                    fields,
+                    context,
+                    metrics,
+                    scan_batches,
+                    &mut accept,
+                )
+            } else {
+                run_file(
+                    source_file,
+                    plan,
+                    fields,
+                    context,
+                    metrics,
+                    scan_batches,
+                    &mut accept,
+                )
+            }
+        }
+        ScanSource::Memory(projection) => run_memory_scan(
+            projection,
+            residual.is_some(),
+            probe_filters,
+            fields,
+            context,
+            metrics,
             &mut accept,
         ),
-        ScanSource::Memory(projection) => {
-            add(&metrics.scans_started, 1)?;
-            if projection.source_rows() == 0 {
+        #[cfg(feature = "vortex-write")]
+        ScanSource::OwnedArray { index, .. } => {
+            let owned = &owned_array_sources[*index].1;
+            if residual.is_none()
+                && has_infallible_empty_build(probe_filters, &mut |name| {
+                    owned.dtype().as_struct_fields_opt()?.field(name)
+                })
+            {
+                add(&metrics.scans_started, 1)?;
                 return Ok(());
             }
+            if let Some(pred) = admitted_runtime_predicate(probe_filters, owned.dtype()) {
+                let updated = plan_with_runtime_predicate(plan, pred, owned.dtype())?;
+                run_owned_array(owned, &updated, context, metrics, scan_batches, &mut accept)
+            } else {
+                run_owned_array(owned, plan, context, metrics, scan_batches, &mut accept)
+            }
+        }
+        ScanSource::Batch { index, projection } => run_batch_scan(
+            *index,
+            projection,
+            residual.is_some(),
+            probe_filters,
+            fields,
+            context,
+            metrics,
+            &mut accept,
+        ),
+    }
+}
+
+fn run_memory_scan(
+    projection: &crate::resident_memory_source::PreparedMemoryProjection,
+    residual_present: bool,
+    probe_filters: &[ProbeRuntimeFilter],
+    fields: &[(String, DType)],
+    context: &NativeExecutionContext<'_>,
+    metrics: &Metrics<'_>,
+    accept: &mut dyn FnMut(ArrayRef) -> Result<()>,
+) -> Result<()> {
+    add(&metrics.scans_started, 1)?;
+    if projection.source_rows() == 0
+        || (!residual_present
+            && has_infallible_empty_build(probe_filters, &mut |name| {
+                fields
+                    .iter()
+                    .find(|(col, _)| col == name)
+                    .map(|(_, dtype)| dtype.clone())
+            }))
+    {
+        return Ok(());
+    }
+    add(&metrics.data_scans, 1)?;
+    let mut sizing = Rows::from_fields(Owner::Scan, fields, SCAN_ROWS, 2, context)?;
+    let mut start = 0;
+    while start < projection.source_rows() {
+        let selected = sizing.select((projection.source_rows() - start) as u64, context)?;
+        let end = start + selected.rows;
+        accept(projection.execute_range(start..end, context)?)?;
+        sizing.complete(selected, None, context);
+        start = end;
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_batch_scan(
+    index: usize,
+    projection: &crate::resident_memory_source::PreparedMemoryProjection,
+    residual_present: bool,
+    probe_filters: &[ProbeRuntimeFilter],
+    fields: &[(String, DType)],
+    context: &NativeExecutionContext<'_>,
+    metrics: &Metrics<'_>,
+    accept: &mut dyn FnMut(ArrayRef) -> Result<()>,
+) -> Result<()> {
+    let input = metrics
+        .input
+        .ok_or_else(|| super::batch_input::failed("streaming scan has no input provider"))?;
+    let mut sizing = Rows::from_fields(Owner::Scan, fields, SCAN_ROWS, 2, context)?;
+    input.run_with_probe_filters(
+        index,
+        probe_filters,
+        residual_present,
+        context,
+        metrics,
+        &mut |source| {
+            add(&metrics.scans_started, 1)?;
+            if source.is_empty() {
+                return accept(projection.execute_batch_array(source, 0..0, context)?);
+            }
             add(&metrics.data_scans, 1)?;
-            let mut sizing = Rows::from_fields(Owner::Scan, fields, SCAN_ROWS, 2, context)?;
             let mut start = 0;
-            while start < projection.source_rows() {
-                let selected = sizing.select((projection.source_rows() - start) as u64, context)?;
+            while start < source.len() {
+                let selected = sizing.select((source.len() - start) as u64, context)?;
                 let end = start + selected.rows;
-                accept(projection.execute_range(start..end, context)?)?;
+                accept(projection.execute_batch_array(source, start..end, context)?)?;
                 sizing.complete(selected, None, context);
                 start = end;
             }
             Ok(())
-        }
-        #[cfg(feature = "vortex-write")]
-        ScanSource::OwnedArray { index, .. } => run_owned_array(
-            &owned_array_sources[*index].1,
+        },
+    )
+}
+
+fn prune_empty_file(
+    source: &PreparedVortexSource,
+    plan: &LocalVortexScanPlan,
+    context: &NativeExecutionContext<'_>,
+    metrics: &Metrics<'_>,
+) -> Result<()> {
+    source.with_admitted_native_execution(context, |_file, context| {
+        let observation = super::super::native_file_scan_evidence::Observation::plan(
+            source,
             plan,
+            shardloom_core::native_file_scan::NativeFileScanRoute::RelationalScan,
             context,
-            metrics,
-            match metrics.file_scan_batching.get() {
-                super::FileScanBatching::Native => SCAN_ROWS,
-                super::FileScanBatching::Output => batch_rows.min(SCAN_ROWS),
+        )?;
+        add(&metrics.scans_started, 1)?;
+        context.record_capability_decision(
+            NativeIoCapability::RegionExclusion,
+            NativeIoDecisionOutcome::Executed,
+            NativeIoDecisionReason::ExclusionProved,
+            NativeIoObservedWork {
+                regions: Some(1),
+                excluded_regions: Some(1),
+                ..NativeIoObservedWork::default()
             },
-            &mut accept,
-        ),
-        ScanSource::Batch { index, projection } => {
-            let input = metrics.input.ok_or_else(|| {
-                super::batch_input::failed("streaming scan has no input provider")
-            })?;
-            let mut sizing = Rows::from_fields(Owner::Scan, fields, SCAN_ROWS, 2, context)?;
-            input.run(*index, context, metrics, &mut |source| {
-                add(&metrics.scans_started, 1)?;
-                if source.is_empty() {
-                    return accept(projection.execute_batch_array(source, 0..0, context)?);
-                }
-                add(&metrics.data_scans, 1)?;
-                // Producer batches and native scan work units are different
-                // boundaries. Slice before projection/filter work so a large
-                // admitted columnar input does not expand scan scratch.
-                let mut start = 0;
-                while start < source.len() {
-                    let selected = sizing.select((source.len() - start) as u64, context)?;
-                    let end = start + selected.rows;
-                    accept(projection.execute_batch_array(source, start..end, context)?)?;
-                    sizing.complete(selected, None, context);
-                    start = end;
-                }
-                Ok(())
-            })
-        }
+        )?;
+        add(&metrics.scans_pruned, 1)?;
+        observation.complete(source, context, 0, 0, 1, 1)
+    })
+}
+
+fn emit_unfiltered_scan_batch(
+    array: &ArrayRef,
+    fields: &[(String, DType)],
+    batch_rows: usize,
+    context: &NativeExecutionContext<'_>,
+    consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+) -> Result<()> {
+    if batch_rows == 0 {
+        return Err(failed(
+            "selection source extent or output batch size changed",
+        ));
     }
+    if array.is_empty() {
+        return Ok(());
+    }
+    let mut start = 0;
+    while start < array.len() {
+        context.check_cancelled()?;
+        let end = array.len().min(start.saturating_add(batch_rows));
+        let batch = if start == 0 && end == array.len() {
+            super::project_selected_batch(array, fields, context)?
+        } else {
+            let sliced = array.slice(start..end).map_err(vortex_error)?;
+            super::project_selected_batch(&sliced, fields, context)?
+        };
+        consume(batch)?;
+        start = end;
+    }
+    Ok(())
 }
 
 fn run_file(

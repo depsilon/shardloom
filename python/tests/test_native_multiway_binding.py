@@ -195,6 +195,119 @@ class NativeMultiwayBindingTests(unittest.TestCase):
         gc.collect()
         self.assertEqual(session.snapshot()["reserved_bytes"], 0)
 
+    def test_canonical_flat_three_and_four_way_sql_joins_preserve_exact_semantics(self):
+        from pathlib import Path
+        import tempfile
+
+        session = self.session()
+        i64 = json.dumps({"Primitive": ["i64", True]})
+        utf8 = json.dumps({"Utf8": True})
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            fact_rows = [
+                {"id": 1, "a_id": 10, "b_id": 100, "amount": 5},
+                {"id": 2, "a_id": 20, "b_id": 200, "amount": 10},
+                {"id": 3, "a_id": 10, "b_id": 100, "amount": 15},
+                {"id": 4, "a_id": 30, "b_id": 200, "amount": 20},
+                {"id": 5, "a_id": None, "b_id": 100, "amount": 25},
+            ]
+            dim_a_rows = [{"id": 10, "grp": "alpha"}, {"id": 20, "grp": "beta"}]
+            dim_b_rows = [{"id": 100, "mult": 2}, {"id": 200, "mult": 3}]
+            dim_c_rows = [{"grp": "alpha", "bonus": 7}, {"grp": "gamma", "bonus": 9}]
+
+            fact_pq = root / "fact.parquet"
+            dim_a_vx = root / "dim_a.vortex"
+            dim_b_vx = root / "dim_b.vortex"
+            for rows, fields, out_path, write_fmt in (
+                (
+                    fact_rows,
+                    [("id", i64), ("a_id", i64), ("b_id", i64), ("amount", i64)],
+                    fact_pq,
+                    "write_parquet",
+                ),
+                (dim_a_rows, [("id", i64), ("grp", utf8)], dim_a_vx, "write_vortex"),
+                (dim_b_rows, [("id", i64), ("mult", i64)], dim_b_vx, "write_vortex"),
+            ):
+                src = session.from_rows(rows, fields=fields)
+                write_plan = session.plan(
+                    self.native.Relation.scan("memory://fixture"),
+                    sources=[("memory://fixture", src)],
+                )
+                write_plan.write(out_path, write_fmt)
+                write_plan.release_prepared()
+                del write_plan, src
+            gc.collect()
+            self.assertEqual(session.snapshot()["reserved_bytes"], 0)
+
+            sql_files = [
+                (str(fact_pq), "parquet", None),
+                (str(dim_a_vx), "vortex", None),
+                (str(dim_b_vx), "vortex", None),
+            ]
+            sql_3way = (
+                f"SELECT a.grp AS grp, SUM(f.amount * b.mult) AS total, COUNT(*) AS rows_n "
+                f"FROM '{fact_pq}' AS f "
+                f"INNER JOIN '{dim_a_vx}' AS a ON a.id = f.a_id "
+                f"INNER JOIN '{dim_b_vx}' AS b ON f.b_id = b.id "
+                f"WHERE f.amount >= 5 "
+                f"GROUP BY a.grp HAVING SUM(f.amount * b.mult) > 35 "
+                f"ORDER BY grp"
+            )
+            with patch("subprocess.Popen", side_effect=AssertionError("child process")):
+                plan_3way = session.sql(sql_3way, files=sql_files)
+                res_3way = plan_3way.collect()
+                self.assertEqual(res_3way.row_export()[0], [{"grp": "alpha", "total": 40, "rows_n": 2}])
+                self.assertEqual(res_3way.report["external_engine_invoked"], "false")
+                self.assertEqual(res_3way.report["fallback_attempted"], "false")
+                del res_3way
+                plan_3way.release_prepared()
+                del plan_3way
+                gc.collect()
+                cached_bytes = session.snapshot()["reserved_bytes"]
+
+                dim_c_src = session.from_rows(dim_c_rows, fields=[("grp", utf8), ("bonus", i64)])
+                dim_c_plan = session.plan(
+                    self.native.Relation.scan("memory://dim_c"),
+                    sources=[("memory://dim_c", dim_c_src)],
+                )
+                sql_4way = (
+                    f"SELECT f.id AS fid, a.grp AS grp, b.mult AS mult, "
+                    f"CASE WHEN c.bonus IS NULL THEN 0 ELSE c.bonus END AS bonus, "
+                    f"COALESCE(c.bonus, 0) + f.amount AS adj "
+                    f"FROM '{fact_pq}' AS f "
+                    f"INNER JOIN '{dim_a_vx}' AS a ON a.id = f.a_id "
+                    f"INNER JOIN '{dim_b_vx}' AS b ON b.id = f.b_id "
+                    f"LEFT JOIN dim_c AS c ON a.grp = c.grp "
+                    f"WHERE f.amount >= :min_amount "
+                    f"ORDER BY f.id"
+                )
+                plan_4way = session.sql(
+                    sql_4way,
+                    files=sql_files,
+                    relations=[("dim_c", dim_c_plan)],
+                    parameters=[("min_amount", self.native.Expression.literal(5))],
+                )
+                res_4way = plan_4way.collect()
+                self.assertEqual(
+                    res_4way.row_export()[0],
+                    [
+                        {"fid": 1, "grp": "alpha", "mult": 2, "bonus": 7, "adj": 12},
+                        {"fid": 2, "grp": "beta", "mult": 3, "bonus": 0, "adj": 10},
+                        {"fid": 3, "grp": "alpha", "mult": 2, "bonus": 7, "adj": 22},
+                    ],
+                )
+                self.assertEqual(res_4way.report["external_engine_invoked"], "false")
+                self.assertEqual(res_4way.report["fallback_attempted"], "false")
+                del res_4way
+                plan_4way.release_prepared()
+                dim_c_plan.release_prepared()
+                del plan_4way, dim_c_plan, dim_c_src
+                gc.collect()
+                self.assertEqual(session.snapshot()["reserved_bytes"], cached_bytes)
+        session.close()
+        gc.collect()
+        self.assertEqual(session.snapshot()["reserved_bytes"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

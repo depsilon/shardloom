@@ -423,6 +423,21 @@ impl KeyColumn {
         }
     }
 
+    pub(super) fn is_nested(&self) -> bool {
+        matches!(self, Self::Nested(_))
+    }
+
+    pub(super) fn prefers_unsigned_predicate(&self) -> bool {
+        matches!(
+            self,
+            Self::Numeric(values)
+                if matches!(
+                    values.ptype(),
+                    PType::U8 | PType::U16 | PType::U32 | PType::U64
+                )
+        )
+    }
+
     pub(super) fn cell(&self, row: usize) -> Result<Cell> {
         if row >= self.len() {
             return Err(failed("row index exceeds key owner"));

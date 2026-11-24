@@ -15,7 +15,8 @@ use shardloom_exec::{
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 use shardloom_vortex::universal_format_io::demanded::LocalColumnarSource;
 use shardloom_vortex::universal_format_io::text_stream::{
-    TextFraming, TextRecordDecoder, TextSource, TextTypePolicy, read_header, resolve_record_fields,
+    TextFraming, TextProjectedDecoder, TextRecordDecoder, TextSource, TextTypePolicy, read_header,
+    resolve_record_fields,
 };
 use std::{path::Path, sync::Arc};
 
@@ -176,7 +177,6 @@ fn prepare(
     if delimiter.is_none() && !hints.values.is_empty() {
         header = hints.values.iter().map(|(name, _)| name.clone()).collect();
     }
-    let decoder = decoder(delimiter, header.clone(), Arc::clone(hints));
     let policy = (format != "json").then_some(TextTypePolicy {
         merge: merge_types,
         coerce: coerce_inferred,
@@ -185,7 +185,7 @@ fn prepare(
         path,
         framing,
         delimiter.is_some(),
-        decoder,
+        decoder(delimiter, header.clone(), Arc::clone(hints)),
         declared,
         max_rows,
         &header,
@@ -193,8 +193,91 @@ fn prepare(
         memory,
         cancellation,
     )?;
+    let schema_fields: Vec<String> = source
+        .schema()
+        .fields()
+        .iter()
+        .map(|field| field.name().clone())
+        .collect();
+    TextSource::set_projected_decoder(
+        &mut source,
+        projected_decoder(delimiter, header, schema_fields, Arc::clone(hints)),
+    )?;
     TextSource::add_header_read_bytes(&mut source, header_bytes)?;
     Ok(source)
+}
+
+fn projected_decoder(
+    delimiter: Option<char>,
+    header: Vec<String>,
+    schema_fields: Vec<String>,
+    hints: Arc<Hints>,
+) -> TextProjectedDecoder {
+    Arc::new(move |record, projection| {
+        if let Some(delimiter) = delimiter {
+            let fields = split_delimited_record(record.trim_end_matches(['\r', '\n']), delimiter)?;
+            if fields.len() != header.len() {
+                return Err(unsupported_sql_error("CSV row width must match its header"));
+            }
+            let mut decoded = Vec::with_capacity(projection.len());
+            for &col_index in projection {
+                let (Some(name), Some(raw)) = (header.get(col_index), fields.get(col_index)) else {
+                    continue;
+                };
+                let value = parse_csv_hinted_field(name, raw, &hints)?;
+                decoded.push((name.clone(), value));
+            }
+            Ok(decoded)
+        } else {
+            if !hints.values.is_empty() && record.trim() == "{}" {
+                return Ok(Vec::new());
+            }
+            let fields = resolve_record_fields(parse_flat_json_object_with_plan(
+                record.trim_start_matches('\u{feff}'),
+                &LocalSourceReadPlan::full("native_demanded_text_record"),
+            )?);
+            fields
+                .into_iter()
+                .map(|(name, value)| {
+                    let is_projected = schema_fields
+                        .iter()
+                        .position(|field| field == &name)
+                        .is_some_and(|index| projection.contains(&index));
+                    if !is_projected {
+                        return Ok((name, ScalarValue::Null));
+                    }
+                    let value = if let Some(index) =
+                        hints.values.iter().position(|(column, _)| column == &name)
+                    {
+                        coerce_schema_declared_json_scalar(
+                            value,
+                            &hints.values[index].1,
+                            &name,
+                            CONTEXT,
+                            hints.temporal[index].as_ref().map(|bound| &bound.codec),
+                        )?
+                    } else {
+                        value
+                    };
+                    Ok((name, value))
+                })
+                .collect()
+        }
+    })
+}
+
+fn parse_csv_hinted_field(name: &str, raw: &str, hints: &Hints) -> Result<ScalarValue> {
+    if let Some(index) = hints.values.iter().position(|(column, _)| column == name) {
+        parse_schema_declared_text_scalar(
+            raw,
+            &hints.values[index].1,
+            name,
+            CONTEXT,
+            hints.temporal[index].as_ref().map(|bound| &bound.codec),
+        )
+    } else {
+        Ok(parse_csv_scalar(raw))
+    }
 }
 
 fn decoder(delimiter: Option<char>, header: Vec<String>, hints: Arc<Hints>) -> TextRecordDecoder {
