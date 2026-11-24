@@ -1429,6 +1429,26 @@ enum SubqueryTarget<'a> {
     In(&'a LogicalExpr),
 }
 
+fn try_lower_decorrelated_subquery(
+    ctx: &mut CanonicalLowering<'_, '_, '_>,
+    outer: &ScopedRelation,
+    inner_rel: &LogicalRelation,
+    corr_pairs: &[(LogicalExpr, LogicalExpr)],
+) -> Option<(ScopedRelation, ScopedRelation, Vec<JoinKey>)> {
+    let mut candidate_outer = outer.clone();
+    let mut inner_scope = ctx.lower_relation(inner_rel).ok()?;
+    let mut correlation = Vec::with_capacity(corr_pairs.len());
+    for (outer_expr, inner_expr) in corr_pairs {
+        let lk = resolve_or_project_key(ctx, &mut candidate_outer, outer_expr).ok()?;
+        let rk = resolve_or_project_key(ctx, &mut inner_scope, inner_expr).ok()?;
+        correlation.push(JoinKey {
+            left: lk,
+            right: rk,
+        });
+    }
+    Some((candidate_outer, inner_scope, correlation))
+}
+
 fn append_subquery_node(
     ctx: &mut CanonicalLowering<'_, '_, '_>,
     outer: &mut ScopedRelation,
@@ -1439,19 +1459,13 @@ fn append_subquery_node(
 ) -> NativeResult<String> {
     let is_scalar = matches!(target, SubqueryTarget::Scalar);
     if !is_scalar
-        && let Ok((inner_rel, corr_pairs)) =
+        && let Ok((inner_rel, corr_pairs, hidden_corr_cols)) =
             extract_inner_correlation_for_subquery(ctx, outer, subquery)
-        && let Ok(mut inner_scope) = ctx.lower_relation(&inner_rel)
+        && !corr_pairs.is_empty()
+        && let Some((next_outer, inner_scope, correlation)) =
+            try_lower_decorrelated_subquery(ctx, outer, &inner_rel, &corr_pairs)
     {
-        let mut correlation = Vec::with_capacity(corr_pairs.len());
-        for (outer_expr, inner_expr) in &corr_pairs {
-            let lk = resolve_or_project_key(ctx, outer, outer_expr)?;
-            let rk = resolve_or_project_key(ctx, &mut inner_scope, inner_expr)?;
-            correlation.push(JoinKey {
-                left: lk,
-                right: rk,
-            });
-        }
+        *outer = next_outer;
         return finish_subquery_node(
             ctx,
             outer,
@@ -1460,6 +1474,7 @@ fn append_subquery_node(
             correlation,
             negated,
             false,
+            hidden_corr_cols,
             guard,
         );
     }
@@ -1472,6 +1487,7 @@ fn append_subquery_node(
             Vec::new(),
             negated,
             false,
+            0,
             guard,
         );
     }
@@ -1485,6 +1501,7 @@ fn append_subquery_node(
         Vec::new(),
         negated,
         true,
+        0,
         guard,
     )
 }
@@ -1498,12 +1515,14 @@ fn finish_subquery_node(
     correlation: Vec<JoinKey>,
     negated: bool,
     parameterized: bool,
+    hidden_corr_cols: usize,
     guard: Option<&Expression>,
 ) -> NativeResult<String> {
+    let visible_cols = inner_scope.entries.len().saturating_sub(hidden_corr_cols);
     let kind = match target {
         SubqueryTarget::Exists => SubqueryKind::Exists,
         SubqueryTarget::Scalar => {
-            if inner_scope.entries.len() != 1 {
+            if visible_cols != 1 {
                 return Err(unsupported_sql_error(
                     "scalar subquery must project exactly one column",
                 ));
@@ -1511,7 +1530,7 @@ fn finish_subquery_node(
             SubqueryKind::Scalar
         }
         SubqueryTarget::In(lhs) => {
-            if inner_scope.entries.len() != 1 {
+            if visible_cols != 1 {
                 return Err(unsupported_sql_error(
                     "IN subquery must project exactly one column",
                 ));
@@ -1994,20 +2013,64 @@ fn rw_items_or_having_uses(
     used
 }
 
+fn append_projected_correlation_keys(
+    ctx: &mut CanonicalLowering<'_, '_, '_>,
+    items: &[LogicalProjectionItem],
+    corr: Vec<(LogicalExpr, LogicalExpr)>,
+) -> (Vec<LogicalProjectionItem>, Vec<(LogicalExpr, LogicalExpr)>) {
+    let mut proj_items = items.to_vec();
+    let mut existing: Vec<String> = items
+        .iter()
+        .filter_map(|item| match item {
+            LogicalProjectionItem::Expr {
+                alias: Some(alias), ..
+            } => Some(alias.clone()),
+            LogicalProjectionItem::Expr { expr, alias: None } => {
+                if let LogicalExpr::Column { name, .. } = expr.as_ref() {
+                    Some(name.clone())
+                } else {
+                    None
+                }
+            }
+            LogicalProjectionItem::Wildcard { .. } => None,
+        })
+        .collect();
+    let mut rewritten_corr = Vec::with_capacity(corr.len());
+    for (outer_expr, inner_expr) in corr {
+        let alias = fresh_col_names(&existing, &mut ctx.lowerer.serial);
+        existing.push(alias.clone());
+        proj_items.push(LogicalProjectionItem::Expr {
+            expr: Box::new(inner_expr),
+            alias: Some(alias.clone()),
+        });
+        rewritten_corr.push((
+            outer_expr,
+            LogicalExpr::Column {
+                qualifier: None,
+                name: alias,
+            },
+        ));
+    }
+    (proj_items, rewritten_corr)
+}
+
+type ExtractedSubqueryCorrelation = (LogicalRelation, Vec<(LogicalExpr, LogicalExpr)>, usize);
+
 fn extract_inner_correlation_for_subquery(
     ctx: &mut CanonicalLowering<'_, '_, '_>,
     outer: &ScopedRelation,
     rel: &LogicalRelation,
-) -> NativeResult<(LogicalRelation, Vec<(LogicalExpr, LogicalExpr)>)> {
+) -> NativeResult<ExtractedSubqueryCorrelation> {
     match rel {
         LogicalRelation::Subquery { input, alias } => {
-            let (inner, corr) = extract_inner_correlation_for_subquery(ctx, outer, input)?;
+            let (inner, corr, hidden) = extract_inner_correlation_for_subquery(ctx, outer, input)?;
             Ok((
                 LogicalRelation::Subquery {
                     input: Box::new(inner),
                     alias: alias.clone(),
                 },
                 corr,
+                hidden,
             ))
         }
         LogicalRelation::Project {
@@ -2015,14 +2078,36 @@ fn extract_inner_correlation_for_subquery(
             items,
             distinct,
         } => {
-            let (inner, corr) = extract_inner_correlation_for_subquery(ctx, outer, input)?;
+            let (inner, corr, child_hidden) =
+                extract_inner_correlation_for_subquery(ctx, outer, input)?;
+            if corr.is_empty() {
+                return Ok((
+                    LogicalRelation::Project {
+                        input: Box::new(inner),
+                        items: items.clone(),
+                        distinct: *distinct,
+                    },
+                    corr,
+                    0,
+                ));
+            }
+            if child_hidden > 0
+                && items
+                    .iter()
+                    .any(|item| matches!(item, LogicalProjectionItem::Wildcard { .. }))
+            {
+                return Ok((rel.clone(), Vec::new(), 0));
+            }
+            let (proj_items, rewritten_corr) = append_projected_correlation_keys(ctx, items, corr);
+            let hidden = rewritten_corr.len();
             Ok((
                 LogicalRelation::Project {
                     input: Box::new(inner),
-                    items: items.clone(),
+                    items: proj_items,
                     distinct: *distinct,
                 },
-                corr,
+                rewritten_corr,
+                hidden,
             ))
         }
         LogicalRelation::Filter { input, predicate } => {
@@ -2030,10 +2115,10 @@ fn extract_inner_correlation_for_subquery(
             let Some((corr_pairs, pure_inner)) =
                 split_correlation_conjuncts(predicate, outer, &inner_scope)
             else {
-                return Ok((rel.clone(), Vec::new()));
+                return Ok((rel.clone(), Vec::new(), 0));
             };
             if corr_pairs.is_empty() {
-                return Ok((rel.clone(), Vec::new()));
+                return Ok((rel.clone(), Vec::new(), 0));
             }
             if let Some(rest) = conjoin_logical(&pure_inner) {
                 Ok((
@@ -2042,11 +2127,12 @@ fn extract_inner_correlation_for_subquery(
                         predicate: rest,
                     },
                     corr_pairs,
+                    0,
                 ))
             } else {
-                Ok((*input.clone(), corr_pairs))
+                Ok((*input.clone(), corr_pairs, 0))
             }
         }
-        _ => Ok((rel.clone(), Vec::new())),
+        _ => Ok((rel.clone(), Vec::new(), 0)),
     }
 }

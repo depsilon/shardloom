@@ -1144,3 +1144,44 @@ fn canonical_order_by_named_windows_and_substring_for() {
         vec![json!({"s": 10.0, "c": 1, "win_cnt": 1})]
     );
 }
+
+#[test]
+fn canonical_projected_correlated_subqueries_and_quoted_wildcards() {
+    let dir = CanonicalTempDir::new("corr_proj_quote");
+    let outer_path = dir.path().join("outer.parquet");
+    let inner_path = dir.path().join("inner.parquet");
+    write_parquet_rows(&outer_path, &batch_i64(&[("id", vec![Some(1)])]), 1);
+    write_parquet_rows(&inner_path, &batch_i64(&[("id", vec![Some(1)])]), 1);
+
+    let corr_sql = format!(
+        "SELECT \
+         EXISTS (SELECT -id AS id FROM '{}' WHERE id = o.id) AS e_shadow, \
+         EXISTS (SELECT 1 FROM '{}' AS i WHERE i.id = o.id) AS e_const, \
+         o.id IN (SELECT id FROM '{}' AS i WHERE i.id = o.id) AS in_corr, \
+         (-o.id) IN (SELECT -id AS id FROM '{}' WHERE id = o.id) AS in_shadow \
+         FROM '{}' AS o",
+        inner_path.display(),
+        inner_path.display(),
+        inner_path.display(),
+        inner_path.display(),
+        outer_path.display(),
+    );
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&corr_sql)),
+        vec![json!({
+            "e_shadow": true,
+            "e_const": true,
+            "in_corr": true,
+            "in_shadow": true
+        })]
+    );
+
+    let quoted_wildcard_sql = format!(
+        "SELECT \"t\".*, COUNT(*) OVER () AS cnt FROM '{}' AS \"t\"",
+        outer_path.display()
+    );
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&quoted_wildcard_sql)),
+        vec![json!({"id": 1, "cnt": 1})]
+    );
+}

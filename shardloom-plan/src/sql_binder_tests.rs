@@ -564,3 +564,51 @@ fn rejects_unsupported_timestamp_precision_and_parameterized_cast_dtypes() {
         assert!(bind_sql(bad_sql).is_err(), "{bad_sql}");
     }
 }
+
+#[test]
+fn decodes_quoted_identifiers_in_wildcards_and_object_names() {
+    let plan = bind_sql("SELECT \"t\".*, COUNT(\"t\".*) OVER () FROM 'in.parquet' AS \"t\"")
+        .expect("quoted wildcard qualifier binds");
+    let LogicalRelation::Project { items, .. } = &plan.root else {
+        panic!("expected Project root");
+    };
+    assert_eq!(
+        items[0],
+        LogicalProjectionItem::Wildcard {
+            qualifier: Some("t".to_string()),
+        }
+    );
+    let LogicalProjectionItem::Expr { expr, .. } = &items[1] else {
+        panic!("expected expression item");
+    };
+    let LogicalExpr::Function { args, .. } = expr.as_ref() else {
+        panic!("expected COUNT window function");
+    };
+    assert_eq!(
+        args,
+        &[LogicalExpr::Wildcard {
+            qualifier: Some("t".to_string()),
+        }]
+    );
+
+    let cte_plan = bind_sql("WITH \"t\" AS (SELECT 1 AS id) SELECT \"t\".* FROM \"t\"")
+        .expect("quoted CTE object name binds");
+    let LogicalRelation::WithCte { body, .. } = &cte_plan.root else {
+        panic!("expected WithCte root");
+    };
+    let LogicalRelation::Project { input, items, .. } = body.as_ref() else {
+        panic!("expected Project body");
+    };
+    assert_eq!(
+        items[0],
+        LogicalProjectionItem::Wildcard {
+            qualifier: Some("t".to_string()),
+        }
+    );
+    assert!(matches!(
+        input.as_ref(),
+        LogicalRelation::Source { reference, quoted_path: false, .. } if reference == "t"
+    ));
+
+    assert!(bind_sql("SELECT a.b.* FROM 'in.parquet'").is_err());
+}

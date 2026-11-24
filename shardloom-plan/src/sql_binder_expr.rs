@@ -16,7 +16,7 @@ use sqlparser::ast::{
 
 use crate::sql_binder::{
     LogicalRelation, LogicalSortKey, LogicalWindowFrame, LogicalWindowSpec, LogicalWindowUnits,
-    bind_ast_query, unsupported_sql_error,
+    bind_ast_query, decode_object_name_value, decode_wildcard_qualifier, unsupported_sql_error,
 };
 
 /// Canonical AST-bound expression node independent of external engines.
@@ -400,7 +400,7 @@ fn bind_extended_expr(expr: &SqlExpr, diagnostics: &mut Vec<Diagnostic>) -> Resu
         )),
         SqlExpr::Wildcard(_) => Ok(LogicalExpr::Wildcard { qualifier: None }),
         SqlExpr::QualifiedWildcard(name, _) => Ok(LogicalExpr::Wildcard {
-            qualifier: Some(name.to_string()),
+            qualifier: Some(decode_wildcard_qualifier(name)?),
         }),
         SqlExpr::Collate { collation, .. } => {
             let msg = format!(
@@ -861,7 +861,7 @@ fn bind_function(func: &ast::Function, diagnostics: &mut Vec<Diagnostic>) -> Res
             "parametric SQL function syntax is not admitted",
         ));
     }
-    let fn_name = func.name.to_string();
+    let fn_name = decode_object_name_value(&func.name);
     let fn_lower = fn_name.to_ascii_lowercase();
     let has_over = func.over.is_some();
     if let Some(nt) = func.null_treatment {
@@ -920,7 +920,7 @@ pub(crate) fn bind_function_arg(
                 Ok(LogicalExpr::Wildcard { qualifier: None })
             }
             FunctionArgExpr::QualifiedWildcard(name) => Ok(LogicalExpr::Wildcard {
-                qualifier: Some(name.to_string()),
+                qualifier: Some(decode_wildcard_qualifier(name)?),
             }),
         },
         FunctionArg::Named { .. } | FunctionArg::ExprNamed { .. } => Err(unsupported_sql_error(

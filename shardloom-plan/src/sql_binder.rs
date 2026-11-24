@@ -2591,6 +2591,26 @@ fn collect_expr_sources(expr: &LogicalExpr, out: &mut Vec<SqlSourceRef>) {
     }
 }
 
+pub(crate) fn decode_wildcard_qualifier(name: &ast::ObjectName) -> Result<String> {
+    match name.0.as_slice() {
+        [ObjectNamePart::Identifier(ident)] => Ok(ident.value.clone()),
+        _ => Err(unsupported_sql_error(&format!(
+            "qualified wildcard `{name}.*` admits <alias>.* syntax only"
+        ))),
+    }
+}
+
+pub(crate) fn decode_object_name_value(name: &ast::ObjectName) -> String {
+    name.0
+        .iter()
+        .map(|part| {
+            part.as_ident()
+                .map_or_else(|| part.to_string(), |i| i.value.clone())
+        })
+        .collect::<Vec<_>>()
+        .join(".")
+}
+
 pub(crate) fn bind_ast_query(
     query: &Query,
     diagnostics: &mut Vec<Diagnostic>,
@@ -2920,7 +2940,9 @@ fn bind_select_item(
         SelectItem::QualifiedWildcard(kind, opts) => {
             validate_wildcard_options(opts, diagnostics)?;
             let qualifier = match kind {
-                ast::SelectItemQualifiedWildcardKind::ObjectName(name) => name.to_string(),
+                ast::SelectItemQualifiedWildcardKind::ObjectName(name) => {
+                    decode_wildcard_qualifier(name)?
+                }
                 ast::SelectItemQualifiedWildcardKind::Expr(expr) => {
                     return Err(unsupported_sql_error(&format!(
                         "expression-qualified wildcard `{expr}.*` is not admitted"
@@ -3200,7 +3222,7 @@ fn bind_table_factor(
                     bound_args.push(bind_table_arg(arg, diagnostics)?);
                 }
                 Ok(LogicalRelation::TableFunction {
-                    name: name.to_string(),
+                    name: decode_object_name_value(name),
                     args: bound_args,
                     alias: alias_name,
                 })
@@ -3209,13 +3231,7 @@ fn bind_table_factor(
                     ObjectNamePart::Identifier(ident) => ident.quote_style == Some('\''),
                     ObjectNamePart::Function(_) => false,
                 });
-                let reference = if quoted_path && name.0.len() == 1 {
-                    name.0[0]
-                        .as_ident()
-                        .map_or_else(|| name.to_string(), |i| i.value.clone())
-                } else {
-                    name.to_string()
-                };
+                let reference = decode_object_name_value(name);
                 Ok(LogicalRelation::Source {
                     reference,
                     quoted_path,
