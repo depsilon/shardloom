@@ -343,6 +343,18 @@ class TpchSsbSuiteTests(unittest.TestCase):
                 self.assertTrue((run_logs_root / lane_name / "q09_SSB-Q1_1_run1.stdout.json").is_file())
                 self.assertTrue((run_logs_root / lane_name / "q09_SSB-Q1_1_run2.stdout.json").is_file())
 
+    def test_results_equivalent_requires_exact_integers_and_reserves_tolerance_for_floats(self) -> None:
+        self.assertFalse(workloads.results_equivalent([{"count_order": 1_000_000}], [{"count_order": 1_000_001}]))
+        self.assertFalse(
+            workloads.results_equivalent([{"count_order": 1_000_000}], [{"count_order": 1_000_001}], ordered=False)
+        )
+        self.assertFalse(workloads.results_equivalent([{"count_order": 1_000_000.0}], [{"count_order": 1_000_001}]))
+        self.assertFalse(workloads.results_equivalent([{"count_order": 25.0000001}], [{"count_order": 25}]))
+        self.assertTrue(workloads.results_equivalent([{"high_line_count": 25.0}], [{"high_line_count": 25}]))
+        self.assertFalse(workloads.results_equivalent([{"id": float((1 << 53) + 1)}], [{"id": (1 << 53) + 1}]))
+        self.assertTrue(workloads.results_equivalent([{"revenue": 1000.0}], [{"revenue": 1000.0005}]))
+        self.assertFalse(workloads.results_equivalent([{"revenue": 1000.0}], [{"revenue": 1001.0}]))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1003,11 +1003,16 @@ def _values_equivalent(actual: Any, expected: Any) -> bool:
         return type(actual) is type(expected) and actual == expected
     if actual is None or expected is None:
         return actual is expected
-    if isinstance(actual, (int, float)) and isinstance(expected, (int, float)):
-        af, ef = float(actual), float(expected)
-        if not (math.isfinite(af) and math.isfinite(ef)):
+    if isinstance(actual, int) and isinstance(expected, int):
+        return actual == expected
+    if isinstance(actual, int) and isinstance(expected, float):
+        return math.isfinite(expected) and expected.is_integer() and actual == int(expected)
+    if isinstance(actual, float) and isinstance(expected, int):
+        return math.isfinite(actual) and actual.is_integer() and int(actual) == expected
+    if isinstance(actual, float) and isinstance(expected, float):
+        if not (math.isfinite(actual) and math.isfinite(expected)):
             return False
-        return math.isclose(af, ef, rel_tol=FLOAT_REL_TOL, abs_tol=FLOAT_ABS_TOL)
+        return math.isclose(actual, expected, rel_tol=FLOAT_REL_TOL, abs_tol=FLOAT_ABS_TOL)
     if isinstance(actual, dict) and isinstance(expected, dict):
         return actual.keys() == expected.keys() and all(
             _values_equivalent(actual[k], expected[k]) for k in expected
@@ -1019,14 +1024,16 @@ def _values_equivalent(actual: Any, expected: Any) -> bool:
     return actual == expected
 
 
-def _row_sort_key(row: dict[str, Any]) -> tuple[tuple[str, Any], ...]:
+def _row_sort_key(row: dict[str, Any]) -> tuple[tuple[str, int, Any], ...]:
     items = []
     for k in sorted(row):
         v = row[k]
-        if isinstance(v, (int, float)) and not isinstance(v, bool):
-            items.append((k, round(float(v), 5)))
+        if isinstance(v, int) and not isinstance(v, bool):
+            items.append((k, 0, v))
+        elif isinstance(v, float) and math.isfinite(v):
+            items.append((k, 0, round(v, 5)))
         else:
-            items.append((k, str(v) if v is not None else ""))
+            items.append((k, 1, str(v) if v is not None else ""))
     return tuple(items)
 
 
