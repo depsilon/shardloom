@@ -2,11 +2,26 @@
 
 # Maintainer Publication Handoff
 
-ShardLoom 1.1.0 is published through GitHub, TestPyPI, PyPI and Homebrew.
+ShardLoom 1.3.0 is published through GitHub, TestPyPI, PyPI and Homebrew.
 The release record identifies each build and its install checks.
-[1.1.0 publication](v1.1.0-publication-verification.md) · [Previous 1.0.0 publication](v1.0.0-publication-verification.md).
+[1.3.0 publication](v1.3.0-publication-verification.md) · [Previous 1.1.0 publication](v1.1.0-publication-verification.md).
 Package access is technical-preview only; production and unfinished capability
 gates remain open.
+
+v1.3.0 publication completion addendum, 2026-11-25:
+
+- `v1.3.0` is published and proof-backed through the selected channels: GitHub pre-release assets,
+  TestPyPI (`45579727951`), PyPI (`45610688982`), and Homebrew tap (`depsilon/homebrew-tap#15`).
+- The approved release source revision (`v1.3.0` tag / GitHub pre-release / TestPyPI / Homebrew)
+  is `9c6b6f55e727a92f86490dd143f92f9425745c6e`; the PyPI packaging build revision
+  (`codex/release-130-channel-proofs`) is `5b4b3087d251db274b7f1beb6d71e8c39a59a84b`.
+- Channel proofs, checksums, CycloneDX SBOMs, and provenance manifests are checked in under
+  `docs/release/channel-proofs/` and summarized in `docs/release/v1.3.0-publication-verification.md`.
+- The Homebrew tap formula update is published in `depsilon/homebrew-tap` at merge commit
+  `1b38432470020b755399e5dde3b3b6e4227c577c` (`PR #15`).
+- `v1.3.0` remains technical-preview install access only. It does not authorize production,
+  performance superiority, Spark replacement, broad runtime, object-store/lakehouse, Foundry,
+  future package-channel, or fallback-execution claims.
 
 Historical handoff status: release handoff packet after `RELEASE-PACKAGE-15`, amended through the proof-backed v0.2.3
 GitHub/TestPyPI/PyPI/Homebrew selected-channel publication sequence. This document does not itself
@@ -212,9 +227,10 @@ handoff packet.
 
 ## Decision Summary
 
-Maintainer approval and proof are recorded for the v1.1.0 GitHub pre-release,
+Maintainer approval and proof are recorded for the v1.3.0 GitHub pre-release,
 TestPyPI, PyPI and Homebrew sequence in the
-[publication record](v1.1.0-publication-verification.md). Source-validation and
+[publication record](v1.3.0-publication-verification.md) (superseding the prior
+`v1.1.0` publication record). Source-validation and
 pre-bump implementation UAT retain their separate identities. Public package
 install claims are allowed only for the selected proof-backed technical-preview
 channels.
@@ -226,7 +242,7 @@ Allowed now:
 - Scoped local usability evidence with `public_release_claim_allowed=false`.
 - Current scoped full-local benchmark-publication evidence with public performance claims still
   disallowed.
-- Selected v1.1.0 package-channel install proof for GitHub pre-release, TestPyPI, PyPI, and
+- Selected v1.3.0 package-channel install proof for GitHub pre-release, TestPyPI, PyPI, and
   Homebrew.
 
 Not allowed now:
@@ -291,7 +307,7 @@ signing/attestation policy, and destination channels.
 
 ## Current Blockers
 
-Selected v1.1.0 package-channel verification is complete. Production
+Selected v1.3.0 package-channel verification is complete. Production
 compatibility, signing, future package channels, competitive performance and
 broad runtime claims still require separate proof. The phase plan retains the
 open implementation and PERF/CG obligations; publication does not close them.
@@ -323,10 +339,10 @@ completion:
 
 | Channel | Current status | Proof or remaining action |
 | --- | --- | --- |
-| GitHub pre-release | Published/proof-backed for v1.1.0 | Release/tag/assets/checksum/SBOM/provenance download proof: `docs/release/channel-proofs/github-prerelease-v1.1.0-transcript.json`. |
-| TestPyPI | Published/proof-backed for v1.1.0 | Trusted Publisher upload and clean registry install/uninstall/smoke proof: `docs/release/channel-proofs/testpypi-v1.1.0-transcript.json`. |
-| PyPI | Published/proof-backed for v1.1.0 | Trusted Publisher upload after TestPyPI proof and clean public install/uninstall/smoke proof: `docs/release/channel-proofs/pypi-v1.1.0-transcript.json`. |
-| Homebrew tap | Published/proof-backed for v1.1.0 | Tap/formula audit/style/test plus source build install/uninstall/smoke proof: `docs/release/channel-proofs/homebrew-v1.1.0-transcript.json`. |
+| GitHub pre-release | Published/proof-backed for v1.3.0 | Release/tag/assets/checksum/SBOM/provenance download proof: `docs/release/channel-proofs/github-prerelease-v1.3.0-transcript.json`. |
+| TestPyPI | Published/proof-backed for v1.3.0 | Trusted Publisher upload and clean registry install/uninstall/smoke proof: `docs/release/channel-proofs/testpypi-v1.3.0-transcript.json`. |
+| PyPI | Published/proof-backed for v1.3.0 | Trusted Publisher upload after TestPyPI proof and clean public install/uninstall/smoke proof: `docs/release/channel-proofs/pypi-v1.3.0-transcript.json`. |
+| Homebrew tap | Published/proof-backed for v1.3.0 | Tap/formula audit/style/test plus source build install/uninstall/smoke proof: `docs/release/channel-proofs/homebrew-v1.3.0-transcript.json`. |
 | Scoop | Blocked | Approve bucket manifest, checksums, install/uninstall/smoke transcript, update/rollback policy. |
 | winget | Blocked | Approve manifest/submission, installer proof, install/uninstall/smoke transcript, update/rollback policy. |
 | conda-forge | Blocked | Approve staged-recipes/feedstock submission, clean feedstock install/uninstall/smoke, maintainer policy. |
@@ -335,7 +351,7 @@ completion:
 
 ## Approval Record
 
-Publication approval for v1.1.0 is recorded in
+Publication approval for v1.3.0 is recorded in
 `docs/release/final-release-approval-post-release-verification.json`. The approved channels are
 GitHub pre-release, TestPyPI, PyPI, and Homebrew. Channel proof now records:
 
@@ -347,7 +363,7 @@ GitHub pre-release, TestPyPI, PyPI, and Homebrew. Channel proof now records:
 - Approved secrets/OIDC/environment setup for each selected channel.
 - Passed selected-channel checks, with unfinished production and capability gates preserved.
 
-Selected-channel package install claims are now allowed for v1.1.0. Production, performance,
+Selected-channel package install claims are now allowed for v1.3.0. Production, performance,
 Spark-replacement, platform, broad runtime, future package-channel, and fallback-execution claims
 remain prohibited.
 

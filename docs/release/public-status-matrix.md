@@ -8,7 +8,7 @@ Schema marker: `shardloom.public_status_matrix.v1`.
 
 This matrix is the source-owned public posture summary for the README, getting-started docs,
 Python README, release readiness docs, and website wording. It describes what a public reader may
-infer from the current repository state. v1.1.0 is published through the four selected package
+infer from the current repository state. v1.3.0 is published through the four selected package
 channels, with each proof recorded in the publication verification. Publication does not authorize
 production support, benchmark superiority, Spark displacement,
 external execution, or fallback execution.
@@ -20,7 +20,7 @@ The active v1 queue and feasibility firewall is tracked in
 [`docs/release/v1-inclusion-scope-matrix.md`](v1-inclusion-scope-matrix.md).
 The selected local/source/package v1 release track is tracked in
 [`docs/release/v1-local-source-package-release.md`](v1-local-source-package-release.md).
-The four selected package channels provide 1.1.0 technical-preview installation.
+The four selected package channels provide 1.3.0 technical-preview installation.
 The real production environment gates remain blocked.
 The scoped local SQL/Python/DataFrame front-door runtime boundary is defined in
 [`docs/architecture/v1-front-door-runtime-scope.md`](../architecture/v1-front-door-runtime-scope.md).
@@ -39,17 +39,20 @@ support bundles remain local/redacted and remote telemetry/upload surfaces remai
 
 <a id="current-source-additions-after-100"></a>
 
-### Current 1.3.0 source milestone additions since 1.1.0
+### Published 1.3.0 additions since 1.1.0
 
-Source checkouts bumped to version `1.3.0` consolidate accepted local engine, API,
-and verification work since `1.1.0` while published channels remain on `1.1.0`
-until separate channel verification closes:
+Published `1.3.0` packages consolidate accepted local engine, API,
+and verification work since `1.1.0`:
 
 - Pure-AST SQL binder (`sqlparser = 0.64.0`) in `shardloom-plan::sql_binder` and converged AST-bound SQL/LazyFrame native execution (flat N-way joins, partitioned analytic windows, uncapped set operations, reusable materialized CTEs, decorrelated subqueries, `QUALIFY`/`FETCH`, compiled batch expressions, and scan probe min/max/`InList`/3-bit Bloom runtime filters).
 - Exact Vortex footer metadata aggregates, exact `i128` `SUM`/`AVG` accumulation, cross-query `ResidentLayoutSlotPool` / `LayoutReader` reuse, gated `SegmentPrefetchPolicy` coalesced byte-range I/O, unified session-persistent `ComputePool` scheduling, content-driven `FirstBatchProfile` readers, direct `VarBin`/`VarBinView` Zstd encoding, binary Arrow IPC worker framing, and `16K`–`64K` native Vortex query spill with single-pass streaming digests.
 - Rich column workflows (`Float16`/`Float32`/`Float64` vectors, declared embeddings, fixed/variable tensors, sparse coordinates, affine quantization codes, inline binary, and nested variants), deep nested traversal (`depth-24`), optional `shardloom.ai` / Foundry / RFC 0047 portable-worker surfaces, and the `14/14` multi-table TPC-H (`8` tables) + SSB (`5` tables) offline dual-oracle parity suite.
 
-The [1.3.0 source milestone record](v1.3.0-release-notes.md) records the local `1.3.0` CLI, native module, macOS ARM64 wheel, sdist, and workspace acceptance; channel publication and external `100M` ClickBench screens remain separate gates (`claim_gate_status=not_claim_grade`, `fallback_attempted=false`, `external_engine_invoked=false`).
+The [1.3.0 release notes](v1.3.0-release-notes.md) and
+[1.3.0 publication verification](v1.3.0-publication-verification.md) record the local `1.3.0`
+CLI, native module, published GitHub, TestPyPI, PyPI, and Homebrew artifacts and checks;
+external `100M` ClickBench screens remain separate gates (`claim_gate_status=not_claim_grade`,
+`fallback_attempted=false`, `external_engine_invoked=false`).
 
 ### Published 1.1.0 additions since 1.0.0
 
@@ -75,23 +78,23 @@ records the artifact identities and install checks for this release.
 
 **Published local engine; operational hardening in progress.** This is the current public
 support label. The technical-preview designation describes the support promise, not whether
-the engine or packages exist. Install 1.1.0 through GitHub, TestPyPI, PyPI or Homebrew.
-[Publication verification](v1.1.0-publication-verification.md).
+the engine or packages exist. Install 1.3.0 through GitHub, TestPyPI, PyPI or Homebrew.
+[Publication verification](v1.3.0-publication-verification.md).
 
 The published Linux x86_64 and macOS arm64 wheels include the
 [native Python surface](../architecture/native-python-surface-2026-10-10.md).
 Its [local acceptance](../benchmarks/native-python-surface-2026-10-11.md) covers
 native input/results, in-process operations, typed plans, an isolated installed
 wheel and six paired complete Python workflows. Hosted integration completed in
-[PR #1541](https://github.com/depsilon/shardloom/pull/1541). The 1.1.0 local package acceptance records a macOS ARM64 CPython 3.10 stable-ABI
-wheel and 303 native integration tests with no failures, errors or skips. Registry
-proofs retain their own native Linux/macOS installation results. Windows retains
+[PR #1541](https://github.com/depsilon/shardloom/pull/1541). The 1.3.0 local package acceptance records a macOS ARM64 CPython 3.10 stable-ABI
+wheel and 492 native integration tests with no failures, errors or skips. Registry
+proofs retain their own native Linux/macOS installation results (`492` tests with `0` skips on both platforms). Windows retains
 a CLI-backed Python package and process transport. Publication does not extend the production-support promise or
 establish a new ingest or Full43 result.
 
-The maintainer-requested [v1.1.0 release](v1.1.0-release-notes.md) packages the
+The maintainer-requested [v1.3.0 release](v1.3.0-release-notes.md) packages the
 accepted connected plans, analytical families, direct local I/O, adaptive
-resource work and table-reader profiles while retaining the Context/Result
+resource work, rich-column workflows, pure-AST SQL binder, and table-reader profiles while retaining the Context/Result
 interface, native ownership and spill contracts from prior releases. The
 [migration guide](../reference/python-api-migration.md)
 explains native transport selection on Linux/macOS, typed errors by default,
@@ -99,7 +102,7 @@ result reuse and context lifecycle behavior.
 Linux and macOS registry wheels expose the native Python surface through the
 CPython 3.10 stable ABI. The GitHub prerelease wheel is tagged
 `cp310-abi3-macosx_27_0_arm64`. The release record lists the registry tags,
-installation results and artifact identities. [1.1.0 publication verification](v1.1.0-publication-verification.md). Data inspection, preparation and execution require explicit memory and
+installation results and artifact identities. [1.3.0 publication verification](v1.3.0-publication-verification.md). Data inspection, preparation and execution require explicit memory and
 parallelism allocations.
 
 The local engine executes admitted SQL, Python/DataFrame and CLI workflows through one native
@@ -309,7 +312,7 @@ the publication-attempt fields below describe this status/gate surface's side ef
 the history of the already published package channels.
 
 ```text
-package_publication_status=published_v1.1.0_selected_channels
+package_publication_status=published_v1.3.0_selected_channels
 public_package_release_claim_allowed=true
 public_release_claim_allowed=false
 public_package_claim_allowed=false
@@ -342,7 +345,7 @@ external_engine_invoked=false
 | Benchmarks | The parameterized local harness runs one ShardLoom candidate through the public native workflow, with declared input state and output format. It retains source, executable, command, timing, and complete-result evidence. Comparison engines provide independent references only. | Local correctness comparisons with explicit timing boundaries; published historical evidence keeps its original scope. | Public performance superiority, Spark displacement, stale-artifact claims, timing-surface substitution. |
 | Object store, lakehouse, Foundry, live/hybrid | Mostly report-only, fixture-scoped, or blocked for broader platform routes. | Capability posture, local fixture proof where explicitly named, blocked diagnostics. | Production platform/runtime claims and managed-service integrations. |
 | Website | Static public interpretation layer over checked-in source/evidence. | Claim-safe docs, use-case, benchmark, status, and architecture views. | Runtime expansion, package publication, public benchmark freshness beyond promoted artifacts. |
-| Package/release channels | GitHub prerelease assets, TestPyPI, PyPI and Homebrew provide verified 1.1.0 installs. | Install with `python -m pip install shardloom==1.1.0` or `brew install depsilon/tap/shardloom`. The package guide lists compatible Python platforms. | Scoop, winget, conda-forge, GHCR, crates.io, real production environment gates, signing/attestation expansion, and production/package-maturity claims remain blocked. |
+| Package/release channels | GitHub prerelease assets, TestPyPI, PyPI and Homebrew provide verified 1.3.0 installs. | Install with `python -m pip install shardloom==1.3.0` or `brew install depsilon/tap/shardloom`. The package guide lists compatible Python platforms. | Scoop, winget, conda-forge, GHCR, crates.io, real production environment gates, signing/attestation expansion, and production/package-maturity claims remain blocked. |
 
 ## Public Docs Ownership
 
@@ -380,6 +383,6 @@ external_engine_invoked=false
   policy.
 - Benchmark wording must state `timing_surface` and `claim_gate_status` before comparing numbers.
 - Package wording must distinguish source checkout, local wheel dry run, selected published
-  v1.1.0 channels, blocked future channels, and production/package-maturity claims.
+  v1.3.0 channels, blocked future channels, and production/package-maturity claims.
 - Website and docs changes must preserve `fallback_attempted=false` and
   `external_engine_invoked=false` for ShardLoom execution evidence.

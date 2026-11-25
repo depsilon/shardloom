@@ -34,12 +34,12 @@ import zipfile
 from local_uat_storage import available_bytes, require_local_path
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "1.1.0"
-RELEASE_SOURCE = "4d11d4e9c2349f0dc63dc27288b432a351c1a962"
+VERSION = "1.3.0"
+RELEASE_SOURCE = "9c6b6f55e727a92f86490dd143f92f9425745c6e"
 WORKFLOW = ".github/workflows/pypi-publish-draft.yml"
 CHANNELS = {
-    "testpypi": (41639185725, RELEASE_SOURCE, "https://test.pypi.org"),
-    "pypi": (41648070335, "ee32bf4a810340495f8e71e811437ab413b56986", "https://pypi.org"),
+    "testpypi": (45579727951, RELEASE_SOURCE, "https://test.pypi.org"),
+    "pypi": (45610688982, "5b4b3087d251db274b7f1beb6d71e8c39a59a84b", "https://pypi.org"),
 }
 KINDS = {
     "python-dist-macos": (f"shardloom-{VERSION}-cp310-abi3-macosx_26_0_arm64.whl", "macos-aarch64", "shardloom"),
@@ -51,7 +51,7 @@ NATIVE_PROOF_KINDS = {
     "native-registry-proof-macos": "python-dist-macos",
     "native-registry-proof-linux": "python-dist-linux",
 }
-MAX_ARCHIVE = 64 << 20
+MAX_ARCHIVE = 128 << 20
 MAX_CLI = 128 << 20
 MAX_NATIVE = 128 << 20
 MAX_NATIVE_PROOF = 1 << 20
@@ -62,6 +62,7 @@ NATIVE_PROOF_EXPECTATIONS = {
     "0.7.0": {"tests": 121, "linux_payloads": 275},
     "1.0.0": {"tests": 140, "linux_payloads": 280},
     "1.1.0": {"tests": 303, "linux_payloads": 290},
+    "1.3.0": {"tests": 492, "linux_payloads": 302},
 }
 
 
@@ -536,7 +537,7 @@ def observe_channel(observer, channel):
     live, live_path = observer.registry_json(registry + f"/pypi/shardloom/{VERSION}/json", channel + "-registry")
     distributions = validate_inventory(proof, live, channel)
     workflow, workflow_path = observer.gh_json(f"repos/depsilon/shardloom/actions/runs/{run_id}", channel + "-workflow")
-    expected_branch = "v1.1.0" if channel == "testpypi" else "codex/release-110-channel-proofs"
+    expected_branch = "v1.3.0" if channel == "testpypi" else "codex/release-130-channel-proofs"
     require(workflow["id"] == run_id and workflow["head_sha"] == source and
             workflow["head_branch"] == expected_branch and workflow["event"] == "workflow_dispatch" and
             workflow["path"] == WORKFLOW and workflow["status"] == "completed" and

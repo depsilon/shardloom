@@ -10,7 +10,7 @@ object-store/lakehouse, Foundry, or Spark-displacement claims.
 
 ## Stable V1 Local Examples
 
-These examples use the published [1.1.0 API](package-user-install.md) and
+These examples use the published [1.3.0 API](package-user-install.md) and
 can run from an installed package or its matching [source tag](source-checkout-install.md). The
 [migration guide](../reference/python-api-migration.md) covers the 0.7.0
 Context/Result and error contracts. Memory and parallelism allocations remain
@@ -28,14 +28,14 @@ generated rows, and scoped local Vortex inputs are the default public examples. 
 IPC/Feather, Avro, and ORC are scoped local-format surfaces when the matching feature-gated build is
 present; otherwise ShardLoom returns deterministic adapter blockers without fallback execution.
 
-## 1.1.0 package and source examples
+## 1.3.0 package and source examples
 
-The published 1.1.0 package includes the connected SQL/DataFrame plans and
+The published 1.3.0 package includes the connected SQL/DataFrame plans and
 local table readers exercised below. The maintained
 [five-interface program](../../examples/source-interfaces/run.py) creates a small
 CSV, runs DataFrame, Python SQL, typed native, embedded workflow and CLI SQL queries,
 checks the same complete rows, then verifies explicit preparation and multi-output
-readback. Run it from the `v1.1.0` source tag with a matching native Python installation
+readback. Run it from the `v1.3.0` source tag with a matching native Python installation
 and CLI. Use a Linux or macOS native wheel for the typed Python path. The
 Windows package exposes the CLI through subprocess transport.
 

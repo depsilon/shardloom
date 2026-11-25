@@ -102,8 +102,8 @@ The two registry records contain the SHA-256 and size of each distribution.
 
 | Channel | SBOM | Checksums | Provenance | Build source |
 | --- | --- | --- | --- | --- |
-| TestPyPI | [SBOM](channel-proofs/testpypi-v1.1.0-sbom.cdx.json) | [Checksums](channel-proofs/testpypi-v1.1.0-checksums.sha256) | [Provenance](channel-proofs/testpypi-v1.1.0-provenance.json) | `4d11d4e9c2349f0dc63dc27288b432a351c1a962` |
-| PyPI | [SBOM](channel-proofs/pypi-v1.1.0-sbom.cdx.json) | [Checksums](channel-proofs/pypi-v1.1.0-checksums.sha256) | [Provenance](channel-proofs/pypi-v1.1.0-provenance.json) | `ee32bf4a810340495f8e71e811437ab413b56986` |
+| TestPyPI | [SBOM](channel-proofs/testpypi-v1.3.0-sbom.cdx.json) | [Checksums](channel-proofs/testpypi-v1.3.0-checksums.sha256) | [Provenance](channel-proofs/testpypi-v1.3.0-provenance.json) | `9c6b6f55e727a92f86490dd143f92f9425745c6e` |
+| PyPI | [SBOM](channel-proofs/pypi-v1.3.0-sbom.cdx.json) | [Checksums](channel-proofs/pypi-v1.3.0-checksums.sha256) | [Provenance](channel-proofs/pypi-v1.3.0-provenance.json) | `5b4b3087d251db274b7f1beb6d71e8c39a59a84b` |
 
 Each bundle covers its complete registry inventory (TestPyPI: 4 files, PyPI: 4 files), including
 the published platform wheels and source distribution. The matrix's legacy `prepared_local_artifact_refs` field now lists those
@@ -137,5 +137,5 @@ The machine-readable matrix lists these gate references under `gate_evidence_ref
 - `docs/security/supply-chain-response.md`
 - `scripts/check_package_channel_readiness.py`
 
-The current matrix is ready for the selected v1.1.0 package channels only. It is not evidence for
+The current matrix is ready for the selected v1.3.0 package channels only. It is not evidence for
 future package channels, production readiness, performance superiority, or broad runtime claims.

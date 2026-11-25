@@ -30,9 +30,9 @@ standard or another database's dialect compatibility.
 
 Use `ctx.sql_support()` for the installed engine's inspection report. Use plan
 inspection to check a particular expression; inspection is not query execution.
-The [published parser/binder reference](https://github.com/depsilon/shardloom/blob/v1.1.0/docs/architecture/sql-parser-binder-readiness.md),
-[typed expression contract](https://github.com/depsilon/shardloom/blob/v1.1.0/docs/architecture/native-typed-expressions-2026-10-03.md),
-and [scalar-subquery semantics](https://github.com/depsilon/shardloom/blob/v1.1.0/docs/architecture/native-scalar-subqueries-2026-10-05.md)
+The [published parser/binder reference](https://github.com/depsilon/shardloom/blob/v1.3.0/docs/architecture/sql-parser-binder-readiness.md),
+[typed expression contract](https://github.com/depsilon/shardloom/blob/v1.3.0/docs/architecture/native-typed-expressions-2026-10-03.md),
+and [scalar-subquery semantics](https://github.com/depsilon/shardloom/blob/v1.3.0/docs/architecture/native-scalar-subqueries-2026-10-05.md)
 describe supported forms and deterministic rejections.
 
 COUNT, SUM, AVG, MIN, MAX and exact COUNT DISTINCT retain their type/NULL
@@ -40,7 +40,7 @@ semantics. Decimal arithmetic binds exact output metadata before execution.
 Explicit `NULLS FIRST` or `NULLS LAST` controls NULL placement independently of
 ascending/descending ordering. Unsupported expressions fail without another engine.
 
-Published 1.1.0 packages add named scalar parameters and query-local DataFrame
+Published 1.3.0 packages add named scalar parameters and query-local DataFrame
 bindings to `ctx.sql(...)`.
 For example:
 

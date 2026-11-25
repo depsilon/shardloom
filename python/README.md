@@ -9,10 +9,10 @@ with `sl.context(...)` and explicit memory and parallelism settings.
 ## Install
 
 <!-- BEGIN SHARDLOOM RELEASE -->
-Published **1.1.0**. [Install and platform requirements](https://shardloom.io/field-guide/start-local-proof).
+Published **1.3.0**. [Install and platform requirements](https://shardloom.io/field-guide/start-local-proof).
 
 ```sh
-python -m pip install shardloom==1.1.0
+python -m pip install shardloom==1.3.0
 ```
 
 - macOS 26 or newer, Apple silicon; CPython 3.10 or newer; native or subprocess.
@@ -71,18 +71,18 @@ writing results, and reopening a data file.
 - [Limitations](https://shardloom.io/field-guide/limitations)
 - [Development](https://shardloom.io/field-guide/development)
 
-## New in 1.1.0
+## New in 1.3.0
 
 Pass named scalar parameters and query-local DataFrames to `ctx.sql(...)`
 with `parameters=` and `relations=`. The same plan can read a local file or
 a supported Iceberg, Delta Lake or Hudi snapshot.
-[SQL and DataFrame composition](https://github.com/depsilon/shardloom/blob/v1.1.0/docs/reference/connected-programming.md) ·
+[SQL and DataFrame composition](https://github.com/depsilon/shardloom/blob/v1.3.0/docs/reference/connected-programming.md) ·
 [Local table snapshots](https://shardloom.io/field-guide/local-tables).
 
 The five-interface example checks the same two ordered rows through each
 interface, then reopens two outputs and an explicitly prepared Vortex file.
 It passes with the installed macOS ARM64 GitHub wheel and its bundled CLI.
-[Run the tagged example](https://github.com/depsilon/shardloom/blob/v1.1.0/examples/source-interfaces/run.py).
+[Run the tagged example](https://github.com/depsilon/shardloom/blob/v1.3.0/examples/source-interfaces/run.py).
 
 <a id="source-only-native-python-api"></a>
 
@@ -95,7 +95,7 @@ engine-owned columnar results. Arrow export is an explicit conversion. See the
 [embedding guide](https://shardloom.io/field-guide/embedding) and
 [source-build instructions](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md#optional-native-python-binding).
 
-Current `1.3.0` source builds after `1.1.0` carry dense Float16/Float32/Float64 vectors,
+Published `1.3.0` packages add dense Float16/Float32/Float64 vectors,
 declared embedding identity, fixed- and variable-shape tensors, sparse coordinates,
 affine quantization codes, inline binary content and nested values through native
 data workflows, alongside pure-AST SQL binding, native hash joins and partitioned
@@ -103,7 +103,7 @@ windows, binary Arrow IPC worker batches, resident `LayoutReader` reuse, `16K`�
 Vortex spill, and optional AI/Foundry/portable-worker surfaces.
 See [rich-column declarations and output fidelity](https://github.com/depsilon/shardloom/blob/main/docs/reference/rich-columns.md)
 and [1.3.0 source milestone notes](https://github.com/depsilon/shardloom/blob/main/docs/release/v1.3.0-release-notes.md).
-These additions are not in the published 1.1.0 wheels.
+These capabilities ship in the published 1.3.0 packages ([release notes](https://github.com/depsilon/shardloom/blob/main/docs/release/v1.3.0-release-notes.md), [publication verification](https://github.com/depsilon/shardloom/blob/main/docs/release/v1.3.0-publication-verification.md)).
 
 Variable-shape tensor declarations passed local, installed-package and hosted
 integration checks in PR #1662; these declarations are not in the published wheels. See the
@@ -120,7 +120,7 @@ dequantization remain separate capabilities.
 
 ## Application batch functions
 
-Published 1.1.0 native Python wheels support explicitly trusted, deterministic, row-preserving
+Published 1.3.0 native Python wheels support explicitly trusted, deterministic, row-preserving
 Python callables through `ctx.batch_functions.register(...)` and
 `frame.map_batches(function)`. Rust callbacks use the same native operator.
 Declare ordered input/output schemas, null behavior, version and resource limits;

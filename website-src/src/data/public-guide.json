@@ -1,9 +1,9 @@
 {
   "release": {
-    "release_tag": "v1.1.0",
-    "source_revision": "4d11d4e9c2349f0dc63dc27288b432a351c1a962",
+    "release_tag": "v1.3.0",
+    "source_revision": "9c6b6f55e727a92f86490dd143f92f9425745c6e",
     "artifact_channel": "pypi",
-    "evidence_ref": "docs/release/v1.1.0-publication-verification.md",
+    "evidence_ref": "docs/release/v1.3.0-publication-verification.md",
     "platforms": [
       {
         "wheel_tag": "cp310-abi3-macosx_26_0_arm64",
@@ -14,13 +14,13 @@
           "subprocess"
         ],
         "artifact": {
-          "filename": "shardloom-1.1.0-cp310-abi3-macosx_26_0_arm64.whl",
+          "filename": "shardloom-1.3.0-cp310-abi3-macosx_26_0_arm64.whl",
           "packagetype": "bdist_wheel",
           "python_version": "cp310",
-          "sha256": "ad4c960135a2b2946ef30472e5961da8e58afc28055d68f53f4b48bc14424d30",
-          "size": 55247146,
-          "upload_time_iso_8601": "2026-11-03T14:27:30.604536Z",
-          "url": "https://files.pythonhosted.org/packages/c2/a5/c134448f7c402b227d627d3ddf1bb912393356b90f19937a59df143a505e/shardloom-1.1.0-cp310-abi3-macosx_26_0_arm64.whl"
+          "sha256": "f4a1b52b753754251de9255146f10b0211fb86cdfba5d2e81f3dea8d7338520f",
+          "size": 60903296,
+          "upload_time_iso_8601": "2026-11-25T13:19:39.459421Z",
+          "url": "https://files.pythonhosted.org/packages/6f/50/ef3cabd7cb0d7757d365080c1600d1afc2d3eced580d8b97378172a2a606/shardloom-1.3.0-cp310-abi3-macosx_26_0_arm64.whl"
         }
       },
       {
@@ -32,13 +32,13 @@
           "subprocess"
         ],
         "artifact": {
-          "filename": "shardloom-1.1.0-cp310-abi3-manylinux_2_39_x86_64.whl",
+          "filename": "shardloom-1.3.0-cp310-abi3-manylinux_2_39_x86_64.whl",
           "packagetype": "bdist_wheel",
           "python_version": "cp310",
-          "sha256": "a1f196f5687f3883ba8483c57bd41181f222617cc1b48a544371db4ee4c90200",
-          "size": 62315632,
-          "upload_time_iso_8601": "2026-11-03T14:27:35.559453Z",
-          "url": "https://files.pythonhosted.org/packages/df/b0/327618deaace24f2638e65a3e86bb4ae77b86d3d74cd0af47b3fd6f272d3/shardloom-1.1.0-cp310-abi3-manylinux_2_39_x86_64.whl"
+          "sha256": "6701fb584a96fff2a29341d04c3531302679cccb844d46b38119fe5a144937f1",
+          "size": 67952829,
+          "upload_time_iso_8601": "2026-11-25T13:19:44.817869Z",
+          "url": "https://files.pythonhosted.org/packages/e9/4b/b551ec4bba639d259a9a52663f96cbbb4e2d3bc93493b292b9b4b2acd0dc/shardloom-1.3.0-cp310-abi3-manylinux_2_39_x86_64.whl"
         }
       },
       {
@@ -49,13 +49,13 @@
           "subprocess"
         ],
         "artifact": {
-          "filename": "shardloom-1.1.0-cp313-cp313-win_amd64.whl",
+          "filename": "shardloom-1.3.0-cp313-cp313-win_amd64.whl",
           "packagetype": "bdist_wheel",
           "python_version": "cp313",
-          "sha256": "a804a19391ee381c8893de50e6f6656967afa64c62ab9d286edf54b85ccae41f",
-          "size": 26933069,
-          "upload_time_iso_8601": "2026-11-03T14:27:39.370877Z",
-          "url": "https://files.pythonhosted.org/packages/10/19/c8e9678d1f59843caaf99d07b5d953f5bf1ea0f44f70929de9c90257f332/shardloom-1.1.0-cp313-cp313-win_amd64.whl"
+          "sha256": "a8c1a66675d6b8ce7fce019b37be04f99d881943384839d1eea0d633f4f7c359",
+          "size": 27918159,
+          "upload_time_iso_8601": "2026-11-25T13:19:48.827598Z",
+          "url": "https://files.pythonhosted.org/packages/63/c7/cebc6d2876416219f14dba1ae5aa97be53067f552bc5b9e3cb05745b1761/shardloom-1.3.0-cp313-cp313-win_amd64.whl"
         }
       }
     ],
@@ -72,7 +72,7 @@
         "id": "local-tables",
         "operation": "Read a local table snapshot",
         "types_formats": "Iceberg v1/v2, supported Delta profiles and Hudi Copy-on-Write v8/v9",
-        "artifact_requirement": "1.1.0 CLI or Python wheel with local table readers",
+        "artifact_requirement": "1.3.0 CLI or Python wheel with local table readers",
         "restriction": "Select the table format and a supported snapshot of local Parquet data. The reader applies table-specific visibility and schema rules before execution.",
         "reference": "/field-guide/local-tables#select-a-table-version"
       },
@@ -117,10 +117,10 @@
         "reference": "/field-guide/python-surface#keep-results-native"
       }
     ],
-    "version": "1.1.0",
-    "installCommand": "python -m pip install shardloom==1.1.0",
-    "sourceUrl": "https://github.com/depsilon/shardloom/tree/4d11d4e9c2349f0dc63dc27288b432a351c1a962",
-    "evidenceUrl": "https://github.com/depsilon/shardloom/blob/main/docs/release/v1.1.0-publication-verification.md"
+    "version": "1.3.0",
+    "installCommand": "python -m pip install shardloom==1.3.0",
+    "sourceUrl": "https://github.com/depsilon/shardloom/tree/9c6b6f55e727a92f86490dd143f92f9425745c6e",
+    "evidenceUrl": "https://github.com/depsilon/shardloom/blob/main/docs/release/v1.3.0-publication-verification.md"
   },
   "examples": {
     "snippets": {
