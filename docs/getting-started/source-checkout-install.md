@@ -5,8 +5,8 @@
 Status marker: `source_checkout_install_v1=true`.
 
 Use this path to build the current repository revision. For the published
-v1.1.0 packages, see [Package User Install Status](package-user-install.md). To
-reproduce the accepted 1.1.0 source milestone, check out the `v1.1.0` tag before
+v1.3.0 packages, see [Package User Install Status](package-user-install.md). To
+reproduce the accepted 1.3.0 source milestone, check out the `v1.3.0` tag before
 building. Build the CLI and use the Python package from the same checkout. This local proof does not establish production readiness,
 performance superiority, Spark replacement, or broad SQL/DataFrame support.
 
@@ -140,7 +140,7 @@ The publication workflow separately runs the compatibility audit and installed
 proof for the published `manylinux_2_39_x86_64` wheel. Windows native extension
 execution remains unsupported; its published Python wheel uses the bundled CLI.
 The public release record lists the wheel tags and installed-package checks
-for each platform. [1.1.0 publication verification](../release/v1.1.0-publication-verification.md).
+for each platform. [1.3.0 publication verification](../release/v1.3.0-publication-verification.md).
 
 ## Single Local Proof
 

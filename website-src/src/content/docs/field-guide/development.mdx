@@ -1,6 +1,6 @@
 ---
 title: "Development and migration"
-description: "Use the published 1.1.0 package, review its supported boundaries, and follow API migration and source-build guidance."
+description: "Use the published 1.3.0 package, review its supported boundaries, and follow API migration and source-build guidance."
 pagefind: false
 ---
 
@@ -13,21 +13,19 @@ import { developmentExample } from '../../../data/quickstart.mjs';
 ## Published package and source
 
 The lifecycle and `Result` API described here remains available in
-[v1.1.0](https://github.com/depsilon/shardloom/blob/v1.1.0/docs/release/v1.1.0-release-notes.md). The separate
-[publication verification](https://github.com/depsilon/shardloom/blob/main/docs/release/v1.1.0-publication-verification.md)
+[v1.3.0](https://github.com/depsilon/shardloom/blob/v1.3.0/docs/release/v1.3.0-release-notes.md). The separate
+[publication verification](https://github.com/depsilon/shardloom/blob/main/docs/release/v1.3.0-publication-verification.md)
 binds the selected artifacts and per-channel installation proofs.
 For reproducible future source work, pin source commits and follow
 [source installation](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md).
 
 <span id="current-source-capabilities"></span>
 
-## Current 1.3.0 source milestone capabilities
+## Published 1.3.0 additions since 1.1.0
 
-Source checkouts at `1.3.0` add the consolidated local work accepted since `v1.1.0`
-(published registry packages remain on `v1.1.0` until separate publication verification
-completes):
+Published 1.3.0 packages include the consolidated local work accepted since `v1.1.0`:
 
-| Area | Scope in the `1.3.0` source milestone |
+| Area | Scope in 1.3.0 |
 | --- | --- |
 | Rich data & AI workflows | Dense `Float16`/`Float32`/`Float64` vectors, embedding identity, fixed/variable tensors, sparse indices, affine quantization codes, inline binary/nested variants, deep traversal (`depth-24`), and optional `shardloom.ai` / Foundry / portable worker adapters |
 | SQL AST & relational execution | `sqlparser` pure-AST binder, flat N-way hash joins (`INNER`/`LEFT`/`RIGHT`/`FULL`/`SEMI`/`ANTI`/`CROSS`), partitioned windows, materialized CTEs, decorrelated subqueries, `QUALIFY`/`FETCH`, compiled batch expressions, and probe runtime filters |
@@ -39,16 +37,16 @@ for local acceptance identities and open `100M` ClickBench gates.
 
 <span id="published-110-capabilities"></span>
 
-## Published 1.1.0 capabilities
+## Published 1.3.0 capabilities
 
-The published 1.1.0 package includes the [connected programming model](https://github.com/depsilon/shardloom/blob/main/docs/reference/connected-programming.md),
+The published 1.3.0 package includes the [connected programming model](https://github.com/depsilon/shardloom/blob/main/docs/reference/connected-programming.md),
 admitted analytical families, shared direct local I/O, adaptive resource
 decisions and read-only Iceberg/Delta/Hudi snapshot profiles. The
-[dated source milestone record](https://github.com/depsilon/shardloom/blob/v1.1.0/docs/release/v1.1.0-release-notes.md)
+[dated source milestone record](https://github.com/depsilon/shardloom/blob/v1.3.0/docs/release/v1.3.0-release-notes.md)
 lists the operations added in this release. Use `shardloom capabilities --format json`
 to inspect the formats and operators available in your installation.
 
-| Task | Published 1.1.0 support | Boundary to keep explicit |
+| Task | Published 1.3.0 support | Boundary to keep explicit |
 | --- | --- | --- |
 | Compose SQL and DataFrames | Named scalar parameters, query-local relations, nested CTE scopes, admitted recursive queries and explicit CTE materialization. | Parameters are values, not SQL text; recursion has declared limits. See [connected programming](https://github.com/depsilon/shardloom/blob/main/docs/reference/connected-programming.md). |
 | Analyze richer values | Extended numeric/aggregate and temporal/time-series operations share typed native execution. | Each operation has type, overflow, NULL and ordering rules; file adapters retain their own schema profiles. |
@@ -57,7 +55,7 @@ to inspect the formats and operators available in your installation.
 | Deliver multiple outputs | One supported `fanout` action computes once and writes its requested destinations. | Final publication is not a multi-file atomic transaction. See [writers](/field-guide/runtime-and-io#write-multiple-results-in-current-source). |
 | Adapt work to available capacity | Source batches, conversion windows, queues, output gathers and native spill blocks use admitted shared headroom. | Physical and semantic minimums remain; reservations are not a total-process memory cap. See [resources](/field-guide/resources#adaptive-work-in-current-source). |
 
-The [five-interface example](https://github.com/depsilon/shardloom/blob/v1.1.0/examples/source-interfaces/run.py)
+The [five-interface example](https://github.com/depsilon/shardloom/blob/v1.3.0/examples/source-interfaces/run.py)
 creates a small local source, checks complete answers through DataFrame, Python
 SQL, typed native, embedded workflow and CLI SQL, then reopens two outputs and
 an explicitly prepared Vortex input. Run it with a matching native installation
@@ -121,7 +119,7 @@ atomic publication, or resume interrupted queries. Native structural storage
 admission covers six classes: child caches/classification, cumulative row offsets,
 reader metadata vectors, segment specifications, file statistics tables, and user
 metadata names/locators. See the [v1.0.0 release notes](https://github.com/depsilon/shardloom/blob/main/docs/release/v1.0.0-release-notes.md)
-and its linked acceptance records for exact workloads and limits. The 1.1.0
+and its linked acceptance records for exact workloads and limits. The 1.3.0
 package adds the separately documented connected plans, analytical families,
 local readers and adaptive resource decisions.
 

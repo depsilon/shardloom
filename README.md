@@ -24,10 +24,10 @@ specific local analytical workflows; broader capabilities remain under developme
 ## First query
 
 <!-- BEGIN SHARDLOOM RELEASE -->
-Published **1.1.0**. [Install and platform requirements](https://shardloom.io/field-guide/start-local-proof).
+Published **1.3.0**. [Install and platform requirements](https://shardloom.io/field-guide/start-local-proof).
 
 ```sh
-python -m pip install shardloom==1.1.0
+python -m pip install shardloom==1.3.0
 ```
 
 - macOS 26 or newer, Apple silicon; CPython 3.10 or newer; native or subprocess.
@@ -72,16 +72,14 @@ executes it. The example creates its own input and cleans its temporary director
 Memory and parallelism are illustrative caller choices. Continue with
 [SQL and writing results](https://shardloom.io/field-guide/start-local-proof).
 
-## New in 1.1.0
+## New in 1.3.0
 
 You can bind a DataFrame to a SQL query, read a local Iceberg, Delta Lake or
 Hudi snapshot, and write multiple results from one execution. Ordinary file
 queries read their input directly. Prepare a Vortex dataset explicitly when
-you want to persist and reuse it. [Release notes](docs/release/v1.1.0-release-notes.md).
+you want to persist and reuse it. [Prior 1.1.0 release notes](docs/release/v1.1.0-release-notes.md).
 
-## Current source milestone (1.3.0)
-
-Source checkouts at `1.3.0` add rich columns (float vectors, embeddings, tensors, sparse indices, quantized codes, inline binary and nested values), pure-AST `sqlparser` SQL binding with native hash joins, partitioned windows, materialized CTEs and subquery decorrelation, resident `LayoutReader` and byte-range prefetch caching, high-throughput Vortex spill (`16K`–`64K` blocks), optional AI/Foundry/portable-worker modules, and multi-table TPC-H/SSB parity suites. Published registry wheels remain on `1.1.0` until separate channel publication completes. [Source milestone notes](docs/release/v1.3.0-release-notes.md).
+Published **1.3.0** packages add rich columns (float vectors, embeddings, tensors, sparse indices, quantized codes, inline binary and nested values), pure-AST `sqlparser` SQL binding with native hash joins, partitioned windows, materialized CTEs and subquery decorrelation, resident `LayoutReader` and byte-range prefetch caching, high-throughput Vortex spill (`16K`–`64K` blocks), optional AI/Foundry/portable-worker modules, and multi-table TPC-H/SSB parity suites. [Release notes](docs/release/v1.3.0-release-notes.md) · [Publication verification](docs/release/v1.3.0-publication-verification.md).
 
 - [Compose SQL and DataFrames](docs/reference/connected-programming.md) with named
   scalar parameters, query-local relations, CTEs, temporal operations and windows.
@@ -262,7 +260,7 @@ small units, or holding work for memory or downstream capacity. Application is s
 supported local routes; reports distinguish applied controls from advisory decisions and
 blocked capabilities. See the [control model](docs/architecture/pulseweave-runtime-control.md).
 
-Published 1.1.0 applies the next admitted batch, conversion window, queue task or
+Published 1.3.0 applies the next admitted batch, conversion window, queue task or
 spill block using shared headroom. It preserves the caller's memory and lane
 ceilings. Complete IPC messages, Avro blocks, metadata and operator state can
 require a minimum allocation even when the requested batch is small.
@@ -301,7 +299,7 @@ This keeps shared computation independent of the source and destination format.
 | Text files | CSV and the TSV/delimited family; JSON, JSONL, and NDJSON, with explicit schemas, quoting, framing, and rich-value representations. |
 | Dataset organization | Directories, globs, manifests, partitions, and multi-file collections, with membership, schema, ordering, and generation identity. |
 | Enterprise format extensions | Workbook contracts such as XLSX, including worksheet selection, cached formula values, dates, precision, and format limits. |
-| Local table snapshots in 1.1.0 | Iceberg v1/v2, admitted Delta reader profiles and Hudi Copy-on-Write v8/v9 resolve table state and visibility before native computation. Catalogs, remote reads and table writes remain outside these read-only profiles. |
+| Local table snapshots in 1.3.0 | Iceberg v1/v2, admitted Delta reader profiles and Hudi Copy-on-Write v8/v9 resolve table state and visibility before native computation. Catalogs, remote reads and table writes remain outside these read-only profiles. |
 | Transport integration contracts | S3, ADLS/Azure Blob, GCS, and HTTP own authentication, selected-range access, retries, and publication while reusing file adapters and native computation. |
 
 The [I/O contract](docs/architecture/native-universal-io-performance-coverage-2026-10-24.md)
@@ -342,7 +340,7 @@ These are [extension](docs/rfcs/0011-modular-extensibility-sql-udf-unstructured-
 [AI-data](docs/architecture/native-ai-data-workflows-2026-10-24.md) contracts; a type declaration
 or available upstream provider alone does not grant executable support.
 
-The 1.1.0 native Python API admits the scoped
+The 1.3.0 native Python API admits the scoped
 [application batch-function API](docs/reference/application-batch-functions.md)
 for trusted, deterministic, row-preserving Rust/Python code inside native plans.
 It validates declared schemas and output ownership, exposes conversions, and

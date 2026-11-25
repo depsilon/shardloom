@@ -3,7 +3,7 @@
 # Published package installation links
 
 <a id="package-user-install-status"></a>
-Use the public guide to choose a 1.1.0 wheel for your platform, install it
+Use the public guide to choose a 1.3.0 wheel for your platform, install it
 and run a query. [Installation and first query](https://shardloom.io/field-guide/start-local-proof).
 
 <a id="install"></a>
@@ -16,7 +16,7 @@ and run a query. [Installation and first query](https://shardloom.io/field-guide
 **Smoke Check:** Follow the first workflow in the [public getting-started guide](https://shardloom.io/field-guide/start-local-proof); for setup issues use [Troubleshooting And Support Bundle](troubleshooting-support.md).
 
 <a id="proof-refs"></a>
-**Proof Refs:** The 1.1.0 record identifies each artifact and its installation checks. [Publication verification](../release/v1.1.0-publication-verification.md).
+**Proof Refs:** The 1.3.0 record identifies each artifact and its installation checks. [Publication verification](../release/v1.3.0-publication-verification.md).
 
 <a id="uninstall-and-upgrade"></a>
 **Uninstall And Upgrade:** Check the [public installation guide](https://shardloom.io/field-guide/start-local-proof) for the current package path.

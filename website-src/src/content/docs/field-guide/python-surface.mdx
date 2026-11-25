@@ -35,7 +35,7 @@ not a query execution backend. Resource validation happens before data access.
 
 ## Consume results
 
-| Intent | Published 1.1.0 operation | Result |
+| Intent | Published 1.3.0 operation | Result |
 | --- | --- | --- |
 | Collect a small complete result | `plan.collect()` | `Result` with data and execution details; engine-owned columnar data when using native transport. |
 | Read schema | `result.schema` | Ordered names and logical types, including empty results. |
@@ -95,9 +95,9 @@ The [first workflow](/field-guide/start-local-proof#write-and-reopen) shows
 `write_json`, and `write_jsonl`. Read their
 [fidelity and publication limits](/field-guide/runtime-and-io#write-results).
 
-## Connected SQL in 1.1.0
+## Connected SQL in 1.3.0
 
-Published 1.1.0 packages support named scalar parameters and query-local
+Published 1.3.0 packages support named scalar parameters and query-local
 DataFrame bindings through `ctx.sql(..., parameters=..., relations=...)`. Parameters bind scalar values, while
 `relations` binds existing lazy plans for that query; neither substitutes SQL
 fragments or identifiers. See the
