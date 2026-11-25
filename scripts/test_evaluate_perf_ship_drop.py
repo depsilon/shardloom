@@ -47,6 +47,52 @@ def _make_summary(
     }
 
 
+def _make_repeated_summary(
+    *,
+    repeated_engine_times: dict[int, list[float]],
+    rss: int = 64_000_000,
+    sys_cpu: float = 0.1,
+    minor_faults: int = 1000,
+    timing_surface: str = "cold_process_cli",
+    input_format: str = "vortex",
+    result_sha256: str = "abc",
+    zero_cache: bool = True,
+) -> dict:
+    records = [
+        {
+            "query": q,
+            "run": run_idx,
+            "passed": True,
+            "seconds": t + 0.05,
+            "engine_execution_seconds": t,
+            "native_peak_rss_bytes": rss,
+            "system_cpu_seconds": sys_cpu,
+            "minor_page_faults": minor_faults,
+            "major_page_faults": 0,
+            "result_sha256": f"{result_sha256}-{q}-{run_idx}",
+            "execution_report": {
+                "fallback_attempted": False,
+                "external_engine_invoked": False,
+            },
+        }
+        for q, runs in sorted(repeated_engine_times.items())
+        for run_idx, t in enumerate(runs, start=1)
+    ]
+    repeats = {len(runs) for runs in repeated_engine_times.values()}
+    return {
+        "complete": True,
+        "repeats": repeats.pop() if len(repeats) == 1 else None,
+        "runs_completed": len(records),
+        "runs_passed": len(records),
+        "selected_query_ids": sorted(repeated_engine_times),
+        "timing_metric": "engine_execution_seconds",
+        "timing_surface": timing_surface,
+        "input_format": input_format,
+        "zero_answer_cache_verified": zero_cache,
+        "records": records,
+    }
+
+
 class EvaluatePerfShipDropTests(unittest.TestCase):
     def test_retains_when_total_improves_and_tail_and_os_budgets_hold(self):
         base = _make_summary(engine_times={1: 1.0, 2: 2.0})
@@ -97,6 +143,29 @@ class EvaluatePerfShipDropTests(unittest.TestCase):
 
         rss_bad = _make_summary(engine_times={1: 0.8, 2: 8.0}, rss=90_000_000)
         self.assertEqual(evaluate_ship_drop(base, rss_bad, policy="binary_complete_cohort")["decision"], "drop")
+
+    def test_binary_complete_cohort_scores_all_repeats_not_per_query_minima(self):
+        base = _make_repeated_summary(repeated_engine_times={1: [1.0, 1.0]})
+        cand_slower_overall = _make_repeated_summary(repeated_engine_times={1: [0.5, 2.0]})
+
+        legacy = evaluate_ship_drop(base, cand_slower_overall, policy="perf01_thresholds")
+        self.assertEqual(legacy["decision"], "retain")
+        self.assertAlmostEqual(legacy["total_delta_pct"], -50.0, places=6)
+
+        binary_drop = evaluate_ship_drop(base, cand_slower_overall, policy="binary_complete_cohort")
+        self.assertEqual(binary_drop["decision"], "drop")
+        self.assertAlmostEqual(binary_drop["total_delta_pct"], 25.0, places=6)
+
+        cand_faster_overall = _make_repeated_summary(repeated_engine_times={1: [0.95, 1.02]})
+        binary_retain = evaluate_ship_drop(base, cand_faster_overall, policy="binary_complete_cohort")
+        self.assertEqual(binary_retain["decision"], "retain")
+        self.assertAlmostEqual(binary_retain["total_delta_pct"], -1.5, places=6)
+
+        cand_mismatched_repeats = _make_repeated_summary(repeated_engine_times={1: [0.5]})
+        self.assertEqual(
+            evaluate_ship_drop(base, cand_mismatched_repeats, policy="binary_complete_cohort")["decision"],
+            "blocked",
+        )
 
 
 if __name__ == "__main__":

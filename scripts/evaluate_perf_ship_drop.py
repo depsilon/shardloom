@@ -49,6 +49,27 @@ def _best_by_query(records: list[dict[str, Any]], key: str) -> dict[int, float]:
     return best
 
 
+def _cohort_observations(records: list[dict[str, Any]], key: str) -> dict[tuple[int, int], float] | None:
+    observed: dict[tuple[int, int], float] = {}
+    for record in records:
+        query = record.get("query")
+        run = record.get("run")
+        value = record.get(key)
+        if (
+            type(query) is not int
+            or type(run) is not int
+            or type(value) not in (int, float)
+            or not math.isfinite(value)
+            or float(value) < 0.0
+        ):
+            return None
+        obs_key = (query, run)
+        if obs_key in observed:
+            return None
+        observed[obs_key] = float(value)
+    return observed or None
+
+
 def _metric_aggregate(records: list[dict[str, Any]], key: str, mode: str) -> float | None:
     values = [
         float(record[key])
@@ -153,6 +174,8 @@ def evaluate_ship_drop(
     for key in sorted(set(base_hashes) & set(cand_hashes)):
         if base_hashes[key] != cand_hashes[key]:
             drop_reasons.append(f"result_sha256 mismatch at query={key[0]} run={key[1]}")
+    if policy == "binary_complete_cohort" and (base_hashes or cand_hashes) and set(base_hashes) != set(cand_hashes):
+        drop_reasons.append("result_sha256 coverage mismatch across (query, run) observations")
 
     timing_key = (
         "engine_execution_seconds"
@@ -160,38 +183,76 @@ def evaluate_ship_drop(
         and candidate.get("timing_metric") == "engine_execution_seconds"
         else "seconds"
     )
-    base_best = _best_by_query(base_records, timing_key)
-    cand_best = _best_by_query(cand_records, timing_key)
-    shared_queries = sorted(set(base_best) & set(cand_best))
-
     total_delta_pct = None
     max_query_regression_pct = None
-    if not shared_queries or blockers:
-        if not shared_queries:
-            blockers.append("no shared timing measurements available")
-    else:
-        base_total = sum(base_best[q] for q in shared_queries)
-        cand_total = sum(cand_best[q] for q in shared_queries)
-        total_delta_pct = _pct_delta(base_total, cand_total)
-        query_deltas = []
-        for q in shared_queries:
-            delta = _pct_delta(base_best[q], cand_best[q])
-            if delta is None:
-                drop_reasons.append(f"query {q} baseline timing is zero while candidate is positive")
-            else:
-                query_deltas.append((q, delta))
-        if query_deltas:
-            worst_q, max_query_regression_pct = max(query_deltas, key=lambda item: item[1])
-        else:
-            worst_q = None
-
-        if policy == "binary_complete_cohort":
+    if policy == "binary_complete_cohort":
+        if "repeats" in baseline and "repeats" in candidate and baseline.get("repeats") != candidate.get("repeats"):
+            blockers.append(f"repeats mismatch: {baseline.get('repeats')!r} != {candidate.get('repeats')!r}")
+        base_obs = _cohort_observations(base_records, timing_key)
+        cand_obs = _cohort_observations(cand_records, timing_key)
+        if base_obs is None:
+            blockers.append("baseline is missing complete (query, run) timing observations")
+        if cand_obs is None:
+            drop_reasons.append("candidate is missing complete (query, run) timing observations")
+        if base_obs is not None and cand_obs is not None and set(base_obs) != set(cand_obs):
+            blockers.append("observation cohort (query, run) keys differ between baseline and candidate")
+        if (
+            base_obs is not None
+            and baseline.get("selected_query_ids") is not None
+            and {q for q, _ in base_obs} != set(baseline["selected_query_ids"])
+        ):
+            blockers.append("baseline timing observations do not cover selected_query_ids")
+        shared_queries = sorted({q for q, _ in base_obs} & {q for q, _ in cand_obs}) if (base_obs and cand_obs) else []
+        if base_obs and cand_obs and not blockers:
+            base_total = sum(base_obs.values())
+            cand_total = sum(cand_obs.values())
+            total_delta_pct = _pct_delta(base_total, cand_total)
+            base_q_sum = {q: 0.0 for q in shared_queries}
+            cand_q_sum = {q: 0.0 for q in shared_queries}
+            for (q, _), val in base_obs.items():
+                if q in base_q_sum:
+                    base_q_sum[q] += val
+            for (q, _), val in cand_obs.items():
+                if q in cand_q_sum:
+                    cand_q_sum[q] += val
+            query_deltas = []
+            for q in shared_queries:
+                delta = _pct_delta(base_q_sum[q], cand_q_sum[q])
+                if delta is None:
+                    drop_reasons.append(f"query {q} baseline timing is zero while candidate is positive")
+                else:
+                    query_deltas.append((q, delta))
+            if query_deltas:
+                _, max_query_regression_pct = max(query_deltas, key=lambda item: item[1])
             if total_delta_pct is None or cand_total >= base_total:
                 observed = "n/a" if total_delta_pct is None else f"{total_delta_pct:+.2f}%"
                 drop_reasons.append(
                     f"complete-cohort total did not decrease ({base_total:.9f}s -> {cand_total:.9f}s, delta {observed})"
                 )
+    else:
+        base_best = _best_by_query(base_records, timing_key)
+        cand_best = _best_by_query(cand_records, timing_key)
+        shared_queries = sorted(set(base_best) & set(cand_best))
+
+        if not shared_queries or blockers:
+            if not shared_queries:
+                blockers.append("no shared timing measurements available")
         else:
+            base_total = sum(base_best[q] for q in shared_queries)
+            cand_total = sum(cand_best[q] for q in shared_queries)
+            total_delta_pct = _pct_delta(base_total, cand_total)
+            query_deltas = []
+            for q in shared_queries:
+                delta = _pct_delta(base_best[q], cand_best[q])
+                if delta is None:
+                    drop_reasons.append(f"query {q} baseline timing is zero while candidate is positive")
+                else:
+                    query_deltas.append((q, delta))
+            if query_deltas:
+                worst_q, max_query_regression_pct = max(query_deltas, key=lambda item: item[1])
+            else:
+                worst_q = None
+
             if total_delta_pct is None or -total_delta_pct < min_total_improvement_pct:
                 observed = "n/a" if total_delta_pct is None else f"{-total_delta_pct:.2f}%"
                 drop_reasons.append(
