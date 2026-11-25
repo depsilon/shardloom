@@ -639,6 +639,7 @@ fn resident_materialized_cte_prunes_reused_splits_via_owned_array_source() {
     assert_eq!(executed.execution.composition.materialized_relations, 1);
     assert_eq!(executed.execution.composition.materialized_reuses, 1);
     assert_eq!(executed.execution.composition.spilled_relations, 0);
+    assert_eq!(executed.execution.scan_rows_delivered, 20_000);
     assert_eq!(executed.execution.output_rows, 10);
     assert!(executed.execution.native_io_certificate.is_certified());
     assert!(

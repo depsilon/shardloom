@@ -766,7 +766,8 @@ with `CG-1` through `CG-23` open and `claim_gate_status=not_claim_grade`.
   - Queue identifier only: `E2E-PERF-00` executes cross-cutting runtime wins under canonical `PERF-01` and `PERF-03`, with relevant competitive gates `CG-2`, `CG-5`, `CG-6`, and `CG-8` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
   - V1 scope classification: `required_for_v1`.
   - Execution checklist:
-    - [x] Published [RFC 0048](../rfcs/0048-cli-global-allocator-mimalloc.md) and MIT/Apache-2.0 provenance review ([mimalloc review](../dependencies/mimalloc-dependency-review.md)) isolating optional `cli-mimalloc` strictly to `shardloom-cli/src/main.rs` while keeping `unsafe_code = "forbid"` in all library crates; actual crate vendoring/cache intake and `E2E-VERIFY-01` Full43 screen remain gated until external cache/dataset intake.
+    - [x] Published [RFC 0048](../rfcs/0048-cli-global-allocator-mimalloc.md) and MIT/Apache-2.0 provenance review ([mimalloc review](../dependencies/mimalloc-dependency-review.md)) isolating optional `cli-mimalloc` strictly to `shardloom-cli/src/main.rs` while keeping `unsafe_code = "forbid"` in all library crates, and landed optional non-default `cli-mimalloc` (`mimalloc = "=0.1.52"`, `Cargo.lock` + `python/THIRD_PARTY_LICENSES` intake) plus local `scale_rows=12000` TPC-H/SSB Vortex screen (`evaluate_perf_ship_drop.py` returned `drop` on cold and warm lanes, keeping `cli-mimalloc` non-default; see [TPC-H/SSB screen](../benchmarks/tpch-ssb-multi-table-suite-2026-11-24.md)); external `100M` ClickBench Full43 allocator screen remains open below.
+    - [ ] Execute `E2E-VERIFY-01` paired `100M` ClickBench Full43 `cli-mimalloc` screen once the external dataset is mounted.
     - [x] Replaced the remaining workspace production `Ordering::SeqCst` (`native_local_selection_observation.rs`) with `AcqRel`/`Release`; confirmed `exact_distinct_pairs.rs:493`, `native_numeric_accessor.rs:269`, and `compound_count_partial.rs:525` are `#[cfg(test)]` injectors.
     - [x] Converted `prepared_source_binding::local_preparation_identity_controlled` to reuse thread-local `CurrentThreadRuntime` (and exposed `local_preparation_identity_with_runtime`); remaining production callers (`ingest_runtime.rs:35`, `local_primitives.rs:2622`, `resident_session.rs:688`, `vortex_ingest.rs:14493`) align with `E2E-PERF-01` session reuse.
     - [x] Eliminated redundant parse-back JSON synthesis in `count_where_report` (`local_primitives.rs`), leaving the remaining `16` production `serde_json::json!` sites in `local_primitives.rs` to lazy `explain`/`publication_proof` deferral alongside `E2E-PERF-06` owned-batch envelopes.
@@ -849,23 +850,23 @@ with `CG-1` through `CG-23` open and `claim_gate_status=not_claim_grade`.
   - V1 scope classification: `required_for_v1`.
   - Execution checklist:
     - [x] Foundational native windows, subqueries, and set ops landed (`NATIVE-WINDOW-PRESSURE`, `NATIVE-SCALAR-SUBQUERIES`, `NATIVE-STREAM-SETS`).
-    - [x] Converge arbitrary AST-bound windows, uncapped set operations, reusable materialized CTEs (`Plan::Materialized` retained-relation replay with `AS NOT MATERIALIZED` override and native spill preservation; `OwnedArraySource` scan-backed CTE pruning deferred), and decorrelated semi/anti/scalar subqueries onto native `shardloom-vortex` execution, retiring `sql_local_source_runtime.rs` `MAX_LIMIT_ROWS = 10_000` (`line 103`) row-map fallback paths.
+    - [x] Converge arbitrary AST-bound windows, uncapped set operations, reusable materialized CTEs (`Plan::Materialized` retained-relation replay with `AS NOT MATERIALIZED` override, `OwnedArraySource` zone-map scan pruning on non-spilled resident CTEs, and native spill replay preservation), and decorrelated semi/anti/scalar subqueries onto native `shardloom-vortex` execution, retiring `sql_local_source_runtime.rs` `MAX_LIMIT_ROWS = 10_000` (`line 103`) row-map fallback paths.
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 
-- [ ] `E2E-PERF-05C` broaden and optimize high-throughput native Vortex query spill (`16K–64K` blocks, higher merge fan-in, streaming digests).
+- [x] `E2E-PERF-05C` broaden and optimize high-throughput native Vortex query spill (`16K–64K` blocks, higher merge fan-in, streaming digests).
   - Queue identifier only: `E2E-PERF-05C` splits the spill modernization slice under canonical `PERF-06` and `PERF-10`, with relevant competitive gates `CG-2`, `CG-5`, `CG-6`, and `CG-14` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
   - V1 scope classification: `required_for_v1`.
   - Execution checklist:
-    - [ ] Raise native spill block geometry from `MAX_BLOCK_ROWS = 1024` (`local_primitive_sort_spill.rs:38`) to `16K–64K` streaming blocks across sorts, general/compound/distinct aggregates, `DistinctRows`, and `E2E-PERF-05A` hash joins, raise k-way merge fan-in without per-row allocations, and replace triple `validate_run_bytes` SHA-256 disk re-reads (`local_primitive_query_run_store.rs:511,631,833`) with streaming write digests + footer checks.
+    - [x] Raise native spill block geometry from `MAX_BLOCK_ROWS = 1024` (`local_primitive_sort_spill.rs:38`) to `16K–64K` streaming blocks across sorts, general/compound/distinct aggregates, `DistinctRows`, and `E2E-PERF-05A` hash joins, raise k-way merge fan-in without per-row allocations, and replace triple `validate_run_bytes` SHA-256 disk re-reads (`local_primitive_query_run_store.rs:511,631,833`) with streaming single-pass write digests + bounded head/tail footer verification.
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 
-- [ ] `E2E-VERIFY-03` implement multi-table TPC-H and Star Schema Benchmark (SSB) oracle and cold/warm benchmark suites.
+- [x] `E2E-VERIFY-03` implement multi-table TPC-H and Star Schema Benchmark (SSB) oracle and cold/warm benchmark suites.
   - Queue identifier only: `E2E-VERIFY-03` executes the multi-table benchmark and differential verification portion of `PERF-01`/`PERF-12`/`CG-5`/`CG-6` right after `E2E-PERF-05A`/`05B`/`05C`, under `docs/architecture/local-development-storage.md` non-synced storage guards (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
   - V1 scope classification: `required_for_v1`.
   - Execution checklist:
-    - [ ] Add reproducible multi-table TPC-H and SSB oracle + paired `cold_process_cli` / `warm_resident_session` benchmark suites stored under non-synced local workspace guards, verifying 100% parity against `E2E-VERIFY-01` independent differential oracles.
+    - [x] Add reproducible multi-table TPC-H (`8` tables, `8` queries) and SSB (`5` tables, `6` queries) generator, dual independent offline oracles (`python_reference` + `sqlite3_sql`), and paired `cold_process_cli` / `warm_resident_session` suites (`scripts/tpch_ssb_workloads.py`, `scripts/run_tpch_ssb_suite.py`, `scripts/test_tpch_ssb_suite.py`) under non-synced local storage guards, verifying `14/14` exact parity across Parquet and Vortex (`scale_rows=12000`; see [TPC-H/SSB report](../benchmarks/tpch-ssb-multi-table-suite-2026-11-24.md)).
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 
@@ -873,7 +874,8 @@ with `CG-1` through `CG-23` open and `claim_gate_status=not_claim_grade`.
   - Queue identifier only: `E2E-PGO-01` places `PERF-13` PGO evaluation strictly after unified hot kernels (`E2E-PERF-01`–`06` and `E2E-VERIFY-03`), with relevant competitive gates `CG-5` and `CG-6` (`CG-1` through `CG-23` remain visible and open); adds no new canonical phase ID.
   - V1 scope classification: `v1_candidate_pending_feasibility`.
   - Execution checklist:
-    - [ ] Upgrade `scripts/pgo_local_experiment.py` with a non-ClickBench multi-family training corpus + `llvm-profdata` hot-symbol coverage gate and execute paired `profile-use` query (Full43 cold/warm + TPC-H/SSB) and 100M ingest ship/drop screens against portable ThinLTO.
+    - [x] Upgraded `scripts/pgo_local_experiment.py` with non-ClickBench `multi-family` training corpus (`seed=19991231`), `llvm-profdata show --topn=250` hot-symbol coverage gate (`100,738` functions, `48` `shardloom_vortex` / `34` `shardloom_runtime` hot symbols), and executed held-out ThinLTO `control` vs `profile-use` local screen (`scale_rows=12000` TPC-H/SSB Vortex: `drop` on `cold_process_cli` [`-4.68%` total, `+27.74%` Q1], `retain` on `warm_resident_session` [`-5.37%` total]; `38/38` `rows=8192` operator cells passed; `default_release_profile_changed=false`; see [PGO screen](../benchmarks/pgo-post-unification-screen-2026-11-24.md)).
+    - [ ] Execute paired `profile-use` Full43 cold/warm and `100M` ingest ship/drop screens against portable ThinLTO once external `100M` datasets are mounted.
   - Claim boundary: `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 

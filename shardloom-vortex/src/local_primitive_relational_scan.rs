@@ -223,6 +223,7 @@ pub(super) fn run(
                 owned,
                 plan,
                 residual.is_some(),
+                true,
                 probe_filters,
                 fields,
                 context,
@@ -484,6 +485,7 @@ fn run_owned_array_with_probe_filters(
     owned: &crate::owned_array_source::OwnedArraySource,
     plan: &LocalVortexScanPlan,
     residual_present: bool,
+    count_source_scan: bool,
     probe_filters: &[ProbeRuntimeFilter],
     fields: &[(String, DType)],
     context: &NativeExecutionContext<'_>,
@@ -497,14 +499,32 @@ fn run_owned_array_with_probe_filters(
             owned.dtype().as_struct_fields_opt()?.field(name)
         })
     {
-        add(&metrics.scans_started, 1)?;
+        if count_source_scan {
+            add(&metrics.scans_started, 1)?;
+        }
         return Ok(());
     }
     if let Some(pred) = admitted_runtime_predicate(probe_filters, owned.dtype()) {
         let updated = plan_with_runtime_predicate(plan, pred, owned.dtype())?;
-        run_owned_array(owned, &updated, context, metrics, scan_batches, accept)
+        run_owned_array(
+            owned,
+            &updated,
+            count_source_scan,
+            context,
+            metrics,
+            scan_batches,
+            accept,
+        )
     } else {
-        run_owned_array(owned, plan, context, metrics, scan_batches, accept)
+        run_owned_array(
+            owned,
+            plan,
+            count_source_scan,
+            context,
+            metrics,
+            scan_batches,
+            accept,
+        )
     }
 }
 
@@ -568,22 +588,35 @@ pub(super) fn run_owned_source_pushdown(
         super::FileScanBatching::Output => batch_rows.min(SCAN_ROWS),
     };
     let mut accept = |array: ArrayRef| {
-        accept_scan_batch(
-            &array,
-            &[],
-            None,
-            probe_filters,
-            fields,
-            context,
-            metrics,
-            batch_rows,
-            &mut |filtered| consume(filter_satisfied, filtered),
-        )
+        if array.len() > SCAN_ROWS {
+            return Err(failed("scan exceeded its admitted batch size"));
+        }
+        let bloom_mask = if probe_filters.is_empty() {
+            None
+        } else {
+            apply_bloom_mask(&array, probe_filters, context)?
+        };
+        if bloom_mask.as_ref().is_some_and(Mask::all_false) {
+            return Ok(());
+        }
+        if let Some(mask) = bloom_mask {
+            return LocalSelection::from_mask(&mask, context)?.for_each_batch(
+                &array,
+                fields,
+                batch_rows,
+                context,
+                &mut |filtered| consume(filter_satisfied, filtered),
+            );
+        }
+        emit_unfiltered_scan_batch(&array, fields, batch_rows, context, &mut |filtered| {
+            consume(filter_satisfied, filtered)
+        })
     };
     run_owned_array_with_probe_filters(
         owned,
         &plan,
         !filter_satisfied,
+        false,
         probe_filters,
         fields,
         context,
@@ -595,9 +628,11 @@ pub(super) fn run_owned_source_pushdown(
 }
 
 #[cfg(feature = "vortex-write")]
+#[allow(clippy::too_many_arguments)]
 fn run_owned_array(
     source: &crate::owned_array_source::OwnedArraySource,
     plan: &LocalVortexScanPlan,
+    count_source_scan: bool,
     context: &NativeExecutionContext<'_>,
     metrics: &Metrics<'_>,
     scan_rows: usize,
@@ -605,7 +640,9 @@ fn run_owned_array(
 ) -> Result<()> {
     use vortex::layout::scan::split_by::SplitBy;
 
-    add(&metrics.scans_started, 1)?;
+    if count_source_scan {
+        add(&metrics.scans_started, 1)?;
+    }
     if source.row_count() == 0 {
         return Ok(());
     }
@@ -665,10 +702,10 @@ fn run_owned_array(
             },
         )?;
     }
-    if pruned_splits > 0 {
+    if count_source_scan && pruned_splits > 0 {
         add(&metrics.scans_pruned, pruned_splits)?;
     }
-    if delivered > 0 || pruned_splits == 0 {
+    if count_source_scan && (delivered > 0 || pruned_splits == 0) {
         add(&metrics.data_scans, 1)?;
     }
     Ok(())
