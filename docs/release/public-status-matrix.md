@@ -39,6 +39,18 @@ support bundles remain local/redacted and remote telemetry/upload surfaces remai
 
 <a id="current-source-additions-after-100"></a>
 
+### Current 1.3.0 source milestone additions since 1.1.0
+
+Source checkouts bumped to version `1.3.0` consolidate accepted local engine, API,
+and verification work since `1.1.0` while published channels remain on `1.1.0`
+until separate channel verification closes:
+
+- Pure-AST SQL binder (`sqlparser = 0.64.0`) in `shardloom-plan::sql_binder` and converged AST-bound SQL/LazyFrame native execution (flat N-way joins, partitioned analytic windows, uncapped set operations, reusable materialized CTEs, decorrelated subqueries, `QUALIFY`/`FETCH`, compiled batch expressions, and scan probe min/max/`InList`/3-bit Bloom runtime filters).
+- Exact Vortex footer metadata aggregates, exact `i128` `SUM`/`AVG` accumulation, cross-query `ResidentLayoutSlotPool` / `LayoutReader` reuse, gated `SegmentPrefetchPolicy` coalesced byte-range I/O, unified session-persistent `ComputePool` scheduling, content-driven `FirstBatchProfile` readers, direct `VarBin`/`VarBinView` Zstd encoding, binary Arrow IPC worker framing, and `16K`–`64K` native Vortex query spill with single-pass streaming digests.
+- Rich column workflows (`Float16`/`Float32`/`Float64` vectors, declared embeddings, fixed/variable tensors, sparse coordinates, affine quantization codes, inline binary, and nested variants), deep nested traversal (`depth-24`), optional `shardloom.ai` / Foundry / RFC 0047 portable-worker surfaces, and the `14/14` multi-table TPC-H (`8` tables) + SSB (`5` tables) offline dual-oracle parity suite.
+
+The [1.3.0 source milestone record](v1.3.0-release-notes.md) records the local `1.3.0` CLI, native module, macOS ARM64 wheel, sdist, and workspace acceptance; channel publication and external `100M` ClickBench screens remain separate gates (`claim_gate_status=not_claim_grade`, `fallback_attempted=false`, `external_engine_invoked=false`).
+
 ### Published 1.1.0 additions since 1.0.0
 
 The published 1.1.0 package includes the [connected programming model](../reference/connected-programming.md),

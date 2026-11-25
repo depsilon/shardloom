@@ -20,6 +20,23 @@ For reproducible future source work, pin source commits and follow
 [source installation](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md).
 
 <span id="current-source-capabilities"></span>
+
+## Current 1.3.0 source milestone capabilities
+
+Source checkouts at `1.3.0` add the consolidated local work accepted since `v1.1.0`
+(published registry packages remain on `v1.1.0` until separate publication verification
+completes):
+
+| Area | Scope in the `1.3.0` source milestone |
+| --- | --- |
+| Rich data & AI workflows | Dense `Float16`/`Float32`/`Float64` vectors, embedding identity, fixed/variable tensors, sparse indices, affine quantization codes, inline binary/nested variants, deep traversal (`depth-24`), and optional `shardloom.ai` / Foundry / portable worker adapters |
+| SQL AST & relational execution | `sqlparser` pure-AST binder, flat N-way hash joins (`INNER`/`LEFT`/`RIGHT`/`FULL`/`SEMI`/`ANTI`/`CROSS`), partitioned windows, materialized CTEs, decorrelated subqueries, `QUALIFY`/`FETCH`, compiled batch expressions, and probe runtime filters |
+| Resident I/O, ingest & spill | Exact footer aggregates and `i128` `SUM`/`AVG`, cross-query `LayoutReader` reuse, gated coalesced byte-range prefetch, unified session `ComputePool`, `FirstBatchProfile` readers, binary Arrow IPC worker framing, and `16K`–`64K` Vortex query spill |
+| Verification suites | `14/14` multi-table TPC-H + SSB offline parity against `python_reference` and `sqlite3_sql`, non-default `cli-mimalloc` intake, and ThinLTO PGO instrumentation tooling |
+
+See [1.3.0 source milestone notes](https://github.com/depsilon/shardloom/blob/main/docs/release/v1.3.0-release-notes.md)
+for local acceptance identities and open `100M` ClickBench gates.
+
 <span id="published-110-capabilities"></span>
 
 ## Published 1.1.0 capabilities

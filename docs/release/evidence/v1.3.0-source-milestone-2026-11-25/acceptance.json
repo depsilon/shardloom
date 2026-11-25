@@ -1,0 +1,214 @@
+{
+  "schema_version": "shardloom.source_milestone_acceptance.v1",
+  "status": "local_acceptance_passed",
+  "source_version": "1.3.0",
+  "published_channel_version": "1.1.0",
+  "publication_attempted": false,
+  "runtime_source": "28a1aa2849bdba27275823955990a58680bfb69b",
+  "runtime_files": {
+    "shardloom": {
+      "bytes": 86925184,
+      "sha256": "2f7751cf47715d978bccebbfeca68419b78a978ddb16db0646ff98a872ad0c2f"
+    },
+    "_native.abi3.so": {
+      "bytes": 86989280,
+      "sha256": "2c238da7b48d11e7d8bd60be1eb39e0bfa27a3728c0bfe73f86de2b59e3c48a9"
+    }
+  },
+  "workspace_members": [
+    "shardloom-bench",
+    "shardloom-cli",
+    "shardloom-contract-tests",
+    "shardloom-core",
+    "shardloom-exec",
+    "shardloom-plan",
+    "shardloom-python",
+    "shardloom-vortex"
+  ],
+  "wheel": {
+    "filename": "shardloom-1.3.0-cp310-abi3-macosx_27_0_arm64.whl",
+    "bytes": 60868772,
+    "sha256": "284243f3608a5dd2950f6d49dbc8e5b6a2f6636fb2ffb57c5552cba5e9b5d96e"
+  },
+  "sdist": {
+    "filename": "shardloom-1.3.0.tar.gz",
+    "bytes": 1394472,
+    "sha256": "6293260fcf0751df478bad9416d8bc7dd77810b2b6dc1b7df9c47a56957884ce"
+  },
+  "licenses": {
+    "status": "passed",
+    "registry_packages": 424,
+    "vendored_packages": 30,
+    "license_file_records": 846,
+    "unique_text_files": 252
+  },
+  "installed": {
+    "tests": 492,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "status": "passed"
+  },
+  "installed_version": "1.3.0",
+  "uninstall": "passed",
+  "workspace_tests": {
+    "suites": 108,
+    "passed": 3389,
+    "failed": 0,
+    "ignored": 0
+  },
+  "static_checks": 37,
+  "gates": {
+    "cargo-fmt": {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "status": "passed",
+      "returncode": 0
+    },
+    "cargo-clippy": {
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "status": "passed",
+      "returncode": 0
+    },
+    "cargo-test": {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "--test-threads=4"
+      ],
+      "status": "passed",
+      "returncode": 0
+    },
+    "cli-release-build": {
+      "command": [
+        "cargo",
+        "build",
+        "--locked",
+        "--release",
+        "-p",
+        "shardloom-cli",
+        "--bin",
+        "shardloom",
+        "--features",
+        "release-user-surfaces"
+      ],
+      "status": "passed",
+      "returncode": 0
+    },
+    "native-python-build": {
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "scripts/build_native_python.py",
+        "--repo-root",
+        ".",
+        "--output-dir",
+        "/Users/dylan/LocalData/shardloom/release-v1.3.0/runtime",
+        "--release"
+      ],
+      "status": "passed",
+      "returncode": 0
+    },
+    "native-wheel-proof": {
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "scripts/prove_native_python_wheel.py",
+        "--repo-root",
+        ".",
+        "--output-dir",
+        "/Users/dylan/LocalData/shardloom/release-v1.3.0/wheel-proof",
+        "--native-library",
+        "/Users/dylan/LocalData/shardloom/release-v1.3.0/runtime/_native.abi3.so",
+        "--cli-binary",
+        "/Users/dylan/LocalData/shardloom/release-v1.3.0/runtime/shardloom",
+        "--wheelhouse",
+        "/Users/dylan/LocalData/shardloom/release-v1.3.0/wheelhouse"
+      ],
+      "status": "passed",
+      "returncode": 0
+    },
+    "sdist-build": {
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-m",
+        "build",
+        "--sdist",
+        "--no-isolation",
+        "--outdir",
+        "/Users/dylan/LocalData/shardloom/release-v1.3.0/sdist",
+        "python"
+      ],
+      "status": "passed",
+      "returncode": 0
+    },
+    "website-build": {
+      "command": [
+        "npm",
+        "--prefix",
+        "website-src",
+        "run",
+        "build"
+      ],
+      "status": "passed",
+      "returncode": 0
+    },
+    "website-check": {
+      "command": [
+        "npm",
+        "--prefix",
+        "website-src",
+        "run",
+        "check"
+      ],
+      "status": "passed",
+      "returncode": 0
+    },
+    "release-script-tests": {
+      "command": [
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "python/tests",
+        "-p",
+        "test_release_scripts.py"
+      ],
+      "tests": 173,
+      "status": "passed",
+      "returncode": 0
+    },
+    "static-checks": {
+      "command": [
+        "python3",
+        "-B",
+        "scripts/run_all_checks.py",
+        "--no-json"
+      ],
+      "passed_count": 37,
+      "status": "passed",
+      "returncode": 0
+    }
+  },
+  "new_benchmark_observations": 0,
+  "hosted_acceptance": "separate_gate",
+  "scope": "Local macOS ARM64 release CLI, native Python build, installed wheel integration tests (492/492), sdist, and Rust workspace acceptance for the 1.3.0 source milestone."
+}
