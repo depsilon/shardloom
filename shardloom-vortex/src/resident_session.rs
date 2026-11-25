@@ -2091,19 +2091,54 @@ impl PreparedVortexProjection {
     }
 }
 
+pub(crate) const BOUNDED_ENVELOPE_HEAD_BYTES: usize = 4096;
+pub(crate) const BOUNDED_ENVELOPE_TAIL_BYTES: usize = 65_536;
+
+#[cfg(unix)]
+fn hash_file_region(
+    file: &std::fs::File,
+    start: u64,
+    len: u64,
+    scratch: &mut [u8],
+) -> Result<[u8; 32]> {
+    use sha2::{Digest as _, Sha256};
+    use std::os::unix::fs::FileExt as _;
+    let mut digest = Sha256::new();
+    let mut remaining = len;
+    let mut offset = start;
+    while remaining > 0 {
+        let capacity =
+            usize::try_from(remaining.min(scratch.len() as u64)).map_err(native_error)?;
+        let count = file
+            .read_at(&mut scratch[..capacity], offset)
+            .map_err(native_error)?;
+        if count == 0 {
+            return Err(resident_error(
+                "owned native file ended before its declared byte length",
+            ));
+        }
+        digest.update(&scratch[..count]);
+        offset = offset
+            .checked_add(count as u64)
+            .ok_or_else(|| resident_error("owned native file verification offset overflowed"))?;
+        remaining -= count as u64;
+    }
+    Ok(digest.finalize().into())
+}
+
 impl SourceIdentity {
-    /// Verify bytes from the same held descriptor used by native positional
-    /// reads. Generation checks surround hashing; no pathname is reopened.
+    /// Verify bounded head and tail byte envelopes from the held descriptor
+    /// used by native positional reads. Generation checks surround hashing; no
+    /// pathname is reopened and large runs never trigger a full-file re-read.
     #[cfg(unix)]
-    pub(crate) fn verify_contents(
+    pub(crate) fn verify_bounded_envelope(
         &self,
         expected_identity: (u64, u64),
         expected_bytes: u64,
-        expected_digest: &[u8; 32],
+        expected_head_digest: &[u8; 32],
+        expected_tail_digest: &[u8; 32],
         scratch: &mut [u8],
     ) -> Result<()> {
-        use sha2::{Digest as _, Sha256};
-        use std::os::unix::fs::FileExt as _;
         self.validate()?;
         if (self.generation.device, self.generation.inode) != expected_identity
             || self.generation.len != expected_bytes
@@ -2113,28 +2148,13 @@ impl SourceIdentity {
                 "owned native file identity or byte length changed",
             ));
         }
-        let mut digest = Sha256::new();
-        let mut offset = 0_u64;
-        while offset < expected_bytes {
-            let capacity = usize::try_from((expected_bytes - offset).min(scratch.len() as u64))
-                .map_err(native_error)?;
-            let count = self
-                .file
-                .read_at(&mut scratch[..capacity], offset)
-                .map_err(native_error)?;
-            if count == 0 {
-                return Err(resident_error(
-                    "owned native file ended before its declared byte length",
-                ));
-            }
-            digest.update(&scratch[..count]);
-            offset = offset.checked_add(count as u64).ok_or_else(|| {
-                resident_error("owned native file verification offset overflowed")
-            })?;
-        }
+        let head_len = expected_bytes.min(BOUNDED_ENVELOPE_HEAD_BYTES as u64);
+        let head_actual = hash_file_region(&self.file, 0, head_len, scratch)?;
+        let tail_len = expected_bytes.min(BOUNDED_ENVELOPE_TAIL_BYTES as u64);
+        let tail_start = expected_bytes - tail_len;
+        let tail_actual = hash_file_region(&self.file, tail_start, tail_len, scratch)?;
         self.validate()?;
-        let actual: [u8; 32] = digest.finalize().into();
-        if &actual != expected_digest {
+        if &head_actual != expected_head_digest || &tail_actual != expected_tail_digest {
             return Err(resident_error("owned native file checksum changed"));
         }
         Ok(())

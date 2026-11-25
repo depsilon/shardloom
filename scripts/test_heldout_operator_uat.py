@@ -259,6 +259,8 @@ class HeldoutOperatorTests(unittest.TestCase):
                    "fallback": {"attempted": False},
                    "diagnostics": [{"code": "SL-NATIVE-001", "fallback": {"attempted": False}}]}
         self.assertEqual(validate_diagnostic(failure, case, 1), ["SL-NATIVE-001"])
+        unified_failure = {**failure, "human_text": "native relational execution: signed integer arithmetic overflow; no fallback execution was attempted"}
+        self.assertEqual(validate_diagnostic(unified_failure, case, 2), ["SL-NATIVE-001"])
         for code in (0, -9):
             with self.assertRaises(ValueError):
                 validate_diagnostic(failure, case, code)

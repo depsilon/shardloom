@@ -177,6 +177,20 @@ impl PreparedVortexRelational {
                 } else {
                     &[]
                 };
+                if let NodeKind::Retained(binding) = input.semantic_kind()
+                    && !binding.definition.recursive()
+                {
+                    return self.run_retained_filtered(
+                        binding,
+                        Some(predicate),
+                        fields,
+                        context,
+                        metrics,
+                        batch_rows,
+                        child_filters,
+                        consume,
+                    );
+                }
                 self.run_with_probe_filters(
                     input,
                     context,
@@ -249,75 +263,115 @@ impl PreparedVortexRelational {
             return Ok(());
         }
         let child_filters = pipeline_probe_filters(stages, probe_filters);
-        let PipelineState {
-            batch_rows,
-            mut ranges,
-            mut observations,
-        } = prepare_pipeline_state(stages, metrics, batch_rows, context)?;
-        self.run_with_probe_filters(
-            input,
-            context,
-            metrics,
-            batch_rows,
-            parameter,
-            &child_filters,
-            &mut |mut array| {
-                let mut observation_index = 0;
-                for (index, stage) in stages.iter().enumerate() {
-                    context.check_cancelled()?;
-                    array = match &stage.kind {
-                        PipelineKind::ApplicationBatch(spec) => {
-                            spec.execute(&array, &self.session, context, metrics)?
-                        }
-                        PipelineKind::Project(expressions) => {
-                            project_array(&stage.fields, expressions, &array, context)?
-                        }
-                        PipelineKind::Filter(predicate) => {
-                            let Some(selected) =
-                                filter_array(predicate, &stage.fields, &array, context)?
-                            else {
-                                return Ok(());
-                            };
-                            selected
-                        }
-                        PipelineKind::Limit { .. } => {
-                            let (skip, remaining) = &mut ranges.values[index];
-                            let start = (*skip).min(array.len());
-                            *skip -= start;
-                            let count = (*remaining).min(array.len() - start);
-                            *remaining -= count;
-                            if count == 0 {
-                                return Ok(());
-                            }
-                            array.slice(start..start + count).map_err(vortex_error)?
-                        }
-                        PipelineKind::Observe(observation) => {
-                            let projected = observation
-                                .projection
-                                .as_ref()
-                                .map(|(fields, expressions)| {
-                                    project_array(fields, expressions, &array, context)
-                                })
-                                .transpose()?;
-                            observations.values[observation_index].1.consume(
-                                projected.as_ref().unwrap_or(&array),
-                                context,
-                                batch_rows,
-                            )?;
-                            observation_index += 1;
-                            array
-                        }
-                    };
-                }
-                consume(array)
-            },
-        )?;
-        for (index, aggregate) in &observations.values {
+        let mut state = prepare_pipeline_state(stages, metrics, batch_rows, context)?;
+        if let NodeKind::Retained(binding) = input.semantic_kind()
+            && !binding.definition.recursive()
+            && let Some(PipelineStage {
+                kind: PipelineKind::Filter(first_pred),
+                ..
+            }) = stages.first()
+        {
+            self.run_retained_filtered(
+                binding,
+                Some(first_pred),
+                &input.fields,
+                context,
+                metrics,
+                state.batch_rows,
+                &child_filters,
+                &mut |array| {
+                    self.execute_pipeline_stages(
+                        stages, 1, array, context, metrics, &mut state, consume,
+                    )
+                },
+            )?;
+        } else {
+            self.run_with_probe_filters(
+                input,
+                context,
+                metrics,
+                state.batch_rows,
+                parameter,
+                &child_filters,
+                &mut |array| {
+                    self.execute_pipeline_stages(
+                        stages, 0, array, context, metrics, &mut state, consume,
+                    )
+                },
+            )?;
+        }
+        for (index, aggregate) in &state.observations.values {
             if let PipelineKind::Observe(observation) = &stages[*index].kind {
                 metrics.complete_observation(observation, aggregate, context)?;
             }
         }
         Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn execute_pipeline_stages<'a>(
+        &self,
+        stages: &'a [PipelineStage],
+        start_stage: usize,
+        mut array: ArrayRef,
+        context: &NativeExecutionContext<'_>,
+        metrics: &Metrics<'_>,
+        state: &mut PipelineState<'a>,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<()> {
+        let mut observation_index = 0;
+        for (index, stage) in stages.iter().enumerate() {
+            if index < start_stage {
+                if matches!(stage.kind, PipelineKind::Observe(_)) {
+                    observation_index += 1;
+                }
+                continue;
+            }
+            context.check_cancelled()?;
+            array = match &stage.kind {
+                PipelineKind::ApplicationBatch(spec) => {
+                    spec.execute(&array, &self.session, context, metrics)?
+                }
+                PipelineKind::Project(expressions) => {
+                    project_array(&stage.fields, expressions, &array, context)?
+                }
+                PipelineKind::Filter(predicate) => {
+                    let Some(selected) = filter_array(predicate, &stage.fields, &array, context)?
+                    else {
+                        return Ok(());
+                    };
+                    selected
+                }
+                PipelineKind::Limit { .. } => {
+                    let (skip, remaining) = &mut state.ranges.values[index];
+                    let start = (*skip).min(array.len());
+                    *skip -= start;
+                    let count = (*remaining).min(array.len() - start);
+                    *remaining -= count;
+                    if count == 0 {
+                        return Ok(());
+                    }
+                    array.slice(start..start + count).map_err(vortex_error)?
+                }
+                PipelineKind::Observe(observation) => {
+                    let projected = observation
+                        .projection
+                        .as_ref()
+                        .map(|(fields, expressions)| {
+                            project_array(fields, expressions, &array, context)
+                        })
+                        .transpose()?;
+                    state.observations.values[observation_index].1.consume(
+                        projected.as_ref().unwrap_or(&array),
+                        context,
+                        state.batch_rows,
+                    )?;
+                    observation_index += 1;
+                    array
+                }
+            };
+        }
+        consume(array)
     }
 
     fn run_sort(
@@ -435,6 +489,17 @@ fn prepared_prefix_input(input: &Node, spec: &native_relational_sort::Spec) -> b
         }),
         _ => false,
     }
+}
+
+pub(super) fn apply_filter(
+    predicate: &native_relational_expression::Expression,
+    fields: &[(String, super::DType)],
+    array: &ArrayRef,
+    context: &NativeExecutionContext<'_>,
+    consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+) -> Result<()> {
+    let rows = filter_rows(predicate, predicate.filter_recipe(), array, context)?;
+    rows.for_each_batch(array, fields, array.len().max(1), context, consume)
 }
 
 fn filter_array(

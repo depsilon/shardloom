@@ -283,6 +283,14 @@ impl Completed {
         context.check_cancelled()
     }
 
+    pub(super) fn resident_arrays(&self) -> Option<&[ArrayRef]> {
+        match self {
+            Self::Resident(arrays) => Some(&arrays.values),
+            #[cfg(feature = "vortex-write")]
+            Self::Stored(_) => None,
+        }
+    }
+
     pub(super) fn is_spilled(&self) -> bool {
         match self {
             Self::Resident(_) => false,

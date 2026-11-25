@@ -28,6 +28,9 @@ use vortex::array::{
 };
 
 const BLOCK_ROWS: usize = 1024;
+const LEGACY_BUFFER_THRESHOLD_BYTES: u64 = 4 << 20;
+const MAX_STREAMING_BLOCK_ROWS: usize = 65_536;
+const MAX_MERGE_FAN_IN: usize = 16;
 const READER_WORK_BYTES: u64 = 2 * 64 * 1024;
 
 #[path = "native_relational_stored_order.rs"]
@@ -170,6 +173,28 @@ impl State {
         Ok(Reader { inner, state: self })
     }
 
+    pub(super) fn target_block_rows(&self, batch_rows: usize) -> usize {
+        if self.policy.buffer_bytes < LEGACY_BUFFER_THRESHOLD_BYTES || batch_rows < BLOCK_ROWS {
+            batch_rows.clamp(1, BLOCK_ROWS)
+        } else if self.policy.buffer_bytes >= 64 << 20 {
+            MAX_STREAMING_BLOCK_ROWS
+        } else if self.policy.buffer_bytes >= 16 << 20 {
+            32_768.max(batch_rows.min(MAX_STREAMING_BLOCK_ROWS))
+        } else {
+            16_384.max(batch_rows.min(MAX_STREAMING_BLOCK_ROWS))
+        }
+    }
+
+    pub(super) fn target_merge_fan_in(&self) -> usize {
+        if self.policy.buffer_bytes <= 8 << 20 {
+            2
+        } else if self.policy.buffer_bytes < 32 << 20 {
+            8
+        } else {
+            MAX_MERGE_FAN_IN
+        }
+    }
+
     pub(super) fn finish(&self) -> Result<VortexRelationalSpillReport> {
         if self.open_runs.get() != 0 {
             return Err(failed(
@@ -253,7 +278,7 @@ impl<'p, 's> Ordering<'p, 's> {
         batch_rows: usize,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Self> {
-        let block_rows = batch_rows.clamp(1, BLOCK_ROWS);
+        let block_rows = state.target_block_rows(batch_rows);
         Ok(Self {
             spec,
             state,
@@ -266,6 +291,10 @@ impl<'p, 's> Ordering<'p, 's> {
             write_sizing: sizing::RunWork::new(spec, block_rows, context)?,
             merge_sizing: sizing::RunWork::new(spec, block_rows, context)?,
         })
+    }
+
+    pub(super) const fn block_rows(&self) -> usize {
+        self.block_rows
     }
 
     /// A concurrent consumer may need a smaller batching threshold. This never
@@ -411,51 +440,48 @@ impl<'p, 's> Ordering<'p, 's> {
         drop(rows);
         self.sort = Sort::new(self.spec, context.memory())?;
         self.retained_bytes = 0;
-        while self.runs.values.len() >= 2 {
-            let length = self.runs.values.len();
-            if self.runs.values[length - 1].level != self.runs.values[length - 2].level {
+        let fan_in = self.state.target_merge_fan_in();
+        while self.runs.values.len() >= fan_in {
+            let start = self.runs.values.len() - fan_in;
+            let level = self.runs.values[start].level;
+            if self.runs.values[start..]
+                .iter()
+                .any(|run| run.level != level)
+            {
                 break;
             }
-            self.merge_last(context)?;
+            self.merge_runs(fan_in, context)?;
         }
         Ok(())
     }
 
-    fn merge_last(&mut self, context: &NativeExecutionContext<'_>) -> Result<()> {
+    fn merge_runs(&mut self, count: usize, context: &NativeExecutionContext<'_>) -> Result<()> {
+        if count < 2 || count > self.runs.values.len() {
+            return Err(failed("spill merge run count is invalid"));
+        }
         let work = self.work(context)?;
-        let right = self
-            .runs
-            .values
-            .pop()
-            .ok_or_else(|| failed("right sort run is absent"))?;
-        let left = self
-            .runs
-            .values
-            .pop()
-            .ok_or_else(|| failed("left sort run is absent"))?;
-        let rows = left
-            .native
-            .rows
-            .checked_add(right.native.rows)
-            .ok_or_else(|| failed("merged sort run row count overflow"))?;
-        let level = left
-            .level
-            .max(right.level)
+        let start = self.runs.values.len() - count;
+        let mut inputs = ReservedVec::new(context.memory())?;
+        inputs.reserve(count)?;
+        inputs.values.extend(self.runs.values.drain(start..));
+        let mut rows = 0_u64;
+        let mut max_level = 0_u32;
+        let mut readers = Vec::with_capacity(count);
+        for run in &inputs.values {
+            rows = rows
+                .checked_add(run.native.rows)
+                .ok_or_else(|| failed("merged sort run row count overflow"))?;
+            max_level = max_level.max(run.level);
+            readers.push(self.state.open(&run.native, self.spec, context, &work)?);
+        }
+        let level = max_level
             .checked_add(1)
             .ok_or_else(|| failed("sort merge level overflow"))?;
-        let mut merger = Merge::new(
-            self.spec,
-            self.state.open(&left.native, self.spec, context, &work)?,
-            self.state.open(&right.native, self.spec, context, &work)?,
-            context,
-        )?;
-        // Current heads are already held. The fixed gather window can retain
-        // several additional blocks when an input used smaller physical frames.
+        let mut merger = Merge::new(self.spec, readers, context)?;
         let workspace = self.state.run_workspace_cost()?;
-        let overlap = sizing::merge_reader_overlap(
+        let overlap = sizing::merge_readers_overlap(
             self.block_rows,
-            &left,
-            &right,
+            &inputs.values,
             merger.held_payload_bytes()?,
         )?
         .checked_add(workspace)
@@ -491,8 +517,10 @@ impl<'p, 's> Ordering<'p, 's> {
         merger.validate()?;
         drop(merger);
         self.state.with_store(context, |store| {
-            store.remove(&left.native)?;
-            store.remove(&right.native)
+            for run in &inputs.values {
+                store.remove(&run.native)?;
+            }
+            Ok(())
         })?;
         self.merge_sizing
             .complete(shape, payload_bytes_per_row.get(), context);
@@ -526,23 +554,28 @@ impl<'p, 's> Ordering<'p, 's> {
         let run = self.complete_run(context)?;
         let work = self.work(context)?;
         let mut reader = self.state.open(&run, self.spec, context, &work)?;
+        let step = batch_rows.max(1);
         let mut rows = ReservedVec::new(context.memory())?;
-        rows.reserve(run.block_rows)?;
+        rows.reserve(step.min(run.block_rows))?;
         while let Some(block) = reader.next_block(context.runtime())? {
-            context.check_cancelled()?;
-            rows.values.clear();
-            rows.values.extend(0..block.array().len());
-            // Do not detach the store's borrowed array from its work/path credits.
-            // Compact into the shared allocator before a downstream node retains it.
-            consume(take_batch_with_unobserved_fields(
-                block.array(),
-                &self.spec.fields,
-                &rows.values,
-                self.spec.copy_policy,
-                &self.spec.unobserved_fields,
-                context,
-            )?)?;
-            context.check_cancelled()?;
+            let len = block.array().len();
+            for start in (0..len).step_by(step) {
+                context.check_cancelled()?;
+                let end = (start + step).min(len);
+                rows.values.clear();
+                rows.values.extend(start..end);
+                // Do not detach the store's borrowed array from its work/path credits.
+                // Compact into the shared allocator before a downstream node retains it.
+                consume(take_batch_with_unobserved_fields(
+                    block.array(),
+                    &self.spec.fields,
+                    &rows.values,
+                    self.spec.copy_policy,
+                    &self.spec.unobserved_fields,
+                    context,
+                )?)?;
+                context.check_cancelled()?;
+            }
         }
         reader.validate()?;
         drop(reader);
@@ -551,8 +584,10 @@ impl<'p, 's> Ordering<'p, 's> {
 
     fn complete_run(&mut self, context: &NativeExecutionContext<'_>) -> Result<NativeQueryRun> {
         self.flush(context)?;
+        let fan_in = self.state.target_merge_fan_in();
         while self.runs.values.len() > 1 {
-            self.merge_last(context)?;
+            let count = self.runs.values.len().min(fan_in);
+            self.merge_runs(count, context)?;
         }
         self.runs
             .values
@@ -636,7 +671,10 @@ impl Cursor<'_> {
 
 struct Merge<'a> {
     spec: &'a Spec,
-    cursors: [Cursor<'a>; 2],
+    cursors: Vec<Cursor<'a>>,
+    tree: Vec<usize>,
+    leaves: usize,
+    pending_winner: Option<usize>,
 }
 
 impl<'a> Merge<'a> {
@@ -653,23 +691,74 @@ impl<'a> Merge<'a> {
         })
     }
 
+    fn better_cursor(&self, left_idx: usize, right_idx: usize) -> Result<usize> {
+        if left_idx == usize::MAX {
+            return Ok(right_idx);
+        }
+        if right_idx == usize::MAX {
+            return Ok(left_idx);
+        }
+        let first = left_idx.min(right_idx);
+        let second = left_idx.max(right_idx);
+        let left = &self.cursors[first];
+        let right = &self.cursors[second];
+        let (Some(a), Some(b)) = (&left.block, &right.block) else {
+            return Ok(if left.block.is_some() {
+                first
+            } else if right.block.is_some() {
+                second
+            } else {
+                usize::MAX
+            });
+        };
+        for (index, key) in self.spec.keys.iter().enumerate() {
+            let order = native_relational_sort::compare_key(
+                key,
+                a.batch.key_is_null(left.row, index)?,
+                b.batch.key_is_null(right.row, index)?,
+                || a.batch.compare_key(left.row, &b.batch, right.row, index),
+            )?;
+            if order != KeyOrdering::Equal {
+                return Ok(if order.is_gt() { second } else { first });
+            }
+        }
+        // Runs represent adjacent input ranges. Earlier input wins every tie.
+        Ok(first)
+    }
+
     fn new(
         spec: &'a Spec,
-        left: Reader<'a>,
-        right: Reader<'a>,
+        readers: Vec<Reader<'a>>,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Self> {
-        let mut this = Self {
-            spec,
-            cursors: [left, right].map(|reader| Cursor {
+        let mut cursors = readers
+            .into_iter()
+            .map(|reader| Cursor {
                 reader,
                 block: None,
                 row: 0,
                 pending: true,
-            }),
-        };
-        for cursor in &mut this.cursors {
+            })
+            .collect::<Vec<_>>();
+        for cursor in &mut cursors {
             cursor.load(spec, context)?;
+        }
+        let leaves = cursors.len().max(1).next_power_of_two();
+        let mut tree = vec![usize::MAX; leaves * 2];
+        for (index, cursor) in cursors.iter().enumerate() {
+            if cursor.block.is_some() {
+                tree[leaves + index] = index;
+            }
+        }
+        let mut this = Self {
+            spec,
+            cursors,
+            tree,
+            leaves,
+            pending_winner: None,
+        };
+        for node in (1..leaves).rev() {
+            this.tree[node] = this.better_cursor(this.tree[node * 2], this.tree[node * 2 + 1])?;
         }
         Ok(this)
     }
@@ -682,32 +771,23 @@ impl<'a> Merge<'a> {
     }
 
     fn winner(&mut self, context: &NativeExecutionContext<'_>) -> Result<Option<usize>> {
-        for cursor in &mut self.cursors {
+        if let Some(prev) = self.pending_winner.take() {
+            let cursor = &mut self.cursors[prev];
             cursor.load(self.spec, context)?;
-        }
-        let [left, right] = &self.cursors;
-        let (Some(a), Some(b)) = (&left.block, &right.block) else {
-            return Ok(if left.block.is_some() {
-                Some(0)
-            } else if right.block.is_some() {
-                Some(1)
+            self.tree[self.leaves + prev] = if cursor.block.is_some() {
+                prev
             } else {
-                None
-            });
-        };
-        for (index, key) in self.spec.keys.iter().enumerate() {
-            let order = native_relational_sort::compare_key(
-                key,
-                a.batch.key_is_null(left.row, index)?,
-                b.batch.key_is_null(right.row, index)?,
-                || a.batch.compare_key(left.row, &b.batch, right.row, index),
-            )?;
-            if order != KeyOrdering::Equal {
-                return Ok(Some(usize::from(order.is_gt())));
+                usize::MAX
+            };
+            let mut node = usize::midpoint(self.leaves, prev);
+            while node >= 1 {
+                self.tree[node] =
+                    self.better_cursor(self.tree[node * 2], self.tree[node * 2 + 1])?;
+                node /= 2;
             }
         }
-        // Runs represent adjacent input ranges. Earlier input wins every tie.
-        Ok(Some(0))
+        let top = self.tree[1];
+        Ok((top != usize::MAX).then_some(top))
     }
 
     fn next(
@@ -747,6 +827,7 @@ impl<'a> Merge<'a> {
                     .ok_or_else(|| failed("merge selection overflow"))?,
             ));
             cursor.advance();
+            self.pending_winner = Some(winner);
         }
         if rows.values.is_empty() {
             self.validate()?;

@@ -315,6 +315,152 @@ class PgoTests(unittest.TestCase):
         else:
             self.fail("owned descendant remained live after group cleanup")
 
+    def test_multi_family_corpus_plan_and_workspace_alias(self):
+        args = pgo.parse_args([
+            "--repo-root", str(self.repo),
+            "--workspace", str(self.root / "ws-pgo"),
+            "--training-corpus", "multi-family",
+            "--require-hot-symbol-coverage",
+            "--evaluate",
+        ])
+        plan = pgo.make_plan(args, {})
+        self.assertEqual(plan["run_dir"], str((self.root / "ws-pgo").resolve()))
+        self.assertEqual(plan["training_corpus"], "multi-family")
+        self.assertTrue(plan["require_hot_symbol_coverage"])
+        self.assertTrue(plan["evaluate_requested"])
+        self.assertFalse(plan["default_release_profile_changed"])
+        self.assertEqual(plan["claim_gate_status"], "not_claim_grade")
+        self.assertIn("--_train-multi-family", plan["training_command"])
+        self.assertEqual(plan["train_fixture"]["corpus"], "multi-family")
+
+    def test_hot_symbol_coverage_parser_and_require_flag(self):
+        sample = "\n".join([
+            "Instrumentation level: IR  entry_first = 0  instrument_loop_entries = 0",
+            "Total functions: 100735",
+            "Maximum function count: 6744781",
+            "Top 250 functions with the largest internal block counts: ",
+            "  shardloom_vortex.145a94074593564d-cgu.0;_ZN16shardloom_vortex16local_primitives22native_relational_keys9KeyColumn3len17h0E, max count = 1536682",
+            "  shardloom_runtime.86714065fe4aa814-cgu.0;_ZN17shardloom_runtime24sql_local_source_runtime20json_scan_checkpoint17h0E, max count = 2849388",
+        ])
+        parsed = pgo.parse_hot_symbol_coverage(sample)
+        self.assertEqual(parsed["total_functions"], 100735)
+        self.assertEqual(parsed["max_function_count"], 6744781)
+        self.assertEqual(parsed["shardloom_vortex_hot_symbols"], 1)
+        self.assertEqual(parsed["shardloom_runtime_hot_symbols"], 1)
+        with self.assertRaisesRegex(ValueError, "shardloom_vortex"):
+            pgo.parse_hot_symbol_coverage("Total functions: 10\nMaximum function count: 5\n")
+
+        self.args.require_hot_symbol_coverage = True
+        runner, target, calls = self.fake_runner()
+        orig_step = runner.step
+
+        def step_with_cov(name, command, env=None, timeout=None):
+            out = orig_step(name, command, env=env, timeout=timeout)
+            if name == "hot-symbol-coverage":
+                out.write_text(sample)
+            return out
+
+        runner.step = step_with_cov
+        pgo.build_variants(runner, target, "host")
+        cov_calls = [c for c in calls if c[0] == "hot-symbol-coverage"]
+        self.assertEqual(len(cov_calls), 1)
+        self.assertEqual(cov_calls[0][1][:3], [runner.report["profdata_path"], "show", "--topn=250"])
+        self.assertEqual(runner.report["hot_symbol_coverage"]["max_function_count"], 6744781)
+
+    def test_verify_training_multi_family_validates_all_sub_summaries(self):
+        training_dir = self.root / "training"
+        logs_dir = training_dir / "logs/heldout_operators_x"
+        logs_dir.mkdir(parents=True)
+        instr = self.root / "instrumented"
+        instr.write_bytes(b"instr-bin")
+        binary = pgo.file_record(instr)
+        heldout_sum = logs_dir / "summary.json"
+        heldout_sum.write_text(json.dumps({"status": "passed", "all_requested_acceptance_cases_passed": True}))
+        pq_sum = training_dir / "tpch_ssb_parquet_training.json"
+        vx_sum = training_dir / "tpch_ssb_vortex_training.json"
+        for p in (pq_sum, vx_sum):
+            p.write_text(json.dumps({"complete": True, "full_result_validation": True}))
+        manifest = training_dir / "multi_family_training_summary.json"
+        manifest.write_text(json.dumps({
+            "status": "passed",
+            "binary": binary["path"],
+            "binary_sha256": binary["sha256"],
+            "heldout_summary": str(heldout_sum),
+            "tpch_ssb_parquet_summary": str(pq_sum),
+            "tpch_ssb_vortex_summary": str(vx_sum),
+        }))
+        self.args.training_corpus = "multi-family"
+        runner = types.SimpleNamespace(output=self.root, args=self.args, report={})
+        pgo.verify_training(runner, binary)
+        self.assertEqual(runner.report["training_evidence"]["corpus"], "multi-family")
+
+    @unittest.skipUnless(os.name == "posix", "native process groups require POSIX")
+    def test_stop_group_tolerates_macos_permission_error_and_records_step_error(self):
+        plan = pgo.make_plan(self.args, {})
+        output = Path(plan["run_dir"])
+        (output / "logs").mkdir(parents=True)
+        runner = pgo.Runner(self.args, plan)
+        runner.guard = lambda: None
+        with patch.object(os, "killpg", side_effect=PermissionError(1, "Operation not permitted")):
+            with self.assertRaisesRegex(ValueError, "PGO stage failed: boom"):
+                runner.step("boom", [sys.executable, "-c", "import sys; sys.exit(7)"])
+        step = plan["steps"][0]
+        self.assertEqual(step["status"], "failed")
+        self.assertEqual(step["returncode"], 7)
+        self.assertIn("PGO stage failed: boom (exit 7)", step["error"])
+        self.assertIsInstance(step["seconds"], float)
+
+    def test_run_heldout_evaluation_uses_binary_complete_cohort_and_preserves_perf01(self):
+        eval_dir = self.root / "eval_out"
+        report = {
+            "binaries": {
+                "control": {"path": "/ctrl/shardloom"},
+                "profile-use": {"path": "/pgo/shardloom"},
+            }
+        }
+        calls = []
+
+        def fake_step(name, command, env=None, timeout=None):
+            calls.append((name, list(command)))
+            out_path = eval_dir / f"{name}.json"
+            if name in ("eval-tpch-ssb-control", "eval-tpch-ssb-profile-use"):
+                out_path = Path(command[command.index("--summary-out") + 1])
+                out_path.write_text(json.dumps({"complete": True}))
+            elif name == "eval-heldout-operators":
+                held_sum = Path(command[command.index("--uat-root") + 1]) / "logs/heldout_operators_x/summary.json"
+                held_sum.parent.mkdir(parents=True, exist_ok=True)
+                held_sum.write_text(json.dumps({"status": "passed"}))
+            elif name.startswith("eval-ship-drop-"):
+                self.assertEqual(command[command.index("--policy") + 1], "binary_complete_cohort")
+                out_path.write_text(json.dumps({"policy": "binary_complete_cohort", "decision": "retain"}))
+            elif name.startswith("eval-perf01-thresholds-"):
+                self.assertEqual(command[command.index("--policy") + 1], "perf01_thresholds")
+                out_path.write_text(json.dumps({"policy": "perf01_thresholds", "decision": "drop"}))
+            return out_path
+
+        runner = types.SimpleNamespace(output=eval_dir, root=self.repo, args=self.args, step=fake_step)
+        pgo.run_heldout_evaluation(runner, report)
+        ev = report["evaluation"]
+        self.assertEqual(ev["ship_drop_policy"], "binary_complete_cohort")
+        self.assertEqual(ev["ship_drop_evaluations"]["cold_process_cli"]["decision"], "retain")
+        self.assertEqual(ev["historical_perf01_threshold_evaluations"]["cold_process_cli"]["decision"], "drop")
+
+    def test_guard_retries_transient_file_not_found_and_reraises_persistent(self):
+        plan = pgo.make_plan(self.args, {})
+        runner = pgo.Runner(self.args, plan)
+        with (
+            patch.object(pgo, "check_budgets", side_effect=[FileNotFoundError("rmeta"), {"log_bytes": 0}]),
+            patch.object(pgo, "accounted_bytes", return_value=0),
+            patch.object(pgo.time, "sleep"),
+        ):
+            runner.guard()
+        with (
+            patch.object(pgo, "check_budgets", side_effect=[FileNotFoundError("rmeta")] * 4),
+            patch.object(pgo.time, "sleep"),
+            self.assertRaises(FileNotFoundError),
+        ):
+            runner.guard()
+
 
 if __name__ == "__main__":
     unittest.main()

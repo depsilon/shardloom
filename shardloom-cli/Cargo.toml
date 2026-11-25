@@ -27,6 +27,7 @@ shardloom-plan = { workspace = true }
 shardloom-vortex = { workspace = true }
 arrow-array = { workspace = true, optional = true }
 arrow-schema = { workspace = true }
+mimalloc = { workspace = true, optional = true }
 regex = { workspace = true }
 rusqlite = { version = "0.43.0", default-features = false, features = ["bundled"] }
 serde_json = { workspace = true }
@@ -47,6 +48,7 @@ universal-format-io = ["dep:arrow-array", "shardloom-vortex/universal-format-io"
 vortex-write = ["shardloom-vortex/vortex-write"]
 vortex-encoded-read-spike = ["shardloom-vortex/vortex-encoded-read-spike"]
 vortex-local-primitives = ["shardloom-vortex/vortex-local-primitives"]
+cli-mimalloc = ["dep:mimalloc"]
 [dev-dependencies]
 arrow-array = { workspace = true }
 arrow-avro = { workspace = true }

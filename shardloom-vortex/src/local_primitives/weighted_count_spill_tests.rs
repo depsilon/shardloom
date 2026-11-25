@@ -443,6 +443,9 @@ fn weighted_count_spill_quota_cancel_invalid_weight_and_key_are_terminal() {
                         spill.policy.clone(),
                         spill.order,
                         Arc::clone(&spill.copies),
+                        spill.fan_in,
+                        spill.target_block_bytes,
+                        spill.max_block_rows,
                         &runtime,
                         &session,
                     )
@@ -609,6 +612,9 @@ fn weighted_count_spill_borrowed_predecessor_checks_order_across_native_blocks()
             spill.policy.clone(),
             order,
             Arc::clone(&spill.copies),
+            spill.fan_in,
+            spill.target_block_bytes,
+            spill.max_block_rows,
             &runtime,
             &session,
         )
@@ -763,4 +769,39 @@ fn weighted_count_spill_rejects_forged_run_key_and_block_geometry() {
         workspace.empty();
         assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
+}
+
+#[test]
+fn high_memory_weighted_count_spill_uses_large_blocks_and_sixteen_way_merge() {
+    let workspace = Workspace::new();
+    let (runtime, session) = runtime();
+    let mut policy = workspace.policy();
+    policy.memory_bytes = 16 << 20;
+    policy.quota_bytes = 128 << 20;
+    policy.max_key_bytes = 128;
+    let memory = LiveMemoryPool::new(policy.memory_bytes).unwrap();
+    let mut spill = WeightedCountSpill::new(policy, memory.clone(), KeyOrder::Text, 8).unwrap();
+    assert_eq!(spill.fan_in, 16);
+    assert_eq!(spill.max_block_rows, 16_384);
+    let mut oracle = BTreeMap::new();
+    for batch in 0..17_usize {
+        for index in 0..4_usize {
+            let text = format!("key-{batch:02}-{index:02}");
+            let weight = u64::try_from((batch + index) % 5 + 1).unwrap();
+            spill.push(None, &text, weight, &runtime, &session).unwrap();
+            *oracle.entry((None, text)).or_insert(0) += weight;
+        }
+        spill.flush(&runtime, &session).unwrap();
+    }
+    assert_eq!(spill.runs.len(), 2);
+    assert_eq!(spill.runs[0].level, 1);
+    assert_eq!(spill.runs[0].native.block_rows, 6_393);
+    let result = spill.finish(&runtime, &session).unwrap();
+    assert_eq!(collect(&result, 8), expected(oracle, KeyOrder::Text, 8, 8));
+    assert_eq!(result.evidence.merge_passes, 1);
+    assert_eq!(result.evidence.runs_written, result.evidence.runs_validated);
+    assert!(result.evidence.peak_reserved_bytes <= memory.snapshot().limit_bytes);
+    drop(result);
+    workspace.empty();
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
 }

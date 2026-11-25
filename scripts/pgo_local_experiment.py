@@ -26,6 +26,10 @@ TRAIN_CASES = ("metadata_count", "nullable_numeric_scalar", "exact_integer_extre
                "numeric_group_sum", "skewed_string_count", "nullable_string_count",
                "composite_group", "compound_count_topk", "nullable_group_distinct",
                "utf8_byte_length", "filtered_sort_offset", "nullable_projection")
+MULTI_FAMILY_TRAIN_SEED = 19991231
+MULTI_FAMILY_TRAIN_ROWS = 2400
+EVAL_TPCH_SSB_SEED = 20261124
+EVAL_TPCH_SSB_ROWS = 12000
 PROFILE_PATTERN = "shardloom-%m.profraw"
 SMOKE_SOURCE = '''fn main() {
     let n: u64 = std::env::args().nth(1).unwrap().parse().unwrap();
@@ -41,9 +45,13 @@ def parse_args(argv=None):
         p.error("Python 3.11 or newer is required by this helper and its native training harness")
     p.add_argument("--repo-root", type=Path, default=Path(__file__).resolve().parents[1])
     p.add_argument("--run-dir", type=Path, help="Fresh, non-existing local directory; never reused or removed")
+    p.add_argument("--workspace", type=Path, help="Alias for --run-dir")
     p.add_argument("--target", help="Native host triple; otherwise resolved from rustc -vV during --run")
     p.add_argument("--llvm-profdata", help="Explicit tool override; otherwise use the selected Rust toolchain's llvm-tools component, then PATH during --run")
     p.add_argument("--features", default="release-user-surfaces")
+    p.add_argument("--training-corpus", choices=("representative", "multi-family"), default="representative")
+    p.add_argument("--require-hot-symbol-coverage", action="store_true")
+    p.add_argument("--evaluate", action="store_true")
     p.add_argument("--training-command", help="Shell-free argv string with standalone {instrumented_binary} token")
     p.add_argument("--rustflag", action="append", default=[])
     for name, default in (("max-run-gib", 40), ("max-profile-mib", 1024), ("max-log-mib", 256),
@@ -51,7 +59,14 @@ def parse_args(argv=None):
         p.add_argument("--" + name, type=float, default=default)
     p.add_argument("--smoke-only", action="store_true")
     p.add_argument("--run", action="store_true")
+    p.add_argument("--_train-multi-family", action="store_true", help=argparse.SUPPRESS)
+    p.add_argument("--_train-binary", type=Path, help=argparse.SUPPRESS)
+    p.add_argument("--_train-uat-root", type=Path, help=argparse.SUPPRESS)
     args = p.parse_args(argv)
+    if args.workspace is not None:
+        if args.run_dir is not None and args.run_dir != args.workspace:
+            p.error("pass at most one of --run-dir and --workspace")
+        args.run_dir = args.workspace
     for field in ("max_run_gib", "max_profile_mib", "max_log_mib", "min_free_gib", "stage_timeout", "training_timeout"):
         if not math.isfinite(getattr(args, field)) or getattr(args, field) <= 0:
             p.error(f"{field} must be finite and positive")
@@ -85,12 +100,22 @@ def file_record(path):
     return {"path": str(path), "sha256": digest, "generation": before}
 
 
-def training_command(root, output, binary, custom):
+def training_command(root, output, binary, custom, corpus="representative"):
     if custom is not None:
         argv = shlex.split(custom)
         if "{instrumented_binary}" not in argv:
             raise ValueError("custom training requires a standalone {instrumented_binary} argv token")
         return [str(binary) if arg == "{instrumented_binary}" else arg for arg in argv]
+    if corpus == "multi-family":
+        return [
+            sys.executable,
+            str(root / "scripts/pgo_local_experiment.py"),
+            "--_train-multi-family",
+            "--_train-binary",
+            str(binary),
+            "--_train-uat-root",
+            str(output / "training"),
+        ]
     return [sys.executable, str(root / "scripts/run_heldout_operator_uat.py"),
             "--baseline-binary", str(binary), "--candidate-binary", str(binary),
             "--uat-root", str(output / "training"), "--rows", "4096", "--samples", "1",
@@ -109,15 +134,31 @@ def make_plan(args, env):
     target = args.target or "<rustc-host-target>"
     if args.target and not re.fullmatch(r"[A-Za-z0-9_-]+", args.target):
         raise ValueError("invalid native target triple")
+    corpus = getattr(args, "training_corpus", "representative")
+    require_cov = bool(getattr(args, "require_hot_symbol_coverage", False))
+    evaluate = bool(getattr(args, "evaluate", False))
     return {"schema_version": "shardloom.pgo_build_helper.v2", "status": "print_only",
             "repo_root": str(root), "run_dir": str(output), "target": target,
             "cargo_target_dir": str(output / "cargo-target"), "profile_dir": str(output / "profiles"),
             "merged_profile": str(output / "merged.profdata"), "profile_pattern": PROFILE_PATTERN,
             "base_rustflags": base_flags(env, args.rustflag), "features": args.features, "profile": "release-pgo",
+            "training_corpus": corpus,
+            "require_hot_symbol_coverage": require_cov,
+            "evaluate_requested": evaluate,
+            "default_release_profile_changed": False,
+            "claim_gate_status": "not_claim_grade",
             "build_command_template": ["cargo", "build", "--locked", "--offline", "-p", "shardloom-cli", "--bin", "shardloom", "--features", args.features, "--profile", "release-pgo", "--target", target, "--message-format=json-render-diagnostics"],
-            "training_command": training_command(root, output, output / "binaries/instrumented/shardloom", args.training_command),
+            "training_command": training_command(root, output, output / "binaries/instrumented/shardloom", args.training_command, corpus=corpus),
             "training_scope": "training only; exact same instrumented CLI in both harness slots; not comparison or heldout evaluation" if args.training_command is None else "custom command; supplied binary token does not certify actual use, correctness, or external-engine policy",
-            "train_fixture": {"rows": 4096, "workers": [1, 4], "samples": 1, "warmups": 1, "cases": list(TRAIN_CASES)} if args.training_command is None else None,
+            "train_fixture": (
+                {"rows": 4096, "workers": [1, 4], "samples": 1, "warmups": 1, "cases": list(TRAIN_CASES)}
+                if args.training_command is None and corpus == "representative"
+                else (
+                    {"corpus": "multi-family", "heldout_operator_rows": 4096, "tpch_ssb_scale_rows": MULTI_FAMILY_TRAIN_ROWS, "tpch_ssb_seed": MULTI_FAMILY_TRAIN_SEED, "formats": ["parquet", "vortex"]}
+                    if args.training_command is None
+                    else None
+                )
+            ),
             "evaluation_required": "Separate untrained schema/distribution or case subset; full exact values and matched control/profile-use binaries. Training output is not evaluation.",
             "limits": {key: getattr(args, key) for key in ("max_run_gib", "max_profile_mib", "max_log_mib", "min_free_gib", "stage_timeout", "training_timeout")},
             "smoke_only": args.smoke_only, "benchmark_only_build": True,
@@ -132,7 +173,7 @@ def stop_group(process):
     """Stop ordinary descendants even when their leader already exited."""
     try:
         os.killpg(process.pid, signal.SIGTERM)
-    except ProcessLookupError:
+    except (ProcessLookupError, PermissionError):
         pass
     try:
         process.wait(timeout=5)
@@ -140,7 +181,7 @@ def stop_group(process):
         pass
     try:
         os.killpg(process.pid, signal.SIGKILL)
-    except ProcessLookupError:
+    except (ProcessLookupError, PermissionError):
         pass
     process.wait(timeout=5)
 
@@ -160,13 +201,21 @@ class Runner:
 
     def guard(self):
         a = self.args
-        snapshot = check_budgets(self.output, self.output / "cargo-target", self.output / "logs",
-                                min_free_bytes=int(a.min_free_gib * GIB), reserve_bytes=0,
-                                max_workspace_bytes=int(a.max_run_gib * GIB), max_log_bytes=int(a.max_log_mib * MIB))
-        profiles = accounted_bytes(self.output / "profiles") + accounted_bytes(self.output / "smoke/profiles")
+        for attempt in range(4):
+            try:
+                snapshot = check_budgets(self.output, self.output / "cargo-target", self.output / "logs",
+                                         min_free_bytes=int(a.min_free_gib * GIB), reserve_bytes=0,
+                                         max_workspace_bytes=int(a.max_run_gib * GIB), max_log_bytes=int(a.max_log_mib * MIB))
+                profiles = accounted_bytes(self.output / "profiles") + accounted_bytes(self.output / "smoke/profiles")
+                log_extra = accounted_bytes(self.output / "training/logs")
+                break
+            except FileNotFoundError:
+                if attempt == 3:
+                    raise
+                time.sleep(0.01)
         if profiles > a.max_profile_mib * MIB:
             raise ValueError("sampled profile byte budget exceeded")
-        if snapshot["log_bytes"] + accounted_bytes(self.output / "training/logs") > a.max_log_mib * MIB:
+        if snapshot["log_bytes"] + log_extra > a.max_log_mib * MIB:
             raise ValueError("sampled combined log budget exceeded")
 
     def step(self, name, command, env=None, timeout=None):
@@ -192,8 +241,9 @@ class Runner:
                     raise ValueError(f"PGO stage failed: {name} (exit {process.returncode})")
                 self.guard()
                 record["status"] = "passed"
-            except BaseException:
+            except BaseException as error:
                 record["status"] = "failed"
+                record["error"] = str(error) or type(error).__name__
                 raise
             finally:
                 previous = {s: signal.signal(s, signal.SIG_IGN) for s in (signal.SIGINT, signal.SIGTERM)}
@@ -285,7 +335,68 @@ def run_smoke(runner, rustc, profdata, target):
     runner.report["smoke_artifacts"] = [file_record(p) for p in [source, generated, used, merged, *inputs]]
 
 
+def parse_hot_symbol_coverage(text):
+    total_functions = None
+    max_function_count = None
+    vortex_symbols = []
+    runtime_symbols = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("Total functions:"):
+            total_functions = int(stripped.split(":", 1)[1].strip())
+        elif stripped.startswith("Maximum function count:"):
+            max_function_count = int(stripped.split(":", 1)[1].strip())
+        elif "shardloom_vortex" in stripped:
+            vortex_symbols.append(stripped)
+        elif "shardloom_runtime" in stripped:
+            runtime_symbols.append(stripped)
+    if total_functions is None or total_functions <= 0:
+        raise ValueError("merged PGO profile reported zero total functions")
+    if max_function_count is None or max_function_count <= 0:
+        raise ValueError("merged PGO profile reported zero maximum function count")
+    if not vortex_symbols or not runtime_symbols:
+        raise ValueError(
+            "merged PGO profile lacks non-zero covered symbols in shardloom_vortex and shardloom_runtime"
+        )
+    return {
+        "total_functions": total_functions,
+        "max_function_count": max_function_count,
+        "shardloom_vortex_hot_symbols": len(vortex_symbols),
+        "shardloom_runtime_hot_symbols": len(runtime_symbols),
+        "sample_vortex_symbols": vortex_symbols[:10],
+        "sample_runtime_symbols": runtime_symbols[:10],
+    }
+
+
 def verify_training(runner, binary):
+    if getattr(getattr(runner, "args", None), "training_corpus", "representative") == "multi-family":
+        summary_path = runner.output / "training/multi_family_training_summary.json"
+        if not summary_path.is_file():
+            raise ValueError("multi-family training did not write multi_family_training_summary.json")
+        multi = json.loads(summary_path.read_text())
+        if multi.get("status") != "passed":
+            raise ValueError("multi-family training failed")
+        if multi.get("binary_sha256") != binary["sha256"] or multi.get("binary") != binary["path"]:
+            raise ValueError("multi-family training used a different CLI binary")
+        heldout_path = Path(multi["heldout_summary"])
+        heldout = json.loads(heldout_path.read_text())
+        if heldout["status"] != "passed" or not heldout["all_requested_acceptance_cases_passed"]:
+            raise ValueError("multi-family heldout operator training failed")
+        for fmt in ("parquet", "vortex"):
+            suite = json.loads(Path(multi[f"tpch_ssb_{fmt}_summary"]).read_text())
+            if not suite.get("complete") or not suite.get("full_result_validation"):
+                raise ValueError(f"multi-family TPC-H/SSB {fmt} training failed")
+        runner.report["training_evidence"] = {
+            "corpus": "multi-family",
+            "summary": file_record(summary_path),
+            "heldout_summary": file_record(heldout_path),
+            "tpch_ssb_parquet_summary": file_record(Path(multi["tpch_ssb_parquet_summary"])),
+            "tpch_ssb_vortex_summary": file_record(Path(multi["tpch_ssb_vortex_summary"])),
+            "all_exact_values_passed": True,
+            "role": "training_not_independent_evaluation",
+        }
+        runner.report.update(external_engine_invoked=False, fallback_attempted=False)
+        return
     paths = list((runner.output / "training/logs").glob("heldout_operators_*/summary.json"))
     if len(paths) != 1:
         raise ValueError("default training did not produce exactly one acceptance summary")
@@ -334,7 +445,7 @@ def build_variants(runner, target_dir, target):
             if list(profiles.iterdir()):
                 raise ValueError("build unexpectedly produced profiles before training")
             train_env = dict(runner.env, LLVM_PROFILE_FILE=str(profiles / PROFILE_PATTERN), SHARDLOOM_PGO_TRAIN_BINARY=str(frozen))
-            runner.step("training", training_command(runner.root, runner.output, frozen, args.training_command), train_env, args.training_timeout)
+            runner.step("training", training_command(runner.root, runner.output, frozen, args.training_command, corpus=getattr(args, "training_corpus", "representative")), train_env, args.training_timeout)
             if file_record(frozen) != before:
                 raise ValueError("instrumented binary changed during training")
             if args.training_command is None:
@@ -343,6 +454,210 @@ def build_variants(runner, target_dir, target):
             report["profile_inputs"] = [file_record(p) for p in inputs]
             runner.step("merge", [report["profdata_path"], "merge", "-o", str(merged), *map(str, inputs)])
             report["merged_profile_artifact"] = file_record(merged)
+            if getattr(args, "require_hot_symbol_coverage", False):
+                cov_out = runner.step("hot-symbol-coverage", [report["profdata_path"], "show", "--topn=250", str(merged)])
+                report["hot_symbol_coverage"] = parse_hot_symbol_coverage(cov_out.read_text())
+
+
+def run_heldout_evaluation(runner, report):
+    eval_root = runner.output / "evaluation"
+    fixtures_dir = eval_root / "fixtures"
+    control_bin = report["binaries"]["control"]["path"]
+    pgo_bin = report["binaries"]["profile-use"]["path"]
+    eval_root.mkdir(parents=True)
+    for tag, binary in (("control", control_bin), ("profile-use", pgo_bin)):
+        runner.step(
+            f"eval-tpch-ssb-{tag}",
+            [
+                sys.executable,
+                str(runner.root / "scripts/run_tpch_ssb_suite.py"),
+                "--binary",
+                str(binary),
+                "--prepare-binary",
+                str(control_bin),
+                "--uat-root",
+                str(eval_root / tag),
+                "--fixtures-dir",
+                str(fixtures_dir),
+                "--suite",
+                "all",
+                "--input-format",
+                "vortex",
+                "--lane",
+                "paired",
+                "--scale-rows",
+                str(EVAL_TPCH_SSB_ROWS),
+                "--seed",
+                str(EVAL_TPCH_SSB_SEED),
+                "--summary-out",
+                str(eval_root / f"tpch_ssb_{tag}.json"),
+            ],
+            timeout=args_timeout(runner, "training_timeout"),
+        )
+    runner.step(
+        "eval-heldout-operators",
+        [
+            sys.executable,
+            str(runner.root / "scripts/run_heldout_operator_uat.py"),
+            "--baseline-binary",
+            str(control_bin),
+            "--candidate-binary",
+            str(pgo_bin),
+            "--uat-root",
+            str(eval_root / "heldout"),
+            "--rows",
+            "8192",
+            "--samples",
+            "2",
+            "--workers",
+            "1,4",
+            "--timeout",
+            "60",
+        ],
+        timeout=args_timeout(runner, "training_timeout"),
+    )
+    ctrl_summary = json.loads((eval_root / "tpch_ssb_control.json").read_text())
+    pgo_summary = json.loads((eval_root / "tpch_ssb_profile-use.json").read_text())
+    ship_drop = {}
+    perf01_thresholds = {}
+    for lane in ("cold_process_cli", "warm_resident_session"):
+        out = runner.step(
+            f"eval-ship-drop-{lane}",
+            [
+                sys.executable,
+                str(runner.root / "scripts/evaluate_perf_ship_drop.py"),
+                "--baseline",
+                str(eval_root / "tpch_ssb_control.json"),
+                "--candidate",
+                str(eval_root / "tpch_ssb_profile-use.json"),
+                "--lane",
+                lane,
+                "--policy",
+                "binary_complete_cohort",
+            ],
+        )
+        ship_drop[lane] = json.loads(out.read_text())
+        perf01_out = runner.step(
+            f"eval-perf01-thresholds-{lane}",
+            [
+                sys.executable,
+                str(runner.root / "scripts/evaluate_perf_ship_drop.py"),
+                "--baseline",
+                str(eval_root / "tpch_ssb_control.json"),
+                "--candidate",
+                str(eval_root / "tpch_ssb_profile-use.json"),
+                "--lane",
+                lane,
+                "--policy",
+                "perf01_thresholds",
+            ],
+        )
+        perf01_thresholds[lane] = json.loads(perf01_out.read_text())
+    heldout_paths = list((eval_root / "heldout/logs").glob("heldout_operators_*/summary.json"))
+    if len(heldout_paths) != 1:
+        raise ValueError("heldout operator evaluation did not produce exactly one summary")
+    heldout_summary = json.loads(heldout_paths[0].read_text())
+    if heldout_summary.get("status") != "passed":
+        raise ValueError("heldout operator evaluation failed")
+    report["evaluation"] = {
+        "schema_version": "shardloom.pgo_heldout_evaluation.v1",
+        "claim_gate_status": "not_claim_grade",
+        "default_release_profile_changed": False,
+        "tpch_ssb_seed": EVAL_TPCH_SSB_SEED,
+        "tpch_ssb_scale_rows": EVAL_TPCH_SSB_ROWS,
+        "heldout_operator_rows": 8192,
+        "control_complete": bool(ctrl_summary.get("complete")),
+        "profile_use_complete": bool(pgo_summary.get("complete")),
+        "heldout_operators_status": heldout_summary.get("status"),
+        "ship_drop_policy": "binary_complete_cohort",
+        "ship_drop_evaluations": ship_drop,
+        "historical_perf01_threshold_evaluations": perf01_thresholds,
+        "tpch_ssb_control_summary": str(eval_root / "tpch_ssb_control.json"),
+        "tpch_ssb_profile_use_summary": str(eval_root / "tpch_ssb_profile-use.json"),
+        "heldout_operator_summary": str(heldout_paths[0]),
+    }
+
+
+def args_timeout(runner, name):
+    return getattr(runner.args, name, None)
+
+
+def _run_multi_family_training(args):
+    root = args.repo_root.resolve()
+    binary = args._train_binary.resolve(strict=True)
+    uat_root = args._train_uat_root.resolve()
+    uat_root.mkdir(parents=True, exist_ok=True)
+    fixtures_dir = uat_root / "tpch_ssb_fixtures"
+    heldout_proc = subprocess.run(
+        [
+            sys.executable,
+            str(root / "scripts/run_heldout_operator_uat.py"),
+            "--baseline-binary",
+            str(binary),
+            "--candidate-binary",
+            str(binary),
+            "--uat-root",
+            str(uat_root),
+            "--rows",
+            "4096",
+            "--samples",
+            "1",
+            "--workers",
+            "1,4",
+            "--cases",
+            ",".join(TRAIN_CASES),
+            "--timeout",
+            "60",
+        ],
+        cwd=root,
+        check=False,
+    )
+    if heldout_proc.returncode != 0:
+        raise ValueError(f"heldout operator training failed (exit {heldout_proc.returncode})")
+    heldout_summaries = list((uat_root / "logs").glob("heldout_operators_*/summary.json"))
+    if len(heldout_summaries) != 1:
+        raise ValueError("heldout operator training did not produce one summary")
+    for fmt in ("parquet", "vortex"):
+        out_path = uat_root / f"tpch_ssb_{fmt}_training.json"
+        tpch_proc = subprocess.run(
+            [
+                sys.executable,
+                str(root / "scripts/run_tpch_ssb_suite.py"),
+                "--binary",
+                str(binary),
+                "--uat-root",
+                str(uat_root),
+                "--fixtures-dir",
+                str(fixtures_dir),
+                "--suite",
+                "all",
+                "--input-format",
+                fmt,
+                "--lane",
+                "paired",
+                "--scale-rows",
+                str(MULTI_FAMILY_TRAIN_ROWS),
+                "--seed",
+                str(MULTI_FAMILY_TRAIN_SEED),
+                "--summary-out",
+                str(out_path),
+            ],
+            cwd=root,
+            check=False,
+        )
+        if tpch_proc.returncode != 0:
+            raise ValueError(f"multi-family TPC-H/SSB {fmt} training failed")
+    manifest = {
+        "status": "passed",
+        "corpus": "multi-family",
+        "binary": str(binary),
+        "binary_sha256": file_record(binary)["sha256"],
+        "heldout_summary": str(heldout_summaries[0]),
+        "tpch_ssb_parquet_summary": str(uat_root / "tpch_ssb_parquet_training.json"),
+        "tpch_ssb_vortex_summary": str(uat_root / "tpch_ssb_vortex_training.json"),
+    }
+    (uat_root / "multi_family_training_summary.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    return 0
 
 
 def execute(args, report):
@@ -374,7 +689,7 @@ def execute(args, report):
         if runner.step("source-status", ["git", "status", "--porcelain"]).read_text():
             raise ValueError("freeze a clean source checkout before PGO workspace builds")
         report["source_commit"] = runner.step("source-commit", ["git", "rev-parse", "HEAD"]).read_text().strip()
-        names = ("Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "scripts/build_shardloom_pgo.py", "scripts/pgo_local_experiment.py", "scripts/run_heldout_operator_uat.py", "scripts/run_resident_call_path_uat.py", "scripts/run_clickbench_query_uat.py", "scripts/timed_native_command.py", "scripts/local_uat_storage.py")
+        names = ("Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "scripts/build_shardloom_pgo.py", "scripts/pgo_local_experiment.py", "scripts/run_heldout_operator_uat.py", "scripts/run_resident_call_path_uat.py", "scripts/run_clickbench_query_uat.py", "scripts/timed_native_command.py", "scripts/local_uat_storage.py", "scripts/tpch_ssb_workloads.py", "scripts/run_tpch_ssb_suite.py")
         report["source_files"] = [file_record(runner.root / p) for p in names if (runner.root / p).exists()]
         metadata = json.loads(runner.step("cargo-metadata", ["cargo", "metadata", "--offline", "--locked", "--no-deps", "--format-version", "1"]).read_text())
         target_dir = Path(metadata["target_directory"]).resolve()
@@ -389,7 +704,11 @@ def execute(args, report):
         for record in report["binaries"].values():
             if file_record(Path(record["path"])) != {k: v for k, v in record.items() if k != "rustflags"}:
                 raise ValueError("frozen binary generation changed")
-        report["status"] = "built_and_trained_requires_independent_evaluation"
+        if getattr(args, "evaluate", False):
+            run_heldout_evaluation(runner, report)
+            report["status"] = "built_trained_and_evaluated_non_claim"
+        else:
+            report["status"] = "built_and_trained_requires_independent_evaluation"
     except BaseException as error:
         report.update(status="failed", error=str(error) or type(error).__name__)
         raise
@@ -399,6 +718,8 @@ def execute(args, report):
 
 def main(argv=None):
     args = parse_args(argv)
+    if getattr(args, "_train_multi_family", False):
+        return _run_multi_family_training(args)
     report = make_plan(args, os.environ)
     if args.run:
         def interrupted(_signal, _frame):
@@ -410,3 +731,7 @@ def main(argv=None):
             report.update(status="failed", error=str(error))
     print(json.dumps(report, indent=2, sort_keys=True))
     return 1 if report["status"] == "failed" else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

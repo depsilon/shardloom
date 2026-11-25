@@ -1432,3 +1432,51 @@ fn canonical_quantile_windows_and_cte_grouped_aggregates() {
     );
     assert!(super::canonical::parse_canonical_plan(&missing_level).is_none());
 }
+
+#[test]
+fn canonical_having_and_order_by_agg_preserve_input_column_shadowed_by_select_alias() {
+    let dir = CanonicalTempDir::new("agg_shadow_alias");
+    let data_path = dir.path().join("shadow.parquet");
+    let batch = RecordBatch::try_new(
+        Arc::new(Schema::new(vec![
+            Field::new("v", DataType::Int64, false),
+            Field::new("x", DataType::Int64, false),
+        ])),
+        vec![
+            Arc::new(Int64Array::from(vec![-1, 0, 2, 2])),
+            Arc::new(Int64Array::from(vec![10, 20, 30, 40])),
+        ],
+    )
+    .unwrap();
+    write_parquet_rows(&data_path, &batch, 4);
+
+    // Output alias `v` (`v + 1`) shadows input `v`; `SUM(v)` in HAVING and ORDER BY
+    // must sum input `v` (group v=-1 sums to -1 and is excluded; v=0 sums to 0; v=2 sums to 4),
+    // while top-level output alias `s` in OVER (ORDER BY s) still resolves cleanly.
+    let shadowed_window_sql = format!(
+        "SELECT v + 1 AS v, SUM(x) AS s, ROW_NUMBER() OVER (ORDER BY SUM(x) DESC) AS rn \
+         FROM '{}' GROUP BY v HAVING SUM(v) >= 0 AND s >= 20 \
+         ORDER BY SUM(v) ASC, ROW_NUMBER() OVER (ORDER BY s DESC) DESC",
+        data_path.display()
+    );
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&shadowed_window_sql)),
+        vec![
+            json!({"v": 1, "s": 20.0, "rn": 2}),
+            json!({"v": 3, "s": 70.0, "rn": 1}),
+        ]
+    );
+
+    let filter_shadow_sql = format!(
+        "SELECT v * 10 AS v, SUM(x) AS total FROM '{}' GROUP BY v \
+         HAVING SUM(v) FILTER (WHERE v >= 0) >= 0 ORDER BY SUM(v) DESC",
+        data_path.display()
+    );
+    assert_eq!(
+        collect_rows(&prepare_file_sql(&filter_shadow_sql)),
+        vec![
+            json!({"v": 20, "total": 70.0}),
+            json!({"v": 0, "total": 20.0}),
+        ]
+    );
+}

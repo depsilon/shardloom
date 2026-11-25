@@ -912,5 +912,117 @@ fn closed_namespaces_and_foreign_store_runs_cannot_cross_cleanup_boundaries() {
     workspace.assert_empty();
 }
 
+fn corrupt_byte_and_assert_open_rejected(
+    store: &mut QueryRunStore,
+    spec: &QueryRunSpec,
+    blocks: impl Iterator<Item = Result<ArrayRef>>,
+    offset: u64,
+    runtime: &impl BlockingRuntime,
+    session: &VortexSession,
+    work: &Arc<MemoryLease>,
+) -> String {
+    use std::io::{Read as _, Seek as _, SeekFrom, Write as _};
+    let corrupted = store
+        .write_arrays(spec, blocks, runtime, session, work)
+        .unwrap();
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(&corrupted.path)
+        .unwrap();
+    let mut byte = [0_u8];
+    file.seek(SeekFrom::Start(offset)).unwrap();
+    file.read_exact(&mut byte).unwrap();
+    file.seek(SeekFrom::Start(offset)).unwrap();
+    // Advance kernel mtime/ctime across coarse filesystem timestamp ticks on CI.
+    std::thread::sleep(std::time::Duration::from_millis(15));
+    file.write_all(&[byte[0] ^ 1]).unwrap();
+    file.flush().unwrap();
+    drop(file);
+    let error = store
+        .open(&corrupted, &spec.dtype, runtime, session, Arc::clone(work))
+        .err()
+        .expect("in-place mutation must invalidate spill run")
+        .to_string();
+    store.remove(&corrupted).unwrap();
+    error
+}
+
+#[test]
+fn large_multi_block_run_verifies_streaming_digest_and_bounded_head_tail_envelopes() {
+    use sha2::{Digest as _, Sha256};
+    use vortex::array::dtype::{Nullability, PType};
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let rows = 49_152_usize;
+    let block_rows = 8_192_usize;
+    let large_spec = QueryRunSpec {
+        dtype: DType::Primitive(PType::I64, Nullability::NonNullable),
+        rows: rows as u64,
+        block_rows,
+        metadata_bytes: 32 * 1024,
+    };
+    let values = (0..rows)
+        .map(|i| i64::try_from(i).unwrap().wrapping_mul(2_654_435_761))
+        .collect::<Vec<_>>();
+    let expected_blocks = || {
+        (0..rows).step_by(block_rows).map(|start| {
+            let end = (start + block_rows).min(rows);
+            Ok(PrimitiveArray::from_iter(values[start..end].iter().copied()).into_array())
+        })
+    };
+    let workspace = Workspace::new();
+    let memory = LiveMemoryPool::new(16 << 20).unwrap();
+    let work = Arc::new(memory.reserve(4 << 20).unwrap());
+    let mut store = store(&workspace, &memory);
+    let run = store
+        .write_arrays(&large_spec, expected_blocks(), &runtime, &session, &work)
+        .unwrap();
+    assert!(run.bytes > 192 * 1024, "got {} bytes", run.bytes);
+    let actual_digest: [u8; 32] = Sha256::digest(fs::read(&run.path).unwrap()).into();
+    assert_eq!(run.digest, actual_digest);
+    let mut reader = store
+        .open(
+            &run,
+            &large_spec.dtype,
+            &runtime,
+            &session,
+            Arc::clone(&work),
+        )
+        .unwrap();
+    let mut read_rows = 0_usize;
+    while let Some(block) = reader.next_block(&runtime).unwrap() {
+        read_rows += block.array().len();
+    }
+    assert_eq!(read_rows, rows);
+    drop(reader);
+    store.remove(&run).unwrap();
+    assert_eq!(store.snapshot().runs_validated, 1);
+    let middle_offset = run.bytes / 2;
+    assert!(middle_offset >= 4096 && middle_offset + 65_536 < run.bytes);
+    for target_offset in [17_u64, middle_offset, run.bytes - 17] {
+        let error = corrupt_byte_and_assert_open_rejected(
+            &mut store,
+            &large_spec,
+            expected_blocks(),
+            target_offset,
+            &runtime,
+            &session,
+            &work,
+        );
+        assert!(
+            error.contains("generation changed"),
+            "offset {target_offset}: {error}"
+        );
+    }
+    store.cleanup().unwrap();
+    drop((store, work, run));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+    workspace.assert_empty();
+}
+
 #[path = "local_primitive_query_run_recovery_tests.rs"]
 mod recovery;

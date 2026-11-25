@@ -5,13 +5,12 @@
 use super::query_run_store;
 pub(super) use super::query_run_store::RunSourceGeneration as SortSourceGeneration;
 use super::query_run_store::{
-    MARKER_BYTE_RESERVATION, MAX_LIVE_RUNS, NativeQueryRun, QueryRunReader, QueryRunSpec,
-    QueryRunStore, QueryRunStorePolicy,
+    MARKER_BYTE_RESERVATION, MAX_LIVE_RUNS, NativeQueryRun, QueryRunBlock, QueryRunReader,
+    QueryRunSpec, QueryRunStore, QueryRunStorePolicy,
 };
 use super::{
     Result, ShardLoomError, SortRowCandidate, StatValue, VortexQueryPrimitiveKind,
-    VortexQueryPrimitiveRequest, VortexSortTiePolicy, predicate_field_expr,
-    row_export_columns_from_chunk,
+    VortexQueryPrimitiveRequest, VortexSortTiePolicy, predicate_field_expr, vortex_error,
 };
 use crate::{VortexSortSpillPolicy, VortexSortSpillReport};
 use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
@@ -19,13 +18,16 @@ use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
 use std::path::Path;
 use std::{
     cmp::Reverse,
-    collections::{BinaryHeap, VecDeque},
+    collections::BinaryHeap,
     sync::{Arc, atomic::Ordering},
 };
 use vortex::{
     array::{
         ArrayRef, IntoArray as _,
-        arrays::{PrimitiveArray, StructArray},
+        arrays::{
+            PrimitiveArray, StructArray, primitive::PrimitiveArrayExt as _,
+            struct_::StructArrayExt as _,
+        },
         dtype::{DType, Nullability, PType},
         validity::Validity,
     },
@@ -33,15 +35,15 @@ use vortex::{
     session::VortexSession,
 };
 
-const MERGE_FAN_IN: usize = 8;
+const MERGE_FAN_IN: usize = 32;
 const MIN_BLOCK_ROWS: usize = 256;
-const MAX_BLOCK_ROWS: usize = 1024;
+const MAX_BLOCK_ROWS: usize = 65_536;
 // Each reader can retain the provider's 64 KiB initial footer read, including
 // any covered payload. Run metadata itself remains separately reserved.
 const MERGE_READER_BYTES: u64 = 64 * 1024;
 const MERGE_FIXED_BYTES: u64 = 16 * 1024;
-// Covers eight row queues, one scalar conversion, and overlapping input/output
-// arrays at the sequential Flat writer. Geometry tests check the type-size sum.
+// Covers typed column views (without per-row VecDeque allocation) and
+// overlapping input/output arrays at the sequential Flat writer.
 const MERGE_BYTES_PER_BLOCK_ROW: u64 = 1024;
 const RUN_METADATA_BYTES_PER_BLOCK: u64 = 1024;
 const RUN_METADATA_BASE_BYTES: u64 = 4096;
@@ -498,10 +500,19 @@ fn run_dtype() -> vortex::array::dtype::DType {
 }
 
 fn merge_geometry(reserved_bytes: u64) -> Result<(usize, usize)> {
-    for fan_in in [MERGE_FAN_IN, 4, 2] {
+    for block_rows in [MAX_BLOCK_ROWS, 32_768, 16_384, 8_192, 4_096, 1_024] {
+        for fan_in in [MERGE_FAN_IN, 16, 8, 4, 2] {
+            let fixed = MERGE_FIXED_BYTES + fan_in as u64 * MERGE_READER_BYTES;
+            let available_rows = reserved_bytes.saturating_sub(fixed) / MERGE_BYTES_PER_BLOCK_ROW;
+            if block_rows as u64 <= available_rows {
+                return Ok((block_rows, fan_in));
+            }
+        }
+    }
+    for fan_in in [8, 4, 2] {
         let fixed = MERGE_FIXED_BYTES + fan_in as u64 * MERGE_READER_BYTES;
         let available_rows = reserved_bytes.saturating_sub(fixed) / MERGE_BYTES_PER_BLOCK_ROW;
-        for block_rows in [MAX_BLOCK_ROWS, 512, MIN_BLOCK_ROWS] {
+        for block_rows in [512, MIN_BLOCK_ROWS] {
             if block_rows as u64 <= available_rows {
                 return Ok((block_rows, fan_in));
             }
@@ -512,10 +523,18 @@ fn merge_geometry(reserved_bytes: u64) -> Result<(usize, usize)> {
     ))
 }
 
+struct RunReaderBlock {
+    _owner: QueryRunBlock,
+    keys: PrimitiveArray,
+    ties: PrimitiveArray,
+    sources: PrimitiveArray,
+    offset: usize,
+}
+
 struct RunReader {
     reader: QueryRunReader,
     ctx: vortex::array::ExecutionCtx,
-    rows: VecDeque<SpillRow>,
+    block: Option<RunReaderBlock>,
     remaining: u64,
     previous: Option<SpillRow>,
 }
@@ -531,7 +550,7 @@ impl RunReader {
         Ok(Self {
             reader,
             ctx: super::native_numeric_execution_ctx(session),
-            rows: VecDeque::with_capacity(run.native.block_rows),
+            block: None,
             remaining: run.native.rows,
             previous: None,
         })
@@ -542,35 +561,59 @@ impl RunReader {
             .reader
             .next_block(runtime)?
             .ok_or_else(|| spill_error("native sort run block returned no rows"))?;
-        let array = block.array();
-        let columns = row_export_columns_from_chunk(
-            array,
-            &["key".into(), "tie".into(), "source".into()],
-            &mut self.ctx,
-        )?;
-        for index in 0..array.len() {
-            let mut values = [0_u64; 3];
-            for (column, value) in columns.iter().zip(&mut values) {
-                let Some(StatValue::UInt64(number)) = column.get(index) else {
-                    return Err(spill_error("native sort run contains an invalid primitive"));
-                };
-                *value = *number;
-            }
-            self.rows.push_back(SpillRow {
-                key: values[0],
-                tie: values[1],
-                source: values[2],
-            });
+        let expected_len = block.array().len();
+        if expected_len == 0 {
+            return Err(spill_error("native sort run block returned no rows"));
         }
+        let structure = block
+            .array()
+            .clone()
+            .execute::<StructArray>(&mut self.ctx)
+            .map_err(vortex_error)?;
+        if structure.iter_unmasked_fields().count() != 3 {
+            return Err(spill_error("native sort run contains an invalid primitive"));
+        }
+        let extract_u64 =
+            |field_index: usize, ctx: &mut vortex::array::ExecutionCtx| -> Result<PrimitiveArray> {
+                let prim = structure
+                    .unmasked_field(field_index)
+                    .clone()
+                    .execute::<PrimitiveArray>(ctx)
+                    .map_err(vortex_error)?;
+                if prim.len() != expected_len
+                    || prim.ptype() != PType::U64
+                    || prim.dtype().is_nullable()
+                {
+                    return Err(spill_error("native sort run contains an invalid primitive"));
+                }
+                Ok(prim)
+            };
+        let keys = extract_u64(0, &mut self.ctx)?;
+        let ties = extract_u64(1, &mut self.ctx)?;
+        let sources = extract_u64(2, &mut self.ctx)?;
+        self.block = Some(RunReaderBlock {
+            _owner: block,
+            keys,
+            ties,
+            sources,
+            offset: 0,
+        });
         self.reader.validate()?;
         Ok(())
     }
 
     fn next_row(&mut self, runtime: &impl BlockingRuntime) -> Result<Option<SpillRow>> {
-        if self.rows.is_empty() && self.remaining != 0 {
-            self.refill(runtime)?;
+        if self
+            .block
+            .as_ref()
+            .is_none_or(|block| block.offset >= block.keys.len())
+        {
+            self.block = None;
+            if self.remaining != 0 {
+                self.refill(runtime)?;
+            }
         }
-        let Some(row) = self.rows.pop_front() else {
+        let Some(block) = self.block.as_mut() else {
             self.reader.validate()?;
             if self.remaining != 0 {
                 return Err(spill_error(
@@ -578,6 +621,13 @@ impl RunReader {
                 ));
             }
             return Ok(None);
+        };
+        let index = block.offset;
+        block.offset += 1;
+        let row = SpillRow {
+            key: block.keys.as_slice::<u64>()[index],
+            tie: block.ties.as_slice::<u64>()[index],
+            source: block.sources.as_slice::<u64>()[index],
         };
         if self.remaining == 0 || self.previous.is_some_and(|previous| previous > row) {
             return Err(spill_error("native sort run length or order is invalid"));
@@ -615,7 +665,7 @@ impl<'runtime, R: BlockingRuntime> RunMerge<'runtime, R> {
                 "native sort merge exceeded its file-handle bound",
             ));
         }
-        let mut heads = BinaryHeap::with_capacity(MERGE_FAN_IN);
+        let mut heads = BinaryHeap::with_capacity(fan_in.max(1));
         for (index, reader) in readers.iter_mut().enumerate() {
             if let Some(row) = reader.next_row(runtime)? {
                 heads.push(Reverse((row, index)));

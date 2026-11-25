@@ -3396,6 +3396,13 @@ fn substitute_alias_expr(
     {
         return replacement.clone();
     }
+    if let LogicalExpr::Function {
+        name, over: None, ..
+    } = expr
+        && is_agg_name(name)
+    {
+        return expr.clone();
+    }
     map_logical_children(expr, &|child| substitute_alias_expr(child, aliases))
 }
 

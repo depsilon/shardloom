@@ -219,20 +219,18 @@ pub(super) fn run(
         #[cfg(feature = "vortex-write")]
         ScanSource::OwnedArray { index, .. } => {
             let owned = &owned_array_sources[*index].1;
-            if residual.is_none()
-                && has_infallible_empty_build(probe_filters, &mut |name| {
-                    owned.dtype().as_struct_fields_opt()?.field(name)
-                })
-            {
-                add(&metrics.scans_started, 1)?;
-                return Ok(());
-            }
-            if let Some(pred) = admitted_runtime_predicate(probe_filters, owned.dtype()) {
-                let updated = plan_with_runtime_predicate(plan, pred, owned.dtype())?;
-                run_owned_array(owned, &updated, context, metrics, scan_batches, &mut accept)
-            } else {
-                run_owned_array(owned, plan, context, metrics, scan_batches, &mut accept)
-            }
+            run_owned_array_with_probe_filters(
+                owned,
+                plan,
+                residual.is_some(),
+                true,
+                probe_filters,
+                fields,
+                context,
+                metrics,
+                scan_batches,
+                &mut accept,
+            )
         }
         ScanSource::Batch { index, projection } => run_batch_scan(
             *index,
@@ -482,9 +480,159 @@ fn run_file(
 }
 
 #[cfg(feature = "vortex-write")]
+#[allow(clippy::too_many_arguments)]
+fn run_owned_array_with_probe_filters(
+    owned: &crate::owned_array_source::OwnedArraySource,
+    plan: &LocalVortexScanPlan,
+    residual_present: bool,
+    count_source_scan: bool,
+    probe_filters: &[ProbeRuntimeFilter],
+    fields: &[(String, DType)],
+    context: &NativeExecutionContext<'_>,
+    metrics: &Metrics<'_>,
+    scan_batches: usize,
+    accept: &mut dyn FnMut(ArrayRef) -> Result<()>,
+) -> Result<()> {
+    let _ = fields;
+    if !residual_present
+        && has_infallible_empty_build(probe_filters, &mut |name| {
+            owned.dtype().as_struct_fields_opt()?.field(name)
+        })
+    {
+        if count_source_scan {
+            add(&metrics.scans_started, 1)?;
+        }
+        return Ok(());
+    }
+    if let Some(pred) = admitted_runtime_predicate(probe_filters, owned.dtype()) {
+        let updated = plan_with_runtime_predicate(plan, pred, owned.dtype())?;
+        run_owned_array(
+            owned,
+            &updated,
+            count_source_scan,
+            context,
+            metrics,
+            scan_batches,
+            accept,
+        )
+    } else {
+        run_owned_array(
+            owned,
+            plan,
+            count_source_scan,
+            context,
+            metrics,
+            scan_batches,
+            accept,
+        )
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+fn collect_pushable_conjuncts(
+    expr: &super::native_relational_expression::Expression,
+    aliases: &std::collections::BTreeMap<String, String>,
+    dtype: &DType,
+    out: &mut Vec<PredicateExpr>,
+) {
+    use super::native_relational_expression::Kind as ExprKind;
+    if let ExprKind::Binary(left, shardloom_core::BinaryOp::And, right) = &expr.kind {
+        collect_pushable_conjuncts(left, aliases, dtype, out);
+        collect_pushable_conjuncts(right, aliases, dtype, out);
+    } else if let Some((pred, false)) = super::provider::scan_predicate(expr, aliases, dtype, None)
+    {
+        out.push(pred);
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+#[allow(clippy::too_many_arguments)]
+pub(super) fn run_owned_source_pushdown(
+    owned: &crate::owned_array_source::OwnedArraySource,
+    filter: Option<&super::native_relational_expression::Expression>,
+    probe_filters: &[ProbeRuntimeFilter],
+    fields: &[(String, DType)],
+    context: &NativeExecutionContext<'_>,
+    metrics: &Metrics<'_>,
+    batch_rows: usize,
+    consume: &mut dyn FnMut(bool, ArrayRef) -> Result<()>,
+) -> Result<bool> {
+    let mut filter_satisfied = filter.is_none();
+    let mut plan = LocalVortexScanPlan::passthrough();
+    if let Some(expr) = filter {
+        let aliases: std::collections::BTreeMap<String, String> = fields
+            .iter()
+            .map(|(name, _)| (name.clone(), name.clone()))
+            .collect();
+        if let Some((pred, false)) =
+            super::provider::scan_predicate(expr, &aliases, owned.dtype(), None)
+        {
+            plan = plan_with_runtime_predicate(&plan, pred, owned.dtype())?;
+            filter_satisfied = true;
+        } else if expr.is_infallible_for_join_pushdown(true) {
+            let mut conjuncts = Vec::new();
+            collect_pushable_conjuncts(expr, &aliases, owned.dtype(), &mut conjuncts);
+            if let Some(first) = conjuncts
+                .into_iter()
+                .reduce(|a, b| super::provider::conjoin(Some(a), b))
+            {
+                plan = plan_with_runtime_predicate(&plan, first, owned.dtype())?;
+            }
+        }
+    }
+    if plan.pushdown_predicate.is_none() && probe_filters.is_empty() {
+        return Ok(false);
+    }
+    let scan_batches = match metrics.file_scan_batching.get() {
+        super::FileScanBatching::Native => SCAN_ROWS,
+        super::FileScanBatching::Output => batch_rows.min(SCAN_ROWS),
+    };
+    let mut accept = |array: ArrayRef| {
+        if array.len() > SCAN_ROWS {
+            return Err(failed("scan exceeded its admitted batch size"));
+        }
+        let bloom_mask = if probe_filters.is_empty() {
+            None
+        } else {
+            apply_bloom_mask(&array, probe_filters, context)?
+        };
+        if bloom_mask.as_ref().is_some_and(Mask::all_false) {
+            return Ok(());
+        }
+        if let Some(mask) = bloom_mask {
+            return LocalSelection::from_mask(&mask, context)?.for_each_batch(
+                &array,
+                fields,
+                batch_rows,
+                context,
+                &mut |filtered| consume(filter_satisfied, filtered),
+            );
+        }
+        emit_unfiltered_scan_batch(&array, fields, batch_rows, context, &mut |filtered| {
+            consume(filter_satisfied, filtered)
+        })
+    };
+    run_owned_array_with_probe_filters(
+        owned,
+        &plan,
+        !filter_satisfied,
+        false,
+        probe_filters,
+        fields,
+        context,
+        metrics,
+        scan_batches,
+        &mut accept,
+    )?;
+    Ok(true)
+}
+
+#[cfg(feature = "vortex-write")]
+#[allow(clippy::too_many_arguments)]
 fn run_owned_array(
     source: &crate::owned_array_source::OwnedArraySource,
     plan: &LocalVortexScanPlan,
+    count_source_scan: bool,
     context: &NativeExecutionContext<'_>,
     metrics: &Metrics<'_>,
     scan_rows: usize,
@@ -492,7 +640,9 @@ fn run_owned_array(
 ) -> Result<()> {
     use vortex::layout::scan::split_by::SplitBy;
 
-    add(&metrics.scans_started, 1)?;
+    if count_source_scan {
+        add(&metrics.scans_started, 1)?;
+    }
     if source.row_count() == 0 {
         return Ok(());
     }
@@ -552,10 +702,10 @@ fn run_owned_array(
             },
         )?;
     }
-    if pruned_splits > 0 {
+    if count_source_scan && pruned_splits > 0 {
         add(&metrics.scans_pruned, pruned_splits)?;
     }
-    if delivered > 0 || pruned_splits == 0 {
+    if count_source_scan && (delivered > 0 || pruned_splits == 0) {
         add(&metrics.data_scans, 1)?;
     }
     Ok(())

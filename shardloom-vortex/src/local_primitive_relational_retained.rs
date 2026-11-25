@@ -31,7 +31,7 @@ impl Definition {
         }
     }
 
-    fn recursive(&self) -> bool {
+    pub(super) fn recursive(&self) -> bool {
         matches!(self, Self::Recursive(_))
     }
 }
@@ -206,6 +206,8 @@ pub(super) struct Relation {
     dtype: DType,
     rows: u64,
     payload: Payload,
+    #[cfg(feature = "vortex-write")]
+    owned_source: Option<crate::owned_array_source::OwnedArraySource>,
     _metadata: MemoryLease,
 }
 
@@ -214,6 +216,9 @@ impl Relation {
         dtype: &DType,
         rows: u64,
         payload: Payload,
+        #[cfg(feature = "vortex-write")] owned_source: Option<
+            crate::owned_array_source::OwnedArraySource,
+        >,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Self> {
         let metadata = crate::native_payload_schema::reserve_schema(dtype, context)?;
@@ -221,6 +226,8 @@ impl Relation {
             dtype: dtype.clone(),
             rows,
             payload,
+            #[cfg(feature = "vortex-write")]
+            owned_source,
             _metadata: metadata,
         })
     }
@@ -256,54 +263,141 @@ impl Relation {
 }
 
 impl PreparedVortexRelational {
-    pub(super) fn run_retained(
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn run_retained_filtered(
+        &self,
+        binding: &Binding,
+        filter: Option<&super::native_relational_expression::Expression>,
+        fields: &[(String, DType)],
+        context: &NativeExecutionContext<'_>,
+        metrics: &Metrics<'_>,
+        batch_rows: usize,
+        probe_filters: &[super::super::native_relational_probe_filter::ProbeRuntimeFilter],
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<()> {
+        let relation = self.ensure_retained_relation(binding, context, metrics, batch_rows)?;
+        #[cfg(feature = "vortex-write")]
+        if let Some(owned) = &relation.owned_source
+            && super::scan::run_owned_source_pushdown(
+                owned,
+                filter,
+                probe_filters,
+                fields,
+                context,
+                metrics,
+                batch_rows,
+                &mut |already_satisfied, array| {
+                    emit_retained_batch(array, filter, fields, already_satisfied, context, consume)
+                },
+            )?
+        {
+            return Ok(());
+        }
+        if probe_filters.is_empty() {
+            return relation.run(context, metrics, batch_rows, &mut |array| {
+                emit_retained_batch(array, filter, fields, false, context, consume)
+            });
+        }
+        if filter.is_none_or(|pred| pred.is_infallible_for_join_pushdown(true))
+            && super::scan::has_infallible_empty_build(probe_filters, &mut |name| {
+                fields
+                    .iter()
+                    .find(|(col, _)| col == name)
+                    .map(|(_, dtype)| dtype.clone())
+            })
+        {
+            return Ok(());
+        }
+        relation.run(context, metrics, batch_rows, &mut |array| {
+            let Some(mask) = super::super::native_relational_probe_filter::apply_bloom_mask(
+                &array,
+                probe_filters,
+                context,
+            )?
+            else {
+                return emit_retained_batch(array, filter, fields, false, context, consume);
+            };
+            if mask.all_false() {
+                return Ok(());
+            }
+            if mask.all_true() {
+                emit_retained_batch(array, filter, fields, false, context, consume)
+            } else {
+                super::LocalSelection::from_mask(&mask, context)?.for_each_batch(
+                    &array,
+                    fields,
+                    batch_rows,
+                    context,
+                    &mut |selected| {
+                        emit_retained_batch(selected, filter, fields, false, context, consume)
+                    },
+                )
+            }
+        })
+    }
+
+    fn ensure_retained_relation(
         &self,
         binding: &Binding,
         context: &NativeExecutionContext<'_>,
         metrics: &Metrics<'_>,
         batch_rows: usize,
-        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
-    ) -> Result<()> {
-        let relation = if let Some(relation) = metrics.composition.get(&binding.definition) {
+    ) -> Result<Rc<Relation>> {
+        if let Some(relation) = metrics.composition.get(&binding.definition) {
             let mut report = metrics.composition.report.borrow_mut();
             if binding.definition.recursive() {
                 add(&mut report.recursive_reuses, 1)?;
             } else {
                 add(&mut report.materialized_reuses, 1)?;
             }
-            relation
+            return Ok(relation);
+        }
+        let node = binding.node()?;
+        let relation = if matches!(node.kind, NodeKind::Recursive { .. }) {
+            self.complete_recursive(&node, context, metrics, batch_rows)?
         } else {
-            let node = binding.node()?;
-            let relation = if matches!(node.kind, NodeKind::Recursive { .. }) {
-                self.complete_recursive(&node, context, metrics, batch_rows)?
-            } else {
-                let _schema_metadata = reserve_fields(&node.fields, context)?;
-                let dtype = DType::struct_(node.fields.clone(), Nullability::NonNullable);
-                let schema = replay::Schema::new(&dtype, context)?;
-                let mut recorder = replay::Recorder::new(&schema, metrics, context)?;
-                let mut copied = replay::CopyStats::default();
-                self.run(&node, context, metrics, batch_rows, None, &mut |array| {
-                    recorder.build(&array, &mut copied, context)
-                })?;
-                let payload = recorder.finish(context)?;
-                metrics.composition.copied(&copied, payload.is_spilled())?;
-                let relation =
-                    Relation::new(&dtype, copied.rows, Payload::Replay(payload), context)?;
-                let mut report = metrics.composition.report.borrow_mut();
-                add(&mut report.materialized_relations, 1)?;
-                add(&mut report.materialized_rows, copied.rows)?;
-                relation
-            };
-            drop(node);
-            let relation = Rc::new(relation);
-            metrics.composition.publish(
-                binding.definition.clone(),
-                Rc::clone(&relation),
+            let _schema_metadata = reserve_fields(&node.fields, context)?;
+            let dtype = DType::struct_(node.fields.clone(), Nullability::NonNullable);
+            let schema = replay::Schema::new(&dtype, context)?;
+            let mut recorder = replay::Recorder::new(&schema, metrics, context)?;
+            let mut copied = replay::CopyStats::default();
+            self.run(&node, context, metrics, batch_rows, None, &mut |array| {
+                recorder.build(&array, &mut copied, context)
+            })?;
+            let payload = recorder.finish(context)?;
+            metrics.composition.copied(&copied, payload.is_spilled())?;
+            #[cfg(feature = "vortex-write")]
+            let owned_source =
+                if metrics.spill.is_none() && !payload.is_spilled() && copied.rows > 0 {
+                    try_build_owned_source(
+                        &self.session,
+                        &payload,
+                        copied.rows,
+                        copied.buffer_bytes,
+                        context,
+                    )
+                } else {
+                    None
+                };
+            let relation = Relation::new(
+                &dtype,
+                copied.rows,
+                Payload::Replay(payload),
+                #[cfg(feature = "vortex-write")]
+                owned_source,
                 context,
             )?;
+            let mut report = metrics.composition.report.borrow_mut();
+            add(&mut report.materialized_relations, 1)?;
+            add(&mut report.materialized_rows, copied.rows)?;
             relation
         };
-        relation.run(context, metrics, batch_rows, consume)
+        drop(node);
+        let relation = Rc::new(relation);
+        metrics
+            .composition
+            .publish(binding.definition.clone(), Rc::clone(&relation), context)?;
+        Ok(relation)
     }
 
     fn complete_recursive(
@@ -392,7 +486,14 @@ impl PreparedVortexRelational {
         add(&mut report.recursive_relations, 1)?;
         add(&mut report.recursive_output_rows, rows)?;
         drop(report);
-        Relation::new(&dtype, rows, Payload::Iterations(history), context)
+        Relation::new(
+            &dtype,
+            rows,
+            Payload::Iterations(history),
+            #[cfg(feature = "vortex-write")]
+            None,
+            context,
+        )
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -480,6 +581,62 @@ impl PreparedVortexRelational {
         let _ = history;
         let payload = recorder.finish(context)?;
         metrics.composition.copied(&copied, payload.is_spilled())?;
-        Relation::new(dtype, copied.rows, Payload::Replay(payload), context)
+        Relation::new(
+            dtype,
+            copied.rows,
+            Payload::Replay(payload),
+            #[cfg(feature = "vortex-write")]
+            None,
+            context,
+        )
     }
+}
+
+fn emit_retained_batch(
+    array: ArrayRef,
+    filter: Option<&super::native_relational_expression::Expression>,
+    fields: &[(String, DType)],
+    already_satisfied: bool,
+    context: &NativeExecutionContext<'_>,
+    consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+) -> Result<()> {
+    if already_satisfied {
+        return consume(array);
+    }
+    if let Some(predicate) = filter {
+        super::transform::apply_filter(predicate, fields, &array, context, consume)
+    } else {
+        consume(array)
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+fn try_build_owned_source(
+    session: &crate::resident_session::ResidentVortexSession,
+    payload: &replay::Completed,
+    rows: u64,
+    buffer_bytes: u64,
+    context: &NativeExecutionContext<'_>,
+) -> Option<crate::owned_array_source::OwnedArraySource> {
+    let arrays = payload.resident_arrays()?;
+    if arrays.is_empty() || rows == 0 {
+        return None;
+    }
+    let bounds = crate::owned_array_source::OwnedArraySourceBounds::default();
+    if rows > bounds.max_rows
+        || buffer_bytes > bounds.max_logical_bytes
+        || arrays.len() > bounds.max_batches
+    {
+        return None;
+    }
+    let snap = context.memory().snapshot();
+    let min_headroom = buffer_bytes.saturating_add(2 * 1024 * 1024);
+    if snap.limit_bytes.saturating_sub(snap.reserved_bytes) < min_headroom {
+        return None;
+    }
+    let cloned = arrays.to_vec();
+    let ownership_bytes = u64::try_from(cloned.capacity().max(1) * size_of::<ArrayRef>()).ok()?;
+    let ownership = context.memory().reserve(ownership_bytes).ok()?;
+    let batch = session.own_completed_arrays(cloned, ownership).ok()?;
+    crate::owned_array_source::OwnedArraySource::from_owned_in_context(batch, bounds, context).ok()
 }

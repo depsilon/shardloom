@@ -604,7 +604,7 @@ jobs:
     name: Build native Python package (macos)
     runs-on: macos-latest
     if: ${{ needs.ci-work-shaping.result == 'success' && contains(fromJSON(needs.ci-work-shaping.outputs.selected_jobs || '[]'), 'native-package-build-macos') }}
-    timeout-minutes: 60
+    timeout-minutes: 120
     needs: [ci-work-shaping]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1

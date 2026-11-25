@@ -23,6 +23,9 @@ use vortex::{
 
 pub(super) const BLOCK_ROWS: usize = 1024;
 pub(super) const FAN_IN: usize = 4;
+pub(super) const LARGE_BLOCK_ROWS: usize = 16_384;
+pub(super) const MAX_STREAMING_BLOCK_ROWS: usize = 65_536;
+pub(super) const LARGE_FAN_IN: usize = 16;
 
 #[derive(Clone, Copy, Debug)]
 pub(super) struct Record {
@@ -79,20 +82,21 @@ pub(super) fn run_dtype() -> DType {
 
 pub(super) fn blocks(
     mut rows: impl Iterator<Item = Result<Record>>,
+    block_rows: usize,
 ) -> impl Iterator<Item = Result<ArrayRef>> {
     let mut failed = false;
     std::iter::from_fn(move || {
         if failed {
             return None;
         }
-        let mut block = match reserved_vec(BLOCK_ROWS) {
+        let mut block = match reserved_vec(block_rows) {
             Ok(block) => block,
             Err(error) => {
                 failed = true;
                 return Some(Err(error));
             }
         };
-        while block.len() < BLOCK_ROWS {
+        while block.len() < block_rows {
             match rows.next() {
                 Some(Ok(row)) => block.push(row),
                 Some(Err(error)) => {
@@ -246,19 +250,21 @@ pub(super) struct RunMerge<'runtime, R: BlockingRuntime> {
     failed: bool,
 }
 impl<'runtime, R: BlockingRuntime> RunMerge<'runtime, R> {
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn new<'run>(
         inputs: impl Iterator<Item = &'run NativeQueryRun>,
         store: &QueryRunStore,
         work: Arc<MemoryLease>,
         policy: Policy,
         signature: u8,
+        fan_in: usize,
         runtime: &'runtime R,
         session: &VortexSession,
     ) -> Result<Self> {
         policy.check()?;
-        let mut readers = reserved_vec(FAN_IN)?;
+        let mut readers = reserved_vec(fan_in)?;
         for run in inputs {
-            if readers.len() == FAN_IN {
+            if readers.len() == fan_in {
                 return Err(failed("merge file-handle bound exceeded"));
             }
             readers.push(RunReader {
@@ -272,9 +278,9 @@ impl<'runtime, R: BlockingRuntime> RunMerge<'runtime, R> {
         let mut ctx = session.create_execution_ctx();
         let mut heads = BinaryHeap::new();
         heads
-            .try_reserve_exact(FAN_IN)
+            .try_reserve_exact(fan_in)
             .map_err(|_| failed("merge head allocation failed"))?;
-        if heads.capacity() != FAN_IN {
+        if heads.capacity() != fan_in {
             return Err(failed("merge head capacity exceeded reservation"));
         }
         for (reader, input) in readers.iter_mut().enumerate() {

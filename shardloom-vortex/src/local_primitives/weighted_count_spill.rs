@@ -25,11 +25,22 @@ mod runs;
 use runs::{Record, Row, RunMerge};
 
 const FAN_IN: usize = 4;
+const LARGE_FAN_IN: usize = 16;
 const MAX_RUNS: usize = 64;
 const BLOCK_BYTES: usize = 64 << 10;
 const MAX_BUFFER_ROWS: usize = 65_536;
 const MIN_MEMORY_BYTES: u64 = 4 << 20;
 const SCRATCH_BYTES: u64 = 128 << 10;
+
+fn spill_geometry(memory_bytes: u64) -> (usize, usize, usize) {
+    if memory_bytes < 16 << 20 {
+        (BLOCK_BYTES, 1024, FAN_IN)
+    } else if memory_bytes < 64 << 20 {
+        (256 << 10, 16_384, LARGE_FAN_IN)
+    } else {
+        (1 << 20, 65_536, LARGE_FAN_IN)
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum KeyOrder {
@@ -150,8 +161,12 @@ struct Run {
     max_key_bytes: usize,
 }
 
-fn block_rows_for_key(max_key_bytes: usize) -> usize {
-    (BLOCK_BYTES / (max_key_bytes + 32)).clamp(1, 1024)
+fn block_rows_for_key(
+    max_key_bytes: usize,
+    target_block_bytes: usize,
+    max_block_rows: usize,
+) -> usize {
+    (target_block_bytes / (max_key_bytes + 32)).clamp(1, max_block_rows)
 }
 
 pub(super) struct WeightedCountSpill {
@@ -170,6 +185,9 @@ pub(super) struct WeightedCountSpill {
     selected: BinaryHeap<Ranked>,
     selection_lease: MemoryLease,
     retained: usize,
+    target_block_bytes: usize,
+    max_block_rows: usize,
+    fan_in: usize,
     evidence: Evidence,
     failed: bool,
 }
@@ -194,6 +212,7 @@ impl WeightedCountSpill {
                 "requires an absolute explicit workspace, at least 32 KiB quota/4 MiB shared memory, a 1..=65536 byte key bound and positive retained output",
             ));
         }
+        let (target_block_bytes, max_block_rows, fan_in) = spill_geometry(policy.memory_bytes);
         let metadata_bytes = policy
             .workspace
             .capacity()
@@ -213,10 +232,10 @@ impl WeightedCountSpill {
                 .checked_add(as_u64(arena_capacity)?)
                 .ok_or_else(|| failed("buffer reservation overflowed"))?,
         )?;
-        // Four native input blocks + old/new block overlap, output conversion,
-        // typed offsets and heads/previous keys. This is conservative operator
-        // work, not a claim that all provider allocations use HostAllocator.
-        let work_bytes = (512 << 10) + 12 * BLOCK_BYTES + 16 * policy.max_key_bytes;
+        // Input blocks + old/new block overlap, output conversion, typed
+        // offsets and heads/previous keys.
+        let work_bytes =
+            (512 << 10) + (fan_in + 8) * target_block_bytes + 16 * policy.max_key_bytes;
         let work = Arc::new(memory.reserve(as_u64(work_bytes)?)?);
         let scratch = memory.reserve(SCRATCH_BYTES)?;
         // One pending complete group may coexist with a full retained heap.
@@ -251,6 +270,9 @@ impl WeightedCountSpill {
             selected,
             selection_lease,
             retained,
+            target_block_bytes,
+            max_block_rows,
+            fan_in,
             evidence: Evidence {
                 buffer_rows: record_capacity,
                 buffer_bytes: arena_capacity,
@@ -480,9 +502,9 @@ impl WeightedCountSpill {
         self.arena.clear();
         self.runs.push(run);
         loop {
-            let Some(level) = (0..=u8::MAX)
-                .find(|level| self.runs.iter().filter(|run| run.level == *level).count() >= FAN_IN)
-            else {
+            let Some(level) = (0..=u8::MAX).find(|level| {
+                self.runs.iter().filter(|run| run.level == *level).count() >= self.fan_in
+            }) else {
                 return Ok(());
             };
             self.compact(level, runtime, session)?;
@@ -492,7 +514,8 @@ impl WeightedCountSpill {
         if max_key_bytes > self.policy.max_key_bytes {
             return Err(failed("run geometry exceeds admitted key bound"));
         }
-        let block_rows = block_rows_for_key(max_key_bytes);
+        let block_rows =
+            block_rows_for_key(max_key_bytes, self.target_block_bytes, self.max_block_rows);
         let metadata_bytes = rows
             .div_ceil(as_u64(block_rows)?)
             .checked_mul(1024)
@@ -515,8 +538,8 @@ impl WeightedCountSpill {
         let next_level = level
             .checked_add(1)
             .ok_or_else(|| failed("compaction level exhausted"))?;
-        let mut inputs = reserved_vec(FAN_IN)?;
-        for _ in 0..FAN_IN {
+        let mut inputs = reserved_vec(self.fan_in)?;
+        for _ in 0..self.fan_in {
             let index = self
                 .runs
                 .iter()
@@ -541,6 +564,9 @@ impl WeightedCountSpill {
             self.policy.clone(),
             self.order,
             Arc::clone(&self.copies),
+            self.fan_in,
+            self.target_block_bytes,
+            self.max_block_rows,
             runtime,
             session,
         )?;
@@ -685,11 +711,11 @@ impl WeightedCountSpill {
             )?;
         } else {
             self.flush(runtime, session)?;
-            while self.runs.len() > FAN_IN {
+            while self.runs.len() > self.fan_in {
                 self.runs
                     .sort_unstable_by_key(|run| (run.level, run.native.rows));
-                let level = self.runs[FAN_IN - 1].level;
-                for run in self.runs.iter_mut().take(FAN_IN) {
+                let level = self.runs[self.fan_in - 1].level;
+                for run in self.runs.iter_mut().take(self.fan_in) {
                     run.level = level;
                 }
                 self.compact(level, runtime, session)?;
@@ -701,6 +727,9 @@ impl WeightedCountSpill {
                 self.policy.clone(),
                 self.order,
                 Arc::clone(&self.copies),
+                self.fan_in,
+                self.target_block_bytes,
+                self.max_block_rows,
                 runtime,
                 session,
             )?;
@@ -711,8 +740,12 @@ impl WeightedCountSpill {
                 self.retained,
                 &mut self.evidence,
             );
-            for row in merge.by_ref() {
-                let row = row?;
+            let mut row = Row {
+                number: 0,
+                text: Vec::new(),
+                weight: 0,
+            };
+            while merge.next_into(&mut row)? {
                 selection.push(row.number, &row.text, row.weight)?;
             }
             selection.finish()?;

@@ -21,7 +21,10 @@ use vortex::{io::runtime::BlockingRuntime, session::VortexSession};
 
 #[path = "exact_distinct_spill_runs.rs"]
 mod runs;
-use runs::{BLOCK_ROWS, FAN_IN, Record, RunMerge, blocks, run_dtype};
+use runs::{
+    BLOCK_ROWS, FAN_IN, LARGE_BLOCK_ROWS, LARGE_FAN_IN, MAX_STREAMING_BLOCK_ROWS, Record, RunMerge,
+    blocks, run_dtype,
+};
 
 const MIN_MEMORY_BYTES: u64 = 2 << 20;
 const SCRATCH_BYTES: u64 = 128 << 10;
@@ -30,6 +33,18 @@ const SCRATCH_BYTES: u64 = 128 << 10;
 const MERGE_BYTES: u64 = 704 << 10;
 const MAX_BUFFER_PAIRS: usize = 65_536;
 const MAX_RUNS: usize = 64;
+
+fn adaptive_geometry(memory_bytes: u64) -> (usize, usize, u64) {
+    if memory_bytes < 16 << 20 {
+        (BLOCK_ROWS, FAN_IN, MERGE_BYTES)
+    } else if memory_bytes < 64 << 20 {
+        let merge_bytes = (memory_bytes / 4).max(MERGE_BYTES);
+        (LARGE_BLOCK_ROWS, LARGE_FAN_IN, merge_bytes)
+    } else {
+        let merge_bytes = (memory_bytes / 4).max(MERGE_BYTES);
+        (MAX_STREAMING_BLOCK_ROWS, LARGE_FAN_IN, merge_bytes)
+    }
+}
 
 #[derive(Clone)]
 pub(super) struct Policy {
@@ -84,6 +99,8 @@ pub(super) struct ExactDistinctSpill {
     selection_lease: MemoryLease,
     retained: usize,
     signature: u8,
+    block_rows: usize,
+    fan_in: usize,
     evidence: Evidence,
     failed: bool,
 }
@@ -106,6 +123,7 @@ impl ExactDistinctSpill {
                 "requires at least 2 MiB and the exact shared operator memory envelope",
             ));
         }
+        let (block_rows, fan_in, merge_bytes) = adaptive_geometry(policy.memory_bytes);
         let metadata_bytes = policy
             .workspace
             .capacity()
@@ -118,7 +136,7 @@ impl ExactDistinctSpill {
             .unwrap_or(MAX_BUFFER_PAIRS)
             .min(MAX_BUFFER_PAIRS);
         let buffer_lease = memory.reserve(bytes::<Record>(capacity)?)?;
-        let work = Arc::new(memory.reserve(MERGE_BYTES)?);
+        let work = Arc::new(memory.reserve(merge_bytes)?);
         let scratch = memory.reserve(SCRATCH_BYTES)?;
         let selection_bytes = bytes::<RankedGroup>(retained)?
             .checked_add(size_of::<SpilledDistinctResult>() as u64)
@@ -147,6 +165,8 @@ impl ExactDistinctSpill {
             selection_lease,
             retained,
             signature: u8::from(group_signed) | (u8::from(value_signed) << 1),
+            block_rows,
+            fan_in,
             evidence: Evidence {
                 buffer_capacity_pairs: capacity,
                 ..Evidence::default()
@@ -271,9 +291,9 @@ impl ExactDistinctSpill {
         }
         self.ensure_store()?;
         let native = self.store.as_mut().expect("admitted store").write_arrays(
-            &spec(rows)?,
+            &spec(rows, self.block_rows)?,
             self.buffer
-                .chunks(BLOCK_ROWS)
+                .chunks(self.block_rows)
                 .map(|rows| Ok(runs::array(rows))),
             runtime,
             session,
@@ -290,9 +310,9 @@ impl ExactDistinctSpill {
         session: &VortexSession,
     ) -> Result<()> {
         loop {
-            let Some(level) = (0..=u8::MAX)
-                .find(|level| self.runs.iter().filter(|run| run.level == *level).count() >= FAN_IN)
-            else {
+            let Some(level) = (0..=u8::MAX).find(|level| {
+                self.runs.iter().filter(|run| run.level == *level).count() >= self.fan_in
+            }) else {
                 return Ok(());
             };
             self.compact_level(level, runtime, session)?;
@@ -309,8 +329,8 @@ impl ExactDistinctSpill {
         let next_level = level
             .checked_add(1)
             .ok_or_else(|| failed("run compaction level exhausted"))?;
-        let mut inputs = reserved_vec(FAN_IN)?;
-        for _ in 0..FAN_IN {
+        let mut inputs = reserved_vec(self.fan_in)?;
+        for _ in 0..self.fan_in {
             let index = self
                 .runs
                 .iter()
@@ -328,6 +348,7 @@ impl ExactDistinctSpill {
             Arc::clone(&self.work),
             self.policy.clone(),
             self.signature,
+            self.fan_in,
             runtime,
             session,
         )?;
@@ -336,8 +357,8 @@ impl ExactDistinctSpill {
             .as_mut()
             .expect("runs have a store")
             .write_arrays(
-                &spec(rows)?,
-                blocks(&mut merge),
+                &spec(rows, self.block_rows)?,
+                blocks(&mut merge, self.block_rows),
                 runtime,
                 session,
                 &self.work,
@@ -368,13 +389,13 @@ impl ExactDistinctSpill {
         runtime: &impl BlockingRuntime,
         session: &VortexSession,
     ) -> Result<()> {
-        while self.runs.len() > FAN_IN {
+        while self.runs.len() > self.fan_in {
             // Promote the smallest levels only. Each rewrite increases a run's
             // level; an ever-growing accumulated output is not rewritten per flush.
             self.runs
                 .sort_unstable_by_key(|run| (run.level, run.native.rows));
-            let level = self.runs[FAN_IN - 1].level;
-            for run in self.runs.iter_mut().take(FAN_IN) {
+            let level = self.runs[self.fan_in - 1].level;
+            for run in self.runs.iter_mut().take(self.fan_in) {
                 run.level = level;
             }
             self.compact_level(level, runtime, session)?;
@@ -412,6 +433,7 @@ impl ExactDistinctSpill {
             Arc::clone(&self.work),
             self.policy.clone(),
             self.signature,
+            self.fan_in,
             runtime,
             session,
         )?;
@@ -565,16 +587,16 @@ impl SpilledDistinctResult {
     }
 }
 
-fn spec(rows: u64) -> Result<QueryRunSpec> {
+fn spec(rows: u64, block_rows: usize) -> Result<QueryRunSpec> {
     let metadata_bytes = rows
-        .div_ceil(BLOCK_ROWS as u64)
+        .div_ceil(block_rows as u64)
         .checked_mul(1024)
         .and_then(|bytes| bytes.checked_add(4096))
         .ok_or_else(|| failed("run metadata capacity overflowed"))?;
     Ok(QueryRunSpec {
         dtype: run_dtype(),
         rows,
-        block_rows: BLOCK_ROWS,
+        block_rows,
         metadata_bytes,
     })
 }

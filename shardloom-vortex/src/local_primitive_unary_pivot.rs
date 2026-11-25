@@ -414,9 +414,9 @@ pub(super) struct Completed {
 /// One execution's sparse state and authoritative schema. Direct file calls and
 /// relational composition share completion and bounded emission of this owner.
 pub(in crate::local_primitives) enum CompletedPivot {
-    Resident(ResidentCompletedPivot),
+    Resident(Box<ResidentCompletedPivot>),
     #[cfg(all(feature = "vortex-write", unix))]
-    Stored(spill::Completed),
+    Stored(Box<spill::Completed>),
 }
 
 pub(in crate::local_primitives) struct ResidentCompletedPivot {
@@ -483,7 +483,9 @@ impl BoundUnary {
     ) -> Result<CompletedPivot> {
         #[cfg(all(feature = "vortex-write", unix))]
         if let Some(spill) = spill {
-            return spill::complete(self, spill, context, produce).map(CompletedPivot::Stored);
+            return spill::complete(self, spill, context, produce)
+                .map(Box::new)
+                .map(CompletedPivot::Stored);
         }
         let mut state = Pivot::new(self, context)?;
         produce(&mut |array| {
@@ -609,7 +611,7 @@ impl Pivot {
             .len()
             .checked_add(usize::from(has_margin))
             .ok_or_else(|| failed("pivot row count overflow"))?;
-        Ok(CompletedPivot::Resident(ResidentCompletedPivot {
+        Ok(CompletedPivot::Resident(Box::new(ResidentCompletedPivot {
             fields,
             columns,
             rows,
@@ -620,7 +622,7 @@ impl Pivot {
             column_margins,
             grand_margin: grand,
             _metadata: metadata,
-        }))
+        })))
     }
 }
 
@@ -708,11 +710,11 @@ impl CompletedPivot {
     ) -> Result<SpillReport> {
         match self {
             Self::Resident(result) => {
-                result.emit(plan, context, batch_rows, consume)?;
+                (*result).emit(plan, context, batch_rows, consume)?;
                 Ok(SpillReport::default())
             }
             #[cfg(all(feature = "vortex-write", unix))]
-            Self::Stored(result) => result.emit(
+            Self::Stored(result) => (*result).emit(
                 plan,
                 spill.ok_or_else(|| failed("completed pivot lost its spill owner"))?,
                 context,

@@ -563,3 +563,103 @@ fn owned_zone_index_respects_max_metadata_bytes_and_skips_non_prunable_only_sche
     drop((list_owned, list_src, str_src, session));
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
+
+#[test]
+fn resident_materialized_cte_prunes_reused_splits_via_owned_array_source() {
+    use crate::{
+        local_primitives::prepared_relational::prepare_relational_with_schema_in_session,
+        relational_query::{
+            VortexRelationalFilter, VortexRelationalPlan, VortexRelationalProject,
+            VortexRelationalScan, VortexRelationalSet, VortexRelationalSetKind,
+        },
+    };
+    use shardloom_core::{
+        ColumnRef, ComparisonOp, DatasetUri, ExprId, Expression, ExpressionKind, ScalarValue,
+        native_io_decisions::NativeIoCapability,
+    };
+    use shardloom_plan::ProjectionRequest;
+
+    let bytes = 32 << 20;
+    let session = ResidentVortexSession::new(bytes, 1).unwrap();
+    let memory = session.memory().clone();
+    let input = kv_memory_source(&session, 20_000, |k| k * 10);
+    let policy = owned_rel_policy(bytes);
+    let uri = DatasetUri::new("memory://cte-owned-prune").unwrap();
+
+    let cte = std::sync::Arc::new(VortexRelationalPlan::Scan(VortexRelationalScan {
+        source_uri: uri.clone(),
+        projection: ProjectionRequest::Columns(vec![
+            ColumnRef::new("k").unwrap(),
+            ColumnRef::new("v").unwrap(),
+        ]),
+        predicate: None,
+    }));
+    let pred = |threshold: i64| {
+        Expression::new(
+            ExprId::new("cmp").unwrap(),
+            ExpressionKind::Compare {
+                left: Box::new(Expression::column(
+                    ExprId::new("k").unwrap(),
+                    ColumnRef::new("k").unwrap(),
+                )),
+                op: ComparisonOp::GtEq,
+                right: Box::new(Expression::literal(
+                    ExprId::new("lit").unwrap(),
+                    ScalarValue::Int64(threshold),
+                )),
+            },
+        )
+    };
+    let branch = |threshold: i64| {
+        VortexRelationalPlan::Project(Box::new(VortexRelationalProject {
+            input: VortexRelationalPlan::Filter(Box::new(VortexRelationalFilter {
+                input: VortexRelationalPlan::Materialized(std::sync::Arc::clone(&cte)),
+                predicate: pred(threshold),
+            })),
+            expressions: vec![(
+                "k".into(),
+                Expression::column(ExprId::new("k").unwrap(), ColumnRef::new("k").unwrap()),
+            )],
+        }))
+    };
+    let plan = VortexRelationalPlan::Set(Box::new(VortexRelationalSet {
+        left: branch(19_990),
+        right: branch(25_000),
+        kind: VortexRelationalSetKind::UnionAll,
+    }));
+
+    let prepared = prepare_relational_with_schema_in_session(policy, &session, |schemas| {
+        schemas.register_memory_source(uri, |_| Ok(input))?;
+        Ok(plan)
+    })
+    .unwrap();
+    let executed = prepared
+        .execute_native(&CancellationToken::default())
+        .unwrap();
+    assert_eq!(executed.execution.composition.materialized_relations, 1);
+    assert_eq!(executed.execution.composition.materialized_reuses, 1);
+    assert_eq!(executed.execution.composition.spilled_relations, 0);
+    assert_eq!(executed.execution.scan_rows_delivered, 20_000);
+    assert_eq!(executed.execution.output_rows, 10);
+    assert!(executed.execution.native_io_certificate.is_certified());
+    assert!(
+        executed
+            .execution
+            .native_io_certificate
+            .capability_decisions
+            .get(NativeIoCapability::RegionExclusion)
+            .and_then(|entry| entry.observed.excluded_regions)
+            .is_some_and(|pruned| pruned >= 2),
+        "expected OwnedArraySource zone-map pruning on reused materialized CTE"
+    );
+    let rendered = executed
+        .result
+        .to_bounded_json(&["k".into()], 64 * 1024)
+        .unwrap();
+    let rows: Vec<Value> = serde_json::from_str(rendered.value()).unwrap();
+    assert_eq!(rows.len(), 10);
+    assert_eq!(rows[0], json!({"k": 19_990}));
+    assert_eq!(rows[9], json!({"k": 19_999}));
+    drop((rendered, executed, prepared, session));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
