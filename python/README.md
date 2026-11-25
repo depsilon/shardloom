@@ -95,12 +95,15 @@ engine-owned columnar results. Arrow export is an explicit conversion. See the
 [embedding guide](https://shardloom.io/field-guide/embedding) and
 [source-build instructions](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md#optional-native-python-binding).
 
-Current source builds after 1.1.0 also carry dense Float16/Float32/Float64 vectors,
+Current `1.3.0` source builds after `1.1.0` carry dense Float16/Float32/Float64 vectors,
 declared embedding identity, fixed- and variable-shape tensors, sparse coordinates,
 affine quantization codes, inline binary content and nested values through native
-data workflows.
-See [rich-column declarations and output fidelity](https://github.com/depsilon/shardloom/blob/main/docs/reference/rich-columns.md).
-This addition is not in the published 1.1.0 wheels.
+data workflows, alongside pure-AST SQL binding, native hash joins and partitioned
+windows, binary Arrow IPC worker batches, resident `LayoutReader` reuse, `16K`–`64K`
+Vortex spill, and optional AI/Foundry/portable-worker surfaces.
+See [rich-column declarations and output fidelity](https://github.com/depsilon/shardloom/blob/main/docs/reference/rich-columns.md)
+and [1.3.0 source milestone notes](https://github.com/depsilon/shardloom/blob/main/docs/release/v1.3.0-release-notes.md).
+These additions are not in the published 1.1.0 wheels.
 
 Variable-shape tensor declarations passed local, installed-package and hosted
 integration checks in PR #1662; these declarations are not in the published wheels. See the

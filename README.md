@@ -79,6 +79,10 @@ Hudi snapshot, and write multiple results from one execution. Ordinary file
 queries read their input directly. Prepare a Vortex dataset explicitly when
 you want to persist and reuse it. [Release notes](docs/release/v1.1.0-release-notes.md).
 
+## Current source milestone (1.3.0)
+
+Source checkouts at `1.3.0` add rich columns (float vectors, embeddings, tensors, sparse indices, quantized codes, inline binary and nested values), pure-AST `sqlparser` SQL binding with native hash joins, partitioned windows, materialized CTEs and subquery decorrelation, resident `LayoutReader` and byte-range prefetch caching, high-throughput Vortex spill (`16K`–`64K` blocks), optional AI/Foundry/portable-worker modules, and multi-table TPC-H/SSB parity suites. Published registry wheels remain on `1.1.0` until separate channel publication completes. [Source milestone notes](docs/release/v1.3.0-release-notes.md).
+
 - [Compose SQL and DataFrames](docs/reference/connected-programming.md) with named
   scalar parameters, query-local relations, CTEs, temporal operations and windows.
 - [Read local table snapshots](https://shardloom.io/field-guide/local-tables) with

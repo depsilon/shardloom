@@ -886,10 +886,10 @@ with `CG-1` through `CG-23` open and `claim_gate_status=not_claim_grade`.
   - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false`.
 
 - [ ] **Version 1.3.0 source milestone**
-  Status: Queued — follows AI data workflow acceptance and the reconciled `E2E-FIX-01` through `E2E-PGO-01` queue (versions stay at `1.1.0` until maintainer authorization).
-  This source milestone does not authorize package publication.
+  Status: In progress — source milestone prepared on `1.3.0` after AI data workflow acceptance and the reconciled `E2E-FIX-01` through `E2E-PGO-01` queue; published channel packages remain on `1.1.0` until the separate publication verification train closes.
+  This source milestone PR does not itself publish packages.
   Execution checklist:
-  - [ ] Reconcile accepted scope, version sources and release evidence.
+  - [x] Reconcile accepted scope, version sources and release evidence.
   - [ ] Complete the separately governed package/channel readiness checks.
 
 ### Current decision notes
