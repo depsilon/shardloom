@@ -2,8 +2,8 @@
 
 # Spatial values and planar expressions
 
-This capability belongs to current native source builds after 1.1.0. Published
-1.1.0 wheels do not include it. Use a matching CLI and native Python build.
+This capability is included in the published 1.3.0 CLI and native Linux/macOS Python
+wheels, as well as matching source builds (`1.1.0` and earlier wheels do not include it).
 
 Declare two-dimensional Point, LineString and Polygon columns with
 `types.point()`, `types.linestring()` and `types.polygon()`. Values use separated

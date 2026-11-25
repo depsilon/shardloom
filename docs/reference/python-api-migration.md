@@ -1,14 +1,15 @@
 # Python API migration: context, results and discovery
 
 This reference describes the context, result and discovery contracts in published
-**v1.0.0**, introduced in v0.7.0 and retained in 1.0.0. The
-[publication verification](../release/v1.0.0-publication-verification.md)
+**v1.3.0**, introduced in v0.7.0 and retained through 1.0.0, 1.1.0, and 1.3.0. The
+[publication verification](../release/v1.3.0-publication-verification.md)
 records the four selected channel proofs, and the
-[release notes](../release/v1.0.0-release-notes.md) describe included changes
+[release notes](../release/v1.3.0-release-notes.md) describe included changes
 and limits. Exact source inputs and callable signatures are recorded in the generated
 [application reference](shardloom-user-surface-index.json).
-The [0.7.0 release notes](../release/v0.7.0-release-notes.md) retain the original
-migration history; the version-only 1.0.0 bump did not change these interfaces.
+The [0.7.0 release notes](../release/v0.7.0-release-notes.md) and
+[1.0.0 release notes](../release/v1.0.0-release-notes.md) retain the earlier
+migration history; these interfaces carry forward unchanged into v1.3.0.
 
 ## What changes
 
@@ -143,7 +144,7 @@ republishing every maintainer name into application completion.
 
 The legacy result alias and named root lookup remain for the next minor
 release cycle. Removal requires a later announced compatibility change and
-cannot occur in a patch release. Both remain available in v1.0.0; no removal
+cannot occur in a patch release. Both remain available in v1.3.0; no removal
 version is scheduled. The repository uses the canonical result name;
 compatibility tests explicitly exercise the aliases.
 

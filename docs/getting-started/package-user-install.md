@@ -24,8 +24,11 @@ and run a query. [Installation and first query](https://shardloom.io/field-guide
 <a id="blocked-channels"></a>
 **Blocked Channels:** See [current version, platform and support limits](https://shardloom.io/field-guide/limitations).
 
+<a id="v110-distribution-proof"></a><a id="v1-1-0-distribution-proof"></a>
+**Historical v1.1.0 Distribution Proof:** See the detailed [publication verification](../release/v1.1.0-publication-verification.md).
+
 <a id="v100-distribution-proof"></a><a id="v1-0-0-distribution-proof"></a>
-**v1.0.0 Distribution Proof:** See the detailed [publication verification](../release/v1.0.0-publication-verification.md).
+**Historical v1.0.0 Distribution Proof:** See the detailed [publication verification](../release/v1.0.0-publication-verification.md).
 
 <a id="v070-distribution-proof"></a><a id="v0-7-0-distribution-proof"></a>
 **Historical v0.7.0 Distribution Proof:** See the detailed [publication verification](../release/v0.7.0-publication-verification.md).

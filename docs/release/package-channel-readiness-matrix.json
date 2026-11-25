@@ -53,10 +53,18 @@
       {
         "id": "query",
         "operation": "Filter, project, aggregate, join, compute windows and order",
-        "types_formats": "Admitted typed scalar and static nested inputs",
-        "artifact_requirement": "Published CLI or Python wheel",
+        "types_formats": "Admitted typed scalar, rich, spatial, Variant, and static nested inputs",
+        "artifact_requirement": "1.3.0 CLI or Python wheel",
         "restriction": "SQL and DataFrame operations compose within the supported type and operator contracts. Named SQL parameters bind scalar values. Query-local relations bind DataFrames.",
         "reference": "/field-guide/runtime-and-io#native-execution"
+      },
+      {
+        "id": "rich-columns",
+        "operation": "Work with vectors, embeddings, tensors, binary objects, UUIDs, geometries, and Variants",
+        "types_formats": "Float16, UUID, dense/sparse/quantized vectors, fixed/variable tensors, GeoArrow 2D Point/LineString/Polygon, managed binary objects, and Variant columns",
+        "artifact_requirement": "1.3.0 CLI or Linux/macOS native Python wheel",
+        "restriction": "Use Vortex for full extension fidelity; Parquet/Arrow IPC retain supported extensions, while text/Avro/ORC reject restricted extensions and Variant keys remain excluded.",
+        "reference": "/field-guide/runtime-and-io#local-formats"
       },
       {
         "id": "collect",

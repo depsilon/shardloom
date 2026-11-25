@@ -46,7 +46,7 @@ worker attempts do not cancel the parent.
 ## Python Batch Input and Results
 
 The [dense embedding and rich-column guide](rich-columns.md) describes the
-post-1.1.0 source-build addition: Float16/Float32/Float64 vectors and versioned identity
+1.3.0 addition: Float16/Float32/Float64 vectors and versioned identity
 through shared payload, streaming, spill and output owners. It distinguishes
 native/Arrow fidelity, the Parquet reader limitation and unsupported vector
 operations from the historical adapter milestones below.
@@ -289,7 +289,7 @@ Use `context.from_result` to reconsume a completed native owner. Shredded physic
 types and depth remain bounded as documented. The subsequent
 [field-expression contract](../architecture/native-variant-expressions-2026-11-10.md)
 adds `variant_get(value, path)`, `try_variant_get(value, path, type)` and
-`is_variant_null(value)` in current source builds. Paths and target types are
+`is_variant_null(value)` in published 1.3.0 and current source builds. Paths and target types are
 literal controls; missing fields and failed concrete conversions return SQL
 NULL, while an untyped present Variant null remains distinct. For example,
 `try_variant_get(payload, '$.customer.id', 'int64')` produces a nullable Int64

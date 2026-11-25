@@ -5,8 +5,8 @@
 For native Point, LineString and Polygon columns and their planar functions,
 see [spatial values](spatial-values.md).
 
-This capability is in current source builds after 1.1.0. It is not included in
-the published 1.1.0 wheels. Use a matching native Python source build.
+This capability is included in the published 1.3.0 native Linux and macOS Python wheels
+and matching source builds (`1.1.0` and earlier wheels do not include it).
 Files containing embeddings require a reader that registers
 `shardloom.embedding.v1`; older wheels cannot read that logical type.
 Managed binary objects additionally require `shardloom.binary-object.v1` and
@@ -161,7 +161,7 @@ identity for binary arithmetic, or explicit identity removal with
 arithmetic, or make rich extensions comparison keys. Fixed- and variable-shape
 tensors and Float16 components use the same payload lifecycle. ANN indexing
 remains separate work in the [rich-data lifecycle plan](../architecture/native-rich-data-lifecycle-2026-10-24.md).
-Source builds after 1.1.0 admit nested field width, expanded logical nodes and
+Published 1.3.0 packages and current source builds admit nested field width, expanded logical nodes and
 schema metadata through the operation's shared memory grant. The former
 1,024-field, 4,096-node and 8 MiB metadata-estimate ceilings no longer define
 those logical schema boundaries. Depth 24, serialized declaration/JSON byte

@@ -2,10 +2,10 @@
 
 # SQL, DataFrames and local clients
 
-This page describes the source implementation, including the temporal and
-time-series capabilities developed under item 20. Published packages retain
-the support shipped with each release; source changes do not change published
-artifacts. Use a native build from this checkout for source-only APIs.
+This page describes the SQL, DataFrame, temporal, and time-series capabilities
+developed under item 20 and included in published **1.3.0** packages and current
+source builds. Prior published packages retain their release-time scope; use a
+matching 1.3.0 build or checkout build for later additions.
 
 Readers, `sql()`, `table()` and transformations return one lazy DataFrame class,
 `LazyFrame`. Naming a plan or changing syntax does not execute it,
@@ -78,8 +78,8 @@ Repeated references share declarations and source ownership, not cached answers.
 `ctx.sql(..., relations={"input": frame})` gives one query local bindings that
 shadow catalog names. Nested nonrecursive WITH scopes, shadowing and CTE
 column-name lists use the same binder. `NOT MATERIALIZED` retains ordinary plan
-composition. Source builds also admit explicit materialization and recursive
-queries under the contracts below.
+composition. Published 1.3.0 packages and current source builds also admit
+explicit materialization and recursive queries under the contracts below.
 
 A query inherits resource ceilings only from the named plans its SQL actually
 references. Unused catalog entries and names shadowed by a local CTE do not
@@ -189,7 +189,7 @@ The declarations do not perform calendar evaluation in Python. `f.lit()` continu
 to accept a naive Python datetime for its existing microsecond literal contract.
 Installed-package and combined item-20 acceptance remain separate requirements.
 
-Source builds also expose `left.join_asof(right, on="time", by="entity")` and
+Published 1.3.0 packages and current source builds also expose `left.join_asof(right, on="time", by="entity")` and
 typed `Relation.join_asof`. These preserve left input order, accept unsorted
 inputs and select at most one right row per left row. `strategy` accepts
 `backward` (default), `forward` or `nearest`; `allow_exact_matches=False`
@@ -215,7 +215,7 @@ Window specifications are immutable reusable values. For example,
 selects the current row and two preceding rows per partition.
 `range_between(0, 0)` selects the current peer range for admitted ordering types.
 
-Source builds also admit temporal RANGE offsets. `Window.duration(value, unit="us")`
+Published 1.3.0 packages and current source builds also admit temporal RANGE offsets. `Window.duration(value, unit="us")`
 uses elapsed time with `s`, `ms`, `us` or `ns` precision. Negative values precede
 the current ordering value; positive values follow it. Duration boundaries keep
 their exact precision even when the ordering column has coarser ticks. Dates
@@ -267,7 +267,7 @@ for the current acceptance scope.
 
 ### Resample, complete a time grid and fill values
 
-Source builds expose `frame.resample(time, every, unit, by=...)`, which returns
+Published 1.3.0 packages and current source builds expose `frame.resample(time, every, unit, by=...)`, which returns
 a grouped declaration for `.agg(...)`. It composes `temporal_bucket` with the
 ordinary native grouping owner. Buckets are half-open intervals labeled by
 their lower boundary. Positive fixed spacing uses `s`, `ms`, `us` or `ns`;

@@ -101,19 +101,19 @@ affine quantization codes, inline binary content and nested values through nativ
 data workflows, alongside pure-AST SQL binding, native hash joins and partitioned
 windows, binary Arrow IPC worker batches, resident `LayoutReader` reuse, `16K`–`64K`
 Vortex spill, and optional AI/Foundry/portable-worker surfaces.
-See [rich-column declarations and output fidelity](https://github.com/depsilon/shardloom/blob/main/docs/reference/rich-columns.md)
-and [1.3.0 source milestone notes](https://github.com/depsilon/shardloom/blob/main/docs/release/v1.3.0-release-notes.md).
+See [rich-column declarations and output fidelity](https://github.com/depsilon/shardloom/blob/main/docs/reference/rich-columns.md).
 These capabilities ship in the published 1.3.0 packages ([release notes](https://github.com/depsilon/shardloom/blob/main/docs/release/v1.3.0-release-notes.md), [publication verification](https://github.com/depsilon/shardloom/blob/main/docs/release/v1.3.0-publication-verification.md)).
 
 Variable-shape tensor declarations passed local, installed-package and hosted
-integration checks in PR #1662; these declarations are not in the published wheels. See the
+integration checks in PR #1662 and are included in the published 1.3.0 native Linux and
+macOS wheels and matching source builds. See the
 [variable-shape tensor guide](https://github.com/depsilon/shardloom/blob/main/docs/reference/variable-shape-tensors.md).
 
 Explicit `types.float16()` declarations require exactly representable values.
 Use lists of fixed-size vectors or embeddings for several vectors per row. The
 [rich-vector example](https://github.com/depsilon/shardloom/blob/main/python/examples/float16_vectors.py)
 creates, selects, writes and reopens those values, sparse vectors and quantized
-vectors in a matching source build. Sparse coordinate order and duplicates are
+vectors in the published 1.3.0 native wheels or a matching source build. Sparse coordinate order and duplicates are
 preserved under the declared index policy; quantized codes and scale/zero-point
 parameters retain their original types. Vector arithmetic, quantization and
 dequantization remain separate capabilities.

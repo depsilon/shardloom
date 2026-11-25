@@ -1373,7 +1373,7 @@
       "pipe": "explicit sl.plan_transform(...) wrappers that return a ShardLoom LazyFrame during lazy plan construction; terminal execution remains on the resulting native/prepared route"
     },
     "admitted_application_batch_methods": {
-      "map_batches": "post-1.0.0 source: immutable ctx.batch_functions.register handle for explicitly trusted, deterministic, null-aware, rowwise/row-preserving Python code; exact schemas, workspace/output limits, cancellation, independent native input/output ownership and original exception propagation; in-process transport only; stock CLI/plugin loading and effectful/shape-changing callbacks remain unsupported"
+      "map_batches": "published 1.3.0 (introduced after 1.0.0): immutable ctx.batch_functions.register handle for explicitly trusted, deterministic, null-aware, rowwise/row-preserving Python code; exact schemas, workspace/output limits, cancellation, independent native input/output ownership and original exception propagation; in-process transport only; stock CLI/plugin loading and effectful/shape-changing callbacks remain unsupported"
     },
     "admitted_expression_runtime_methods": {
       "applymap": "explicit sl.column_transform(...) wrappers for declarative native/prepared Vortex expression-project rewrites; Python cell callables remain blocked",
@@ -1385,8 +1385,8 @@
     "admitted_reshape_runtime_methods": {
       "melt": "explicit id_vars/value_vars flat scalar column-to-row expansion through the native/prepared Vortex melt primitive with heterogeneous scalar value columns and explicit source-order row-number materialization for ignore_index=false",
       "explode": "single or same-length multi-column declared list/fixed-size-list row expansion with scalar, nullable, list, or struct element values, plus single-level list-of-struct dotted field projection; ordered and repeated stages compose through shared native relational execution with bounded static nested payload ownership and explicit cardinality, null-shape, decode, and materialization evidence",
-      "pivot": "single index/domain/value columns through shared native pivot state; static List/FixedSizeList/Struct roles and first_unique duplicate-cell policy; post-v0.4.0 nested scope",
-      "pivot_table": "single index/domain/value columns with scalar numeric reductions or nested first_unique/count/min/max cells; nested fill is absent/NULL, nested extrema margins require UTF8 index, nested index margins are unsupported; post-v0.4.0 nested scope"
+      "pivot": "single index/domain/value columns through shared native pivot state; static List/FixedSizeList/Struct roles and first_unique duplicate-cell policy; published 1.3.0 nested scope",
+      "pivot_table": "single index/domain/value columns with scalar numeric reductions or nested first_unique/count/min/max cells; nested fill is absent/NULL, nested extrema margins require UTF8 index, nested index margins are unsupported; published 1.3.0 nested scope"
     },
     "admitted_window_runtime_methods": {
       "rolling": "rolling(window=<positive int>, min_periods<=window, center=true|false).sum/mean/count/min/max(column, alias=...) over one scalar source-order column through the native/prepared Vortex rolling-window primitive; sum/mean/min/max require numeric inputs, count admits scalar rows, and centered windows use bounded lookahead evidence"
@@ -1467,12 +1467,12 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "ebc9755bf0148ad1859edc72ee0d68c5b0f61a2095d13cf7400c013cfde713dd",
+    "source_identity": "61250cbeb150f7d8e3a77684eea32941247652f05326bc69b571434c2d93e3ff",
     "source_inputs": {
       "Cargo.lock": "5f3acf65f32b17185f577c7b54fad6665db007b4c016bc4d746cd3d95830ace8",
       "Cargo.toml": "1a4d4225c362f225beaf5c54824cf08d7d6a0a1db790e8996dcbc8e4755b62c5",
       "docs/release/channel-proofs/pypi-v1.3.0-provenance.json": "a980a271792c8498900c75adfd4e7b1c315718e4fc36536db01fd63a09aaa9b7",
-      "docs/release/package-channel-readiness-matrix.json": "13982b9f829f3514d60c9a38b2f7069e99f5c2ef51c3651d1682abe906940889",
+      "docs/release/package-channel-readiness-matrix.json": "c919d4d89c21d41d2754ff820bbfacee74dddf65341c2452048efad3fc98ea36",
       "python/src/shardloom/_batch_function.py": "7664382a8750f196c2ee30f414e92b0c66cd15733e1561d9d1d2c5e0c2ee5cd3",
       "python/src/shardloom/_batches.py": "8f9b94b3527e14ca42e0e819f6080881648efd7287a0ed04ca7baa74213bc716",
       "python/src/shardloom/_exports.py": "c0998197db5310d3e629372b81a0f3976131d389d190616945857b83efc6d0bd",
@@ -1481,7 +1481,7 @@
       "python/src/shardloom/_window.py": "812f97e1daaba678a9bab26261eb43dd5db17771a3e83d6479aa174f1cd6b316",
       "python/src/shardloom/adbc.py": "8ab2cc51e5f632561493e0b47bd693552dd45d19fa07ae5676571a23a95d0dba",
       "python/src/shardloom/client.py": "d3811f4bc34617b160bd5ca6c14238525c724a1a268c23fd82dc9d557ae1a5b2",
-      "python/src/shardloom/context.py": "b059c5578715f22fed5430691e5edd3345d15b27d80b28b347d4885111f0d4c1",
+      "python/src/shardloom/context.py": "4aff88e4ec3f5e9db3297c521aede9fc63109d36436a4cf8f7380542c17413a1",
       "python/src/shardloom/dbapi.py": "05aa93af721970a99faa5a5a8ddbde8c21ed0d1e03717156ab142dc0747f4d31",
       "python/src/shardloom/errors.py": "1fbf552d61d5a1ac7789fbb904029217cfe161927933f7aebd5aa72d15480955",
       "python/src/shardloom/execution_resources.py": "598166a29154711859fd6204789c0a805319150037c6d05766df590f52607549",
