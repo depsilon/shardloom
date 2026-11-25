@@ -44,9 +44,12 @@ Both matched `control` and `profile-use` binaries passed `complete=true`,
   regressed `+27.74% > max 5.00%` (`0.003865958s -> 0.004938375s`); Q2–Q13 improved (`-2.07%` to
   `-23.47%`) and Q14 changed `+1.56%`.
 - **`warm_resident_session` total engine time**: `0.077699875s` (`control`) -> `0.073529207s`
-  (`profile-use`), **`-5.37%`** overall, returning **`retain`** under both `binary_complete_cohort`
-  and `perf01_thresholds` (`max_query_regression_pct = +1.52%` on Q14; Q1–Q13 improved `-0.52%` to
-  `-28.61%`).
+  (`profile-use`), **`-5.37%`** overall (`max_query_regression_pct = +1.52%` on Q14; Q1–Q13 improved
+  `-0.52%` to `-28.61%`). Under the hardened OS-resource gate in
+  [evaluate_perf_ship_drop.py](../../scripts/evaluate_perf_ship_drop.py), this `78e4a1cd7` warm summary
+  reconciles to **`blocked`** because it was recorded prior to
+  [run_tpch_ssb_suite.py](../../scripts/run_tpch_ssb_suite.py) capturing `os.wait4`
+  `worker_resource_usage` (before OS-resource enforcement it recorded `retain`).
 
 ### Per-query engine time (`engine_execution_seconds`)
 
@@ -124,9 +127,14 @@ Cold `profile-use` delta vs `control`: Peak RSS `-23.98%`, minor faults `-21.32%
   zombie process group in `stop_group` (`78e4a1cd7` fixed `stop_group`, and the bounded
   `FileNotFoundError` retry in `pgo_local_experiment.py`'s `Runner.guard` preserves
   `scripts/local_uat_storage.py`'s frozen historical replay hash).
-- **Disposition & open external gates**: Under `binary_complete_cohort`, both non-ClickBench
-  TPC-H/SSB Vortex lanes (`cold_process_cli` `-4.68%` and `warm_resident_session` `-5.37%`) pass
-  all correctness, no-fallback, OS-resource, and complete-cohort engine-time gates (`retain`).
-  Default `[profile.release]` remains unchanged (`default_release_profile_changed=false`) and
-  `E2E-PGO-01` remains open pending external `100M` ClickBench Full43 cold/warm and `100M` ingest
-  PGO ship/drop screens once those datasets are mounted.
+- **Disposition & open external gates**: Under `binary_complete_cohort`,
+  `cold_process_cli` (`-4.68%` engine time) passes all correctness, no-fallback, OS-resource, and
+  complete-cohort engine-time gates (**`retain`**). The `78e4a1cd7` `warm_resident_session`
+  summary (`-5.37%` engine time) reconciles to **`blocked`** under the hardened OS-resource gate in
+  [evaluate_perf_ship_drop.py](../../scripts/evaluate_perf_ship_drop.py) because it preceded
+  `os.wait4` `worker_resource_usage` collection in
+  [run_tpch_ssb_suite.py](../../scripts/run_tpch_ssb_suite.py) (prior to OS-resource enforcement it
+  recorded `retain`). Default `[profile.release]` remains unchanged
+  (`default_release_profile_changed=false`) and `E2E-PGO-01` remains open pending external `100M`
+  ClickBench Full43 cold/warm and `100M` ingest PGO ship/drop screens once those datasets are
+  mounted.

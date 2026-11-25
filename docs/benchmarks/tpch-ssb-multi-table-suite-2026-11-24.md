@@ -69,9 +69,14 @@ feature in `shardloom-cli`:
 - **`cold_process_cli` (`drop` under both `binary_complete_cohort` and `perf01_thresholds`)**: total
   engine time changed `-3.27%`, but `system_cpu` grew `+37.06% > max 10.00%` (plus Q1 `+97.22% > max
   5.00%` under `perf01_thresholds`: `0.004045125s -> 0.007977625s`).
-- **`warm_resident_session` (`retain` under `binary_complete_cohort`, `drop` under preserved
-  `perf01_thresholds`)**: total engine time changed `-6.57%` (`retain` under `binary_complete_cohort`;
-  Q7 regressed `+15.57% > max 5.00%` under `perf01_thresholds`, `0.002248499s -> 0.002598541s`).
+- **`warm_resident_session` (reconciled to `blocked` under hardened OS-resource checks; `-6.57%` engine time)**:
+  total engine time changed `-6.57%` (Q7 `+15.57% > max 5.00%` under `perf01_thresholds`,
+  `0.002248499s -> 0.002598541s`). Under the hardened OS-resource gate in
+  [evaluate_perf_ship_drop.py](../../scripts/evaluate_perf_ship_drop.py), this `3931f6473` warm summary
+  reconciles to **`blocked`** because it preceded `os.wait4` `worker_resource_usage` capture in
+  [run_tpch_ssb_suite.py](../../scripts/run_tpch_ssb_suite.py) (before OS-resource enforcement,
+  `binary_complete_cohort` recorded `retain` and `perf01_thresholds` recorded `drop`), while
+  `cold_process_cli` remains **`drop`**, keeping `cli-mimalloc` non-default.
 
 The external `100M` ClickBench Full43 `cli-mimalloc` screen remains open under `E2E-PERF-00` pending
 restored external dataset mounts.

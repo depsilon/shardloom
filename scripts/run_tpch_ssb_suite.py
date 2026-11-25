@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import datetime as dt
 import hashlib
 import importlib.util
@@ -12,9 +13,11 @@ import os
 from pathlib import Path
 import platform
 import re
+import signal
 import statistics
 import subprocess
 import sys
+import time
 from typing import Any
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
@@ -325,6 +328,74 @@ def _log_stem_code(code: str) -> str:
     return re.sub(r"[^A-Za-z0-9_-]+", "_", code)
 
 
+def _wait4_poll(pid: int, timeout_s: float) -> tuple[int | None, Any | None]:
+    deadline = time.monotonic() + timeout_s
+    while True:
+        try:
+            waited_pid, status, usage = os.wait4(pid, os.WNOHANG)
+        except ChildProcessError:
+            return None, None
+        if waited_pid == pid:
+            return status, usage
+        if time.monotonic() >= deadline:
+            return None, None
+        time.sleep(0.01)
+
+
+def _close_and_profile_worker(worker: Any) -> dict[str, Any] | None:
+    resource_usage_fn = getattr(worker, "resource_usage", None)
+    if callable(resource_usage_fn):
+        worker.close()
+        return resource_usage_fn()
+    proc = getattr(worker, "process", None)
+    if proc is None:
+        worker.close()
+        return None
+    rusage = None
+    try:
+        if proc.stdin is not None:
+            with contextlib.suppress(OSError):
+                proc.stdin.close()
+        if proc.returncode is None and hasattr(os, "wait4"):
+            wait_status, rusage = _wait4_poll(proc.pid, 3.0)
+            if wait_status is None:
+                with contextlib.suppress(ProcessLookupError, PermissionError):
+                    os.killpg(proc.pid, signal.SIGTERM)
+                wait_status, rusage = _wait4_poll(proc.pid, 3.0)
+            if wait_status is None:
+                with contextlib.suppress(ProcessLookupError, PermissionError):
+                    os.killpg(proc.pid, signal.SIGKILL)
+                try:
+                    waited_pid, wait_status, rusage = os.wait4(proc.pid, 0)
+                    if waited_pid != proc.pid:
+                        wait_status = None
+                        rusage = None
+                except ChildProcessError:
+                    wait_status = None
+                    rusage = None
+            if wait_status is not None:
+                proc.returncode = os.waitstatus_to_exitcode(wait_status)
+        if rusage is not None and proc.returncode == 0:
+            return {
+                "returncode": proc.returncode,
+                "native_peak_rss_bytes": int(rusage.ru_maxrss * (1 if sys.platform == "darwin" else 1024)),
+                "user_cpu_seconds": float(rusage.ru_utime),
+                "system_cpu_seconds": float(rusage.ru_stime),
+                "minor_page_faults": int(rusage.ru_minflt),
+                "major_page_faults": int(rusage.ru_majflt),
+                "input_block_operations": int(rusage.ru_inblock),
+                "output_block_operations": int(rusage.ru_oublock),
+                "os_counter_scope": "single persistent resident python-worker wait4 rusage across complete warm cohort",
+            }
+        return None
+    finally:
+        for stream in (proc.stdout, getattr(worker, "error_file", None)):
+            if stream is not None:
+                with contextlib.suppress(OSError):
+                    stream.close()
+        worker.close()
+
+
 def _execute_lane(
     *,
     lane_name: str,
@@ -373,6 +444,7 @@ def _execute_lane(
         "machine": platform.machine(),
         "records": records,
     }
+    worker_usage: dict[str, Any] | None = None
     try:
         for spec in specs:
             suite_paths = table_paths[spec.suite]
@@ -441,9 +513,11 @@ def _execute_lane(
                 records.append(rec)
     finally:
         if worker is not None:
-            worker.close()
+            worker_usage = _close_and_profile_worker(worker)
 
     summary.update(_score_records(records, selected_ids, args.repeats, timing_key="engine_execution_seconds"))
+    if worker is not None:
+        summary["worker_resource_usage"] = worker_usage if summary["complete"] else None
     summary["secondary_process_wall"] = _score_records(records, selected_ids, args.repeats, timing_key="seconds")
     summary["zero_answer_cache_verified"] = bool(records) and all(
         r.get("zero_answer_cache_verified") for r in records

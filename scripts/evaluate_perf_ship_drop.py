@@ -71,14 +71,44 @@ def _cohort_observations(records: list[dict[str, Any]], key: str) -> dict[tuple[
 
 
 def _metric_aggregate(records: list[dict[str, Any]], key: str, mode: str) -> float | None:
+    if not records:
+        return None
     values = [
         float(record[key])
         for record in records
-        if type(record.get(key)) in (int, float) and math.isfinite(record[key])
+        if type(record.get(key)) in (int, float)
+        and math.isfinite(record[key])
+        and float(record[key]) >= 0.0
     ]
-    if not values or len(values) != len(records):
+    if len(values) != len(records):
         return None
     return max(values) if mode == "max" else sum(values)
+
+
+def _summary_resource_metric(
+    summary: dict[str, Any],
+    records: list[dict[str, Any]],
+    key: str,
+    mode: str,
+) -> tuple[float | None, str | None]:
+    if not records:
+        return None, None
+    if any(key in record for record in records):
+        value = _metric_aggregate(records, key, mode)
+        return (value, "per_query_records") if value is not None else (None, None)
+    worker_usage = summary.get("worker_resource_usage")
+    if isinstance(worker_usage, dict):
+        rc = worker_usage.get("returncode", 0)
+        value = worker_usage.get(key)
+        if (
+            type(rc) is int
+            and rc == 0
+            and type(value) in (int, float)
+            and math.isfinite(value)
+            and float(value) >= 0.0
+        ):
+            return float(value), "worker_resource_usage"
+    return None, None
 
 
 def _check_safety(summary: dict[str, Any], label: str, reasons: list[str]) -> bool:
@@ -177,31 +207,82 @@ def evaluate_ship_drop(
     if policy == "binary_complete_cohort" and (base_hashes or cand_hashes) and set(base_hashes) != set(cand_hashes):
         drop_reasons.append("result_sha256 coverage mismatch across (query, run) observations")
 
-    timing_key = (
-        "engine_execution_seconds"
-        if baseline.get("timing_metric") == "engine_execution_seconds"
-        and candidate.get("timing_metric") == "engine_execution_seconds"
-        else "seconds"
-    )
+    if policy == "binary_complete_cohort":
+        timing_key = "engine_execution_seconds"
+        if baseline.get("timing_metric") != "engine_execution_seconds":
+            blockers.append("baseline timing_metric must be 'engine_execution_seconds' for binary_complete_cohort")
+        if candidate.get("timing_metric") != "engine_execution_seconds":
+            blockers.append("candidate timing_metric must be 'engine_execution_seconds' for binary_complete_cohort")
+        if baseline.get("timing_available") is False:
+            blockers.append("baseline timing_available is false")
+        if candidate.get("timing_available") is False:
+            blockers.append("candidate timing_available is false")
+    else:
+        timing_key = (
+            "engine_execution_seconds"
+            if baseline.get("timing_metric") == "engine_execution_seconds"
+            and candidate.get("timing_metric") == "engine_execution_seconds"
+            else "seconds"
+        )
     total_delta_pct = None
     max_query_regression_pct = None
     if policy == "binary_complete_cohort":
-        if "repeats" in baseline and "repeats" in candidate and baseline.get("repeats") != candidate.get("repeats"):
-            blockers.append(f"repeats mismatch: {baseline.get('repeats')!r} != {candidate.get('repeats')!r}")
+        expected_repeats: int | None
+        if "repeats" in baseline or "repeats" in candidate:
+            base_repeats = baseline.get("repeats")
+            cand_repeats = candidate.get("repeats")
+            if (
+                "repeats" not in baseline
+                or "repeats" not in candidate
+                or type(base_repeats) is not int
+                or type(cand_repeats) is not int
+                or base_repeats <= 0
+                or cand_repeats <= 0
+                or base_repeats != cand_repeats
+            ):
+                blockers.append(f"repeats mismatch or invalid: {base_repeats!r} != {cand_repeats!r}")
+                expected_repeats = None
+            else:
+                expected_repeats = base_repeats
+        else:
+            expected_repeats = 1
+
+        base_selected = baseline.get("selected_query_ids")
+        cand_selected = candidate.get("selected_query_ids")
+        base_valid_selected = (
+            isinstance(base_selected, list)
+            and bool(base_selected)
+            and all(type(q) is int for q in base_selected)
+            and len(set(base_selected)) == len(base_selected)
+        )
+        cand_valid_selected = (
+            isinstance(cand_selected, list)
+            and bool(cand_selected)
+            and all(type(q) is int for q in cand_selected)
+            and len(set(cand_selected)) == len(cand_selected)
+        )
+        if not base_valid_selected:
+            blockers.append("baseline selected_query_ids must be a non-empty list of unique integers")
+        if not cand_valid_selected:
+            blockers.append("candidate selected_query_ids must be a non-empty list of unique integers")
+
         base_obs = _cohort_observations(base_records, timing_key)
         cand_obs = _cohort_observations(cand_records, timing_key)
         if base_obs is None:
-            blockers.append("baseline is missing complete (query, run) timing observations")
+            blockers.append("baseline is missing complete engine_execution_seconds (query, run) observations")
         if cand_obs is None:
-            drop_reasons.append("candidate is missing complete (query, run) timing observations")
+            blockers.append("candidate is missing complete engine_execution_seconds (query, run) observations")
         if base_obs is not None and cand_obs is not None and set(base_obs) != set(cand_obs):
             blockers.append("observation cohort (query, run) keys differ between baseline and candidate")
-        if (
-            base_obs is not None
-            and baseline.get("selected_query_ids") is not None
-            and {q for q, _ in base_obs} != set(baseline["selected_query_ids"])
-        ):
-            blockers.append("baseline timing observations do not cover selected_query_ids")
+        if expected_repeats is not None:
+            if base_obs is not None and base_valid_selected:
+                expected_base_keys = {(q, r) for q in base_selected for r in range(1, expected_repeats + 1)}
+                if set(base_obs) != expected_base_keys:
+                    blockers.append("baseline timing observations do not cover complete (selected_query_ids, repeats) cohort")
+            if cand_obs is not None and cand_valid_selected:
+                expected_cand_keys = {(q, r) for q in cand_selected for r in range(1, expected_repeats + 1)}
+                if set(cand_obs) != expected_cand_keys:
+                    blockers.append("candidate timing observations do not cover complete (selected_query_ids, repeats) cohort")
         shared_queries = sorted({q for q, _ in base_obs} & {q for q, _ in cand_obs}) if (base_obs and cand_obs) else []
         if base_obs and cand_obs and not blockers:
             base_total = sum(base_obs.values())
@@ -274,13 +355,18 @@ def evaluate_ship_drop(
         ("minor_page_faults", "sum", max_page_fault_growth_pct, "minor_page_faults"),
         ("major_page_faults", "sum", max_page_fault_growth_pct, "major_page_faults"),
     ):
-        base_val = _metric_aggregate(base_records, metric_key, agg_mode)
-        cand_val = _metric_aggregate(cand_records, metric_key, agg_mode)
-        if base_val is not None and cand_val is not None:
-            delta = _pct_delta(base_val, cand_val)
-            resource_deltas[label] = delta
-            if delta is None or delta > limit_pct:
-                drop_reasons.append(f"{label} grew {delta if delta is not None else 'inf'}% > max {limit_pct:.2f}%")
+        base_val, base_scope = _summary_resource_metric(baseline, base_records, metric_key, agg_mode)
+        cand_val, cand_scope = _summary_resource_metric(candidate, cand_records, metric_key, agg_mode)
+        if base_val is None or cand_val is None:
+            blockers.append(f"missing required OS resource measurement {label} ({metric_key})")
+            continue
+        if base_scope != cand_scope:
+            blockers.append(f"OS resource scope mismatch for {label}: {base_scope!r} != {cand_scope!r}")
+            continue
+        delta = _pct_delta(base_val, cand_val)
+        resource_deltas[label] = delta
+        if delta is None or delta > limit_pct:
+            drop_reasons.append(f"{label} grew {delta if delta is not None else 'inf'}% > max {limit_pct:.2f}%")
 
     if blockers:
         decision = "blocked"

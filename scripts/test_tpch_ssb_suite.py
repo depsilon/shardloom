@@ -76,13 +76,28 @@ class TpchSsbSuiteTests(unittest.TestCase):
 
                 def __init__(self, binary: Path, stderr_path: Path):
                     stderr_path.write_text("")
+                    self._closed = False
 
                 def run_query(self, command: list[str], stdout_path: Path, timeout: float, guard):
                     assert not stdout_path.exists(), f"duplicate stdout path {stdout_path}"
                     return _fake_run(command, Path(str(stdout_path).removesuffix(".stdout.json")), warm=True)
 
                 def close(self) -> None:
-                    pass
+                    self._closed = True
+
+                def resource_usage(self) -> dict:
+                    assert self._closed
+                    return {
+                        "returncode": 0,
+                        "native_peak_rss_bytes": 4096,
+                        "user_cpu_seconds": 0.02,
+                        "system_cpu_seconds": 0.01,
+                        "minor_page_faults": 12,
+                        "major_page_faults": 0,
+                        "input_block_operations": 0,
+                        "output_block_operations": 0,
+                        "os_counter_scope": "single persistent resident python-worker wait4 rusage across complete warm cohort",
+                    }
 
             def _fake_schema(rows: list[dict]) -> str:
                 sample = rows[0] if rows else {}
@@ -128,16 +143,17 @@ class TpchSsbSuiteTests(unittest.TestCase):
                 if not warm:
                     with prefix.with_suffix(".stderr.txt").open("xb") as fh:
                         fh.write(b"")
-                return {
-                    "returncode": 0,
-                    "seconds": 0.05,
-                    "guard_failures": [],
-                    "native_peak_rss_bytes": 1024,
-                    "system_cpu_seconds": 0.01,
-                    "user_cpu_seconds": 0.02,
-                    "minor_page_faults": 10,
-                    "major_page_faults": 0,
-                }
+                    return {
+                        "returncode": 0,
+                        "seconds": 0.05,
+                        "guard_failures": [],
+                        "native_peak_rss_bytes": 1024,
+                        "system_cpu_seconds": 0.01,
+                        "user_cpu_seconds": 0.02,
+                        "minor_page_faults": 10,
+                        "major_page_faults": 0,
+                    }
+                return {"returncode": 0, "seconds": 0.05, "guard_failures": []}
 
             args = runner.parse_args(
                 [
@@ -179,6 +195,10 @@ class TpchSsbSuiteTests(unittest.TestCase):
                 self.assertEqual(lane["timing_metric"], "engine_execution_seconds")
                 self.assertEqual(lane["runs_passed"], 14)
                 self.assertAlmostEqual(lane["total_seconds"], 14 * 0.012, places=6)
+            warm_usage = summary["lanes"]["warm_resident_session"]["worker_resource_usage"]
+            self.assertIsNotNone(warm_usage)
+            self.assertEqual(warm_usage["returncode"], 0)
+            self.assertEqual(warm_usage["native_peak_rss_bytes"], 4096)
 
     def test_prepare_fixtures_without_pyarrow_namespaces_and_cleans_jsonl_across_suites(self) -> None:
         import types
@@ -249,13 +269,28 @@ class TpchSsbSuiteTests(unittest.TestCase):
 
                 def __init__(self, binary: Path, stderr_path: Path):
                     stderr_path.write_text("")
+                    self._closed = False
 
                 def run_query(self, command: list[str], stdout_path: Path, timeout: float, guard):
                     assert not stdout_path.exists(), f"duplicate stdout path {stdout_path}"
                     return _fake_run(command, Path(str(stdout_path).removesuffix(".stdout.json")), warm=True)
 
                 def close(self) -> None:
-                    pass
+                    self._closed = True
+
+                def resource_usage(self) -> dict:
+                    assert self._closed
+                    return {
+                        "returncode": 0,
+                        "native_peak_rss_bytes": 4096,
+                        "user_cpu_seconds": 0.02,
+                        "system_cpu_seconds": 0.01,
+                        "minor_page_faults": 12,
+                        "major_page_faults": 0,
+                        "input_block_operations": 0,
+                        "output_block_operations": 0,
+                        "os_counter_scope": "single persistent resident python-worker wait4 rusage across complete warm cohort",
+                    }
 
             def _fake_schema(rows: list[dict]) -> str:
                 sample = rows[0] if rows else {}
@@ -295,16 +330,17 @@ class TpchSsbSuiteTests(unittest.TestCase):
                 if not warm:
                     with prefix.with_suffix(".stderr.txt").open("xb") as fh:
                         fh.write(b"")
-                return {
-                    "returncode": 0,
-                    "seconds": 0.05,
-                    "guard_failures": [],
-                    "native_peak_rss_bytes": 1024,
-                    "system_cpu_seconds": 0.01,
-                    "user_cpu_seconds": 0.02,
-                    "minor_page_faults": 10,
-                    "major_page_faults": 0,
-                }
+                    return {
+                        "returncode": 0,
+                        "seconds": 0.05,
+                        "guard_failures": [],
+                        "native_peak_rss_bytes": 1024,
+                        "system_cpu_seconds": 0.01,
+                        "user_cpu_seconds": 0.02,
+                        "minor_page_faults": 10,
+                        "major_page_faults": 0,
+                    }
+                return {"returncode": 0, "seconds": 0.05, "guard_failures": []}
 
             args = runner.parse_args(
                 [
@@ -342,6 +378,7 @@ class TpchSsbSuiteTests(unittest.TestCase):
                 self.assertEqual(summary["lanes"][lane_name]["runs_passed"], 12)
                 self.assertTrue((run_logs_root / lane_name / "q09_SSB-Q1_1_run1.stdout.json").is_file())
                 self.assertTrue((run_logs_root / lane_name / "q09_SSB-Q1_1_run2.stdout.json").is_file())
+            self.assertIsNotNone(summary["lanes"]["warm_resident_session"]["worker_resource_usage"])
 
     def test_results_equivalent_requires_exact_integers_and_reserves_tolerance_for_floats(self) -> None:
         self.assertFalse(workloads.results_equivalent([{"count_order": 1_000_000}], [{"count_order": 1_000_001}]))
@@ -354,6 +391,46 @@ class TpchSsbSuiteTests(unittest.TestCase):
         self.assertFalse(workloads.results_equivalent([{"id": float((1 << 53) + 1)}], [{"id": (1 << 53) + 1}]))
         self.assertTrue(workloads.results_equivalent([{"revenue": 1000.0}], [{"revenue": 1000.0005}]))
         self.assertFalse(workloads.results_equivalent([{"revenue": 1000.0}], [{"revenue": 1001.0}]))
+
+    @unittest.skipUnless(hasattr(os, "wait4"), "POSIX wait4 required")
+    def test_close_and_profile_worker_captures_posix_wait4_rusage(self) -> None:
+        import subprocess
+
+        with tempfile.TemporaryDirectory() as tmp:
+            stderr_path = Path(tmp) / "worker.stderr.txt"
+            err_file = stderr_path.open("xb")
+            proc = subprocess.Popen(
+                [sys.executable, "-c", "import sys; sys.stdin.read()"],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=err_file,
+                start_new_session=True,
+            )
+
+            class RealProcessWorker:
+                def __init__(self, process, error_file):
+                    self.process = process
+                    self.error_file = error_file
+                    self.closed = False
+
+                def close(self) -> None:
+                    self.closed = True
+                    for pipe in (self.process.stdin, self.process.stdout):
+                        if pipe is not None:
+                            pipe.close()
+                    self.error_file.close()
+
+            worker = RealProcessWorker(proc, err_file)
+            usage = runner._close_and_profile_worker(worker)
+            self.assertTrue(worker.closed)
+            self.assertIsNotNone(usage)
+            self.assertEqual(usage["returncode"], 0)
+            self.assertEqual(proc.returncode, 0)
+            self.assertGreater(usage["native_peak_rss_bytes"], 0)
+            self.assertGreaterEqual(usage["user_cpu_seconds"], 0.0)
+            self.assertGreaterEqual(usage["system_cpu_seconds"], 0.0)
+            self.assertGreaterEqual(usage["minor_page_faults"], 0)
+            self.assertGreaterEqual(usage["major_page_faults"], 0)
 
 
 if __name__ == "__main__":
