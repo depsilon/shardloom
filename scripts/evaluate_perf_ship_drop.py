@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""Evaluate baseline-vs-candidate ClickBench UAT summaries against frozen PERF-01 ship/drop thresholds."""
+"""Evaluate baseline-vs-candidate performance summaries under PERF-01 or binary complete-cohort policy."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from typing import Any
 
 
 SCHEMA_VERSION = "shardloom.perf_ship_drop_decision.v1"
+POLICIES = ("perf01_thresholds", "binary_complete_cohort")
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -77,12 +78,24 @@ def evaluate_ship_drop(
     candidate_raw: dict[str, Any],
     *,
     lane: str | None = None,
+    policy: str = "perf01_thresholds",
     min_total_improvement_pct: float = 2.0,
     max_tail_regression_pct: float = 5.0,
     max_rss_growth_pct: float = 10.0,
     max_sys_cpu_growth_pct: float = 10.0,
     max_page_fault_growth_pct: float = 15.0,
 ) -> dict[str, Any]:
+    if policy not in POLICIES:
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "policy": policy,
+            "decision": "blocked",
+            "reasons": [f"unsupported policy {policy!r}; expected one of {POLICIES}"],
+            "claim_gate_status": "not_claim_grade",
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+        }
+
     blockers: list[str] = []
     drop_reasons: list[str] = []
 
@@ -92,6 +105,7 @@ def evaluate_ship_drop(
     except ValueError as error:
         return {
             "schema_version": SCHEMA_VERSION,
+            "policy": policy,
             "decision": "blocked",
             "reasons": [str(error)],
             "claim_gate_status": "not_claim_grade",
@@ -159,12 +173,6 @@ def evaluate_ship_drop(
         base_total = sum(base_best[q] for q in shared_queries)
         cand_total = sum(cand_best[q] for q in shared_queries)
         total_delta_pct = _pct_delta(base_total, cand_total)
-        if total_delta_pct is None or -total_delta_pct < min_total_improvement_pct:
-            observed = "n/a" if total_delta_pct is None else f"{-total_delta_pct:.2f}%"
-            drop_reasons.append(
-                f"total improvement {observed} below required {min_total_improvement_pct:.2f}%"
-            )
-
         query_deltas = []
         for q in shared_queries:
             delta = _pct_delta(base_best[q], cand_best[q])
@@ -174,7 +182,26 @@ def evaluate_ship_drop(
                 query_deltas.append((q, delta))
         if query_deltas:
             worst_q, max_query_regression_pct = max(query_deltas, key=lambda item: item[1])
-            if max_query_regression_pct > max_tail_regression_pct:
+        else:
+            worst_q = None
+
+        if policy == "binary_complete_cohort":
+            if total_delta_pct is None or cand_total >= base_total:
+                observed = "n/a" if total_delta_pct is None else f"{total_delta_pct:+.2f}%"
+                drop_reasons.append(
+                    f"complete-cohort total did not decrease ({base_total:.9f}s -> {cand_total:.9f}s, delta {observed})"
+                )
+        else:
+            if total_delta_pct is None or -total_delta_pct < min_total_improvement_pct:
+                observed = "n/a" if total_delta_pct is None else f"{-total_delta_pct:.2f}%"
+                drop_reasons.append(
+                    f"total improvement {observed} below required {min_total_improvement_pct:.2f}%"
+                )
+            if (
+                max_query_regression_pct is not None
+                and worst_q is not None
+                and max_query_regression_pct > max_tail_regression_pct
+            ):
                 drop_reasons.append(
                     f"query {worst_q} regressed {max_query_regression_pct:.2f}% > max {max_tail_regression_pct:.2f}%"
                 )
@@ -202,10 +229,14 @@ def evaluate_ship_drop(
         reasons = drop_reasons
     else:
         decision = "retain"
-        reasons = ["all correctness, total speedup, tail, and OS resource gates passed"]
+        if policy == "binary_complete_cohort":
+            reasons = ["all correctness, no-fallback, OS resource, and binary complete-cohort engine-time gates passed"]
+        else:
+            reasons = ["all correctness, total speedup, tail, and OS resource gates passed"]
 
     return {
         "schema_version": SCHEMA_VERSION,
+        "policy": policy,
         "decision": decision,
         "timing_surface": base_surface,
         "timing_key": timing_key,
@@ -225,6 +256,7 @@ def main() -> int:
     parser.add_argument("--baseline", type=Path, required=True)
     parser.add_argument("--candidate", type=Path, required=True)
     parser.add_argument("--lane")
+    parser.add_argument("--policy", choices=POLICIES, default="perf01_thresholds")
     parser.add_argument("--min-total-improvement-pct", type=float, default=2.0)
     parser.add_argument("--max-tail-regression-pct", type=float, default=5.0)
     parser.add_argument("--max-rss-growth-pct", type=float, default=10.0)
@@ -238,6 +270,7 @@ def main() -> int:
         _load_json(args.baseline),
         _load_json(args.candidate),
         lane=args.lane,
+        policy=args.policy,
         min_total_improvement_pct=args.min_total_improvement_pct,
         max_tail_regression_pct=args.max_tail_regression_pct,
         max_rss_growth_pct=args.max_rss_growth_pct,

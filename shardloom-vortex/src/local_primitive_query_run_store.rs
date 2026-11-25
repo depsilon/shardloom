@@ -46,9 +46,14 @@ static NEXT_WORKSPACE: AtomicU64 = AtomicU64::new(0);
 
 #[cfg(unix)]
 pub(super) type RunSourceGeneration = crate::resident_session::SourceIdentity;
+#[cfg(unix)]
+type RunFileGeneration = crate::source_identity::FileGeneration;
 
 #[cfg(not(unix))]
 pub(super) struct RunSourceGeneration;
+#[cfg(not(unix))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RunFileGeneration;
 
 #[cfg(not(unix))]
 impl RunSourceGeneration {
@@ -73,6 +78,10 @@ impl RunSourceGeneration {
         ))
     }
 
+    pub(super) const fn matches_generation(&self, _: &RunFileGeneration) -> bool {
+        false
+    }
+
     pub(super) fn verify_bounded_envelope(
         &self,
         _: (u64, u64),
@@ -83,6 +92,16 @@ impl RunSourceGeneration {
     ) -> Result<()> {
         Err(spill_error("native sort spill requires Unix file identity"))
     }
+}
+
+#[cfg(unix)]
+fn capture_run_generation(metadata: &fs::Metadata) -> Result<RunFileGeneration> {
+    crate::source_identity::FileGeneration::read(metadata)
+}
+
+#[cfg(not(unix))]
+fn capture_run_generation(_: &fs::Metadata) -> Result<RunFileGeneration> {
+    Err(spill_error("native sort spill requires Unix file identity"))
 }
 
 #[derive(Clone, Copy)]
@@ -245,6 +264,7 @@ pub(super) struct NativeQueryRun {
     pub(super) bytes: u64,
     pub(super) block_rows: usize,
     identity: (u64, u64),
+    generation: RunFileGeneration,
     head_digest: [u8; 32],
     tail_digest: [u8; 32],
     #[cfg_attr(not(test), allow(dead_code))]
@@ -282,6 +302,7 @@ pub(super) struct QueryRunStore {
 
 struct OwnedRunIdentity {
     identity: (u64, u64),
+    generation: Option<RunFileGeneration>,
     bytes: u64,
     _metadata: Arc<MemoryLease>,
 }
@@ -469,6 +490,7 @@ impl QueryRunStore {
             path.clone(),
             OwnedRunIdentity {
                 identity: file_identity(&path)?,
+                generation: None,
                 bytes: 0,
                 _metadata: Arc::clone(&metadata),
             },
@@ -497,17 +519,20 @@ impl QueryRunStore {
             .expect("created run retains its identity until owned removal")
             .bytes = writer.written;
         result?;
-        writer.flush().map_err(io_error)?;
-        let written = writer.written;
-        let (digest, head_digest, tail_digest) = writer.finish_digests();
+        let completed = writer.finish()?;
+        self.identities
+            .get_mut(&path)
+            .expect("created run retains its identity until owned removal")
+            .generation = Some(completed.generation.clone());
         let run = NativeQueryRun {
             identity: file_identity(&path)?,
+            generation: completed.generation,
             path,
             rows: spec.rows,
-            bytes: written,
-            head_digest,
-            tail_digest,
-            digest,
+            bytes: completed.bytes,
+            head_digest: completed.head_digest,
+            tail_digest: completed.tail_digest,
+            digest: completed.digest,
             metadata,
             block_rows: spec.block_rows,
         };
@@ -616,7 +641,9 @@ impl QueryRunStore {
     }
 
     fn check_owned(&self, run: &NativeQueryRun) -> Result<()> {
-        if self.identities.get(&run.path).map(|entry| entry.identity) != Some(run.identity) {
+        if !self.identities.get(&run.path).is_some_and(|entry| {
+            entry.identity == run.identity && entry.generation.as_ref() == Some(&run.generation)
+        }) {
             return Err(spill_error(
                 "native query run does not belong to this store",
             ));
@@ -741,6 +768,14 @@ impl Drop for QueryRunStore {
     }
 }
 
+struct WrittenQueryRun {
+    bytes: u64,
+    generation: RunFileGeneration,
+    digest: [u8; 32],
+    head_digest: [u8; 32],
+    tail_digest: [u8; 32],
+}
+
 struct QuotaWriter {
     file: File,
     quota: Arc<crate::query_spill_quota::Quota>,
@@ -793,6 +828,20 @@ impl QuotaWriter {
             self.tail_ring[..rem].copy_from_slice(&chunk[first..]);
         }
         self.tail_pos = (self.tail_pos + chunk.len()) % capacity;
+    }
+
+    fn finish(mut self) -> Result<WrittenQueryRun> {
+        self.file.flush().map_err(io_error)?;
+        let generation = capture_run_generation(&self.file.metadata().map_err(io_error)?)?;
+        let bytes = self.written;
+        let (digest, head_digest, tail_digest) = self.finish_digests();
+        Ok(WrittenQueryRun {
+            bytes,
+            generation,
+            digest,
+            head_digest,
+            tail_digest,
+        })
     }
 
     fn finish_digests(self) -> ([u8; 32], [u8; 32], [u8; 32]) {
@@ -855,15 +904,27 @@ fn validate_run_identity_and_len(run: &NativeQueryRun) -> Result<()> {
     Ok(())
 }
 
+fn validate_run_generation(run: &NativeQueryRun) -> Result<()> {
+    validate_run_identity_and_len(run)?;
+    let metadata = fs::symlink_metadata(&run.path).map_err(io_error)?;
+    if capture_run_generation(&metadata)? != run.generation {
+        return Err(spill_error("native sort run generation changed"));
+    }
+    Ok(())
+}
+
 fn validate_written_run(run: &NativeQueryRun) -> Result<()> {
-    validate_run_identity_and_len(run)
+    validate_run_generation(run)
 }
 
 /// The 64 KiB checksum buffer verifies the bounded head and tail envelopes on open
 /// without re-reading the entire run from disk.
 fn validate_run_envelope(run: &NativeQueryRun) -> Result<Arc<RunSourceGeneration>> {
-    validate_run_identity_and_len(run)?;
+    validate_run_generation(run)?;
     let source = Arc::new(RunSourceGeneration::capture(&run.path)?);
+    if !source.matches_generation(&run.generation) {
+        return Err(spill_error("native sort run generation changed"));
+    }
     let mut buffer = vec![0_u8; CHECKSUM_SCRATCH_BYTES].into_boxed_slice();
     source.verify_bounded_envelope(
         run.identity,
@@ -872,9 +933,10 @@ fn validate_run_envelope(run: &NativeQueryRun) -> Result<Arc<RunSourceGeneration
         &run.tail_digest,
         &mut buffer,
     )?;
-    if file_identity(&run.path)? != run.identity {
+    validate_run_generation(run)?;
+    if !source.matches_generation(&run.generation) {
         return Err(spill_error(
-            "native sort run file identity changed during verification",
+            "native sort run generation changed during verification",
         ));
     }
     Ok(source)

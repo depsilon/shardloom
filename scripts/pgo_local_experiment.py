@@ -201,13 +201,21 @@ class Runner:
 
     def guard(self):
         a = self.args
-        snapshot = check_budgets(self.output, self.output / "cargo-target", self.output / "logs",
-                                min_free_bytes=int(a.min_free_gib * GIB), reserve_bytes=0,
-                                max_workspace_bytes=int(a.max_run_gib * GIB), max_log_bytes=int(a.max_log_mib * MIB))
-        profiles = accounted_bytes(self.output / "profiles") + accounted_bytes(self.output / "smoke/profiles")
+        for attempt in range(4):
+            try:
+                snapshot = check_budgets(self.output, self.output / "cargo-target", self.output / "logs",
+                                         min_free_bytes=int(a.min_free_gib * GIB), reserve_bytes=0,
+                                         max_workspace_bytes=int(a.max_run_gib * GIB), max_log_bytes=int(a.max_log_mib * MIB))
+                profiles = accounted_bytes(self.output / "profiles") + accounted_bytes(self.output / "smoke/profiles")
+                log_extra = accounted_bytes(self.output / "training/logs")
+                break
+            except FileNotFoundError:
+                if attempt == 3:
+                    raise
+                time.sleep(0.01)
         if profiles > a.max_profile_mib * MIB:
             raise ValueError("sampled profile byte budget exceeded")
-        if snapshot["log_bytes"] + accounted_bytes(self.output / "training/logs") > a.max_log_mib * MIB:
+        if snapshot["log_bytes"] + log_extra > a.max_log_mib * MIB:
             raise ValueError("sampled combined log budget exceeded")
 
     def step(self, name, command, env=None, timeout=None):
@@ -511,6 +519,7 @@ def run_heldout_evaluation(runner, report):
     ctrl_summary = json.loads((eval_root / "tpch_ssb_control.json").read_text())
     pgo_summary = json.loads((eval_root / "tpch_ssb_profile-use.json").read_text())
     ship_drop = {}
+    perf01_thresholds = {}
     for lane in ("cold_process_cli", "warm_resident_session"):
         out = runner.step(
             f"eval-ship-drop-{lane}",
@@ -523,9 +532,27 @@ def run_heldout_evaluation(runner, report):
                 str(eval_root / "tpch_ssb_profile-use.json"),
                 "--lane",
                 lane,
+                "--policy",
+                "binary_complete_cohort",
             ],
         )
         ship_drop[lane] = json.loads(out.read_text())
+        perf01_out = runner.step(
+            f"eval-perf01-thresholds-{lane}",
+            [
+                sys.executable,
+                str(runner.root / "scripts/evaluate_perf_ship_drop.py"),
+                "--baseline",
+                str(eval_root / "tpch_ssb_control.json"),
+                "--candidate",
+                str(eval_root / "tpch_ssb_profile-use.json"),
+                "--lane",
+                lane,
+                "--policy",
+                "perf01_thresholds",
+            ],
+        )
+        perf01_thresholds[lane] = json.loads(perf01_out.read_text())
     heldout_paths = list((eval_root / "heldout/logs").glob("heldout_operators_*/summary.json"))
     if len(heldout_paths) != 1:
         raise ValueError("heldout operator evaluation did not produce exactly one summary")
@@ -542,7 +569,9 @@ def run_heldout_evaluation(runner, report):
         "control_complete": bool(ctrl_summary.get("complete")),
         "profile_use_complete": bool(pgo_summary.get("complete")),
         "heldout_operators_status": heldout_summary.get("status"),
+        "ship_drop_policy": "binary_complete_cohort",
         "ship_drop_evaluations": ship_drop,
+        "historical_perf01_threshold_evaluations": perf01_thresholds,
         "tpch_ssb_control_summary": str(eval_root / "tpch_ssb_control.json"),
         "tpch_ssb_profile_use_summary": str(eval_root / "tpch_ssb_profile-use.json"),
         "heldout_operator_summary": str(heldout_paths[0]),

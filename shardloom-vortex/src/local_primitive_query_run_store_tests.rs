@@ -920,7 +920,7 @@ fn corrupt_byte_and_assert_open_rejected(
     runtime: &impl BlockingRuntime,
     session: &VortexSession,
     work: &Arc<MemoryLease>,
-) {
+) -> String {
     use std::io::{Read as _, Seek as _, SeekFrom, Write as _};
     let corrupted = store
         .write_arrays(spec, blocks, runtime, session, work)
@@ -934,14 +934,18 @@ fn corrupt_byte_and_assert_open_rejected(
     file.seek(SeekFrom::Start(offset)).unwrap();
     file.read_exact(&mut byte).unwrap();
     file.seek(SeekFrom::Start(offset)).unwrap();
+    // Advance kernel mtime/ctime across coarse filesystem timestamp ticks on CI.
+    std::thread::sleep(std::time::Duration::from_millis(15));
     file.write_all(&[byte[0] ^ 1]).unwrap();
+    file.flush().unwrap();
     drop(file);
-    assert!(
-        store
-            .open(&corrupted, &spec.dtype, runtime, session, Arc::clone(work))
-            .is_err()
-    );
+    let error = store
+        .open(&corrupted, &spec.dtype, runtime, session, Arc::clone(work))
+        .err()
+        .expect("in-place mutation must invalidate spill run")
+        .to_string();
     store.remove(&corrupted).unwrap();
+    error
 }
 
 #[test]
@@ -997,8 +1001,10 @@ fn large_multi_block_run_verifies_streaming_digest_and_bounded_head_tail_envelop
     drop(reader);
     store.remove(&run).unwrap();
     assert_eq!(store.snapshot().runs_validated, 1);
-    for target_offset in [17_u64, run.bytes - 17] {
-        corrupt_byte_and_assert_open_rejected(
+    let middle_offset = run.bytes / 2;
+    assert!(middle_offset >= 4096 && middle_offset + 65_536 < run.bytes);
+    for target_offset in [17_u64, middle_offset, run.bytes - 17] {
+        let error = corrupt_byte_and_assert_open_rejected(
             &mut store,
             &large_spec,
             expected_blocks(),
@@ -1006,6 +1012,10 @@ fn large_multi_block_run_verifies_streaming_digest_and_bounded_head_tail_envelop
             &runtime,
             &session,
             &work,
+        );
+        assert!(
+            error.contains("generation changed"),
+            "offset {target_offset}: {error}"
         );
     }
     store.cleanup().unwrap();

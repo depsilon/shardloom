@@ -37,13 +37,16 @@ Both matched `control` and `profile-use` binaries passed `complete=true`,
 `external_engine_invoked=false` across `8` TPC-H + `6` SSB queries:
 
 - **`cold_process_cli` total engine time**: `0.093602836s` (`control`) -> `0.089224004s`
-  (`profile-use`), **`-4.68%`** overall, with **`drop`** verdict from
-  [evaluate_perf_ship_drop.py](../../scripts/evaluate_perf_ship_drop.py) solely because Q1
+  (`profile-use`), **`-4.68%`** overall, returning **`retain`** under the active
+  `binary_complete_cohort` policy in [evaluate_perf_ship_drop.py](../../scripts/evaluate_perf_ship_drop.py)
+  (peak RSS `-23.98%`, minor faults `-21.32%`, system CPU `+8.28% <= 10.00%`, major faults `0`).
+  Under the preserved historical `perf01_thresholds` check it records **`drop`** solely because Q1
   regressed `+27.74% > max 5.00%` (`0.003865958s -> 0.004938375s`); Q2–Q13 improved (`-2.07%` to
   `-23.47%`) and Q14 changed `+1.56%`.
 - **`warm_resident_session` total engine time**: `0.077699875s` (`control`) -> `0.073529207s`
-  (`profile-use`), **`-5.37%`** overall, with **`retain`** verdict (`max_query_regression_pct =
-  +1.52%` on Q14; Q1–Q13 improved `-0.52%` to `-28.61%`).
+  (`profile-use`), **`-5.37%`** overall, returning **`retain`** under both `binary_complete_cohort`
+  and `perf01_thresholds` (`max_query_regression_pct = +1.52%` on Q14; Q1–Q13 improved `-0.52%` to
+  `-28.61%`).
 
 ### Per-query engine time (`engine_execution_seconds`)
 
@@ -117,8 +120,13 @@ Cold `profile-use` delta vs `control`: Peak RSS `-23.98%`, minor faults `-21.32%
   `llvm-profdata show --topn=250`, which suppresses header summary lines in LLVM 22 (`d986b45bc`
   aligned those flags). A second run (`screen-20261124-clean` at `d986b45bc`) aborted during
   `build-profile-use` with `[Errno 1] Operation not permitted` caused by a `FileNotFoundError` TOCTOU
-  on transient `rustc` `rmeta*` dirs in `accounted_bytes` followed by macOS `os.killpg` `EPERM` on a
-  zombie process group in `stop_group` (`78e4a1cd7` fixed both).
-- **Disposition & open external gates**: Default `[profile.release]` remains unchanged
-  (`default_release_profile_changed=false`) and `E2E-PGO-01` remains open pending `100M` ClickBench
-  Full43 cold/warm and `100M` ingest PGO ship/drop screens once external datasets are mounted.
+  on transient `rustc` `rmeta*` dirs during storage polling followed by macOS `os.killpg` `EPERM` on a
+  zombie process group in `stop_group` (`78e4a1cd7` fixed `stop_group`, and the bounded
+  `FileNotFoundError` retry in `pgo_local_experiment.py`'s `Runner.guard` preserves
+  `scripts/local_uat_storage.py`'s frozen historical replay hash).
+- **Disposition & open external gates**: Under `binary_complete_cohort`, both non-ClickBench
+  TPC-H/SSB Vortex lanes (`cold_process_cli` `-4.68%` and `warm_resident_session` `-5.37%`) pass
+  all correctness, no-fallback, OS-resource, and complete-cohort engine-time gates (`retain`).
+  Default `[profile.release]` remains unchanged (`default_release_profile_changed=false`) and
+  `E2E-PGO-01` remains open pending external `100M` ClickBench Full43 cold/warm and `100M` ingest
+  PGO ship/drop screens once those datasets are mounted.

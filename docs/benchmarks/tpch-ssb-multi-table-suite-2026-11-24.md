@@ -63,13 +63,15 @@ counters confined to the diagnostic tables below.
 ## `E2E-PERF-00` (`cli-mimalloc`) ship/drop gate outcome
 
 Automated evaluation via [evaluate_perf_ship_drop.py](../../scripts/evaluate_perf_ship_drop.py)
-against the `shardloom-default` Vortex baseline returned **`drop`** on both lanes, so `cli-mimalloc`
-remains an opt-in non-default feature in `shardloom-cli`:
+against the `shardloom-default` Vortex baseline keeps `cli-mimalloc` as an opt-in non-default
+feature in `shardloom-cli`:
 
-- **`cold_process_cli` (`drop`)**: total engine time changed `-3.27%`, but Q1 regressed
-  `+97.22% > max 5.00%` (`0.004045125s -> 0.007977625s`) and `system_cpu` grew `+37.06% > max 10.00%`.
-- **`warm_resident_session` (`drop`)**: total engine time changed `-6.57%`, but Q7 regressed
-  `+15.57% > max 5.00%` (`0.002248499s -> 0.002598541s`).
+- **`cold_process_cli` (`drop` under both `binary_complete_cohort` and `perf01_thresholds`)**: total
+  engine time changed `-3.27%`, but `system_cpu` grew `+37.06% > max 10.00%` (plus Q1 `+97.22% > max
+  5.00%` under `perf01_thresholds`: `0.004045125s -> 0.007977625s`).
+- **`warm_resident_session` (`retain` under `binary_complete_cohort`, `drop` under preserved
+  `perf01_thresholds`)**: total engine time changed `-6.57%` (`retain` under `binary_complete_cohort`;
+  Q7 regressed `+15.57% > max 5.00%` under `perf01_thresholds`, `0.002248499s -> 0.002598541s`).
 
 The external `100M` ClickBench Full43 `cli-mimalloc` screen remains open under `E2E-PERF-00` pending
 restored external dataset mounts.

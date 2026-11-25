@@ -11,6 +11,7 @@ import math
 import os
 from pathlib import Path
 import platform
+import re
 import statistics
 import subprocess
 import sys
@@ -111,24 +112,28 @@ def _write_parquet_table(
         return
     if binary is None or tmp_dir is None:
         raise RuntimeError("pyarrow is required unless --binary is supplied for CLI JSONL->Parquet export")
+    tmp_dir.mkdir(parents=True, exist_ok=True)
     jsonl_path = tmp_dir / f"{dest.stem}.jsonl"
-    with jsonl_path.open("x", encoding="utf-8") as fh:
-        for row in rows:
-            fh.write(json.dumps(row, ensure_ascii=False, allow_nan=False) + "\n")
-    schema_arg = ",".join(f"{name}:{dt_name}" for name, dt_name in cols)
-    bindings = {str(jsonl_path): {"input_format": "jsonl", "source_schema": schema_arg}}
-    cmd = public_workflow_command(
-        binary,
-        f"SELECT * FROM {dest.stem}",
-        source_bindings=bindings,
-        memory_gb=1,
-        max_parallelism=2,
-        requested_output="write_parquet",
-        output=dest,
-    )
-    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=False)
-    if proc.returncode != 0 or not dest.is_file():
-        raise RuntimeError(f"CLI parquet fixture conversion failed for {dest}: {proc.stderr}")
+    try:
+        with jsonl_path.open("x", encoding="utf-8") as fh:
+            for row in rows:
+                fh.write(json.dumps(row, ensure_ascii=False, allow_nan=False) + "\n")
+        schema_arg = ",".join(f"{name}:{dt_name}" for name, dt_name in cols)
+        bindings = {str(jsonl_path): {"input_format": "jsonl", "source_schema": schema_arg}}
+        cmd = public_workflow_command(
+            binary,
+            f"SELECT * FROM {dest.stem}",
+            source_bindings=bindings,
+            memory_gb=1,
+            max_parallelism=2,
+            requested_output="write_parquet",
+            output=dest,
+        )
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=False)
+        if proc.returncode != 0 or not dest.is_file():
+            raise RuntimeError(f"CLI parquet fixture conversion failed for {dest}: {proc.stderr}")
+    finally:
+        jsonl_path.unlink(missing_ok=True)
 
 
 def _prepare_vortex_table(
@@ -177,8 +182,6 @@ def prepare_fixtures(
     timeout: float,
 ) -> tuple[dict[str, dict[str, dict[str, Path]]], dict[str, dict[str, list[dict[str, Any]]]], dict[str, Any]]:
     fixtures_root.mkdir(parents=True, exist_ok=True)
-    tmp_dir = fixtures_root / ".jsonl-tmp"
-    tmp_dir.mkdir(exist_ok=True)
     raw_tables: dict[str, dict[str, list[dict[str, Any]]]] = {}
     table_paths: dict[str, dict[str, dict[str, Path]]] = {"parquet": {}, "vortex": {}}
     identities: dict[str, dict[str, Any]] = {"parquet": {}, "vortex": {}}
@@ -200,6 +203,7 @@ def prepare_fixtures(
         raw_tables[suite_name] = suite_rows
         schemas = TPCH_SCHEMAS if suite_name == "tpch" else SSB_SCHEMAS
         suite_dir = fixtures_root / suite_name
+        suite_tmp_dir = suite_dir / ".jsonl-tmp"
         pq_dir = suite_dir / "parquet"
         vx_dir = suite_dir / "vortex"
         pq_dir.mkdir(parents=True, exist_ok=True)
@@ -217,7 +221,7 @@ def prepare_fixtures(
                     cols,
                     pq_path,
                     binary=prepare_binary,
-                    tmp_dir=tmp_dir,
+                    tmp_dir=suite_tmp_dir,
                     timeout=timeout,
                 )
             table_paths["parquet"][suite_name][tname] = pq_path
@@ -240,6 +244,11 @@ def prepare_fixtures(
                     "bytes": vx_path.stat().st_size,
                     "generation": _file_generation(vx_path),
                 }
+        if suite_tmp_dir.is_dir():
+            try:
+                suite_tmp_dir.rmdir()
+            except OSError:
+                pass
     manifest_payload = {
         "schema_version": "shardloom.tpch_ssb.fixtures.v1",
         "scale_rows": scale_rows,
@@ -312,6 +321,10 @@ def _verify_no_fallback_envelope(envelope: dict[str, Any], fields: dict[str, Any
     verify_zero_answer_cache(fields)
 
 
+def _log_stem_code(code: str) -> str:
+    return re.sub(r"[^A-Za-z0-9_-]+", "_", code)
+
+
 def _execute_lane(
     *,
     lane_name: str,
@@ -365,7 +378,7 @@ def _execute_lane(
             suite_paths = table_paths[spec.suite]
             bindings = build_source_bindings(spec, suite_paths, args.input_format)
             for run in range(1, args.repeats + 1):
-                prefix = logs / f"q{spec.query_id:02d}_{spec.code}_run{run}"
+                prefix = logs / f"q{spec.query_id:02d}_{_log_stem_code(spec.code)}_run{run}"
                 if len(spec.tables) == 1:
                     command = public_workflow_command(
                         args.binary,

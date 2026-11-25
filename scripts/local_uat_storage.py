@@ -86,13 +86,10 @@ def accounted_bytes(root: Path) -> int:
             continue
         seen.add(identity)
         if stat.S_ISDIR(info.st_mode):
-            try:
-                with os.scandir(path) as entries:
-                    # Keep the directory entries so repeated checks avoid rebuilding
-                    # and reparsing a Path object for every retained artifact.
-                    pending.extend(entries)
-            except FileNotFoundError:
-                continue
+            with os.scandir(path) as entries:
+                # Keep the directory entries so repeated checks avoid rebuilding
+                # and reparsing a Path object for every retained artifact.
+                pending.extend(entries)
         else:
             total += max(info.st_size, getattr(info, "st_blocks", 0) * 512)
     return total

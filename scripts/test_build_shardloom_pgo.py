@@ -410,6 +410,57 @@ class PgoTests(unittest.TestCase):
         self.assertIn("PGO stage failed: boom (exit 7)", step["error"])
         self.assertIsInstance(step["seconds"], float)
 
+    def test_run_heldout_evaluation_uses_binary_complete_cohort_and_preserves_perf01(self):
+        eval_dir = self.root / "eval_out"
+        report = {
+            "binaries": {
+                "control": {"path": "/ctrl/shardloom"},
+                "profile-use": {"path": "/pgo/shardloom"},
+            }
+        }
+        calls = []
+
+        def fake_step(name, command, env=None, timeout=None):
+            calls.append((name, list(command)))
+            out_path = eval_dir / f"{name}.json"
+            if name in ("eval-tpch-ssb-control", "eval-tpch-ssb-profile-use"):
+                out_path = Path(command[command.index("--summary-out") + 1])
+                out_path.write_text(json.dumps({"complete": True}))
+            elif name == "eval-heldout-operators":
+                held_sum = Path(command[command.index("--uat-root") + 1]) / "logs/heldout_operators_x/summary.json"
+                held_sum.parent.mkdir(parents=True, exist_ok=True)
+                held_sum.write_text(json.dumps({"status": "passed"}))
+            elif name.startswith("eval-ship-drop-"):
+                self.assertEqual(command[command.index("--policy") + 1], "binary_complete_cohort")
+                out_path.write_text(json.dumps({"policy": "binary_complete_cohort", "decision": "retain"}))
+            elif name.startswith("eval-perf01-thresholds-"):
+                self.assertEqual(command[command.index("--policy") + 1], "perf01_thresholds")
+                out_path.write_text(json.dumps({"policy": "perf01_thresholds", "decision": "drop"}))
+            return out_path
+
+        runner = types.SimpleNamespace(output=eval_dir, root=self.repo, args=self.args, step=fake_step)
+        pgo.run_heldout_evaluation(runner, report)
+        ev = report["evaluation"]
+        self.assertEqual(ev["ship_drop_policy"], "binary_complete_cohort")
+        self.assertEqual(ev["ship_drop_evaluations"]["cold_process_cli"]["decision"], "retain")
+        self.assertEqual(ev["historical_perf01_threshold_evaluations"]["cold_process_cli"]["decision"], "drop")
+
+    def test_guard_retries_transient_file_not_found_and_reraises_persistent(self):
+        plan = pgo.make_plan(self.args, {})
+        runner = pgo.Runner(self.args, plan)
+        with (
+            patch.object(pgo, "check_budgets", side_effect=[FileNotFoundError("rmeta"), {"log_bytes": 0}]),
+            patch.object(pgo, "accounted_bytes", return_value=0),
+            patch.object(pgo.time, "sleep"),
+        ):
+            runner.guard()
+        with (
+            patch.object(pgo, "check_budgets", side_effect=[FileNotFoundError("rmeta")] * 4),
+            patch.object(pgo.time, "sleep"),
+            self.assertRaises(FileNotFoundError),
+        ):
+            runner.guard()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -75,6 +75,29 @@ class EvaluatePerfShipDropTests(unittest.TestCase):
         cached = _make_summary(engine_times={1: 0.5}, zero_cache=False)
         self.assertEqual(evaluate_ship_drop(base, cached)["decision"], "drop")
 
+    def test_binary_complete_cohort_policy_retains_any_positive_gain_and_drops_flat_or_slower(self):
+        base = _make_summary(engine_times={1: 1.0, 2: 9.0})
+        # Total improves -0.80% (< 2% PERF-01 cutoff) while query 1 regresses +15% (> 5% PERF-01 cutoff).
+        small_gain = _make_summary(engine_times={1: 1.15, 2: 8.77})
+        legacy = evaluate_ship_drop(base, small_gain, policy="perf01_thresholds")
+        self.assertEqual(legacy["decision"], "drop")
+        self.assertEqual(legacy["policy"], "perf01_thresholds")
+
+        binary = evaluate_ship_drop(base, small_gain, policy="binary_complete_cohort")
+        self.assertEqual(binary["decision"], "retain")
+        self.assertEqual(binary["policy"], "binary_complete_cohort")
+        self.assertLess(binary["total_delta_pct"], 0.0)
+        self.assertAlmostEqual(binary["max_query_regression_pct"], 15.0, places=6)
+
+        flat = _make_summary(engine_times={1: 1.0, 2: 9.0})
+        self.assertEqual(evaluate_ship_drop(base, flat, policy="binary_complete_cohort")["decision"], "drop")
+
+        slower = _make_summary(engine_times={1: 1.0, 2: 9.01})
+        self.assertEqual(evaluate_ship_drop(base, slower, policy="binary_complete_cohort")["decision"], "drop")
+
+        rss_bad = _make_summary(engine_times={1: 0.8, 2: 8.0}, rss=90_000_000)
+        self.assertEqual(evaluate_ship_drop(base, rss_bad, policy="binary_complete_cohort")["decision"], "drop")
+
 
 if __name__ == "__main__":
     unittest.main()

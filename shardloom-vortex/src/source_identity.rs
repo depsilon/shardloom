@@ -99,6 +99,11 @@ impl SourceIdentity {
         self.path == other.path && self.generation == other.generation
     }
 
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn matches_generation(&self, expected: &FileGeneration) -> bool {
+        &self.generation == expected
+    }
+
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
     pub(crate) fn preparation_binding(&self) -> Result<serde_json::Value> {
         self.validate()?;
