@@ -132,12 +132,7 @@ impl OutputBuffer {
                 .checked_add(array.nbytes())
                 .ok_or_else(capacity_error)?;
             let cost = self.cost(rows, payload, self.pending.values.len() + 1, true)?;
-            match self.sizing.decide(
-                "native_output_compaction",
-                context.memory().snapshot(),
-                cost,
-                limits(self.batch_rows),
-            )? {
+            match self.decide_compaction(context, cost, limits(self.batch_rows))? {
                 WorkDecision::Selected(shape) if rows as u64 > shape.units() => {
                     self.flush(context, consume)?;
                 }
@@ -188,12 +183,7 @@ impl OutputBuffer {
             consume(array)?;
         } else {
             let initial_cost = self.cost(rows, payload, pending.values.len(), true)?;
-            let mut shape = match self.sizing.decide(
-                "native_output_compaction",
-                context.memory().snapshot(),
-                initial_cost,
-                limits(rows),
-            )? {
+            let mut shape = match self.decide_compaction(context, initial_cost, limits(rows))? {
                 WorkDecision::Selected(shape) => shape,
                 WorkDecision::Declined(denial) => {
                     context.record_adaptive_work_decline(
@@ -203,15 +193,19 @@ impl OutputBuffer {
                     return forward(pending, context, consume);
                 }
             };
-            // The pending vector lease remains live after moving its storage
-            // into ChunkedArray. Admit offsets/schema before their construction.
+            // Keep pending records available in order if a downstream consumer
+            // retains earlier compacted batches and leaves no compaction headroom.
             let structure_credit = context
                 .memory()
                 .reserve(self.structure_bytes(pending.values.len())?)?;
-            let chunked =
-                ChunkedArray::try_new(std::mem::take(&mut pending.values), self.dtype.clone())
-                    .map_err(vortex_error)?
-                    .into_array();
+            let mut slots = Vec::new();
+            slots
+                .try_reserve_exact(pending.values.len())
+                .map_err(vortex_error)?;
+            slots.extend(pending.values.iter().cloned());
+            let chunked = ChunkedArray::try_new(slots, self.dtype.clone())
+                .map_err(vortex_error)?
+                .into_array();
             let cost = self.cost(rows, payload, 0, false)?;
             let mut start = 0;
             while start < rows {
@@ -252,17 +246,46 @@ impl OutputBuffer {
                 consume(compact)?;
                 start += count;
                 if start < rows {
-                    shape = self.sizing.select(
-                        "native_output_compaction",
-                        context.memory().snapshot(),
-                        cost,
-                        limits(rows - start),
-                    )?;
+                    match self.decide_compaction(context, cost, limits(rows - start))? {
+                        WorkDecision::Selected(next) => shape = next,
+                        WorkDecision::Declined(denial) => {
+                            context.record_adaptive_work_decline(
+                                crate::native_work_sizing::Owner::Output,
+                                denial,
+                            );
+                            drop((chunked, structure_credit));
+                            return forward_from(pending, start, context, consume);
+                        }
+                    }
                 }
             }
             drop((chunked, pending, structure_credit));
         }
         context.check_cancelled()
+    }
+
+    fn decide_compaction(
+        &self,
+        context: &NativeExecutionContext<'_>,
+        cost: WorkCost,
+        limits: WorkLimits,
+    ) -> Result<WorkDecision> {
+        let decision = self.sizing.decide(
+            "native_output_compaction",
+            context.memory().snapshot(),
+            cost,
+            limits,
+        )?;
+        if matches!(decision, WorkDecision::Declined(_)) {
+            context.memory().reclaim_optional_memory();
+            return self.sizing.decide(
+                "native_output_compaction",
+                context.memory().snapshot(),
+                cost,
+                limits,
+            );
+        }
+        Ok(decision)
     }
 
     fn take_pending(
@@ -324,13 +347,38 @@ fn limits(rows: usize) -> WorkLimits {
 }
 
 fn forward(
-    mut pending: ReservedVec<ArrayRef>,
+    pending: ReservedVec<ArrayRef>,
     context: &NativeExecutionContext<'_>,
     consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
 ) -> Result<()> {
+    forward_from(pending, 0, context, consume)
+}
+
+fn forward_from(
+    mut pending: ReservedVec<ArrayRef>,
+    start: usize,
+    context: &NativeExecutionContext<'_>,
+    consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+) -> Result<()> {
+    let mut row_offset = 0usize;
     for array in pending.values.drain(..) {
+        let chunk_start = row_offset;
+        let len = array.len();
+        row_offset = row_offset.checked_add(len).ok_or_else(capacity_error)?;
+        if row_offset <= start {
+            drop(array);
+            continue;
+        }
         context.check_cancelled()?;
-        consume(array)?;
+        if chunk_start >= start {
+            consume(array)?;
+        } else {
+            let tail = array
+                .slice((start - chunk_start)..len)
+                .map_err(vortex_error)?;
+            drop(array);
+            consume(tail)?;
+        }
     }
     context.check_cancelled()
 }

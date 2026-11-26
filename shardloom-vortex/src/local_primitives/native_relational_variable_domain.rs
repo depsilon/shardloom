@@ -11,10 +11,9 @@ use vortex::{
     buffer::ByteBuffer,
 };
 
-#[derive(Clone)]
 pub(in crate::local_primitives) enum VariableDomain {
     Views(VarBinViewArray),
-    Offsets(std::sync::Arc<OffsetDomain>),
+    Offsets(Box<OffsetDomain>),
 }
 
 /// Only the optional borrowed-offset path pays for this metadata. Keeping it
@@ -40,7 +39,7 @@ impl VariableDomain {
         else {
             return Ok(None);
         };
-        Ok(Some(Self::Offsets(std::sync::Arc::new(OffsetDomain {
+        Ok(Some(Self::Offsets(Box::new(OffsetDomain {
             offsets,
             bytes,
             rows,

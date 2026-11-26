@@ -105,7 +105,6 @@ pub(super) enum Preparation {
 
 pub(super) struct VariableColumn {
     values: VariableDomain,
-    values_owner: Option<ArrayRef>,
     valid: Mask,
     codes: Option<NativeNumericOwner>,
     hashes: VariableHashing,
@@ -993,7 +992,6 @@ impl VariableColumn {
         }
         Ok(Self {
             values: VariableDomain::Views(values),
-            values_owner: dictionary.map(|_| domain),
             valid,
             codes,
             hashes: match hashes {
@@ -1051,7 +1049,6 @@ impl VariableColumn {
     }
 
     pub(super) fn dict_epoch(&self) -> Option<(&VariableDomain, &Mask, &NativeNumericOwner, bool)> {
-        let _owner = self.values_owner.as_ref()?;
         let codes = self.codes.as_ref()?;
         Some((&self.values, &self.valid, codes, self.binary))
     }
