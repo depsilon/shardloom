@@ -184,6 +184,120 @@ impl Expression {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
+    pub(in crate::local_primitives) fn try_clone_for_parallel(&self) -> Option<Self> {
+        use self::scalar::Function as ScalarFn;
+        let kind = match &self.kind {
+            Kind::Column(name) => Kind::Column(name.clone()),
+            Kind::Literal(scalar) => Kind::Literal(scalar.clone()),
+            Kind::List(children) => {
+                let mut cloned = Vec::with_capacity(children.len());
+                for child in children {
+                    cloned.push(child.try_clone_for_parallel()?);
+                }
+                Kind::List(cloned)
+            }
+            Kind::Struct(children) => {
+                let mut cloned = Vec::with_capacity(children.len());
+                for child in children {
+                    cloned.push(child.try_clone_for_parallel()?);
+                }
+                Kind::Struct(cloned)
+            }
+            Kind::Unary(op, child) => Kind::Unary(*op, Box::new(child.try_clone_for_parallel()?)),
+            Kind::Binary(left, op, right) => Kind::Binary(
+                Box::new(left.try_clone_for_parallel()?),
+                *op,
+                Box::new(right.try_clone_for_parallel()?),
+            ),
+            Kind::Compare(left, op, right) => Kind::Compare(
+                Box::new(left.try_clone_for_parallel()?),
+                *op,
+                Box::new(right.try_clone_for_parallel()?),
+            ),
+            Kind::Conditional(c, y, n) => Kind::Conditional(
+                Box::new(c.try_clone_for_parallel()?),
+                Box::new(y.try_clone_for_parallel()?),
+                Box::new(n.try_clone_for_parallel()?),
+            ),
+            Kind::Coalesce(children) => {
+                let mut cloned = Vec::with_capacity(children.len());
+                for child in children {
+                    cloned.push(child.try_clone_for_parallel()?);
+                }
+                Kind::Coalesce(cloned)
+            }
+            Kind::NullIf(left, right) => Kind::NullIf(
+                Box::new(left.try_clone_for_parallel()?),
+                Box::new(right.try_clone_for_parallel()?),
+            ),
+            Kind::Cast {
+                input,
+                tolerant,
+                temporal: None,
+            } => Kind::Cast {
+                input: Box::new(input.try_clone_for_parallel()?),
+                tolerant: *tolerant,
+                temporal: None,
+            },
+            Kind::Cast { .. } => return None,
+            Kind::Function { function, args } => {
+                let cloned_fn = match function {
+                    ScalarFn::IsNan => ScalarFn::IsNan,
+                    ScalarFn::IsInfinite => ScalarFn::IsInfinite,
+                    ScalarFn::IsFinite => ScalarFn::IsFinite,
+                    ScalarFn::SignBit => ScalarFn::SignBit,
+                    ScalarFn::Abs => ScalarFn::Abs,
+                    ScalarFn::Floor => ScalarFn::Floor,
+                    ScalarFn::Ceil => ScalarFn::Ceil,
+                    ScalarFn::Round => ScalarFn::Round,
+                    ScalarFn::Decimal { output, operation } => ScalarFn::Decimal {
+                        output: *output,
+                        operation: *operation,
+                    },
+                    ScalarFn::Lower => ScalarFn::Lower,
+                    ScalarFn::Upper => ScalarFn::Upper,
+                    ScalarFn::Trim => ScalarFn::Trim,
+                    ScalarFn::Length => ScalarFn::Length,
+                    ScalarFn::StartsWith => ScalarFn::StartsWith,
+                    ScalarFn::EndsWith => ScalarFn::EndsWith,
+                    ScalarFn::Contains => ScalarFn::Contains,
+                    ScalarFn::Regex(re) => ScalarFn::Regex(re.clone()),
+                    ScalarFn::Concat => ScalarFn::Concat,
+                    ScalarFn::Substr => ScalarFn::Substr,
+                    ScalarFn::Left => ScalarFn::Left,
+                    ScalarFn::Right => ScalarFn::Right,
+                    ScalarFn::Replace => ScalarFn::Replace,
+                    ScalarFn::ByteLength => ScalarFn::ByteLength,
+                    ScalarFn::EpochMinute { truncate } => ScalarFn::EpochMinute {
+                        truncate: *truncate,
+                    },
+                    ScalarFn::Domain { regex } => ScalarFn::Domain { regex: *regex },
+                    ScalarFn::PrimitiveRefererCase => ScalarFn::PrimitiveRefererCase,
+                    ScalarFn::PrimitiveHaving { op, right } => ScalarFn::PrimitiveHaving {
+                        op: *op,
+                        right: right.clone(),
+                    },
+                    ScalarFn::Unhex => ScalarFn::Unhex,
+                    ScalarFn::FromBase64 => ScalarFn::FromBase64,
+                    ScalarFn::Spatial(kernel) => ScalarFn::Spatial(*kernel),
+                    _ => return None,
+                };
+                let mut cloned_args = Vec::with_capacity(args.len());
+                for arg in args {
+                    cloned_args.push(arg.try_clone_for_parallel()?);
+                }
+                Kind::Function {
+                    function: cloned_fn,
+                    args: cloned_args,
+                }
+            }
+        };
+        let mut expr = Self::new(self.dtype.clone(), kind);
+        expr.reuse_output = self.reuse_output;
+        Some(expr)
+    }
+
     pub(super) fn filter_recipe(&self) -> Option<&FilterRecipe> {
         self.recipe.as_deref()
     }

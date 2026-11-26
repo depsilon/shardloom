@@ -55,6 +55,7 @@ pub(super) fn append(fields: &mut Vec<(String, String)>, prefix: &str, work: &Na
             "match_rows": work.direct_aggregate.match_rows,
             "validated_cells": work.direct_aggregate.validated_cells,
             "aggregate_rows": work.direct_aggregate.aggregate_rows,
+            "probe_filters_pushed": work.direct_aggregate.probe_filters_pushed,
         },
     });
     fields.push((format!("{prefix}_join_work_json"), report.to_string()));
@@ -115,6 +116,7 @@ mod tests {
                 match_rows: 35,
                 validated_cells: 36,
                 aggregate_rows: 37,
+                probe_filters_pushed: 38,
             },
         };
         let mut fields = Vec::new();
@@ -178,6 +180,7 @@ mod tests {
                     "match_rows": 35,
                     "validated_cells": 36,
                     "aggregate_rows": 37,
+                    "probe_filters_pushed": 38,
                 },
             })
         );

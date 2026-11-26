@@ -457,6 +457,55 @@ impl Table {
         }
     }
 
+    pub(super) fn extract_state(&self, index: usize, group: usize) -> State {
+        if let Some(table) = &self.typed {
+            return table.extract_state(index, group);
+        }
+        let mut state = State::default();
+        match self.slots.values[index] {
+            Slot::Count(slot) => state.count = self.counts[group * self.count_width + slot],
+            Slot::Numeric(slot) => {
+                let numeric = self.numbers[group * self.numeric_width + slot];
+                state.count = numeric.count;
+                state.sum = numeric.sum;
+                state.specials = numeric.specials;
+            }
+        }
+        state
+    }
+
+    pub(super) fn merge_state(
+        &mut self,
+        index: usize,
+        measure: &Measure,
+        group: usize,
+        other: &State,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<bool> {
+        if let Some(table) = &mut self.typed {
+            return table.merge_state(index, measure, group, other, context);
+        }
+        match self.slots.values[index] {
+            Slot::Count(slot) => {
+                update_count(
+                    &mut self.counts[group * self.count_width + slot],
+                    other.count,
+                )?;
+                Ok(true)
+            }
+            Slot::Numeric(slot) => {
+                let existing = &mut self.numbers[group * self.numeric_width + slot];
+                update_count(&mut existing.count, other.count)?;
+                existing.specials.merge(other.specials)?;
+                existing.sum.merge(other.sum);
+                if !existing.sum.is_finite() {
+                    return Err(failed("aggregate sum became nonfinite"));
+                }
+                Ok(true)
+            }
+        }
+    }
+
     #[allow(clippy::too_many_arguments)] // The shared prepared input retains its exact proof and selection domain.
     pub(super) fn consume_pair(
         &mut self,

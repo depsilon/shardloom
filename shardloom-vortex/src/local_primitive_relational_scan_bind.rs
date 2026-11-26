@@ -768,13 +768,15 @@ impl Binder<'_> {
         plan: &native::LocalVortexScanPlan,
     ) -> Result<()> {
         if let ScanSource::Batch { index, projection } = source {
-            **projection = self.batch_sources.values[*index]
-                .schema
-                .prepare_projection(
-                    &columns.iter().map(String::as_str).collect::<Vec<_>>(),
-                    plan.filter.clone(),
-                    None,
-                )?;
+            *projection = std::sync::Arc::new(
+                self.batch_sources.values[*index]
+                    .schema
+                    .prepare_projection(
+                        &columns.iter().map(String::as_str).collect::<Vec<_>>(),
+                        plan.filter.clone(),
+                        None,
+                    )?,
+            );
         }
         Ok(())
     }

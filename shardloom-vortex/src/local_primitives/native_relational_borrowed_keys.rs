@@ -49,10 +49,31 @@ fn resident_leaf(array: &ArrayRef) -> Option<(ArrayRef, Range<usize>)> {
                 ..range.end.checked_add(slice.slice_range().start)?;
             leaf = slice.child().clone();
         } else if let Some(chunks) = leaf.as_opt::<Chunked>() {
-            if chunks.nchunks() != 1 {
+            if chunks.nchunks() == 0 || chunks.nchunks() > 4096 {
                 return None;
             }
-            leaf = chunks.chunk(0).clone();
+            if range.is_empty() {
+                leaf = chunks.chunk(0).clone();
+                range = 0..0;
+            } else {
+                let mut offset = 0usize;
+                let mut target = None;
+                for idx in 0..chunks.nchunks() {
+                    let c = chunks.chunk(idx);
+                    let next = offset.checked_add(c.len())?;
+                    if range.start < next {
+                        if range.end <= next {
+                            target =
+                                Some((c.clone(), (range.start - offset)..(range.end - offset)));
+                        }
+                        break;
+                    }
+                    offset = next;
+                }
+                let (child, sub) = target?;
+                leaf = child;
+                range = sub;
+            }
         } else {
             return Some((leaf, range));
         }

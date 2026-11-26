@@ -63,6 +63,12 @@ impl Reports {
         self.0[owner.index()].record_decline(denial);
     }
 
+    pub(crate) fn merge(&mut self, other: &Self) {
+        for (dst, src) in self.0.iter_mut().zip(other.0.iter()) {
+            dst.merge(src);
+        }
+    }
+
     pub(crate) fn append_certificate(&self, proof: &mut String) {
         use std::fmt::Write as _;
         for owner in [

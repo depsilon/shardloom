@@ -784,11 +784,13 @@ impl<'a> Binder<'a> {
             },
             SourceIndex::Batch(index) => ScanSource::Batch {
                 index,
-                projection: Box::new(self.batch_sources.values[index].schema.prepare_projection(
-                    &columns.iter().map(String::as_str).collect::<Vec<_>>(),
-                    plan.filter.clone(),
-                    None,
-                )?),
+                projection: std::sync::Arc::new(
+                    self.batch_sources.values[index].schema.prepare_projection(
+                        &columns.iter().map(String::as_str).collect::<Vec<_>>(),
+                        plan.filter.clone(),
+                        None,
+                    )?,
+                ),
             },
         };
         for (_, dtype) in &fields {

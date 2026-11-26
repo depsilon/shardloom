@@ -69,6 +69,12 @@ mod adaptive_tests;
 #[path = "local_primitive_relational_source_demand_decisions_tests.rs"]
 mod decisions_tests;
 
+#[path = "local_primitive_relational_source_demand_track_a_tests.rs"]
+mod track_a_tests;
+
+#[path = "local_primitive_relational_source_demand_track_b_tests.rs"]
+mod track_b_tests;
+
 struct ParquetFixture(PathBuf);
 
 impl ParquetFixture {

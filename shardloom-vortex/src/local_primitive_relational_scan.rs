@@ -18,6 +18,90 @@ use vortex::{io::runtime::BlockingRuntime as _, mask::Mask};
 
 const SCAN_ROWS: usize = 8192;
 
+#[derive(Default, Clone, Copy)]
+pub(super) struct ScanBatchCounts {
+    pub(super) scan_rows: u64,
+    pub(super) scan_batches: u64,
+    pub(super) scans_started: u64,
+    pub(super) data_scans: u64,
+    pub(super) residual_batches: u64,
+}
+
+impl ScanBatchCounts {
+    pub(super) fn merge_into(&self, metrics: &Metrics<'_>) -> Result<()> {
+        add(&metrics.scan_rows, self.scan_rows)?;
+        add(&metrics.scan_batches, self.scan_batches)?;
+        add(&metrics.scans_started, self.scans_started)?;
+        add(&metrics.data_scans, self.data_scans)?;
+        add(&metrics.residual_batches, self.residual_batches)
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn accept_scan_batch_counts(
+    array: &ArrayRef,
+    columns: &[String],
+    residual: Option<&MaterializedPredicateEvaluator>,
+    probe_filters: &[ProbeRuntimeFilter],
+    fields: &[(String, DType)],
+    context: &NativeExecutionContext<'_>,
+    counts: &mut ScanBatchCounts,
+    batch_rows: usize,
+    consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+) -> Result<()> {
+    if array.len() > SCAN_ROWS {
+        return Err(failed("scan exceeded its admitted batch size"));
+    }
+    counts.scan_rows = counts
+        .scan_rows
+        .checked_add(array.len() as u64)
+        .ok_or_else(|| failed("scan row counter overflow"))?;
+    counts.scan_batches = counts
+        .scan_batches
+        .checked_add(1)
+        .ok_or_else(|| failed("scan batch counter overflow"))?;
+    let bloom_mask = if probe_filters.is_empty() {
+        None
+    } else {
+        apply_bloom_mask(array, probe_filters, context)?
+    };
+    if bloom_mask.as_ref().is_some_and(Mask::all_false) {
+        return Ok(());
+    }
+    if residual.is_none() {
+        if let Some(mask) = bloom_mask {
+            return LocalSelection::from_mask(&mask, context)?
+                .for_each_batch(array, fields, batch_rows, context, consume);
+        }
+        return emit_unfiltered_scan_batch(array, fields, batch_rows, context, consume);
+    }
+    let mut selection = LocalSelection::new(array.len(), context)?;
+    let mut values = residual
+        .map(|_| {
+            counts.residual_batches = counts
+                .residual_batches
+                .checked_add(1)
+                .ok_or_else(|| failed("residual batch counter overflow"))?;
+            super::super::prepared_unary::values::NativeBatch::new(array, columns, context)
+        })
+        .transpose()?;
+    for row in 0..array.len() {
+        if row.is_multiple_of(1024) {
+            context.check_cancelled()?;
+        }
+        if bloom_mask.as_ref().is_some_and(|mask| !mask.value(row)) {
+            continue;
+        }
+        if let (Some(predicate), Some(values)) = (residual, values.as_mut())
+            && !predicate.matches_with(&mut |column| values.stat(column, row))?
+        {
+            continue;
+        }
+        selection.push(row)?;
+    }
+    selection.for_each_batch(array, fields, batch_rows, context, consume)
+}
+
 pub(super) fn has_infallible_empty_build(
     probe_filters: &[ProbeRuntimeFilter],
     field_dtype: &mut impl FnMut(&str) -> Option<DType>,
@@ -94,48 +178,20 @@ fn accept_scan_batch(
     batch_rows: usize,
     consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
 ) -> Result<()> {
-    if array.len() > SCAN_ROWS {
-        return Err(failed("scan exceeded its admitted batch size"));
-    }
-    add(&metrics.scan_rows, array.len() as u64)?;
-    add(&metrics.scan_batches, 1)?;
-    let bloom_mask = if probe_filters.is_empty() {
-        None
-    } else {
-        apply_bloom_mask(array, probe_filters, context)?
-    };
-    if bloom_mask.as_ref().is_some_and(Mask::all_false) {
-        return Ok(());
-    }
-    if residual.is_none() {
-        if let Some(mask) = bloom_mask {
-            return LocalSelection::from_mask(&mask, context)?
-                .for_each_batch(array, fields, batch_rows, context, consume);
-        }
-        return emit_unfiltered_scan_batch(array, fields, batch_rows, context, consume);
-    }
-    let mut selection = LocalSelection::new(array.len(), context)?;
-    let mut values = residual
-        .map(|_| {
-            add(&metrics.residual_batches, 1)?;
-            super::super::prepared_unary::values::NativeBatch::new(array, columns, context)
-        })
-        .transpose()?;
-    for row in 0..array.len() {
-        if row.is_multiple_of(1024) {
-            context.check_cancelled()?;
-        }
-        if bloom_mask.as_ref().is_some_and(|mask| !mask.value(row)) {
-            continue;
-        }
-        if let (Some(predicate), Some(values)) = (residual, values.as_mut())
-            && !predicate.matches_with(&mut |column| values.stat(column, row))?
-        {
-            continue;
-        }
-        selection.push(row)?;
-    }
-    selection.for_each_batch(array, fields, batch_rows, context, consume)
+    let mut counts = ScanBatchCounts::default();
+    let result = accept_scan_batch_counts(
+        array,
+        columns,
+        residual,
+        probe_filters,
+        fields,
+        context,
+        &mut counts,
+        batch_rows,
+        consume,
+    );
+    counts.merge_into(metrics)?;
+    result
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -235,12 +291,14 @@ pub(super) fn run(
         ScanSource::Batch { index, projection } => run_batch_scan(
             *index,
             projection,
-            residual.is_some(),
+            columns,
+            residual,
             probe_filters,
             fields,
             context,
             metrics,
-            &mut accept,
+            batch_rows,
+            consume,
         ),
     }
 }
@@ -283,12 +341,14 @@ fn run_memory_scan(
 fn run_batch_scan(
     index: usize,
     projection: &crate::resident_memory_source::PreparedMemoryProjection,
-    residual_present: bool,
+    columns: &[String],
+    residual: Option<&MaterializedPredicateEvaluator>,
     probe_filters: &[ProbeRuntimeFilter],
     fields: &[(String, DType)],
     context: &NativeExecutionContext<'_>,
     metrics: &Metrics<'_>,
-    accept: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    batch_rows: usize,
+    consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
 ) -> Result<()> {
     let input = metrics
         .input
@@ -297,20 +357,47 @@ fn run_batch_scan(
     input.run_with_probe_filters(
         index,
         probe_filters,
-        residual_present,
+        residual.is_some(),
         context,
         metrics,
-        &mut |source| {
+        &mut |probe_filters_satisfied, source| {
+            let active_filters: &[ProbeRuntimeFilter] = if probe_filters_satisfied {
+                &[]
+            } else {
+                probe_filters
+            };
             add(&metrics.scans_started, 1)?;
             if source.is_empty() {
-                return accept(projection.execute_batch_array(source, 0..0, context)?);
+                let projected = projection.execute_batch_array(source, 0..0, context)?;
+                return accept_scan_batch(
+                    &projected,
+                    columns,
+                    residual,
+                    active_filters,
+                    fields,
+                    context,
+                    metrics,
+                    batch_rows,
+                    consume,
+                );
             }
             add(&metrics.data_scans, 1)?;
             let mut start = 0;
             while start < source.len() {
                 let selected = sizing.select((source.len() - start) as u64, context)?;
                 let end = start + selected.rows;
-                accept(projection.execute_batch_array(source, start..end, context)?)?;
+                let projected = projection.execute_batch_array(source, start..end, context)?;
+                accept_scan_batch(
+                    &projected,
+                    columns,
+                    residual,
+                    active_filters,
+                    fields,
+                    context,
+                    metrics,
+                    batch_rows,
+                    consume,
+                )?;
                 sizing.complete(selected, None, context);
                 start = end;
             }

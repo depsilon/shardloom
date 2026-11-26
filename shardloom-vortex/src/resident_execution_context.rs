@@ -40,6 +40,11 @@ use vortex::{
 enum Gate<'a> {
     Exclusive(MutexGuard<'a, ()>, Duration),
     Serving(Permit),
+    Worker {
+        lanes: usize,
+        queue_time: Duration,
+        exclusive_coverage: bool,
+    },
 }
 
 /// Per-call native timings. Service includes generation checks and scoped I/O
@@ -158,10 +163,18 @@ impl NativeExecutionContext<'_> {
     /// operations. Serving calls preserve their existing independent readers.
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
     pub(crate) fn columnar_coverage(&self) -> Option<(&super::columnar_coverage::Store, u64)> {
-        (self.class == CallClass::General && matches!(&self.gate, Gate::Exclusive(..)))
-            .then(|| self.owner.source_segments.columnar_coverage())
-            .flatten()
-            .map(|store| (store, self.operation))
+        (self.class == CallClass::General
+            && matches!(
+                &self.gate,
+                Gate::Exclusive(..)
+                    | Gate::Worker {
+                        exclusive_coverage: true,
+                        ..
+                    }
+            ))
+        .then(|| self.owner.source_segments.columnar_coverage())
+        .flatten()
+        .map(|store| (store, self.operation))
     }
 
     /// Only certificate-producing terminal owners opt into reuse. Nested
@@ -578,6 +591,7 @@ impl NativeExecutionContext<'_> {
                 self.owner.cpu_limit()
             }
             Gate::Serving(permit) => permit.lanes,
+            Gate::Worker { lanes, .. } => *lanes,
         }
     }
 
@@ -586,6 +600,7 @@ impl NativeExecutionContext<'_> {
         match &self.gate {
             Gate::Exclusive(_, queue) => *queue,
             Gate::Serving(permit) => permit.queue_time,
+            Gate::Worker { queue_time, .. } => *queue_time,
         }
     }
 
@@ -639,6 +654,56 @@ impl NativeExecutionContext<'_> {
 
     pub(super) fn belongs_to(&self, owner: &RuntimeOwner) -> bool {
         std::ptr::eq(self.owner, owner)
+    }
+
+    pub(crate) fn merge_worker_delta(&self, delta: WorkerExecutionDelta) -> Result<()> {
+        if !delta.opened_sources.values.is_empty() {
+            let mut sources = self
+                .opened_sources
+                .lock()
+                .map_err(|_| resident_error("source generation ownership poisoned"))?;
+            let capacity_needed = sources
+                .values
+                .len()
+                .checked_add(delta.opened_sources.values.len())
+                .ok_or_else(|| resident_error("source generation capacity overflow"))?;
+            let bytes = u64::try_from(capacity_needed)
+                .ok()
+                .and_then(|n| {
+                    n.checked_mul(std::mem::size_of::<(Arc<SourceIdentity>, MemoryLease)>() as u64)
+                })
+                .ok_or_else(|| resident_error("source generation capacity overflow"))?;
+            let credit = sources
+                .capacity
+                .get_or_insert(self.owner.memory.reserve(0)?);
+            credit.resize(bytes)?;
+            sources
+                .values
+                .try_reserve(delta.opened_sources.values.len())
+                .map_err(|error| resident_error(&error.to_string()))?;
+            sources.values.extend(delta.opened_sources.values);
+        }
+        self.adaptive_work
+            .lock()
+            .map_err(|_| resident_error("adaptive work evidence poisoned"))?
+            .merge(&delta.adaptive_work);
+        self.capability_decisions
+            .lock()
+            .map_err(|_| resident_error("native capability decision evidence poisoned"))?
+            .merge(&delta.capability_decisions)?;
+        self.join_work
+            .lock()
+            .map_err(|_| resident_error("native join work evidence poisoned"))?
+            .merge(delta.join_work)?;
+        self.count_partial_work
+            .lock()
+            .map_err(|_| resident_error("native grouped COUNT partial evidence poisoned"))?
+            .merge(delta.count_partial_work)?;
+        self.dictionary_expression_work
+            .lock()
+            .map_err(|_| resident_error("dictionary expression evidence poisoned"))?
+            .merge(&delta.dictionary_expression_work)?;
+        Ok(())
     }
 
     pub(super) fn io_scope(&self) -> Option<Arc<IoScope>> {
@@ -1496,16 +1561,18 @@ impl DeferredFileSegments {
 impl Drop for NativeExecutionContext<'_> {
     fn drop(&mut self) {
         self.drain_io();
-        #[cfg(unix)]
-        self.owner
-            .source_segments
-            .discard_uncompleted_operation(self.operation);
-        #[cfg(unix)]
-        if let Ok(sources) = self.opened_sources.get_mut() {
-            for (identity, _) in &sources.values {
-                self.owner
-                    .source_segments
-                    .invalidate_source(identity, false);
+        if !matches!(self.gate, Gate::Worker { .. }) {
+            #[cfg(unix)]
+            self.owner
+                .source_segments
+                .discard_uncompleted_operation(self.operation);
+            #[cfg(unix)]
+            if let Ok(sources) = self.opened_sources.get_mut() {
+                for (identity, _) in &sources.values {
+                    self.owner
+                        .source_segments
+                        .invalidate_source(identity, false);
+                }
             }
         }
         // Release the observer before field destruction unlocks admission.
@@ -1513,6 +1580,134 @@ impl Drop for NativeExecutionContext<'_> {
         self.compare_work.take();
         #[cfg(all(feature = "vortex-local-primitives", unix))]
         self.matcher_reuse.take();
+    }
+}
+
+/// Owned, `Send + 'static` delta produced by a bounded worker context and
+/// merged atomically back into its parent [`NativeExecutionContext`].
+pub(crate) struct WorkerExecutionDelta {
+    opened_sources: OpenedSources,
+    adaptive_work: crate::native_work_sizing::Reports,
+    capability_decisions: shardloom_core::native_io_decisions::NativeIoCapabilityDecisions,
+    join_work: shardloom_core::native_join_work::NativeJoinWork,
+    count_partial_work: shardloom_core::native_count_partial_work::NativeCountPartialWork,
+    dictionary_expression_work: crate::native_dictionary_expression::Work,
+}
+
+/// Bounded worker scope borrowing the parent session's `RuntimeOwner`,
+/// `LiveMemoryPool`, operation identity, and linked child cancellation token
+/// without reacquiring exclusive session admission.
+#[derive(Clone)]
+pub(crate) struct WorkerContextScope {
+    owner: Arc<RuntimeOwner>,
+    class: CallClass,
+    operation: u64,
+    cancellation: CancellationToken,
+    lanes: usize,
+    queue_time: Duration,
+    exclusive_coverage: bool,
+}
+
+impl WorkerContextScope {
+    pub(super) fn from_context(
+        owner: Arc<RuntimeOwner>,
+        context: &NativeExecutionContext<'_>,
+        cancellation: CancellationToken,
+    ) -> Result<Self> {
+        if !context.belongs_to(&owner) {
+            return Err(resident_error(
+                "worker scope context belongs to a different session",
+            ));
+        }
+        context.check_general_execution()?;
+        Ok(Self {
+            owner,
+            class: context.class,
+            operation: context.operation,
+            cancellation,
+            lanes: context.cpu_lanes(),
+            queue_time: context.queue_time(),
+            exclusive_coverage: matches!(
+                &context.gate,
+                Gate::Exclusive(..)
+                    | Gate::Worker {
+                        exclusive_coverage: true,
+                        ..
+                    }
+            ),
+        })
+    }
+
+    pub(crate) fn with_context<R>(
+        &self,
+        execute: impl FnOnce(&NativeExecutionContext<'_>) -> Result<R>,
+    ) -> Result<(R, WorkerExecutionDelta)> {
+        self.cancellation.check()?;
+        let worker_context = NativeExecutionContext {
+            owner: &self.owner,
+            class: self.class,
+            operation: self.operation,
+            cancellation: self.cancellation.clone(),
+            io: OnceLock::new(),
+            admitted: Instant::now(),
+            gate: Gate::Worker {
+                lanes: self.lanes,
+                queue_time: self.queue_time,
+                exclusive_coverage: self.exclusive_coverage,
+            },
+            opened_sources: Mutex::new(OpenedSources::default()),
+            adaptive_work: Mutex::default(),
+            capability_decisions: Mutex::default(),
+            variant_expression_work: Mutex::default(),
+            dictionary_expression_work: Mutex::default(),
+            compare_work: None,
+            #[cfg(all(feature = "vortex-local-primitives", unix))]
+            matcher_reuse: OnceLock::new(),
+            join_work: Mutex::default(),
+            count_partial_work: Mutex::default(),
+            #[cfg(all(feature = "vortex-local-primitives", unix))]
+            file_evidence: Arc::default(),
+        };
+        let value = execute(&worker_context)?;
+        worker_context.drain_io();
+        worker_context.check_cancelled()?;
+        let opened_sources = std::mem::take(
+            &mut *worker_context
+                .opened_sources
+                .lock()
+                .map_err(|_| resident_error("worker source generation ownership poisoned"))?,
+        );
+        let adaptive_work = *worker_context
+            .adaptive_work
+            .lock()
+            .map_err(|_| resident_error("worker adaptive work evidence poisoned"))?;
+        let capability_decisions = *worker_context
+            .capability_decisions
+            .lock()
+            .map_err(|_| resident_error("worker capability decision evidence poisoned"))?;
+        let join_work = *worker_context
+            .join_work
+            .lock()
+            .map_err(|_| resident_error("worker join work evidence poisoned"))?;
+        let count_partial_work = *worker_context
+            .count_partial_work
+            .lock()
+            .map_err(|_| resident_error("worker count partial evidence poisoned"))?;
+        let dictionary_expression_work = std::mem::take(
+            &mut *worker_context
+                .dictionary_expression_work
+                .lock()
+                .map_err(|_| resident_error("worker dictionary expression evidence poisoned"))?,
+        );
+        let delta = WorkerExecutionDelta {
+            opened_sources,
+            adaptive_work,
+            capability_decisions,
+            join_work,
+            count_partial_work,
+            dictionary_expression_work,
+        };
+        Ok((value, delta))
     }
 }
 

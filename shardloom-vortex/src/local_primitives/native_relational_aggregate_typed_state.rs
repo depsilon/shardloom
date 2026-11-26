@@ -391,6 +391,117 @@ impl Table {
         state
     }
 
+    pub(super) fn extract_state(&self, index: usize, group: usize) -> State {
+        self.state(index, group)
+    }
+
+    pub(super) fn merge_state(
+        &mut self,
+        index: usize,
+        measure: &Measure,
+        group: usize,
+        other: &State,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<bool> {
+        let _ = context;
+        let slot = self.slots[index];
+        let position = group * self.widths[slot.kind as usize] + slot.index;
+        match slot.kind {
+            Kind::Count => {
+                super::update_count(&mut self.counts[position], other.count)?;
+                Ok(true)
+            }
+            Kind::Integer => {
+                if other.count == 0 {
+                    return Ok(true);
+                }
+                let other_sum = match other.sum {
+                    NumericAggregateSum::ExactInteger(value) => value.into_i128(),
+                    NumericAggregateSum::Ordered(value) if value.to_bits() == 0.0_f64.to_bits() => {
+                        0
+                    }
+                    _ => return Ok(false),
+                };
+                let existing = &mut self.integers[position];
+                let Some(next_sum) = existing.sum.into_i128().checked_add(other_sum) else {
+                    return Ok(false);
+                };
+                super::update_count(&mut existing.count, other.count)?;
+                existing.sum = CompactI128::from_i128(next_sum);
+                Ok(true)
+            }
+            Kind::StrictFloat | Kind::ExtendedFloat => Ok(other.count == 0),
+            Kind::SignedExtreme => {
+                let Some(other_val) = &other.extreme else {
+                    return Ok(true);
+                };
+                let value = match *other_val {
+                    Cell::NegativeInteger(v) => v,
+                    Cell::NonnegativeInteger(v) => match i64::try_from(v) {
+                        Ok(v) => v,
+                        Err(_) => return Ok(false),
+                    },
+                    _ => return Ok(false),
+                };
+                let existing = &mut self.signed_extrema[position];
+                let replace = existing.count == 0
+                    || match measure.function {
+                        Function::Min => value < existing.value,
+                        Function::Max => value > existing.value,
+                        _ => return Err(failed("invalid extremum merge function")),
+                    };
+                super::update_count(&mut existing.count, other.count)?;
+                if replace {
+                    existing.value = value;
+                }
+                Ok(true)
+            }
+            Kind::UnsignedExtreme => {
+                let Some(other_val) = &other.extreme else {
+                    return Ok(true);
+                };
+                let Cell::NonnegativeInteger(value) = *other_val else {
+                    return Ok(false);
+                };
+                let existing = &mut self.unsigned_extrema[position];
+                let replace = existing.count == 0
+                    || match measure.function {
+                        Function::Min => value < existing.value,
+                        Function::Max => value > existing.value,
+                        _ => return Err(failed("invalid extremum merge function")),
+                    };
+                super::update_count(&mut existing.count, other.count)?;
+                if replace {
+                    existing.value = value;
+                }
+                Ok(true)
+            }
+            Kind::FloatExtreme => {
+                let Some(other_val) = &other.extreme else {
+                    return Ok(true);
+                };
+                let Cell::Float(bits) = *other_val else {
+                    return Ok(false);
+                };
+                let value = f64::from_bits(bits);
+                let existing = &mut self.float_extrema[position];
+                let replace = existing.count == 0 || {
+                    let order = updates::compare_float(value, existing.value);
+                    match measure.function {
+                        Function::Min => order.is_lt(),
+                        Function::Max => order.is_gt(),
+                        _ => return Err(failed("invalid extremum merge function")),
+                    }
+                };
+                super::update_count(&mut existing.count, other.count)?;
+                if replace {
+                    existing.value = value;
+                }
+                Ok(true)
+            }
+        }
+    }
+
     pub(super) fn restore(
         &self,
         spec: &Spec,

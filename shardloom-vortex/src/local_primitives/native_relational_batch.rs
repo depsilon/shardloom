@@ -727,7 +727,7 @@ impl Gather<'_> {
     }
 }
 
-pub(super) fn index_array(
+pub(crate) fn index_array(
     rows: usize,
     nullable: bool,
     context: &NativeExecutionContext<'_>,
@@ -755,7 +755,7 @@ pub(super) fn index_array(
     )
 }
 
-pub(super) fn take_column(
+pub(crate) fn take_column(
     array: &ArrayRef,
     indices: &ArrayRef,
     dtype: &DType,

@@ -102,7 +102,7 @@ pub(super) fn try_consume(
     };
     if array.len() < 2
         || array.dtype().is_nullable()
-        || !admitted(aggregate.spec, |name| fields.field(name))
+        || !admitted(&aggregate.spec, |name| fields.field(name))
     {
         return Ok(false);
     }

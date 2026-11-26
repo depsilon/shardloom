@@ -75,6 +75,12 @@ impl PreparedColumnarSource {
             schema_discovery_read_bytes: 0,
             data_read_bytes: 0,
             data_read_requests: 0,
+            key_filter_rows_decoded: 0,
+            key_filter_rows_selected: 0,
+            payload_rows_decoded: 0,
+            row_groups_pruned: 0,
+            payload_columns_skipped_row_groups: 0,
+            selected_chunk_bytes_read: 0,
         };
         Ok(Some((rows, report)))
     }

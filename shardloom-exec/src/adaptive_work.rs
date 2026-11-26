@@ -155,6 +155,48 @@ impl AdaptiveWorkReport {
             .max(denial.required_additional_bytes);
         self.ceiling_bytes = denial.ceiling_bytes;
     }
+
+    /// Merge completed worker observations without fabricating new windows.
+    pub fn merge(&mut self, other: &Self) {
+        if other.completed_windows == 0 && other.declined_windows == 0 {
+            return;
+        }
+        let empty = self.completed_windows == 0 && self.declined_windows == 0;
+        if empty {
+            *self = *other;
+            return;
+        }
+        if other.completed_windows > 0 {
+            self.minimum_units = if self.completed_windows == 0 {
+                other.minimum_units
+            } else {
+                self.minimum_units.min(other.minimum_units)
+            };
+            self.completed_windows = self
+                .completed_windows
+                .saturating_add(other.completed_windows);
+            self.headroom_limited_windows = self
+                .headroom_limited_windows
+                .saturating_add(other.headroom_limited_windows);
+            self.shrunk_windows = self.shrunk_windows.saturating_add(other.shrunk_windows);
+            self.grown_windows = self.grown_windows.saturating_add(other.grown_windows);
+            self.maximum_units = self.maximum_units.max(other.maximum_units);
+            self.maximum_in_flight = self.maximum_in_flight.max(other.maximum_in_flight);
+            self.peak_estimated_bytes_per_lane = self
+                .peak_estimated_bytes_per_lane
+                .max(other.peak_estimated_bytes_per_lane);
+        }
+        if other.declined_windows > 0 {
+            self.declined_windows = self.declined_windows.saturating_add(other.declined_windows);
+            self.maximum_declined_required_bytes = self
+                .maximum_declined_required_bytes
+                .max(other.maximum_declined_required_bytes);
+        }
+        self.minimum_headroom_bytes = self
+            .minimum_headroom_bytes
+            .min(other.minimum_headroom_bytes);
+        self.ceiling_bytes = self.ceiling_bytes.max(other.ceiling_bytes);
+    }
 }
 
 /// One owner's feedback state. Keep it with the operation, never globally or

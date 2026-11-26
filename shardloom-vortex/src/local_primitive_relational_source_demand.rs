@@ -83,13 +83,15 @@ impl Binder<'_> {
                     })
                     .transpose()?;
                 plan.pushdown_predicate.clone_from(predicate);
-                **projection = self.batch_sources.values[*index]
-                    .schema
-                    .prepare_projection(
-                        &columns.iter().map(String::as_str).collect::<Vec<_>>(),
-                        plan.filter.clone(),
-                        None,
-                    )?;
+                *projection = std::sync::Arc::new(
+                    self.batch_sources.values[*index]
+                        .schema
+                        .prepare_projection(
+                            &columns.iter().map(String::as_str).collect::<Vec<_>>(),
+                            plan.filter.clone(),
+                            None,
+                        )?,
+                );
             }
             Ok(())
         })?;

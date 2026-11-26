@@ -52,6 +52,7 @@ pub(crate) use crate::source_identity::SourceIdentity;
 pub(crate) mod columnar_coverage;
 #[path = "resident_execution_context.rs"]
 mod execution_context;
+pub(crate) use execution_context::WorkerExecutionDelta;
 #[path = "resident_io_ownership.rs"]
 mod io_ownership;
 #[path = "resident_admission.rs"]
@@ -538,6 +539,19 @@ impl ResidentVortexSession {
             ));
         }
         context.check_cancelled()
+    }
+
+    #[cfg(unix)]
+    pub(crate) fn worker_execution_scope(
+        &self,
+        context: &NativeExecutionContext<'_>,
+        cancellation: CancellationToken,
+    ) -> Result<execution_context::WorkerContextScope> {
+        execution_context::WorkerContextScope::from_context(
+            Arc::clone(&self.0),
+            context,
+            cancellation,
+        )
     }
 
     /// Only engine-constructed immutable segment sources may enter here.

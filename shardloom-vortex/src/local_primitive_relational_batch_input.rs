@@ -18,6 +18,10 @@ mod ranked;
 #[path = "local_primitive_relational_batch_metadata_count.rs"]
 mod metadata_count;
 
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[path = "local_primitive_relational_batch_parallel.rs"]
+pub(super) mod parallel;
+
 pub(super) struct Source {
     pub(super) uri: shardloom_core::DatasetUri,
     pub(super) schema: ResidentMemorySource,
@@ -94,6 +98,15 @@ impl Usage {
         }
         self
     }
+}
+
+/// Owned native batch emitted by a local or worker source producer together
+/// with its coordinate identity and early probe-filter witness.
+pub(crate) struct OwnedSourceBatch {
+    pub(crate) source: ResidentMemorySource,
+    pub(crate) transport_bounds: bool,
+    pub(crate) first_row: u64,
+    pub(crate) probe_filters_satisfied: bool,
 }
 
 type ColumnProvider<'a> =
@@ -328,6 +341,21 @@ pub struct ExecutedVortexBatchInput {
     pub replay_spilled_sources: u64,
     /// Raw sources completed into replay before their first query consumption.
     pub replay_prefilled_sources: u64,
+    /// Additive Track A/B counters; 0 when the corresponding optimization did not run.
+    pub parallel_range_workers: u64,
+    pub parallel_range_tasks: u64,
+    pub parallel_range_declined_sources: u64,
+    pub persistent_aggregate_states: u64,
+    pub aggregate_batches_consumed: u64,
+    pub aggregate_partial_groups_emitted: u64,
+    pub aggregate_partial_groups_merged: u64,
+    pub aggregate_final_groups: u64,
+    pub columnar_key_filter_rows_decoded: u64,
+    pub columnar_key_filter_rows_selected: u64,
+    pub columnar_payload_rows_decoded: u64,
+    pub columnar_row_groups_pruned: u64,
+    pub columnar_payload_columns_skipped_row_groups: u64,
+    pub columnar_selected_chunk_bytes_read: u64,
 }
 
 impl Default for ExecutedVortexBatchInput {
@@ -406,6 +434,20 @@ impl Default for ExecutedVortexBatchInput {
             replay_buffer_bytes_copied: 0,
             replay_spilled_sources: 0,
             replay_prefilled_sources: 0,
+            parallel_range_workers: 0,
+            parallel_range_tasks: 0,
+            parallel_range_declined_sources: 0,
+            persistent_aggregate_states: 0,
+            aggregate_batches_consumed: 0,
+            aggregate_partial_groups_emitted: 0,
+            aggregate_partial_groups_merged: 0,
+            aggregate_final_groups: 0,
+            columnar_key_filter_rows_decoded: 0,
+            columnar_key_filter_rows_selected: 0,
+            columnar_payload_rows_decoded: 0,
+            columnar_row_groups_pruned: 0,
+            columnar_payload_columns_skipped_row_groups: 0,
+            columnar_selected_chunk_bytes_read: 0,
         }
     }
 }
@@ -567,10 +609,10 @@ pub(super) trait Input {
         residual_present: bool,
         context: &NativeExecutionContext<'_>,
         metrics: &Metrics<'_>,
-        consume: &mut dyn FnMut(&ArrayRef) -> Result<()>,
+        consume: &mut dyn FnMut(bool, &ArrayRef) -> Result<()>,
     ) -> Result<()> {
         let _ = (probe_filters, residual_present);
-        self.run(index, context, metrics, consume)
+        self.run(index, context, metrics, &mut |array| consume(false, array))
     }
 
     /// Optional source capability, independent of input format. Ranking remains
@@ -584,6 +626,14 @@ pub(super) trait Input {
         context: &NativeExecutionContext<'_>,
         consume: &mut dyn RankedConsumer,
     ) -> Result<bool>;
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    fn try_run_parallel_parquet_aggregate(
+        &self,
+        plan: std::sync::Arc<super::ParallelAggregatePlan>,
+        context: &NativeExecutionContext<'_>,
+        metrics: &Metrics<'_>,
+    ) -> Result<Option<super::super::native_relational_aggregate::Aggregate<'static>>>;
 
     fn completed(
         &self,
@@ -741,7 +791,7 @@ impl<'p, 'i> Execution<'p, 'i> {
         declaration: &Source,
         state: &SourceState,
         context: &NativeExecutionContext<'_>,
-    ) -> Result<(Option<ResidentMemorySource>, bool)> {
+    ) -> Result<(Option<(ResidentMemorySource, bool)>, bool)> {
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
         if let Some(source) = &declaration.local {
             #[cfg(test)]
@@ -757,7 +807,8 @@ impl<'p, 'i> Execution<'p, 'i> {
             }
             let reader = owner.as_mut().expect("local reader initialized");
             if let Some(batch) = reader.next_native(&self.prepared.session, context)? {
-                return Ok((Some(batch), false));
+                let satisfied = reader.last_batch_satisfied_probe_filters();
+                return Ok((Some((batch, satisfied)), false));
             }
             let observed = reader.report()?;
             // Drop every provider cursor before the operation's final I/O drain.
@@ -778,10 +829,14 @@ impl<'p, 'i> Execution<'p, 'i> {
             &self.prepared.session,
             context,
         )?;
-        Ok((next, input.has_transport_bounds()))
+        Ok((
+            next.map(|source| (source, false)),
+            input.has_transport_bounds(),
+        ))
     }
 
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[allow(clippy::too_many_lines)]
     fn record_columnar_input(
         &self,
         observed: crate::universal_format_io::demanded::ColumnarReadReport,
@@ -871,6 +926,30 @@ impl<'p, 'i> Execution<'p, 'i> {
         checked_add(
             &mut report.columnar_data_read_requests,
             observed.data_read_requests,
+        )?;
+        checked_add(
+            &mut report.columnar_key_filter_rows_decoded,
+            observed.key_filter_rows_decoded,
+        )?;
+        checked_add(
+            &mut report.columnar_key_filter_rows_selected,
+            observed.key_filter_rows_selected,
+        )?;
+        checked_add(
+            &mut report.columnar_payload_rows_decoded,
+            observed.payload_rows_decoded,
+        )?;
+        checked_add(
+            &mut report.columnar_row_groups_pruned,
+            observed.row_groups_pruned,
+        )?;
+        checked_add(
+            &mut report.columnar_payload_columns_skipped_row_groups,
+            observed.payload_columns_skipped_row_groups,
+        )?;
+        checked_add(
+            &mut report.columnar_selected_chunk_bytes_read,
+            observed.selected_chunk_bytes_read,
         )?;
         Ok(())
     }
@@ -962,6 +1041,39 @@ impl Execution<'_, '_> {
         consumption: Consumption,
         consume: &mut dyn FnMut(&ArrayRef) -> Result<()>,
     ) -> Result<()> {
+        self.run_producer_with_probe_state(
+            index,
+            None,
+            false,
+            &[],
+            false,
+            context,
+            metrics,
+            consumption,
+            &mut |_, array| consume(array),
+        )
+    }
+
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+    fn run_producer_with_probe_state(
+        &self,
+        index: usize,
+        runtime_predicate: Option<shardloom_core::PredicateExpr>,
+        empty_short_circuit: bool,
+        probe_filters: &[super::super::native_relational_probe_filter::ProbeRuntimeFilter],
+        residual_present: bool,
+        context: &NativeExecutionContext<'_>,
+        metrics: &Metrics<'_>,
+        consumption: Consumption,
+        consume: &mut dyn FnMut(bool, &ArrayRef) -> Result<()>,
+    ) -> Result<()> {
+        #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
+        let _ = (
+            runtime_predicate,
+            empty_short_circuit,
+            probe_filters,
+            residual_present,
+        );
         let state = self
             .states
             .values
@@ -975,6 +1087,56 @@ impl Execution<'_, '_> {
         context.check_cancelled()?;
         if state.started.replace(true) {
             return Err(failed("a streaming producer cannot be opened twice"));
+        }
+        #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+        if state.local_reader.borrow().is_none()
+            && let Some(prepared_parquet) = &declaration.local
+        {
+            if !empty_short_circuit
+                && let Some(admission) = parallel::admit_parallel_parquet(
+                    prepared_parquet,
+                    state.usage.get(),
+                    consumption,
+                    &self.prepared.session,
+                    context,
+                )?
+            {
+                let probe_filters_arc = std::sync::Arc::from(probe_filters);
+                return parallel::run_streaming_ranges(
+                    self,
+                    index,
+                    declaration,
+                    state,
+                    prepared_parquet,
+                    admission,
+                    runtime_predicate.as_ref(),
+                    empty_short_circuit,
+                    &probe_filters_arc,
+                    residual_present,
+                    context,
+                    consume,
+                );
+            }
+            if !empty_short_circuit
+                && prepared_parquet.is_parquet()
+                && consumption == Consumption::Query
+            {
+                let mut report = self.report.borrow_mut();
+                checked_add(&mut report.parallel_range_declined_sources, 1)?;
+            }
+            if !probe_filters.is_empty() || empty_short_circuit || runtime_predicate.is_some() {
+                let mut owner = state
+                    .local_reader
+                    .try_borrow_mut()
+                    .map_err(|_| failed("local source reader is already active"))?;
+                *owner = Some(prepared_parquet.open_with_probe_filters(
+                    runtime_predicate,
+                    empty_short_circuit,
+                    std::sync::Arc::from(probe_filters),
+                    residual_present,
+                    context,
+                )?);
+            }
         }
         let usage = state.usage.get();
         let schema = (usage.requires_replay() && consumption != Consumption::Validate)
@@ -991,7 +1153,7 @@ impl Execution<'_, '_> {
             })?;
             let (next, transport_bounds) = self.next_input(declaration, state, context)?;
             context.check_cancelled()?;
-            let Some(source) = next else {
+            let Some((source, probe_filters_satisfied)) = next else {
                 let replay = recorder
                     .take()
                     .map(|value| value.finish(context))
@@ -1026,10 +1188,10 @@ impl Execution<'_, '_> {
                 drop(source);
                 verify_released(&released)?;
                 drop(owner);
-                consume(&detached)?;
+                consume(false, &detached)?;
             } else {
                 let result = match consumption {
-                    Consumption::Query => consume(array),
+                    Consumption::Query => consume(probe_filters_satisfied, array),
                     Consumption::Prefill => Ok(()),
                     Consumption::Validate => {
                         let mut report = self.report.borrow_mut();
@@ -1108,6 +1270,16 @@ impl Input for Execution<'_, '_> {
         self.consume_ranked(index, columns, prefix, context, consume)
     }
 
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    fn try_run_parallel_parquet_aggregate(
+        &self,
+        plan: std::sync::Arc<super::ParallelAggregatePlan>,
+        context: &NativeExecutionContext<'_>,
+        metrics: &Metrics<'_>,
+    ) -> Result<Option<super::super::native_relational_aggregate::Aggregate<'static>>> {
+        parallel::run_parallel_parquet_aggregate(self, &plan, context, metrics)
+    }
+
     fn require_usage(&self, index: usize, usage: Usage) -> Result<()> {
         let state = self
             .states
@@ -1143,7 +1315,7 @@ impl Input for Execution<'_, '_> {
         residual_present: bool,
         context: &NativeExecutionContext<'_>,
         metrics: &Metrics<'_>,
-        consume: &mut dyn FnMut(&ArrayRef) -> Result<()>,
+        consume: &mut dyn FnMut(bool, &ArrayRef) -> Result<()>,
     ) -> Result<()> {
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
         if !probe_filters.is_empty()
@@ -1163,22 +1335,38 @@ impl Input for Execution<'_, '_> {
             let runtime_pred = (!empty)
                 .then(|| super::scan::admitted_runtime_predicate(probe_filters, dtype))
                 .flatten();
-            if empty || runtime_pred.is_some() {
+            let has_bloom = !empty
+                && source.is_parquet()
+                && source.max_rows().is_none()
+                && probe_filters.iter().any(|filter| {
+                    filter.bloom.is_some()
+                        && !filter.probe_columns.is_empty()
+                        && filter.probe_columns.iter().all(|name| {
+                            dtype.as_struct_fields_opt().is_some_and(|fields| {
+                                fields.field(name.as_str()).is_some_and(|d| {
+                                    super::super::native_relational_probe_filter::is_infallible_key_dtype(&d)
+                                })
+                            })
+                        })
+                });
+            if empty || runtime_pred.is_some() || has_bloom {
                 context.check_cancelled()?;
-                {
-                    let mut owner = state
-                        .local_reader
-                        .try_borrow_mut()
-                        .map_err(|_| failed("local source reader is already active"))?;
-                    *owner =
-                        Some(source.open_with_runtime_filters(runtime_pred, empty, context)?);
-                }
-                return self.run_producer(index, context, metrics, Consumption::Query, consume);
+                return self.run_producer_with_probe_state(
+                    index,
+                    runtime_pred,
+                    empty,
+                    probe_filters,
+                    residual_present,
+                    context,
+                    metrics,
+                    Consumption::Query,
+                    consume,
+                );
             }
         }
         #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
         let _ = (probe_filters, residual_present);
-        self.run(index, context, metrics, consume)
+        self.run(index, context, metrics, &mut |array| consume(false, array))
     }
 
     fn run(
