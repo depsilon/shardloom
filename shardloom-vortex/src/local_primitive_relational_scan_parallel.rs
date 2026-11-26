@@ -2,16 +2,18 @@
 
 use super::super::native_relational_aggregate::{Aggregate, Spec as AggregateSpec};
 use super::super::native_relational_probe_filter::ProbeRuntimeFilter;
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+use super::batch_input;
 use super::{
     ArrayRef, DType, FileScanBatching, LocalVortexScanPlan, MaterializedPredicateEvaluator,
     Metrics, NativeExecutionContext, Node, NodeKind, PipelineKind, PreparedVortexRelational,
-    PreparedVortexSource, Result, ScanSource, add, batch_input, failed, scan, transform,
-    vortex_error,
+    PreparedVortexSource, Result, ScanSource, add, failed, scan, transform, vortex_error,
 };
 use crate::native_work_sizing::{Owner, Rows};
 use crate::resident_session::WorkerExecutionDelta;
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+use shardloom_core::PredicateExpr;
 use shardloom_core::{
-    PredicateExpr,
     native_file_scan::NativeFileScanRoute,
     native_io_decisions::{
         NativeIoCapability, NativeIoDecisionOutcome, NativeIoDecisionReason, NativeIoObservedWork,

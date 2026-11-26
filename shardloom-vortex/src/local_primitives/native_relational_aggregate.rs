@@ -131,7 +131,6 @@ impl Spec {
         })
     }
 
-    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     pub(super) fn admits_parallel_range_merge(&self) -> bool {
         if self.measures.is_empty() {
             return !self.groups.is_empty() && self.groups.len() == self.group_names.len();
@@ -168,7 +167,6 @@ impl Spec {
         })
     }
 
-    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     pub(super) fn try_clone_for_parallel_merge(&self) -> Option<std::sync::Arc<Self>> {
         if !self.admits_parallel_range_merge() {
             return None;
@@ -367,7 +365,6 @@ impl<'a> Aggregate<'a> {
         Self::with_distinct_sets(SharedRef::Borrowed(spec), memory, true, true)
     }
 
-    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     pub(super) fn new_shared(
         spec: std::sync::Arc<Spec>,
         memory: &LiveMemoryPool,
@@ -525,7 +522,6 @@ impl<'a> Aggregate<'a> {
             .map_or(1, |groups| groups.rows() as u64)
     }
 
-    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     #[allow(clippy::too_many_lines)]
     pub(super) fn merge_from(
         &mut self,
@@ -660,7 +656,6 @@ impl<'a> Aggregate<'a> {
         context.check_cancelled().map(|()| other_count)
     }
 
-    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     fn reserve_states_for_merged(
         &mut self,
         groups: usize,
@@ -693,7 +688,6 @@ impl<'a> Aggregate<'a> {
         Ok(())
     }
 
-    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     fn extract_group_state(&self, measure_index: usize, group: usize) -> Result<State> {
         if let Some(table) = &self.compact {
             return Ok(table.extract_state(measure_index, group));
@@ -706,7 +700,6 @@ impl<'a> Aggregate<'a> {
             .ok_or_else(|| failed("source aggregate state index absent during merge"))
     }
 
-    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     fn merge_group_state(
         &mut self,
         measure_index: usize,
@@ -1926,7 +1919,6 @@ fn update_count(state: &mut u64, count: u64) -> Result<()> {
     Ok(())
 }
 
-#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn merge_plain_state(
     dst: &mut State,
     src: &State,
