@@ -249,22 +249,26 @@ impl ParallelSourceChain {
                         cloned.push(expr.try_clone_for_parallel()?);
                     }
                     if !active_filters.is_empty() {
-                        active_filters = active_filters
-                            .into_iter()
-                            .filter_map(|filter| {
-                                filter.remap(|out_name| {
-                                    let pos = current_fields
-                                        .iter()
-                                        .position(|(name, _)| name == out_name)?;
-                                    match &expressions.get(pos)?.kind {
-                                        super::native_relational_expression::Kind::Column(
-                                            src_name,
-                                        ) => Some(src_name.clone()),
-                                        _ => None,
-                                    }
+                        if transform::column_projection(expressions) {
+                            active_filters = active_filters
+                                .into_iter()
+                                .filter_map(|filter| {
+                                    filter.remap(|out_name| {
+                                        let pos = current_fields
+                                            .iter()
+                                            .position(|(name, _)| name == out_name)?;
+                                        match &expressions.get(pos)?.kind {
+                                            super::native_relational_expression::Kind::Column(
+                                                src_name,
+                                            ) => Some(src_name.clone()),
+                                            _ => None,
+                                        }
+                                    })
                                 })
-                            })
-                            .collect();
+                                .collect();
+                        } else {
+                            active_filters.clear();
+                        }
                     }
                     reversed.push(ParallelAggregateTransform {
                         fields: current_fields.to_vec(),
@@ -293,21 +297,25 @@ impl ParallelSourceChain {
                                     cloned.push(expr.try_clone_for_parallel()?);
                                 }
                                 if !active_filters.is_empty() {
-                                    let fields = &stage.fields;
-                                    active_filters = active_filters
-                                        .into_iter()
-                                        .filter_map(|filter| {
-                                            filter.remap(|out_name| {
-                                                let pos = fields
-                                                    .iter()
-                                                    .position(|(name, _)| name == out_name)?;
-                                                match &expressions.get(pos)?.kind {
-                                                    super::native_relational_expression::Kind::Column(src_name) => Some(src_name.clone()),
-                                                    _ => None,
-                                                }
+                                    if transform::column_projection(expressions) {
+                                        let fields = &stage.fields;
+                                        active_filters = active_filters
+                                            .into_iter()
+                                            .filter_map(|filter| {
+                                                filter.remap(|out_name| {
+                                                    let pos = fields
+                                                        .iter()
+                                                        .position(|(name, _)| name == out_name)?;
+                                                    match &expressions.get(pos)?.kind {
+                                                        super::native_relational_expression::Kind::Column(src_name) => Some(src_name.clone()),
+                                                        _ => None,
+                                                    }
+                                                })
                                             })
-                                        })
-                                        .collect();
+                                            .collect();
+                                    } else {
+                                        active_filters.clear();
+                                    }
                                 }
                                 ParallelTransformKind::Project(cloned)
                             }

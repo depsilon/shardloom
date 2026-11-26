@@ -160,6 +160,25 @@ pub(in crate::universal_format_io::demanded) fn align_owned_parquet(
     align_with_handoff(input, target, partitions, memory, false, true)
 }
 
+fn accepts_encoded_utf8_representation(
+    retain_standard_allocations: bool,
+    actual: &DataType,
+    expected: &DataType,
+) -> bool {
+    if !retain_standard_allocations {
+        return false;
+    }
+    match (actual, expected) {
+        (DataType::Dictionary(key, val), DataType::Utf8 | DataType::Utf8View) => {
+            matches!(key.as_ref(), DataType::Int32) && matches!(val.as_ref(), DataType::Utf8)
+        }
+        (DataType::Dictionary(key, val), DataType::LargeUtf8) => {
+            matches!(key.as_ref(), DataType::Int32) && matches!(val.as_ref(), DataType::LargeUtf8)
+        }
+        _ => false,
+    }
+}
+
 fn align_with_handoff(
     input: OwnedBatch,
     target: SchemaRef,
@@ -203,12 +222,11 @@ fn align_with_handoff(
         } else if let Ok(index) = source_schema.index_of(field.name()) {
             let column = batch.column(index);
             if column.data_type() != field.data_type() {
-                let encoded_utf8_match = matches!(
+                if !accepts_encoded_utf8_representation(
+                    retain_standard_allocations,
                     column.data_type(),
-                    DataType::Dictionary(key, val)
-                        if matches!(key.as_ref(), DataType::Int32) && val.as_ref() == field.data_type()
-                );
-                if !encoded_utf8_match {
+                    field.data_type(),
+                ) {
                     return Err(failed(
                         "decoded field type changed after source schema admission",
                     ));

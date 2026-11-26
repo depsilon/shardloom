@@ -992,3 +992,255 @@ fn parallel_sealed_join_all_keyed_kinds_and_multi_measure_join_aggregate() {
         }
     }
 }
+
+#[test]
+fn parallel_join_preserves_computed_projection_error_barrier_against_runtime_filters() {
+    let total_rows = 20_480_usize;
+    let trigger_row = 15_000_usize;
+    let fact_batch = RecordBatch::try_new(
+        Arc::new(Schema::new(vec![
+            Field::new("k", DataType::Int64, false),
+            Field::new("val", DataType::Int64, false),
+        ])),
+        vec![
+            Arc::new(Int64Array::from_iter_values((0..total_rows).map(|r| {
+                if r == trigger_row {
+                    999_999_i64
+                } else {
+                    (r % 8) as i64
+                }
+            }))),
+            Arc::new(Int64Array::from_iter_values(
+                (0..total_rows).map(|r| if r == trigger_row { i64::MAX } else { 1_i64 }),
+            )),
+        ],
+    )
+    .unwrap();
+    let fact = ParquetFixture::with_batch_rows(fact_batch, EnabledStatistics::Chunk, 4_096);
+
+    let dim_batch = RecordBatch::try_new(
+        Arc::new(Schema::new(vec![
+            Field::new("k", DataType::Int64, false),
+            Field::new("tag", DataType::Int64, false),
+        ])),
+        vec![
+            Arc::new(Int64Array::from_iter_values(0..8_i64)),
+            Arc::new(Int64Array::from_iter_values(10..18_i64)),
+        ],
+    )
+    .unwrap();
+    let dim = ParquetFixture::with_batch_rows(dim_batch, EnabledStatistics::Chunk, 8);
+
+    let col_expr = |name: &str| {
+        Expression::new(
+            ExprId::new(name).unwrap(),
+            ExpressionKind::Column(ColumnRef::new(name).unwrap()),
+        )
+    };
+    let overflow_expr = Expression::new(
+        ExprId::new("bad").unwrap(),
+        ExpressionKind::Binary {
+            left: Box::new(col_expr("val")),
+            op: shardloom_core::BinaryOp::Add,
+            right: Box::new(Expression::literal(
+                ExprId::new("one").unwrap(),
+                shardloom_core::ScalarValue::Int64(1),
+            )),
+        },
+    );
+
+    for with_filter_stage in [false, true] {
+        let base_scan = fact.scan(&["k", "val"], None);
+        let child = if with_filter_stage {
+            VortexRelationalPlan::Filter(Box::new(VortexRelationalFilter {
+                input: base_scan,
+                predicate: Expression::new(
+                    ExprId::new("k_eq_k").unwrap(),
+                    ExpressionKind::Compare {
+                        left: Box::new(col_expr("k")),
+                        op: ComparisonOp::Eq,
+                        right: Box::new(col_expr("k")),
+                    },
+                ),
+            }))
+        } else {
+            base_scan
+        };
+        let projected = VortexRelationalPlan::Project(Box::new(
+            crate::relational_query::VortexRelationalProject {
+                input: child,
+                expressions: vec![
+                    ("k".into(), col_expr("k")),
+                    ("bad".into(), overflow_expr.clone()),
+                ],
+            },
+        ));
+        let plan = VortexRelationalPlan::Aggregate(Box::new(VortexRelationalAggregate {
+            input: VortexRelationalPlan::Join(Box::new(VortexRelationalJoin {
+                left: projected,
+                right: dim.scan(&["k", "tag"], None),
+                kind: JoinKind::Inner,
+                keys: vec![VortexRelationalJoinKey {
+                    left: ColumnRef::new("k").unwrap(),
+                    right: ColumnRef::new("k").unwrap(),
+                }],
+                condition: None,
+                columns: vec![
+                    VortexRelationalJoinColumn {
+                        side: Side::Right,
+                        column: ColumnRef::new("tag").unwrap(),
+                        output_column: "tag".into(),
+                    },
+                    VortexRelationalJoinColumn {
+                        side: Side::Left,
+                        column: ColumnRef::new("bad").unwrap(),
+                        output_column: "bad".into(),
+                    },
+                ],
+            })),
+            group_by: vec![ColumnRef::new("tag").unwrap()],
+            grouping_sets: None,
+            measures: vec![measure("count", None, "cnt")],
+        }));
+
+        let prepared = prepare_relational_with_schema(parallel_policy(4, 256 << 20), |prep| {
+            let left = LocalColumnarSource::admit(
+                &fact.path(),
+                "parquet",
+                &prep.shared_memory_pool(),
+                &prep.cancellation_token(),
+            )?;
+            prep.register_local_source(DatasetUri::new(fact.path().display().to_string())?, left)?;
+            let right = LocalColumnarSource::admit(
+                &dim.path(),
+                "parquet",
+                &prep.shared_memory_pool(),
+                &prep.cancellation_token(),
+            )?;
+            prep.register_local_source(DatasetUri::new(dim.path().display().to_string())?, right)?;
+            Ok(plan.clone())
+        })
+        .unwrap();
+
+        let err = prepared
+            .collect_jsonl(&CancellationToken::default())
+            .err()
+            .unwrap_or_else(|| {
+                panic!("expected overflow error (with_filter_stage={with_filter_stage})")
+            });
+        assert!(
+            err.to_string().contains("overflow"),
+            "with_filter_stage={with_filter_stage}: {err}"
+        );
+    }
+}
+
+#[test]
+fn wrapped_parquet_collection_accepts_dictionary_encoded_utf8_view_columns() {
+    use arrow_array::StringViewArray;
+
+    let base = ParquetFixture::new();
+    let per_part = 8_192_usize;
+    let total_rows = per_part * 2;
+    let urls = ["https://example.test/alpha", "https://example.test/beta"];
+    for (part_idx, part_name) in ["a", "b"].into_iter().enumerate() {
+        let start = part_idx * per_part;
+        let batch = RecordBatch::try_new(
+            Arc::new(Schema::new(vec![
+                Field::new("k", DataType::Int64, false),
+                Field::new("url", DataType::Utf8View, false),
+            ])),
+            vec![
+                Arc::new(Int64Array::from_iter_values(
+                    (start..start + per_part).map(|r| (r % 64) as i64),
+                )),
+                Arc::new(StringViewArray::from_iter_values(
+                    (start..start + per_part).map(|r| urls[(r + part_idx) % 2]),
+                )),
+            ],
+        )
+        .unwrap();
+        write_parquet_batch(
+            &base.0.join(format!("part={part_name}/part.parquet")),
+            &batch,
+            4_096,
+        );
+    }
+
+    let manifest_path = base.0.join("view_collection.manifest");
+    fs::write(
+        &manifest_path,
+        json!({
+            "version": 1,
+            "format": "parquet",
+            "schema": "union_by_name",
+            "partitioning": "hive",
+            "files": ["part=a/part.parquet", "part=b/part.parquet"]
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    for predicate in [
+        None,
+        Some(PredicateExpr::Compare {
+            column: ColumnRef::new("k").unwrap(),
+            op: ComparisonOp::Lt,
+            value: StatValue::Int64(32),
+        }),
+    ] {
+        let is_filtered = predicate.is_some();
+        let plan = VortexRelationalPlan::Aggregate(Box::new(VortexRelationalAggregate {
+            input: VortexRelationalPlan::Scan(VortexRelationalScan {
+                source_uri: DatasetUri::new(manifest_path.display().to_string()).unwrap(),
+                projection: ProjectionRequest::Columns(vec![
+                    ColumnRef::new("k").unwrap(),
+                    ColumnRef::new("url").unwrap(),
+                    ColumnRef::new("part").unwrap(),
+                ]),
+                predicate,
+            }),
+            group_by: vec![
+                ColumnRef::new("part").unwrap(),
+                ColumnRef::new("url").unwrap(),
+            ],
+            grouping_sets: None,
+            measures: vec![measure("count", None, "cnt")],
+        }));
+
+        let collected = prepare_relational_with_schema(parallel_policy(4, 256 << 20), |prep| {
+            let wrapped = LocalColumnarSource::admit(
+                &manifest_path,
+                "parquet",
+                &prep.shared_memory_pool(),
+                &prep.cancellation_token(),
+            )?;
+            prep.register_local_source(
+                DatasetUri::new(manifest_path.display().to_string())?,
+                wrapped,
+            )?;
+            Ok(plan.clone())
+        })
+        .unwrap()
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+
+        assert!(
+            !collected
+                .execution
+                .native_io_certificate
+                .source_capability_report
+                .fallback_attempted
+        );
+        let expected_per_bucket = if is_filtered {
+            total_rows / 8
+        } else {
+            total_rows / 4
+        };
+        let rows = sorted_rows(json_rows(&collected));
+        assert_eq!(rows.len(), 4);
+        for row in rows {
+            assert_eq!(row["cnt"].as_i64(), Some(expected_per_bucket as i64));
+        }
+    }
+}
