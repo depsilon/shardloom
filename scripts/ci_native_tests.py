@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 import signal
 import subprocess
+import sys
 import time
 
 from ci_build_artifact import ROOT, sha, verify_bundle, write_json
@@ -130,6 +131,26 @@ def parse_results(output: str, expected: list[str], ignored: list[str]) -> dict:
     return {"passed": len(expected) - len(ignored), "ignored": len(ignored), "tests": expected}
 
 
+def format_failure_excerpt(output: str, *, max_chars: int = 16_384) -> str:
+    """Extract failing test lines and panic details from libtest output."""
+    lines = output.splitlines()
+    failed_lines = [line for line in lines if re.match(r"^test .* \.\.\. FAILED", line)]
+    blocks: list[str] = []
+    if failed_lines:
+        blocks.append("\n".join(failed_lines))
+    if "failures:" in lines:
+        idx = lines.index("failures:")
+        tail = "\n".join(lines[idx:])
+        if tail:
+            blocks.append(tail)
+    elif lines:
+        blocks.append("\n".join(lines[-120:]))
+    excerpt = "\n\n".join(blocks).strip()
+    if len(excerpt) > max_chars:
+        excerpt = excerpt[:max_chars] + "\n... [truncated]"
+    return excerpt
+
+
 def cleanup_partition(process: subprocess.Popen) -> list[str]:
     """Keep cleanup errors as evidence and bound direct-child reaping."""
     errors = []
@@ -180,6 +201,10 @@ def run_partition(directory: Path, partition: int, output: Path, *, root: Path =
                 time.sleep(0.2)
         receipt["returncode"] = process.returncode
         if process.returncode:
+            if log.is_file():
+                excerpt = format_failure_excerpt(log.read_text(errors="replace"))
+                if excerpt:
+                    print(excerpt, file=sys.stderr, flush=True)
             raise RuntimeError(f"native partition failed with {process.returncode}; see {log}")
         if log.stat().st_size > 64 << 20:
             raise RuntimeError("native partition exceeded its log budget")

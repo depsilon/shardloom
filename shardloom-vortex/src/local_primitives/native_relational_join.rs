@@ -124,6 +124,46 @@ impl SealedJoin {
         Ok(())
     }
 
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub(in crate::local_primitives) fn consume_serial(
+        &mut self,
+        array: ArrayRef,
+        context: &NativeExecutionContext<'_>,
+        batch_rows: usize,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<u64> {
+        if batch_rows == 0 {
+            return Err(failed("output batch rows must be positive"));
+        }
+        let left = Batch::new(array, &self.spec.left_keys, context)?;
+        let matched_out =
+            (!self.matched.values.is_empty()).then_some(self.matched.values.as_mut_slice());
+        if self.spec.condition.is_some() {
+            return condition::consume_condition_with(
+                &self.spec,
+                &self.right,
+                &self.index,
+                matched_out,
+                &left,
+                context,
+                batch_rows,
+                consume,
+            );
+        }
+        consume_equijoin_with(
+            &self.spec,
+            &self.right,
+            &self.index,
+            self.membership.as_ref(),
+            &self.integer,
+            matched_out,
+            &left,
+            context,
+            batch_rows,
+            consume,
+        )
+    }
+
     pub(in crate::local_primitives) fn consume_sealed(
         &self,
         array: ArrayRef,

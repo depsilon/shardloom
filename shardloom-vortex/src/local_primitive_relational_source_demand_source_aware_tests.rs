@@ -1244,3 +1244,312 @@ fn wrapped_parquet_collection_accepts_dictionary_encoded_utf8_view_columns() {
         }
     }
 }
+
+#[test]
+fn parallel_join_and_vortex_scan_respect_throttled_pool_and_preserve_worker_errors() {
+    let total_rows = 20_480_usize;
+    let available = std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
+
+    let fact_k: Vec<i64> = (0..total_rows).map(|r| (r % 32) as i64).collect();
+    let fact_val: Vec<i64> = (0..total_rows)
+        .map(|r| {
+            if r == 15_000 {
+                i64::MAX
+            } else {
+                (r % 17) as i64
+            }
+        })
+        .collect();
+    let fact_flt: Vec<f64> = (0..total_rows)
+        .map(|r| ((r % 29) as f64) * 0.25 - 1.5)
+        .collect();
+
+    let vtx_array = StructArray::try_new(
+        FieldNames::from(["k", "val", "flt"]),
+        vec![
+            vortex::array::arrays::PrimitiveArray::from_iter(fact_k.clone()).into_array(),
+            vortex::array::arrays::PrimitiveArray::from_iter(fact_val.clone()).into_array(),
+            vortex::array::arrays::PrimitiveArray::from_iter(fact_flt.clone()).into_array(),
+        ],
+        total_rows,
+        Validity::NonNullable,
+    )
+    .unwrap()
+    .into_array();
+    let vtx_fact = super::super::Fixture::with_strategy_statistics(
+        vtx_array,
+        4_096,
+        vec![],
+        crate::local_primitives::native_flat_layout::SequentialNativeFlatLayout::strategy(5),
+        vec![Stat::Min, Stat::Max, Stat::NullCount],
+    );
+
+    let pq_batch = RecordBatch::try_new(
+        Arc::new(Schema::new(vec![
+            Field::new("k", DataType::Int64, false),
+            Field::new("val", DataType::Int64, false),
+        ])),
+        vec![
+            Arc::new(Int64Array::from_iter_values(fact_k)),
+            Arc::new(Int64Array::from_iter_values(fact_val)),
+        ],
+    )
+    .unwrap();
+    let pq_fact = ParquetFixture::with_batch_rows(pq_batch, EnabledStatistics::Chunk, 4_096);
+
+    let dim_batch = RecordBatch::try_new(
+        Arc::new(Schema::new(vec![
+            Field::new("k", DataType::Int64, false),
+            Field::new("tag", DataType::Int64, false),
+        ])),
+        vec![
+            Arc::new(Int64Array::from_iter_values(0..16_i64)),
+            Arc::new(Int64Array::from_iter_values(100..116_i64)),
+        ],
+    )
+    .unwrap();
+    let dim_pq = ParquetFixture::with_batch_rows(dim_batch, EnabledStatistics::Chunk, 16);
+
+    let col_expr = |name: &str| {
+        Expression::new(
+            ExprId::new(name).unwrap(),
+            ExpressionKind::Column(ColumnRef::new(name).unwrap()),
+        )
+    };
+    let self_eq_k = VortexRelationalFilter {
+        input: vtx_fact.scan(),
+        predicate: Expression::new(
+            ExprId::new("k_eq_k").unwrap(),
+            ExpressionKind::Compare {
+                left: Box::new(col_expr("k")),
+                op: ComparisonOp::Eq,
+                right: Box::new(col_expr("k")),
+            },
+        ),
+    };
+    let vtx_flt_plan = VortexRelationalPlan::Aggregate(Box::new(VortexRelationalAggregate {
+        input: VortexRelationalPlan::Filter(Box::new(self_eq_k)),
+        group_by: vec![ColumnRef::new("k").unwrap()],
+        grouping_sets: None,
+        measures: vec![measure("sum", Some("flt"), "sum_flt")],
+    }));
+
+    let make_join_plan = |left: VortexRelationalPlan| {
+        VortexRelationalPlan::Join(Box::new(VortexRelationalJoin {
+            left,
+            right: dim_pq.scan(&["k", "tag"], None),
+            kind: JoinKind::Inner,
+            keys: vec![VortexRelationalJoinKey {
+                left: ColumnRef::new("k").unwrap(),
+                right: ColumnRef::new("k").unwrap(),
+            }],
+            condition: None,
+            columns: vec![
+                VortexRelationalJoinColumn {
+                    side: Side::Left,
+                    column: ColumnRef::new("k").unwrap(),
+                    output_column: "k".into(),
+                },
+                VortexRelationalJoinColumn {
+                    side: Side::Right,
+                    column: ColumnRef::new("tag").unwrap(),
+                    output_column: "tag".into(),
+                },
+            ],
+        }))
+    };
+
+    // 1. Throttled shared ComputePool (active_worker_limit == 1) must complete all parallel paths
+    //    without overwriting or exceeding the caller's concurrency ceiling.
+    let register_parquet = |prep: &mut super::super::VortexRelationalPreparation<'_>,
+                            fact: Option<&ParquetFixture>|
+     -> Result<()> {
+        if let Some(pq) = fact {
+            let left = LocalColumnarSource::admit(
+                &pq.path(),
+                "parquet",
+                &prep.shared_memory_pool(),
+                &prep.cancellation_token(),
+            )?;
+            prep.register_local_source(DatasetUri::new(pq.path().display().to_string())?, left)?;
+        }
+        let right = LocalColumnarSource::admit(
+            &dim_pq.path(),
+            "parquet",
+            &prep.shared_memory_pool(),
+            &prep.cancellation_token(),
+        )?;
+        prep.register_local_source(DatasetUri::new(dim_pq.path().display().to_string())?, right)?;
+        Ok(())
+    };
+
+    let serial_vtx_flt =
+        prepare_relational_with_schema(parallel_policy(1, 256 << 20), |_| Ok(vtx_flt_plan.clone()))
+            .unwrap()
+            .collect_jsonl(&CancellationToken::default())
+            .unwrap();
+    let serial_vtx_join = prepare_relational_with_schema(parallel_policy(1, 256 << 20), |prep| {
+        register_parquet(prep, None)?;
+        Ok(make_join_plan(vtx_fact.scan()))
+    })
+    .unwrap()
+    .collect_jsonl(&CancellationToken::default())
+    .unwrap();
+    let serial_pq_join = prepare_relational_with_schema(parallel_policy(1, 256 << 20), |prep| {
+        register_parquet(prep, Some(&pq_fact))?;
+        Ok(make_join_plan(pq_fact.scan(&["k"], None)))
+    })
+    .unwrap()
+    .collect_jsonl(&CancellationToken::default())
+    .unwrap();
+
+    let throttled_session = ResidentVortexSession::new(256 << 20, 4).unwrap();
+    let pool = throttled_session.shared_compute_pool(4).unwrap();
+    let pool_guard = pool.as_ref().map(|p| p.scope_active_worker_limit(1));
+
+    let par_vtx_flt = prepare_relational_with_schema_in_session(
+        parallel_policy(4, 256 << 20),
+        &throttled_session,
+        |_| Ok(vtx_flt_plan.clone()),
+    )
+    .unwrap()
+    .collect_jsonl(&CancellationToken::default())
+    .unwrap();
+    assert_eq!(
+        sorted_rows(json_rows(&par_vtx_flt)),
+        sorted_rows(json_rows(&serial_vtx_flt))
+    );
+    assert_eq!(par_vtx_flt.execution.operator_workers, 1);
+    if available >= 2 {
+        assert!(par_vtx_flt.execution.source_workers >= 2);
+    }
+
+    let par_vtx_join = prepare_relational_with_schema_in_session(
+        parallel_policy(4, 256 << 20),
+        &throttled_session,
+        |prep| {
+            register_parquet(prep, None)?;
+            Ok(make_join_plan(vtx_fact.scan()))
+        },
+    )
+    .unwrap()
+    .collect_jsonl(&CancellationToken::default())
+    .unwrap();
+    assert_eq!(
+        sorted_rows(json_rows(&par_vtx_join)),
+        sorted_rows(json_rows(&serial_vtx_join))
+    );
+
+    let par_pq_join = prepare_relational_with_schema_in_session(
+        parallel_policy(4, 256 << 20),
+        &throttled_session,
+        |prep| {
+            register_parquet(prep, Some(&pq_fact))?;
+            Ok(make_join_plan(pq_fact.scan(&["k"], None)))
+        },
+    )
+    .unwrap()
+    .collect_jsonl(&CancellationToken::default())
+    .unwrap();
+    assert_eq!(
+        sorted_rows(json_rows(&par_pq_join)),
+        sorted_rows(json_rows(&serial_pq_join))
+    );
+
+    if let Some(pool) = pool.as_ref() {
+        assert_eq!(pool.active_worker_limit(), 1);
+        assert!(pool.snapshot().peak_active_workers <= 1);
+    }
+    drop(pool_guard);
+    drop(pool);
+    drop(par_vtx_flt);
+    drop(par_vtx_join);
+    drop(par_pq_join);
+    let throttled_mem = throttled_session.shared_memory_pool();
+    drop(throttled_session);
+    assert_eq!(throttled_mem.snapshot().reserved_bytes, 0);
+
+    // 2. Mid-stream cancellation and worker-channel errors preserve native errors without
+    //    `SL-NATIVE-BATCH` double-wrapping and release all memory reservations.
+    for is_vortex in [false, true] {
+        let prepared = prepare_relational_with_schema(parallel_policy(4, 256 << 20), |prep| {
+            register_parquet(prep, (!is_vortex).then_some(&pq_fact))?;
+            Ok(make_join_plan(if is_vortex {
+                vtx_fact.scan()
+            } else {
+                pq_fact.scan(&["k"], None)
+            }))
+        })
+        .unwrap();
+        let mem = prepared.session.shared_memory_pool();
+        let token = CancellationToken::default();
+        let mut batches = 0usize;
+        let err = prepared
+            .for_each_batch(&token, |_batch, _ctx| {
+                batches += 1;
+                if batches == 1 {
+                    token.cancel();
+                }
+                Ok(())
+            })
+            .err()
+            .expect("cancelled join must fail");
+        let message = err.to_string();
+        assert!(
+            message.contains("cancel"),
+            "is_vortex={is_vortex}: {message}"
+        );
+        assert!(
+            !message.contains("SL-NATIVE-BATCH:"),
+            "is_vortex={is_vortex}: {message}"
+        );
+        drop(prepared);
+        mem.reclaim_optional_memory();
+        assert_eq!(mem.snapshot().reserved_bytes, 0);
+    }
+
+    // Worker-originated error in float streaming aggregate (stream_vortex_file_ranges).
+    let overflow_expr = Expression::new(
+        ExprId::new("bad").unwrap(),
+        ExpressionKind::Binary {
+            left: Box::new(col_expr("val")),
+            op: shardloom_core::BinaryOp::Add,
+            right: Box::new(Expression::literal(
+                ExprId::new("one").unwrap(),
+                shardloom_core::ScalarValue::Int64(1),
+            )),
+        },
+    );
+    let overflow_vtx_scan_agg =
+        VortexRelationalPlan::Aggregate(Box::new(VortexRelationalAggregate {
+            input: VortexRelationalPlan::Project(Box::new(
+                crate::relational_query::VortexRelationalProject {
+                    input: vtx_fact.scan(),
+                    expressions: vec![
+                        ("k".into(), col_expr("k")),
+                        ("flt".into(), col_expr("flt")),
+                        ("bad".into(), overflow_expr),
+                    ],
+                },
+            )),
+            group_by: vec![ColumnRef::new("k").unwrap()],
+            grouping_sets: None,
+            measures: vec![measure("sum", Some("flt"), "sum_flt")],
+        }));
+    let prepared_overflow = prepare_relational_with_schema(parallel_policy(4, 256 << 20), |_| {
+        Ok(overflow_vtx_scan_agg.clone())
+    })
+    .unwrap();
+    let overflow_mem = prepared_overflow.session.shared_memory_pool();
+    let overflow_err = prepared_overflow
+        .collect_jsonl(&CancellationToken::default())
+        .err()
+        .expect("worker overflow must fail");
+    assert!(
+        overflow_err.to_string().contains("overflow"),
+        "{overflow_err}"
+    );
+    drop(prepared_overflow);
+    overflow_mem.reclaim_optional_memory();
+    assert_eq!(overflow_mem.snapshot().reserved_bytes, 0);
+}

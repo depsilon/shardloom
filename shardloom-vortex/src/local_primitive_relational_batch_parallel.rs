@@ -284,7 +284,6 @@ pub(super) fn run_streaming_ranges(
         .prepared
         .session
         .worker_execution_scope(context, child_token.clone())?;
-    let _worker_limit = pool.scope_active_worker_limit(workers);
 
     let submit_range = |range: std::ops::Range<usize>| -> Result<ActiveStreamTask> {
         let (tx, rx) = mpsc::sync_channel::<Result<OwnedSourceBatch>>(BOUNDED_CHANNEL_DEPTH);
@@ -326,7 +325,7 @@ pub(super) fn run_streaming_ranges(
                                 }
                                 Ok(None) => return reader.report(),
                                 Err(error) => {
-                                    let _ = tx.send(Err(failed(&error.to_string())));
+                                    let _ = tx.send(Err(error.clone()));
                                     return Err(error);
                                 }
                             }
@@ -533,7 +532,6 @@ where
         .prepared
         .session
         .worker_execution_scope(context, child_token.clone())?;
-    let _worker_limit = pool.scope_active_worker_limit(workers);
     let worker_fn = Arc::new(worker_fn);
 
     let submit_one =
@@ -928,6 +926,72 @@ pub(in crate::local_primitives::prepared_relational) fn run_parallel_parquet_agg
     Ok(merged_agg)
 }
 
+#[allow(clippy::type_complexity)]
+fn admit_parallel_parquet_join_source<'a>(
+    execution: &'a Execution<'_, '_>,
+    source_index: usize,
+    residual_is_none: bool,
+    probe_filters: &[ProbeRuntimeFilter],
+    context: &NativeExecutionContext<'_>,
+) -> Result<
+    Option<(
+        &'a SourceState,
+        &'a Arc<PreparedColumnarSource>,
+        vortex::array::dtype::DType,
+        ParallelAdmission,
+    )>,
+> {
+    let Some(state) = execution.states.values.get(source_index) else {
+        return Ok(None);
+    };
+    let Some(declaration) = execution.prepared.batch_sources.get(source_index) else {
+        return Ok(None);
+    };
+    let Some(prepared_parquet) = &declaration.local else {
+        return Ok(None);
+    };
+    if state.started.get() || !state.usage.get().admits_independent_read() {
+        return Ok(None);
+    }
+    let dtype = declaration.schema.dtype().clone();
+    let empty_short_circuit = residual_is_none
+        && super::super::scan::has_infallible_empty_build(probe_filters, &mut |name| {
+            dtype.as_struct_fields_opt()?.field(name)
+        });
+    if empty_short_circuit {
+        return Ok(None);
+    }
+    let Some(admission) = admit_parallel_parquet_with_cap(
+        prepared_parquet,
+        state.usage.get(),
+        Consumption::Query,
+        &execution.prepared.session,
+        1,
+        context,
+    )?
+    else {
+        return Ok(None);
+    };
+    Ok(Some((state, prepared_parquet, dtype, admission)))
+}
+
+pub(in crate::local_primitives::prepared_relational) fn can_admit_parallel_parquet_join(
+    execution: &Execution<'_, '_>,
+    source_index: usize,
+    residual_is_none: bool,
+    probe_filters: &[ProbeRuntimeFilter],
+    context: &NativeExecutionContext<'_>,
+) -> Result<bool> {
+    Ok(admit_parallel_parquet_join_source(
+        execution,
+        source_index,
+        residual_is_none,
+        probe_filters,
+        context,
+    )?
+    .is_some())
+}
+
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 pub(in crate::local_primitives::prepared_relational) fn run_parallel_parquet_join(
     execution: &Execution<'_, '_>,
@@ -988,32 +1052,11 @@ pub(in crate::local_primitives::prepared_relational) fn run_parallel_parquet_joi
         }
     }
 
-    let Some(state) = execution.states.values.get(source_index) else {
-        return Ok(None);
-    };
-    let Some(declaration) = execution.prepared.batch_sources.get(source_index) else {
-        return Ok(None);
-    };
-    let Some(prepared_parquet) = &declaration.local else {
-        return Ok(None);
-    };
-    if state.started.get() || !state.usage.get().admits_independent_read() {
-        return Ok(None);
-    }
-    let dtype = declaration.schema.dtype().clone();
-    let empty_short_circuit = residual.is_none()
-        && super::super::scan::has_infallible_empty_build(probe_filters, &mut |name| {
-            dtype.as_struct_fields_opt()?.field(name)
-        });
-    if empty_short_circuit {
-        return Ok(None);
-    }
-    let Some(admission) = admit_parallel_parquet_with_cap(
-        prepared_parquet,
-        state.usage.get(),
-        Consumption::Query,
-        &execution.prepared.session,
-        1,
+    let Some((state, prepared_parquet, dtype, admission)) = admit_parallel_parquet_join_source(
+        execution,
+        source_index,
+        residual.is_none(),
+        probe_filters,
         context,
     )?
     else {
@@ -1035,7 +1078,6 @@ pub(in crate::local_primitives::prepared_relational) fn run_parallel_parquet_joi
         .prepared
         .session
         .worker_execution_scope(context, child_token.clone())?;
-    let _worker_limit = pool.scope_active_worker_limit(workers);
 
     let projection = Arc::clone(projection);
     let mandatory_predicate = mandatory_predicate.cloned();
@@ -1045,15 +1087,8 @@ pub(in crate::local_primitives::prepared_relational) fn run_parallel_parquet_joi
     let transforms = Arc::clone(transforms);
     let expected_dtype = dtype;
 
-    let mut active: VecDeque<ActiveJoinTask> = VecDeque::with_capacity(total_ranges);
-    for range in ranges {
-        let lease = match context.memory().reserve(TASK_RESERVATION_BYTES) {
-            Ok(lease) => lease,
-            Err(error) => {
-                teardown_join_tasks(&child_token, None, None, active);
-                return Err(error);
-            }
-        };
+    let submit_range = |range: std::ops::Range<usize>| -> Result<ActiveJoinTask> {
+        let lease = context.memory().reserve(TASK_RESERVATION_BYTES)?;
         let (tx, rx) = mpsc::sync_channel::<Result<super::ArrayRef>>(BOUNDED_CHANNEL_DEPTH);
         let range_scope = scope.clone();
         let range_prepared = Arc::clone(prepared_parquet);
@@ -1070,7 +1105,7 @@ pub(in crate::local_primitives::prepared_relational) fn run_parallel_parquet_joi
         let expected_dtype = expected_dtype.clone();
         let cancel = child_token.clone();
         let residual_present = range_residual.is_some();
-        let submitted = pool.submit(
+        let task = pool.submit(
             Budgeted::new(
                 move |_worker: &WorkerContext, _lease: &mut MemoryLease| {
                     range_scope.with_context(|wctx| {
@@ -1206,7 +1241,7 @@ pub(in crate::local_primitives::prepared_relational) fn run_parallel_parquet_joi
                         match res {
                             Ok(done) => Ok(done),
                             Err(error) => {
-                                let _ = tx.send(Err(failed(&error.to_string())));
+                                let _ = tx.send(Err(error.clone()));
                                 Err(error)
                             }
                         }
@@ -1215,11 +1250,20 @@ pub(in crate::local_primitives::prepared_relational) fn run_parallel_parquet_joi
                 lease,
             ),
             cancel,
-        );
-        match submitted {
-            Ok(task) => active.push_back(ActiveJoinTask { rx, task }),
+        )?;
+        Ok(ActiveJoinTask { rx, task })
+    };
+
+    let mut active: VecDeque<ActiveJoinTask> = VecDeque::with_capacity(workers);
+    let mut range_iter = ranges.into_iter();
+    for _ in 0..workers {
+        let Some(range) = range_iter.next() else {
+            break;
+        };
+        match submit_range(range) {
+            Ok(task) => active.push_back(task),
             Err(error) => {
-                teardown_join_tasks(&child_token, Some(rx), None, active);
+                teardown_join_tasks(&child_token, None, None, active);
                 return Err(error);
             }
         }
@@ -1230,6 +1274,15 @@ pub(in crate::local_primitives::prepared_relational) fn run_parallel_parquet_joi
     let mut merged_scans = super::super::scan::ScanBatchCounts::default();
     let mut matched_vecs = Vec::with_capacity(total_ranges);
     while let Some(ActiveJoinTask { rx, task }) = active.pop_front() {
+        if let Some(next_range) = range_iter.next() {
+            match submit_range(next_range) {
+                Ok(next_task) => active.push_back(next_task),
+                Err(error) => {
+                    teardown_join_tasks(&child_token, Some(rx), Some(task), active);
+                    return Err(error);
+                }
+            }
+        }
         loop {
             if let Err(error) = context.check_cancelled() {
                 teardown_join_tasks(&child_token, Some(rx), Some(task), active);

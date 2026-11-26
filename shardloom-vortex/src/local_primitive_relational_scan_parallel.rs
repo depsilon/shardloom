@@ -98,8 +98,6 @@ pub(super) struct ParallelSourceChain {
     pub(super) target: ParallelScanTarget,
     pub(super) transforms: Vec<ParallelAggregateTransform>,
     pub(super) unwrapped_file_kernels: Vec<&'static str>,
-    pub(super) batch_rows: usize,
-    pub(super) scan_rows: usize,
 }
 
 type VortexParallelRangePlan = Option<(Arc<ComputePool>, usize, Vec<Range<u64>>)>;
@@ -117,7 +115,7 @@ pub(super) enum ParallelAggregateOutcome {
 
 impl ParallelSourceChain {
     #[allow(clippy::too_many_lines)]
-    pub(super) fn build(input: &Node, batch_rows: usize, scan_rows: usize) -> Option<Self> {
+    pub(super) fn build(input: &Node) -> Option<Self> {
         let mut reversed = Vec::new();
         let mut unwrapped_file_kernels = Vec::new();
         let (mut current_fields, mut current_kind) = (input.fields.as_slice(), &input.kind);
@@ -217,8 +215,6 @@ impl ParallelSourceChain {
                         target,
                         transforms: reversed,
                         unwrapped_file_kernels,
-                        batch_rows,
-                        scan_rows,
                     });
                 }
                 _ => return None,
@@ -230,8 +226,6 @@ impl ParallelSourceChain {
     fn build_for_join(
         input: &Node,
         probe_filters: &[ProbeRuntimeFilter],
-        batch_rows: usize,
-        scan_rows: usize,
     ) -> Option<(Self, Vec<ProbeRuntimeFilter>)> {
         let mut active_filters = probe_filters.to_vec();
         let mut reversed = Vec::new();
@@ -383,8 +377,6 @@ impl ParallelSourceChain {
                             target,
                             transforms: reversed,
                             unwrapped_file_kernels,
-                            batch_rows,
-                            scan_rows,
                         },
                         active_filters,
                     ));
@@ -624,7 +616,7 @@ pub(super) fn run_parallel_aggregate(
         FileScanBatching::Native => scan::SCAN_ROWS,
         FileScanBatching::Output => batch_rows.min(scan::SCAN_ROWS),
     };
-    let Some(chain) = ParallelSourceChain::build(input, batch_rows, scan_rows) else {
+    let Some(chain) = ParallelSourceChain::build(input) else {
         return Ok(ParallelAggregateOutcome::NotAdmitted);
     };
     let shared_spec = spec.try_clone_for_parallel_merge();
@@ -655,8 +647,8 @@ pub(super) fn run_parallel_aggregate(
                 transforms: chain.transforms,
                 spec: shared_spec,
                 count_partial,
-                batch_rows: chain.batch_rows,
-                scan_rows: chain.scan_rows,
+                batch_rows,
+                scan_rows,
                 finite_float_predicate: *finite_float_predicate,
             });
             let mut completed = None;
@@ -740,7 +732,6 @@ pub(super) fn run_parallel_aggregate(
                             }
                         }
                         add(&metrics.data_scans, 1)?;
-                        let total_ranges = ranges.len();
                         let child_flag = Arc::new(AtomicBool::new(false));
                         let child_token = CancellationToken::from_shared_flag_with_parent(
                             child_flag,
@@ -749,20 +740,10 @@ pub(super) fn run_parallel_aggregate(
                         let scope = prepared
                             .session
                             .worker_execution_scope(context, child_token.clone())?;
-                        let _worker_limit = pool.scope_active_worker_limit(workers);
-                        let mut active: VecDeque<ComputeTask<ParallelVortexRangeResult>> =
-                            VecDeque::with_capacity(total_ranges);
-                        for range in ranges {
-                            let lease = match context.memory().reserve(TASK_RESERVATION_BYTES) {
-                                Ok(lease) => lease,
-                                Err(error) => {
-                                    child_token.cancel();
-                                    while let Some(task) = active.pop_front() {
-                                        let _ = task.join();
-                                    }
-                                    return Err(error);
-                                }
-                            };
+                        let mut submit_range = |range: Range<u64>| -> Result<
+                            ComputeTask<ParallelVortexRangeResult>,
+                        > {
+                            let lease = context.memory().reserve(TASK_RESERVATION_BYTES)?;
                             let task_scope = scope.clone();
                             let task_file = file.clone();
                             let task_plan = effective_plan.clone();
@@ -772,7 +753,7 @@ pub(super) fn run_parallel_aggregate(
                             let task_transforms = Arc::clone(&transforms);
                             let task_spec = Arc::clone(&shared_spec);
                             let cancel = child_token.clone();
-                            let submitted = pool.submit(
+                            pool.submit(
                                 Budgeted::new(
                                     move |_worker: &WorkerContext, _lease: &mut MemoryLease| {
                                         task_scope.with_context(|wctx| {
@@ -821,66 +802,18 @@ pub(super) fn run_parallel_aggregate(
                                     lease,
                                 ),
                                 cancel,
-                            );
-                            match submitted {
-                                Ok(task) => active.push_back(task),
-                                Err(error) => {
-                                    child_token.cancel();
-                                    while let Some(task) = active.pop_front() {
-                                        let _ = task.join();
-                                    }
-                                    return Err(error);
-                                }
-                            }
-                        }
-                        let mut merged_agg: Option<Aggregate<'static>> = None;
-                        let mut merged_counts = scan::ScanBatchCounts::default();
-                        let mut total_delivered = 0_u64;
-                        while let Some(task) = active.pop_front() {
-                            if let Err(error) = context.check_cancelled() {
-                                child_token.cancel();
-                                let _ = task.join();
-                                while let Some(rest) = active.pop_front() {
-                                    let _ = rest.join();
-                                }
-                                return Err(error);
-                            }
-                            let joined = match task.join() {
-                                Ok(done) => done,
-                                Err(error) => {
-                                    child_token.cancel();
-                                    while let Some(rest) = active.pop_front() {
-                                        let _ = rest.join();
-                                    }
-                                    return Err(error);
-                                }
-                            };
-                            let (((worker_agg, worker_counts, delivered), delta), lease) =
-                                joined.into_parts();
-                            drop(lease);
-                            let step = (|| -> Result<()> {
-                                context.merge_worker_delta(delta)?;
-                                total_delivered =
-                                    total_delivered.checked_add(delivered).ok_or_else(|| {
-                                        failed("native scan delivered row count overflow")
-                                    })?;
-                                merge_scan_counts(&mut merged_counts, worker_counts)?;
-                                match &mut merged_agg {
-                                    None => merged_agg = Some(worker_agg),
-                                    Some(existing) => {
-                                        existing.merge_from(worker_agg, context, batch_rows)?;
-                                    }
-                                }
-                                Ok(())
-                            })();
-                            if let Err(error) = step {
-                                child_token.cancel();
-                                while let Some(rest) = active.pop_front() {
-                                    let _ = rest.join();
-                                }
-                                return Err(error);
-                            }
-                        }
+                            )
+                        };
+                        let (merged_agg, merged_counts, total_delivered) =
+                            run_parallel_aggregate_ranges(
+                                workers,
+                                ranges,
+                                &child_token,
+                                context,
+                                batch_rows,
+                                "parallel file aggregate yielded no state",
+                                &mut submit_range,
+                            )?;
                         observation.complete(
                             source_file,
                             context,
@@ -899,7 +832,7 @@ pub(super) fn run_parallel_aggregate(
                         metrics
                             .operator_workers
                             .set(metrics.operator_workers.get().max(workers as u64));
-                        merged_agg.ok_or_else(|| failed("parallel file aggregate yielded no state"))
+                        Ok(merged_agg)
                     })?;
                 record_unwrapped_file_kernels(&chain.unwrapped_file_kernels, metrics, context)?;
                 Ok(ParallelAggregateOutcome::Completed(merged))
@@ -1030,7 +963,6 @@ pub(super) fn run_parallel_aggregate(
             add(&metrics.scans_started, 1)?;
             add(&metrics.data_scans, 1)?;
             if let Some(shared_spec) = shared_spec {
-                let total_ranges = ranges.len();
                 let child_flag = Arc::new(AtomicBool::new(false));
                 let child_token = CancellationToken::from_shared_flag_with_parent(
                     child_flag,
@@ -1039,134 +971,78 @@ pub(super) fn run_parallel_aggregate(
                 let scope = prepared
                     .session
                     .worker_execution_scope(context, child_token.clone())?;
-                let _worker_limit = pool.scope_active_worker_limit(workers);
-                let mut active: VecDeque<ComputeTask<ParallelVortexRangeResult>> =
-                    VecDeque::with_capacity(total_ranges);
-                for range in ranges {
-                    let lease = match context.memory().reserve(TASK_RESERVATION_BYTES) {
-                        Ok(lease) => lease,
-                        Err(error) => {
-                            child_token.cancel();
-                            while let Some(task) = active.pop_front() {
-                                let _ = task.join();
-                            }
-                            return Err(error);
-                        }
+                let mut submit_range =
+                    |range: Range<u64>| -> Result<ComputeTask<ParallelVortexRangeResult>> {
+                        let lease = context.memory().reserve(TASK_RESERVATION_BYTES)?;
+                        let task_scope = scope.clone();
+                        let task_owned = owned.clone();
+                        let task_plan = plan.clone();
+                        let task_columns = Arc::clone(&columns);
+                        let task_residual = residual.clone();
+                        let task_fields = Arc::clone(&scan_fields);
+                        let task_transforms = Arc::clone(&transforms);
+                        let task_spec = Arc::clone(&shared_spec);
+                        let cancel = child_token.clone();
+                        pool.submit(
+                            Budgeted::new(
+                                move |_worker: &WorkerContext, _lease: &mut MemoryLease| {
+                                    task_scope.with_context(|wctx| {
+                                        let mut worker_agg =
+                                            Aggregate::new_shared(task_spec, wctx.memory())?;
+                                        let mut counts = scan::ScanBatchCounts::default();
+                                        let pruned = run_owned_array_worker_batches(
+                                            &task_owned,
+                                            &task_plan,
+                                            range,
+                                            &task_columns,
+                                            task_residual.as_ref(),
+                                            &[],
+                                            &task_fields,
+                                            scan_rows,
+                                            batch_rows,
+                                            wctx,
+                                            &mut counts,
+                                            &mut |array| {
+                                                apply_parallel_transforms(
+                                                    &task_transforms,
+                                                    0,
+                                                    array,
+                                                    wctx,
+                                                    &mut |final_batch| {
+                                                        if count_partial {
+                                                            worker_agg.consume_reordered_count(
+                                                                &final_batch,
+                                                                wctx,
+                                                                batch_rows,
+                                                            )
+                                                        } else {
+                                                            worker_agg.consume(
+                                                                &final_batch,
+                                                                wctx,
+                                                                batch_rows,
+                                                            )
+                                                        }
+                                                    },
+                                                )
+                                            },
+                                        )?;
+                                        Ok((worker_agg, counts, pruned))
+                                    })
+                                },
+                                lease,
+                            ),
+                            cancel,
+                        )
                     };
-                    let task_scope = scope.clone();
-                    let task_owned = owned.clone();
-                    let task_plan = plan.clone();
-                    let task_columns = Arc::clone(&columns);
-                    let task_residual = residual.clone();
-                    let task_fields = Arc::clone(&scan_fields);
-                    let task_transforms = Arc::clone(&transforms);
-                    let task_spec = Arc::clone(&shared_spec);
-                    let cancel = child_token.clone();
-                    let submitted = pool.submit(
-                        Budgeted::new(
-                            move |_worker: &WorkerContext, _lease: &mut MemoryLease| {
-                                task_scope.with_context(|wctx| {
-                                    let mut worker_agg =
-                                        Aggregate::new_shared(task_spec, wctx.memory())?;
-                                    let mut counts = scan::ScanBatchCounts::default();
-                                    let pruned = run_owned_array_worker_batches(
-                                        &task_owned,
-                                        &task_plan,
-                                        range,
-                                        &task_columns,
-                                        task_residual.as_ref(),
-                                        &[],
-                                        &task_fields,
-                                        scan_rows,
-                                        batch_rows,
-                                        wctx,
-                                        &mut counts,
-                                        &mut |array| {
-                                            apply_parallel_transforms(
-                                                &task_transforms,
-                                                0,
-                                                array,
-                                                wctx,
-                                                &mut |final_batch| {
-                                                    if count_partial {
-                                                        worker_agg.consume_reordered_count(
-                                                            &final_batch,
-                                                            wctx,
-                                                            batch_rows,
-                                                        )
-                                                    } else {
-                                                        worker_agg.consume(
-                                                            &final_batch,
-                                                            wctx,
-                                                            batch_rows,
-                                                        )
-                                                    }
-                                                },
-                                            )
-                                        },
-                                    )?;
-                                    Ok((worker_agg, counts, pruned))
-                                })
-                            },
-                            lease,
-                        ),
-                        cancel,
-                    );
-                    match submitted {
-                        Ok(task) => active.push_back(task),
-                        Err(error) => {
-                            child_token.cancel();
-                            while let Some(task) = active.pop_front() {
-                                let _ = task.join();
-                            }
-                            return Err(error);
-                        }
-                    }
-                }
-                let mut merged_agg: Option<Aggregate<'static>> = None;
-                let mut merged_counts = scan::ScanBatchCounts::default();
-                let mut total_pruned = 0_u64;
-                while let Some(task) = active.pop_front() {
-                    if let Err(error) = context.check_cancelled() {
-                        child_token.cancel();
-                        let _ = task.join();
-                        while let Some(rest) = active.pop_front() {
-                            let _ = rest.join();
-                        }
-                        return Err(error);
-                    }
-                    let joined = match task.join() {
-                        Ok(done) => done,
-                        Err(error) => {
-                            child_token.cancel();
-                            while let Some(rest) = active.pop_front() {
-                                let _ = rest.join();
-                            }
-                            return Err(error);
-                        }
-                    };
-                    let (((worker_agg, worker_counts, pruned), delta), lease) = joined.into_parts();
-                    drop(lease);
-                    let step = (|| -> Result<()> {
-                        context.merge_worker_delta(delta)?;
-                        total_pruned += pruned;
-                        merge_scan_counts(&mut merged_counts, worker_counts)?;
-                        match &mut merged_agg {
-                            None => merged_agg = Some(worker_agg),
-                            Some(existing) => {
-                                existing.merge_from(worker_agg, context, batch_rows)?;
-                            }
-                        }
-                        Ok(())
-                    })();
-                    if let Err(error) = step {
-                        child_token.cancel();
-                        while let Some(rest) = active.pop_front() {
-                            let _ = rest.join();
-                        }
-                        return Err(error);
-                    }
-                }
+                let (merged_agg, merged_counts, total_pruned) = run_parallel_aggregate_ranges(
+                    workers,
+                    ranges,
+                    &child_token,
+                    context,
+                    batch_rows,
+                    "parallel owned-array aggregate yielded no state",
+                    &mut submit_range,
+                )?;
                 if plan.filter.is_some() && owned.has_zone_maps() {
                     let regions = owned.row_count().div_ceil(SPLIT_ROWS);
                     context.record_capability_decision(
@@ -1198,9 +1074,7 @@ pub(super) fn run_parallel_aggregate(
                 metrics
                     .operator_workers
                     .set(metrics.operator_workers.get().max(workers as u64));
-                Ok(ParallelAggregateOutcome::Completed(merged_agg.ok_or_else(
-                    || failed("parallel owned-array aggregate yielded no state"),
-                )?))
+                Ok(ParallelAggregateOutcome::Completed(merged_agg))
             } else {
                 let mut merged_counts = scan::ScanBatchCounts::default();
                 let mut total_pruned = 0_u64;
@@ -1268,6 +1142,96 @@ pub(super) fn run_parallel_aggregate(
     }
 }
 
+fn run_parallel_aggregate_ranges(
+    workers: usize,
+    ranges: Vec<Range<u64>>,
+    child_token: &CancellationToken,
+    context: &NativeExecutionContext<'_>,
+    batch_rows: usize,
+    empty_error: &str,
+    submit_range: &mut dyn FnMut(Range<u64>) -> Result<ComputeTask<ParallelVortexRangeResult>>,
+) -> Result<(Aggregate<'static>, scan::ScanBatchCounts, u64)> {
+    let mut active: VecDeque<ComputeTask<ParallelVortexRangeResult>> =
+        VecDeque::with_capacity(workers);
+    let mut range_iter = ranges.into_iter();
+    for _ in 0..workers {
+        let Some(range) = range_iter.next() else {
+            break;
+        };
+        match submit_range(range) {
+            Ok(task) => active.push_back(task),
+            Err(error) => {
+                child_token.cancel();
+                while let Some(task) = active.pop_front() {
+                    let _ = task.join();
+                }
+                return Err(error);
+            }
+        }
+    }
+    let mut merged_agg: Option<Aggregate<'static>> = None;
+    let mut merged_counts = scan::ScanBatchCounts::default();
+    let mut total_extra = 0_u64;
+    while let Some(task) = active.pop_front() {
+        if let Some(next_range) = range_iter.next() {
+            match submit_range(next_range) {
+                Ok(next_task) => active.push_back(next_task),
+                Err(error) => {
+                    child_token.cancel();
+                    let _ = task.join();
+                    while let Some(rest) = active.pop_front() {
+                        let _ = rest.join();
+                    }
+                    return Err(error);
+                }
+            }
+        }
+        if let Err(error) = context.check_cancelled() {
+            child_token.cancel();
+            let _ = task.join();
+            while let Some(rest) = active.pop_front() {
+                let _ = rest.join();
+            }
+            return Err(error);
+        }
+        let joined = match task.join() {
+            Ok(done) => done,
+            Err(error) => {
+                child_token.cancel();
+                while let Some(rest) = active.pop_front() {
+                    let _ = rest.join();
+                }
+                return Err(error);
+            }
+        };
+        let (((worker_agg, worker_counts, extra), delta), lease) = joined.into_parts();
+        drop(lease);
+        let step = (|| -> Result<()> {
+            context.merge_worker_delta(delta)?;
+            total_extra = total_extra
+                .checked_add(extra)
+                .ok_or_else(|| failed("native scan row counter overflow"))?;
+            merge_scan_counts(&mut merged_counts, worker_counts)?;
+            match &mut merged_agg {
+                None => merged_agg = Some(worker_agg),
+                Some(existing) => {
+                    existing.merge_from(worker_agg, context, batch_rows)?;
+                }
+            }
+            Ok(())
+        })();
+        if let Err(error) = step {
+            child_token.cancel();
+            while let Some(rest) = active.pop_front() {
+                let _ = rest.join();
+            }
+            return Err(error);
+        }
+    }
+    let merged = merged_agg.ok_or_else(|| failed(empty_error))?;
+    Ok((merged, merged_counts, total_extra))
+}
+
 fn merge_scan_counts(dst: &mut scan::ScanBatchCounts, src: scan::ScanBatchCounts) -> Result<()> {
     dst.scan_rows = dst
         .scan_rows
@@ -1320,14 +1284,34 @@ fn teardown_ordered_streams<S: Send + 'static>(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn drain_ordered_streams<S: Send + 'static>(
+fn run_ordered_streams<S: Send + 'static>(
+    workers: usize,
     child_token: &CancellationToken,
-    mut active: VecDeque<StreamTask<S>>,
     context: &NativeExecutionContext<'_>,
+    submit_next: &mut dyn FnMut() -> Result<Option<StreamTask<S>>>,
     on_summary: &mut dyn FnMut(scan::ScanBatchCounts, S) -> Result<()>,
     consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
 ) -> Result<()> {
+    let mut active: VecDeque<StreamTask<S>> = VecDeque::with_capacity(workers);
+    for _ in 0..workers {
+        match submit_next() {
+            Ok(Some(task)) => active.push_back(task),
+            Ok(None) => break,
+            Err(error) => {
+                teardown_ordered_streams(child_token, None, None, active);
+                return Err(error);
+            }
+        }
+    }
     while let Some((rx, task)) = active.pop_front() {
+        match submit_next() {
+            Ok(Some(next_task)) => active.push_back(next_task),
+            Ok(None) => {}
+            Err(error) => {
+                teardown_ordered_streams(child_token, Some(rx), Some(task), active);
+                return Err(error);
+            }
+        }
         loop {
             if let Err(error) = context.check_cancelled() {
                 teardown_ordered_streams(child_token, Some(rx), Some(task), active);
@@ -1392,17 +1376,13 @@ fn stream_vortex_file_ranges(
     let scope = prepared
         .session
         .worker_execution_scope(context, child_token.clone())?;
-    let _worker_limit = pool.scope_active_worker_limit(workers);
-    let mut active: VecDeque<StreamTask<u64>> = VecDeque::with_capacity(ranges.len());
     let shared_filters: Arc<[ProbeRuntimeFilter]> = Arc::from(probe_filters);
-    for range in ranges {
-        let lease = match context.memory().reserve(TASK_RESERVATION_BYTES) {
-            Ok(lease) => lease,
-            Err(error) => {
-                teardown_ordered_streams(&child_token, None, None, active);
-                return Err(error);
-            }
+    let mut range_iter = ranges.into_iter();
+    let mut submit_next = || -> Result<Option<StreamTask<u64>>> {
+        let Some(range) = range_iter.next() else {
+            return Ok(None);
         };
+        let lease = context.memory().reserve(TASK_RESERVATION_BYTES)?;
         let (tx, rx) = mpsc::sync_channel::<Result<ArrayRef>>(BOUNDED_CHANNEL_DEPTH);
         let task_scope = scope.clone();
         let task_file = file.clone();
@@ -1413,7 +1393,7 @@ fn stream_vortex_file_ranges(
         let task_fields = Arc::clone(scan_fields);
         let task_transforms = Arc::clone(transforms);
         let cancel = child_token.clone();
-        let submitted = pool.submit(
+        let task = pool.submit(
             Budgeted::new(
                 move |_worker: &WorkerContext, _lease: &mut MemoryLease| {
                     task_scope.with_context(|wctx| {
@@ -1450,7 +1430,7 @@ fn stream_vortex_file_ranges(
                         match res {
                             Ok(delivered) => Ok((counts, delivered)),
                             Err(error) => {
-                                let _ = tx.send(Err(failed(&error.to_string())));
+                                let _ = tx.send(Err(error.clone()));
                                 Err(error)
                             }
                         }
@@ -1459,16 +1439,17 @@ fn stream_vortex_file_ranges(
                 lease,
             ),
             cancel,
-        );
-        match submitted {
-            Ok(task) => active.push_back((rx, task)),
-            Err(error) => {
-                teardown_ordered_streams(&child_token, Some(rx), None, active);
-                return Err(error);
-            }
-        }
-    }
-    drain_ordered_streams(&child_token, active, context, on_summary, consume)
+        )?;
+        Ok(Some((rx, task)))
+    };
+    run_ordered_streams(
+        workers,
+        &child_token,
+        context,
+        &mut submit_next,
+        on_summary,
+        consume,
+    )
 }
 
 #[cfg(feature = "vortex-write")]
@@ -1497,17 +1478,13 @@ fn stream_owned_array_ranges(
     let scope = prepared
         .session
         .worker_execution_scope(context, child_token.clone())?;
-    let _worker_limit = pool.scope_active_worker_limit(workers);
-    let mut active: VecDeque<StreamTask<u64>> = VecDeque::with_capacity(ranges.len());
     let shared_filters: Arc<[ProbeRuntimeFilter]> = Arc::from(probe_filters);
-    for range in ranges {
-        let lease = match context.memory().reserve(TASK_RESERVATION_BYTES) {
-            Ok(lease) => lease,
-            Err(error) => {
-                teardown_ordered_streams(&child_token, None, None, active);
-                return Err(error);
-            }
+    let mut range_iter = ranges.into_iter();
+    let mut submit_next = || -> Result<Option<StreamTask<u64>>> {
+        let Some(range) = range_iter.next() else {
+            return Ok(None);
         };
+        let lease = context.memory().reserve(TASK_RESERVATION_BYTES)?;
         let (tx, rx) = mpsc::sync_channel::<Result<ArrayRef>>(BOUNDED_CHANNEL_DEPTH);
         let task_scope = scope.clone();
         let task_owned = owned.clone();
@@ -1518,7 +1495,7 @@ fn stream_owned_array_ranges(
         let task_fields = Arc::clone(scan_fields);
         let task_transforms = Arc::clone(transforms);
         let cancel = child_token.clone();
-        let submitted = pool.submit(
+        let task = pool.submit(
             Budgeted::new(
                 move |_worker: &WorkerContext, _lease: &mut MemoryLease| {
                     task_scope.with_context(|wctx| {
@@ -1555,7 +1532,7 @@ fn stream_owned_array_ranges(
                         match res {
                             Ok(pruned) => Ok((counts, pruned)),
                             Err(error) => {
-                                let _ = tx.send(Err(failed(&error.to_string())));
+                                let _ = tx.send(Err(error.clone()));
                                 Err(error)
                             }
                         }
@@ -1564,16 +1541,17 @@ fn stream_owned_array_ranges(
                 lease,
             ),
             cancel,
-        );
-        match submitted {
-            Ok(task) => active.push_back((rx, task)),
-            Err(error) => {
-                teardown_ordered_streams(&child_token, Some(rx), None, active);
-                return Err(error);
-            }
-        }
-    }
-    drain_ordered_streams(&child_token, active, context, on_summary, consume)
+        )?;
+        Ok(Some((rx, task)))
+    };
+    run_ordered_streams(
+        workers,
+        &child_token,
+        context,
+        &mut submit_next,
+        on_summary,
+        consume,
+    )
 }
 
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
@@ -1589,17 +1567,34 @@ pub(super) fn try_run_parallel_join<'a>(
 ) -> Result<Option<super::native_relational_join::Join<'a>>> {
     use crate::local_primitives::native_capacity::ReservedVec;
 
+    type JoinStreamTask = StreamTask<(u64, Option<ReservedVec<bool>>)>;
+
+    enum AdmittedJoinPlan {
+        File {
+            pool: Arc<ComputePool>,
+            workers: usize,
+            ranges: Vec<Range<u64>>,
+        },
+        #[cfg(feature = "vortex-write")]
+        OwnedArray {
+            pool: Arc<ComputePool>,
+            workers: usize,
+            ranges: Vec<Range<u64>>,
+        },
+        #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+        Batch,
+    }
+
     let scan_rows = match metrics.file_scan_batching.get() {
         FileScanBatching::Native => scan::SCAN_ROWS,
         FileScanBatching::Output => batch_rows.min(scan::SCAN_ROWS),
     };
-    let Some((chain, scan_filters)) =
-        ParallelSourceChain::build_for_join(left, left_filters, batch_rows, scan_rows)
+    let Some((chain, scan_filters)) = ParallelSourceChain::build_for_join(left, left_filters)
     else {
         return Ok(Some(join));
     };
-    // Avoid spawning worker pools when an empty-build short-circuit applies immediately.
-    match &chain.target {
+    // Admit before sealing `Join` so non-parallel sources pay zero extra build/matched state.
+    let admitted_plan = match &chain.target {
         ParallelScanTarget::File {
             source_index,
             residual,
@@ -1613,8 +1608,15 @@ pub(super) fn try_run_parallel_join<'a>(
             {
                 return Ok(Some(join));
             }
-            if source_file.file().row_count() < MIN_PARALLEL_ROWS || context.cpu_lanes() <= 1 {
+            let Some((pool, workers, ranges)) =
+                admit_vortex_parallel(source_file.file().row_count(), prepared, context)?
+            else {
                 return Ok(Some(join));
+            };
+            AdmittedJoinPlan::File {
+                pool,
+                workers,
+                ranges,
             }
         }
         #[cfg(feature = "vortex-write")]
@@ -1631,34 +1633,66 @@ pub(super) fn try_run_parallel_join<'a>(
             {
                 return Ok(Some(join));
             }
-            if owned.row_count() < MIN_PARALLEL_ROWS || context.cpu_lanes() <= 1 {
+            let Some((pool, workers, ranges)) =
+                admit_vortex_parallel(owned.row_count(), prepared, context)?
+            else {
                 return Ok(Some(join));
+            };
+            AdmittedJoinPlan::OwnedArray {
+                pool,
+                workers,
+                ranges,
             }
         }
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-        ParallelScanTarget::Batch { .. } => {
-            if metrics.input.is_none() || context.cpu_lanes() <= 1 {
+        ParallelScanTarget::Batch {
+            source_index,
+            residual,
+            ..
+        } => {
+            let Some(input_provider) = metrics.input else {
+                return Ok(Some(join));
+            };
+            if context.cpu_lanes() <= 1 {
                 return Ok(Some(join));
             }
+            let mut can_admit = false;
+            input_provider.with_execution(&mut |execution| {
+                can_admit = batch_input::parallel::can_admit_parallel_parquet_join(
+                    execution,
+                    *source_index,
+                    residual.is_none(),
+                    &scan_filters,
+                    context,
+                )?;
+                Ok(())
+            })?;
+            if !can_admit {
+                return Ok(Some(join));
+            }
+            AdmittedJoinPlan::Batch
         }
-    }
+    };
 
     let mut sealed_join = match join.try_into_sealed_parallel(&left.fields, context)? {
         Ok(sealed) => Arc::new(sealed),
         Err(join) => return Ok(Some(join)),
     };
 
-    match &chain.target {
+    match (chain.target, admitted_plan) {
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-        ParallelScanTarget::Batch {
-            source_index,
-            projection,
-            mandatory_predicate,
-            residual,
-            columns,
-            scan_fields,
-            finite_float_predicate,
-        } => {
+        (
+            ParallelScanTarget::Batch {
+                source_index,
+                projection,
+                mandatory_predicate,
+                residual,
+                columns,
+                scan_fields,
+                finite_float_predicate,
+            },
+            AdmittedJoinPlan::Batch,
+        ) => {
             let Some(input_provider) = metrics.input else {
                 unreachable!("verified above");
             };
@@ -1667,18 +1701,18 @@ pub(super) fn try_run_parallel_join<'a>(
             input_provider.with_execution(&mut |execution| {
                 matched_vecs = batch_input::parallel::run_parallel_parquet_join(
                     execution,
-                    *source_index,
-                    projection,
+                    source_index,
+                    &projection,
                     mandatory_predicate.as_ref(),
                     residual.as_ref(),
                     &scan_filters,
-                    columns,
-                    scan_fields,
+                    &columns,
+                    &scan_fields,
                     &transforms,
                     &sealed_join,
-                    chain.scan_rows,
-                    chain.batch_rows,
-                    *finite_float_predicate,
+                    scan_rows,
+                    batch_rows,
+                    finite_float_predicate,
                     context,
                     metrics,
                     consume,
@@ -1695,11 +1729,8 @@ pub(super) fn try_run_parallel_join<'a>(
                 context.record_native_join_work(&sealed_join.join_work()?)?;
                 return Ok(None);
             }
-            // Declined inside batch_parallel (e.g., tight headroom, single RG, replay).
-            // Run remaining left stream directly through `consume_sealed`!
             let sealed_mut = Arc::get_mut(&mut sealed_join)
                 .ok_or_else(|| failed("parallel join state unexpectedly shared"))?;
-            let mut local_matched = sealed_mut.new_worker_matched(context.memory())?;
             prepared.run_with_probe_filters(
                 left,
                 context,
@@ -1709,70 +1740,35 @@ pub(super) fn try_run_parallel_join<'a>(
                 left_filters,
                 &mut |array| {
                     sealed_mut
-                        .consume_sealed(
-                            array,
-                            local_matched.as_mut().map(|v| v.values.as_mut_slice()),
-                            context,
-                            batch_rows,
-                            consume,
-                        )
+                        .consume_serial(array, context, batch_rows, consume)
                         .map(|_| ())
                 },
             )?;
-            if let Some(m) = local_matched {
-                sealed_mut.merge_matched(&m.values)?;
-            }
             sealed_join.finish(context, batch_rows, consume)?;
             context.record_native_join_work(&sealed_join.join_work()?)?;
             Ok(None)
         }
-        ParallelScanTarget::File {
-            source_index,
-            plan,
-            columns,
-            scan_fields,
-            residual,
-            finite_float_predicate,
-        } => {
-            let source_file = &prepared.sources[*source_index];
-            let Some((pool, workers, ranges)) =
-                admit_vortex_parallel(source_file.file().row_count(), prepared, context)?
-            else {
-                let sealed_mut = Arc::get_mut(&mut sealed_join)
-                    .ok_or_else(|| failed("parallel join state unexpectedly shared"))?;
-                let mut local_matched = sealed_mut.new_worker_matched(context.memory())?;
-                prepared.run_with_probe_filters(
-                    left,
-                    context,
-                    metrics,
-                    batch_rows,
-                    None,
-                    left_filters,
-                    &mut |array| {
-                        sealed_mut
-                            .consume_sealed(
-                                array,
-                                local_matched.as_mut().map(|v| v.values.as_mut_slice()),
-                                context,
-                                batch_rows,
-                                consume,
-                            )
-                            .map(|_| ())
-                    },
-                )?;
-                if let Some(m) = local_matched {
-                    sealed_mut.merge_matched(&m.values)?;
-                }
-                sealed_join.finish(context, batch_rows, consume)?;
-                context.record_native_join_work(&sealed_join.join_work()?)?;
-                return Ok(None);
-            };
+        (
+            ParallelScanTarget::File {
+                source_index,
+                plan,
+                columns,
+                scan_fields,
+                residual,
+                finite_float_predicate,
+            },
+            AdmittedJoinPlan::File {
+                pool,
+                workers,
+                ranges,
+            },
+        ) => {
+            let source_file = &prepared.sources[source_index];
             let transforms = Arc::new(chain.transforms);
             let columns: Arc<[String]> = Arc::from(columns.as_slice());
             let scan_fields: Arc<[(String, DType)]> = Arc::from(scan_fields.as_slice());
             let shared_filters: Arc<[ProbeRuntimeFilter]> = Arc::from(scan_filters.as_slice());
-            let residual = residual.clone();
-            let effective_plan = resolve_file_plan(source_file, plan, &shared_filters)?;
+            let effective_plan = resolve_file_plan(source_file, &plan, &shared_filters)?;
 
             let matched_vecs: Vec<ReservedVec<bool>> = source_file.with_admitted_native_execution(
                 context,
@@ -1825,104 +1821,96 @@ pub(super) fn try_run_parallel_join<'a>(
                     let scope = prepared
                         .session
                         .worker_execution_scope(context, child_token.clone())?;
-                    let _worker_limit = pool.scope_active_worker_limit(workers);
-                    let mut active: VecDeque<
-                        StreamTask<(u64, Option<ReservedVec<bool>>)>,
-                    > = VecDeque::with_capacity(ranges.len());
-                    for range in ranges {
-                        let lease = match context.memory().reserve(TASK_RESERVATION_BYTES) {
-                            Ok(lease) => lease,
-                            Err(error) => {
-                                teardown_ordered_streams(&child_token, None, None, active);
-                                return Err(error);
-                            }
-                        };
-                        let (tx, rx) =
-                            mpsc::sync_channel::<Result<ArrayRef>>(BOUNDED_CHANNEL_DEPTH);
-                        let task_scope = scope.clone();
-                        let task_file = file.clone();
-                        let task_plan = effective_plan.clone();
-                        let task_columns = Arc::clone(&columns);
-                        let task_residual = residual.clone();
-                        let task_filters = Arc::clone(&shared_filters);
-                        let task_fields = Arc::clone(&scan_fields);
-                        let task_transforms = Arc::clone(&transforms);
-                        let task_join = Arc::clone(&sealed_join);
-                        let cancel = child_token.clone();
-                        let submitted = pool.submit(
-                            Budgeted::new(
-                                move |_worker: &WorkerContext, _lease: &mut MemoryLease| {
-                                    task_scope.with_context(|wctx| {
-                                        let mut counts = scan::ScanBatchCounts::default();
-                                        let mut worker_matched =
-                                            task_join.new_worker_matched(wctx.memory())?;
-                                        let res = run_vortex_file_worker_batches(
-                                            &task_file,
-                                            &task_plan,
-                                            range,
-                                            &task_columns,
-                                            task_residual.as_ref(),
-                                            &task_filters,
-                                            &task_fields,
-                                            scan_rows,
-                                            batch_rows,
-                                            wctx,
-                                            &mut counts,
-                                            &mut |array| {
-                                                apply_parallel_transforms(
-                                                    &task_transforms,
-                                                    0,
-                                                    array,
-                                                    wctx,
-                                                    &mut |final_batch| {
-                                                        task_join.consume_sealed(
-                                                            final_batch,
-                                                            worker_matched
-                                                                .as_mut()
-                                                                .map(|v| v.values.as_mut_slice()),
-                                                            wctx,
-                                                            batch_rows,
-                                                            &mut |out_batch| {
-                                                                tx.send(Ok(out_batch)).map_err(|_| {
-                                                                    failed(
-                                                                        "parallel join consumer stopped early",
-                                                                    )
-                                                                })
-                                                            },
-                                                        )?;
-                                                        Ok(())
-                                                    },
-                                                )
-                                            },
-                                        );
-                                        match res {
-                                            Ok(delivered) => Ok((counts, (delivered, worker_matched))),
-                                            Err(error) => {
-                                                let _ = tx.send(Err(failed(&error.to_string())));
-                                                Err(error)
+                    let mut range_iter = ranges.into_iter();
+                    let mut submit_next = || -> Result<Option<JoinStreamTask>> {
+                            let Some(range) = range_iter.next() else {
+                                return Ok(None);
+                            };
+                            let lease = context.memory().reserve(TASK_RESERVATION_BYTES)?;
+                            let (tx, rx) =
+                                mpsc::sync_channel::<Result<ArrayRef>>(BOUNDED_CHANNEL_DEPTH);
+                            let task_scope = scope.clone();
+                            let task_file = file.clone();
+                            let task_plan = effective_plan.clone();
+                            let task_columns = Arc::clone(&columns);
+                            let task_residual = residual.clone();
+                            let task_filters = Arc::clone(&shared_filters);
+                            let task_fields = Arc::clone(&scan_fields);
+                            let task_transforms = Arc::clone(&transforms);
+                            let task_join = Arc::clone(&sealed_join);
+                            let cancel = child_token.clone();
+                            let task = pool.submit(
+                                Budgeted::new(
+                                    move |_worker: &WorkerContext, _lease: &mut MemoryLease| {
+                                        task_scope.with_context(|wctx| {
+                                            let mut counts = scan::ScanBatchCounts::default();
+                                            let mut worker_matched =
+                                                task_join.new_worker_matched(wctx.memory())?;
+                                            let res = run_vortex_file_worker_batches(
+                                                &task_file,
+                                                &task_plan,
+                                                range,
+                                                &task_columns,
+                                                task_residual.as_ref(),
+                                                &task_filters,
+                                                &task_fields,
+                                                scan_rows,
+                                                batch_rows,
+                                                wctx,
+                                                &mut counts,
+                                                &mut |array| {
+                                                    apply_parallel_transforms(
+                                                        &task_transforms,
+                                                        0,
+                                                        array,
+                                                        wctx,
+                                                        &mut |final_batch| {
+                                                            task_join.consume_sealed(
+                                                                final_batch,
+                                                                worker_matched
+                                                                    .as_mut()
+                                                                    .map(|v| v.values.as_mut_slice()),
+                                                                wctx,
+                                                                batch_rows,
+                                                                &mut |out_batch| {
+                                                                    tx.send(Ok(out_batch))
+                                                                        .map_err(|_| {
+                                                                            failed(
+                                                                                "parallel join consumer stopped early",
+                                                                            )
+                                                                        })
+                                                                },
+                                                            )?;
+                                                            Ok(())
+                                                        },
+                                                    )
+                                                },
+                                            );
+                                            match res {
+                                                Ok(delivered) => {
+                                                    Ok((counts, (delivered, worker_matched)))
+                                                }
+                                                Err(error) => {
+                                                    let _ = tx.send(Err(error.clone()));
+                                                    Err(error)
+                                                }
                                             }
-                                        }
-                                    })
-                                },
-                                lease,
-                            ),
-                            cancel,
-                        );
-                        match submitted {
-                            Ok(task) => active.push_back((rx, task)),
-                            Err(error) => {
-                                teardown_ordered_streams(&child_token, Some(rx), None, active);
-                                return Err(error);
-                            }
-                        }
-                    }
+                                        })
+                                    },
+                                    lease,
+                                ),
+                                cancel,
+                            )?;
+                            Ok(Some((rx, task)))
+                        };
                     let mut merged_counts = scan::ScanBatchCounts::default();
                     let mut total_delivered = 0_u64;
                     let mut collected_matched = Vec::new();
-                    drain_ordered_streams(
+                    run_ordered_streams(
+                        workers,
                         &child_token,
-                        active,
                         context,
+                        &mut submit_next,
                         &mut |counts, (delivered, worker_matched)| {
                             total_delivered = total_delivered
                                 .checked_add(delivered)
@@ -1943,7 +1931,7 @@ pub(super) fn try_run_parallel_join<'a>(
                         0,
                     )?;
                     merged_counts.merge_into(metrics)?;
-                    if *finite_float_predicate {
+                    if finite_float_predicate {
                         add(&metrics.pipeline.finite_float_scans, 1)?;
                     }
                     metrics
@@ -1966,58 +1954,32 @@ pub(super) fn try_run_parallel_join<'a>(
             Ok(None)
         }
         #[cfg(feature = "vortex-write")]
-        ParallelScanTarget::OwnedArray {
-            source_index,
-            plan,
-            columns,
-            scan_fields,
-            residual,
-            finite_float_predicate,
-        } => {
-            let owned = &prepared.owned_array_sources[*source_index].1;
-            let Some((pool, workers, ranges)) =
-                admit_vortex_parallel(owned.row_count(), prepared, context)?
-            else {
-                let sealed_mut = Arc::get_mut(&mut sealed_join)
-                    .ok_or_else(|| failed("parallel join state unexpectedly shared"))?;
-                let mut local_matched = sealed_mut.new_worker_matched(context.memory())?;
-                prepared.run_with_probe_filters(
-                    left,
-                    context,
-                    metrics,
-                    batch_rows,
-                    None,
-                    left_filters,
-                    &mut |array| {
-                        sealed_mut
-                            .consume_sealed(
-                                array,
-                                local_matched.as_mut().map(|v| v.values.as_mut_slice()),
-                                context,
-                                batch_rows,
-                                consume,
-                            )
-                            .map(|_| ())
-                    },
-                )?;
-                if let Some(m) = local_matched {
-                    sealed_mut.merge_matched(&m.values)?;
-                }
-                sealed_join.finish(context, batch_rows, consume)?;
-                context.record_native_join_work(&sealed_join.join_work()?)?;
-                return Ok(None);
-            };
+        (
+            ParallelScanTarget::OwnedArray {
+                source_index,
+                plan,
+                columns,
+                scan_fields,
+                residual,
+                finite_float_predicate,
+            },
+            AdmittedJoinPlan::OwnedArray {
+                pool,
+                workers,
+                ranges,
+            },
+        ) => {
+            let owned = &prepared.owned_array_sources[source_index].1;
             let transforms = Arc::new(chain.transforms);
             let columns: Arc<[String]> = Arc::from(columns.as_slice());
             let scan_fields: Arc<[(String, DType)]> = Arc::from(scan_fields.as_slice());
             let shared_filters: Arc<[ProbeRuntimeFilter]> = Arc::from(scan_filters.as_slice());
-            let residual = residual.clone();
             let effective_plan = if let Some(pred) =
                 scan::admitted_runtime_predicate(&shared_filters, owned.dtype())
             {
-                scan::plan_with_runtime_predicate(plan, pred, owned.dtype())?
+                scan::plan_with_runtime_predicate(&plan, pred, owned.dtype())?
             } else {
-                plan.clone()
+                plan
             };
             add(&metrics.scans_started, 1)?;
             add(&metrics.data_scans, 1)?;
@@ -2027,17 +1989,12 @@ pub(super) fn try_run_parallel_join<'a>(
             let scope = prepared
                 .session
                 .worker_execution_scope(context, child_token.clone())?;
-            let _worker_limit = pool.scope_active_worker_limit(workers);
-            let mut active: VecDeque<StreamTask<(u64, Option<ReservedVec<bool>>)>> =
-                VecDeque::with_capacity(ranges.len());
-            for range in ranges {
-                let lease = match context.memory().reserve(TASK_RESERVATION_BYTES) {
-                    Ok(lease) => lease,
-                    Err(error) => {
-                        teardown_ordered_streams(&child_token, None, None, active);
-                        return Err(error);
-                    }
+            let mut range_iter = ranges.into_iter();
+            let mut submit_next = || -> Result<Option<JoinStreamTask>> {
+                let Some(range) = range_iter.next() else {
+                    return Ok(None);
                 };
+                let lease = context.memory().reserve(TASK_RESERVATION_BYTES)?;
                 let (tx, rx) = mpsc::sync_channel::<Result<ArrayRef>>(BOUNDED_CHANNEL_DEPTH);
                 let task_scope = scope.clone();
                 let task_owned = owned.clone();
@@ -2049,80 +2006,75 @@ pub(super) fn try_run_parallel_join<'a>(
                 let task_transforms = Arc::clone(&transforms);
                 let task_join = Arc::clone(&sealed_join);
                 let cancel = child_token.clone();
-                let submitted = pool.submit(
-                    Budgeted::new(
-                        move |_worker: &WorkerContext, _lease: &mut MemoryLease| {
-                            task_scope.with_context(|wctx| {
-                                let mut counts = scan::ScanBatchCounts::default();
-                                let mut worker_matched =
-                                    task_join.new_worker_matched(wctx.memory())?;
-                                let res = run_owned_array_worker_batches(
-                                    &task_owned,
-                                    &task_plan,
-                                    range,
-                                    &task_columns,
-                                    task_residual.as_ref(),
-                                    &task_filters,
-                                    &task_fields,
-                                    scan_rows,
-                                    batch_rows,
-                                    wctx,
-                                    &mut counts,
-                                    &mut |array| {
-                                        apply_parallel_transforms(
-                                            &task_transforms,
-                                            0,
-                                            array,
-                                            wctx,
-                                            &mut |final_batch| {
-                                                task_join.consume_sealed(
-                                                    final_batch,
-                                                    worker_matched
-                                                        .as_mut()
-                                                        .map(|v| v.values.as_mut_slice()),
-                                                    wctx,
-                                                    batch_rows,
-                                                    &mut |out_batch| {
-                                                        tx.send(Ok(out_batch)).map_err(|_| {
-                                                            failed(
-                                                                "parallel join consumer stopped early",
-                                                            )
-                                                        })
-                                                    },
-                                                )?;
-                                                Ok(())
-                                            },
-                                        )
-                                    },
-                                );
-                                match res {
-                                    Ok(pruned) => Ok((counts, (pruned, worker_matched))),
-                                    Err(error) => {
-                                        let _ = tx.send(Err(failed(&error.to_string())));
-                                        Err(error)
+                let task = pool.submit(
+                        Budgeted::new(
+                            move |_worker: &WorkerContext, _lease: &mut MemoryLease| {
+                                task_scope.with_context(|wctx| {
+                                    let mut counts = scan::ScanBatchCounts::default();
+                                    let mut worker_matched =
+                                        task_join.new_worker_matched(wctx.memory())?;
+                                    let res = run_owned_array_worker_batches(
+                                        &task_owned,
+                                        &task_plan,
+                                        range,
+                                        &task_columns,
+                                        task_residual.as_ref(),
+                                        &task_filters,
+                                        &task_fields,
+                                        scan_rows,
+                                        batch_rows,
+                                        wctx,
+                                        &mut counts,
+                                        &mut |array| {
+                                            apply_parallel_transforms(
+                                                &task_transforms,
+                                                0,
+                                                array,
+                                                wctx,
+                                                &mut |final_batch| {
+                                                    task_join.consume_sealed(
+                                                        final_batch,
+                                                        worker_matched
+                                                            .as_mut()
+                                                            .map(|v| v.values.as_mut_slice()),
+                                                        wctx,
+                                                        batch_rows,
+                                                        &mut |out_batch| {
+                                                            tx.send(Ok(out_batch)).map_err(|_| {
+                                                                failed(
+                                                                    "parallel join consumer stopped early",
+                                                                )
+                                                            })
+                                                        },
+                                                    )?;
+                                                    Ok(())
+                                                },
+                                            )
+                                        },
+                                    );
+                                    match res {
+                                        Ok(pruned) => Ok((counts, (pruned, worker_matched))),
+                                        Err(error) => {
+                                            let _ = tx.send(Err(error.clone()));
+                                            Err(error)
+                                        }
                                     }
-                                }
-                            })
-                        },
-                        lease,
-                    ),
-                    cancel,
-                );
-                match submitted {
-                    Ok(task) => active.push_back((rx, task)),
-                    Err(error) => {
-                        teardown_ordered_streams(&child_token, Some(rx), None, active);
-                        return Err(error);
-                    }
-                }
-            }
+                                })
+                            },
+                            lease,
+                        ),
+                        cancel,
+                    )?;
+                Ok(Some((rx, task)))
+            };
             let mut merged_counts = scan::ScanBatchCounts::default();
             let mut total_pruned = 0_u64;
             let mut matched_vecs = Vec::new();
-            drain_ordered_streams(
+            run_ordered_streams(
+                workers,
                 &child_token,
-                active,
                 context,
+                &mut submit_next,
                 &mut |counts, (pruned, worker_matched)| {
                     total_pruned += pruned;
                     if let Some(m) = worker_matched {
@@ -2154,7 +2106,7 @@ pub(super) fn try_run_parallel_join<'a>(
                 )?;
             }
             merged_counts.merge_into(metrics)?;
-            if *finite_float_predicate {
+            if finite_float_predicate {
                 add(&metrics.pipeline.finite_float_scans, 1)?;
             }
             metrics
@@ -2172,6 +2124,8 @@ pub(super) fn try_run_parallel_join<'a>(
             context.record_native_join_work(&sealed_join.join_work()?)?;
             Ok(None)
         }
+        #[cfg(feature = "vortex-write")]
+        _ => unreachable!("admitted join plan matches target variant"),
     }
 }
 

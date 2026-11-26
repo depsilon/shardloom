@@ -187,10 +187,28 @@ class ProcessAndEvidenceTests(unittest.TestCase):
         self.assertFalse(receipt["children_drained"])
 
     def test_nonzero_exit_and_deadline_never_receive_pass_credit(self) -> None:
-        with self.assertRaisesRegex(RuntimeError, "failed with"):
-            self.run_case(f"print({self.log!r})\nraise SystemExit(1)\n")
+        failing_output = (
+            "running 1 test\n"
+            "test alpha::broken ... FAILED\n\n"
+            "failures:\n\n"
+            "---- alpha::broken stdout ----\n"
+            "thread 'alpha::broken' panicked at line 42: boom\n\n"
+            "failures:\n"
+            "    alpha::broken\n\n"
+            "test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out\n"
+        )
+        import io
+        stderr = io.StringIO()
+        with patch.object(native.sys, "stderr", stderr):
+            with self.assertRaisesRegex(RuntimeError, "failed with"):
+                self.run_case(f"print({failing_output!r}, end='')\nraise SystemExit(101)\n")
+        self.assertIn("test alpha::broken ... FAILED", stderr.getvalue())
+        self.assertIn("panicked at line 42: boom", stderr.getvalue())
+        log = self.results / "0/tests.log"
+        self.assertEqual(log.read_text(), failing_output)
         receipt = json.loads((self.results / "0/report.json").read_text())
         self.assertEqual(receipt["status"], "failed")
+        self.assertEqual(receipt["log_sha256"], native.sha(log))
         self.results = self.root / "timeout-results"
         with self.assertRaisesRegex(RuntimeError, "deadline"):
             self.run_case("import time\ntime.sleep(30)\n", timeout=0.01)
