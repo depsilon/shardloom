@@ -17,6 +17,7 @@ class IntegrationSelectionTests(unittest.TestCase):
     def test_installed_proof_requires_connected_and_independent_client_suites(self):
         names = ("test_native_binding", "test_connected_programming", "test_native_function_catalog",
                  "test_native_observations", "test_native_standard_adapters", "test_native_result_schema", "test_query_surface_native",
+                 "test_native_parquet_agg_and_join_filter",
                  "test_recursion_policy", "test_public_context", "test_wide_schema",
                  "test_ai_data_workflows", "test_foundry_native_adapter")
         with tempfile.TemporaryDirectory() as directory:
@@ -33,6 +34,7 @@ class IntegrationSelectionTests(unittest.TestCase):
             for name in (
                 "test_native_standard_adapters",
                 "test_native_result_schema",
+                "test_native_parquet_agg_and_join_filter",
                 "test_public_context",
                 "test_wide_schema",
                 "test_ai_data_workflows",
