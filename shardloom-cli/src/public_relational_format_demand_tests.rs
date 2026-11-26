@@ -549,3 +549,319 @@ fn public_streaming_json_preserves_exact_uint64_and_schema_bearing_empty_inputs(
         assert!(Fixture::prepare(&request).is_err());
     }
 }
+
+#[test]
+#[allow(
+    clippy::too_many_lines,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss
+)]
+fn public_parquet_parallel_aggregate_and_early_join_filter_evidence() {
+    use arrow_array::{Int64Array, RecordBatch, StringArray};
+    use arrow_schema::{DataType, Field, Schema};
+    use parquet::{
+        arrow::ArrowWriter,
+        file::properties::{EnabledStatistics, WriterProperties},
+    };
+    use std::collections::BTreeMap;
+    use std::sync::Arc;
+
+    let fixture = Fixture::new();
+    let fact_path = fixture.0.join("fact.parquet");
+    let dim_path = fixture.0.join("dim.parquet");
+    let total_rows = 16_384_usize;
+
+    let fact_schema = Arc::new(Schema::new(vec![
+        Field::new("id", DataType::Int64, false),
+        Field::new("grp", DataType::Int64, false),
+        Field::new("val", DataType::Int64, false),
+        Field::new("wide", DataType::Utf8, false),
+    ]));
+    let fact_batch = RecordBatch::try_new(
+        Arc::clone(&fact_schema),
+        vec![
+            Arc::new(Int64Array::from_iter_values(
+                (0..total_rows).map(|i| (i % 512) as i64),
+            )),
+            Arc::new(Int64Array::from_iter_values(
+                (0..total_rows).map(|i| (i % 4) as i64),
+            )),
+            Arc::new(Int64Array::from_iter_values(
+                (0..total_rows).map(|i| (i % 10) as i64),
+            )),
+            Arc::new(StringArray::from_iter_values(
+                (0..total_rows).map(|i| format!("wide-row-{i:05}-{}", "w".repeat(48))),
+            )),
+        ],
+    )
+    .unwrap();
+    let props = WriterProperties::builder()
+        .set_max_row_group_row_count(Some(4_096))
+        .set_statistics_enabled(EnabledStatistics::Chunk)
+        .build();
+    let file = fs::File::create(&fact_path).unwrap();
+    let mut writer = ArrowWriter::try_new(file, fact_schema, Some(props)).unwrap();
+    writer.write(&fact_batch).unwrap();
+    writer.close().unwrap();
+
+    let dim_schema = Arc::new(Schema::new(vec![
+        Field::new("id", DataType::Int64, false),
+        Field::new("tier", DataType::Utf8, false),
+        Field::new("region", DataType::Int64, false),
+    ]));
+    let dim_batch = RecordBatch::try_new(
+        Arc::clone(&dim_schema),
+        vec![
+            Arc::new(Int64Array::from_iter_values((0..256_usize).map(|i| {
+                if i < 80 {
+                    (i * 5) as i64
+                } else {
+                    (i + 1000) as i64
+                }
+            }))),
+            Arc::new(StringArray::from_iter_values(
+                (0..256_usize).map(|i| if i < 80 { "keep" } else { "drop" }),
+            )),
+            Arc::new(Int64Array::from_iter_values(
+                (0..256_usize).map(|i| (i % 2) as i64),
+            )),
+        ],
+    )
+    .unwrap();
+    let dim_file = fs::File::create(&dim_path).unwrap();
+    let mut dim_writer = ArrowWriter::try_new(dim_file, dim_schema, None).unwrap();
+    dim_writer.write(&dim_batch).unwrap();
+    dim_writer.close().unwrap();
+
+    // 1. Track A1+A2 through public SQL command + CLI report fields.
+    let agg_sql = format!(
+        "SELECT grp, COUNT(*) AS cnt, SUM(val) AS sum_v, MIN(val) AS min_v, MAX(val) AS max_v \
+         FROM '{}' GROUP BY grp ORDER BY grp",
+        fact_path.display()
+    );
+    let mut agg_req = Fixture::request(&fact_path, "parquet", &agg_sql);
+    agg_req.resources.memory_bytes = Some((128_u64 << 20).to_string());
+    agg_req.resources.max_parallelism = Some("4".into());
+    let agg_collected = Fixture::prepare(&agg_req)
+        .unwrap()
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    let mut expected_agg: BTreeMap<i64, (i64, i64, i64, i64)> = BTreeMap::new();
+    for i in 0..total_rows {
+        let g = (i % 4) as i64;
+        let v = (i % 10) as i64;
+        let entry = expected_agg.entry(g).or_insert((0, 0, v, v));
+        entry.0 += 1;
+        entry.1 += v;
+        entry.2 = entry.2.min(v);
+        entry.3 = entry.3.max(v);
+    }
+    let actual_agg: Vec<serde_json::Value> = agg_collected
+        .result_jsonl
+        .value()
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    assert_eq!(actual_agg.len(), 4);
+    for (row, (g, (cnt, sum_v, min_v, max_v))) in actual_agg.iter().zip(&expected_agg) {
+        assert_eq!(row["grp"].as_i64(), Some(*g));
+        assert_eq!(row["cnt"].as_i64(), Some(*cnt));
+        assert_eq!(row["sum_v"].as_f64(), Some(*sum_v as f64));
+        assert_eq!(row["min_v"].as_i64(), Some(*min_v));
+        assert_eq!(row["max_v"].as_i64(), Some(*max_v));
+    }
+    let agg_fields: BTreeMap<String, String> =
+        crate::native::execution_fields(&agg_collected.execution, false)
+            .into_iter()
+            .collect();
+    assert_eq!(
+        agg_fields.get("fallback_attempted").map(String::as_str),
+        Some("false")
+    );
+    assert_eq!(
+        agg_fields
+            .get("external_engine_invoked")
+            .map(String::as_str),
+        Some("false")
+    );
+    let workers: u64 = agg_fields["native_input_parquet_parallel_workers"]
+        .parse()
+        .unwrap();
+    let states: u64 = agg_fields["native_input_parquet_persistent_aggregate_states"]
+        .parse()
+        .unwrap();
+    let merged: u64 = agg_fields["native_input_parquet_aggregate_partial_groups_merged"]
+        .parse()
+        .unwrap();
+    assert!(workers >= 2, "workers={workers}");
+    assert!(states >= 2, "states={states}");
+    assert!(merged >= 1, "merged={merged}");
+    assert_eq!(
+        agg_fields
+            .get("native_source_demand_rows_decoded")
+            .map(String::as_str),
+        Some("16384")
+    );
+
+    // 2. Also exercise full public CLI `command_json` SQL route for Track A1+A2.
+    let cli_json = crate::native::command_json(vec![
+        "run".into(),
+        "sql".into(),
+        "--sql".into(),
+        agg_sql,
+        "--input".into(),
+        fact_path.display().to_string(),
+        "--input-format".into(),
+        "parquet".into(),
+        "--request".into(),
+        "collect".into(),
+        "--bounded".into(),
+        "true".into(),
+        "--memory-bytes".into(),
+        (128_u64 << 20).to_string(),
+        "--max-parallelism".into(),
+        "4".into(),
+    ])
+    .unwrap();
+    let cli_env: serde_json::Value = serde_json::from_str(&cli_json).unwrap();
+    assert_eq!(cli_env["status"], "success");
+    assert_eq!(cli_env["fallback"]["attempted"], false);
+    let cli_fields: BTreeMap<String, String> = cli_env["fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| {
+            (
+                entry["key"].as_str().unwrap().to_string(),
+                entry["value"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect();
+    assert!(
+        cli_fields["native_input_parquet_parallel_workers"]
+            .parse::<u64>()
+            .unwrap()
+            >= 2
+    );
+    assert!(
+        cli_fields["native_input_parquet_persistent_aggregate_states"]
+            .parse::<u64>()
+            .unwrap()
+            >= 2
+    );
+
+    // 3. Track B1+B2 through public CLI join_aggregate SQL route.
+    let join_sql = format!(
+        "SELECT d.region AS region, SUM(f.val) AS sum_v \
+         FROM '{}' AS f INNER JOIN '{}' AS d ON f.id = d.id \
+         WHERE d.tier = 'keep' GROUP BY d.region ORDER BY d.region",
+        fact_path.display(),
+        dim_path.display()
+    );
+    let mut join_req = Fixture::request(&fact_path, "parquet", &join_sql);
+    join_req.resources.memory_bytes = Some((128_u64 << 20).to_string());
+    join_req.resources.max_parallelism = Some("4".into());
+    join_req.source_bindings = BTreeMap::from([
+        (
+            fact_path.display().to_string(),
+            super::super::super::PublicSourceBinding {
+                input_format: "parquet".into(),
+                source_schema: None,
+                memory_input: None,
+                table_snapshot: None,
+            },
+        ),
+        (
+            dim_path.display().to_string(),
+            super::super::super::PublicSourceBinding {
+                input_format: "parquet".into(),
+                source_schema: None,
+                memory_input: None,
+                table_snapshot: None,
+            },
+        ),
+    ]);
+    let join_collected = Fixture::prepare(&join_req)
+        .unwrap()
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    let mut expected_join = [0_i64; 2];
+    for i in 0..total_rows {
+        let id = i % 512;
+        if id <= 395 && id.is_multiple_of(5) {
+            let reg = (id / 5) % 2;
+            expected_join[reg] += (i % 10) as i64;
+        }
+    }
+    let actual_join: Vec<serde_json::Value> = join_collected
+        .result_jsonl
+        .value()
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    assert_eq!(actual_join.len(), 2);
+    for r in [0_usize, 1] {
+        assert_eq!(actual_join[r]["region"].as_i64(), Some(r as i64));
+        assert_eq!(
+            actual_join[r]["sum_v"].as_f64(),
+            Some(expected_join[r] as f64)
+        );
+    }
+    let join_fields: BTreeMap<String, String> =
+        crate::native::execution_fields(&join_collected.execution, false)
+            .into_iter()
+            .collect();
+    assert_eq!(
+        join_fields
+            .get("native_input_parquet_key_filter_rows_decoded")
+            .map(String::as_str),
+        Some("16384")
+    );
+    let payload_decoded: u64 = join_fields["native_input_parquet_payload_rows_decoded"]
+        .parse()
+        .unwrap();
+    assert!(
+        payload_decoded < total_rows as u64,
+        "payload_decoded={payload_decoded}"
+    );
+    let join_work: serde_json::Value =
+        serde_json::from_str(&join_fields["local_primitive_native_io_join_work_json"]).unwrap();
+    assert!(
+        join_work["direct_aggregate"]["probe_filters_pushed"]
+            .as_u64()
+            .unwrap()
+            >= 1
+    );
+
+    // 4. Non-Parquet arrow-ipc control: omit native_input_parquet_* while preserving native_source_demand_*.
+    let ipc_path = fixture.0.join("control.arrow-ipc");
+    Fixture::write(&ipc_path, "arrow-ipc");
+    let mut ipc_req = Fixture::request(
+        &ipc_path,
+        "arrow-ipc",
+        format!(
+            "SELECT id, SUM(value) AS sum_v FROM '{}' GROUP BY id ORDER BY id",
+            ipc_path.display()
+        ),
+    );
+    ipc_req.resources.max_parallelism = Some("4".into());
+    let ipc_collected = Fixture::prepare(&ipc_req)
+        .unwrap()
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    let ipc_fields: BTreeMap<String, String> =
+        crate::native::execution_fields(&ipc_collected.execution, false)
+            .into_iter()
+            .collect();
+    assert!(
+        ipc_fields
+            .keys()
+            .all(|k| !k.starts_with("native_input_parquet_"))
+    );
+    assert_eq!(
+        ipc_fields
+            .get("native_source_demand_rows_decoded")
+            .map(String::as_str),
+        Some("4")
+    );
+}

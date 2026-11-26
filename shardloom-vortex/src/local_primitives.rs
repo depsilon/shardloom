@@ -191,7 +191,7 @@ mod native_relational_aggregate_kind;
 mod native_relational_aggregate_spill;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_batch.rs"]
-mod native_relational_batch;
+pub(crate) mod native_relational_batch;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_expression.rs"]
 mod native_relational_expression;
@@ -227,7 +227,7 @@ mod native_relational_order;
 mod native_relational_output_buffer;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_probe_filter.rs"]
-mod native_relational_probe_filter;
+pub(crate) mod native_relational_probe_filter;
 #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
 #[path = "local_primitives/native_relational_record_output.rs"]
 mod native_relational_record_output;
@@ -50373,7 +50373,7 @@ fn order_conjunction_predicates(predicates: &[PredicateExpr]) -> Vec<&PredicateE
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-fn predicate_to_vortex_expr(
+pub(crate) fn predicate_to_vortex_expr(
     predicate: &PredicateExpr,
     dtype: &vortex::array::dtype::DType,
     primitive_kind: VortexQueryPrimitiveKind,

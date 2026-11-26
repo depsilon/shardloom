@@ -262,6 +262,14 @@ precedes all unfinished item 20 work. Remaining deep traversal is deferred until
 after Foundry integration under the November 17 maintainer reprioritization. Item 20 obligations absorbed into that plan are
 handled there; every unabsorbed remainder follows it, including capability,
 workflow, performance and acceptance work recorded in the historical notes.
+A bounded prospective item-20 follow-on is active for direct Parquet
+aggregation concurrency, durable aggregate-state lifetime across decoder
+batches, and early key-first runtime-filter propagation including
+`join_aggregate`
+([design note](native-direct-parquet-agg-runtime-filter-2026-11-25.md)); this
+scoped work leaves November 16 retired campaigns, Chrysalis (`PR #1699`), closed
+Resonance, deferred finite `PulseWeave` feedback, and separate
+portable-serverless/Foundry acceptance unchanged.
 
 - [x] **Direct join aggregate — hosted integration**
   Status: Complete — [PR #1696](https://github.com/depsilon/shardloom/pull/1696)
@@ -2299,6 +2307,50 @@ visible and independent; this implementation does not automatically close them.
     and the performance checklist immediately below. Capability PRs do not close
     the performance track. Both unfinished tracks follow the November 17
     incorporation plan except for obligations absorbed into that plan itself.
+  - **Direct-Parquet aggregation and early join-filter follow-on (`2026-11-25`):**
+    anchored against `dd7b441998430aebbcf61bbb3879cc54c339d0af` (crediting
+    existing `E2E-FIX-01`, `E2E-PERF-02`, `E2E-PERF-04`, `E2E-PERF-05A`,
+    `join_aggregate`, and Chrysalis `PR #1699`; locally retained in this
+    branch — see [design note](native-direct-parquet-agg-runtime-filter-2026-11-25.md)
+    and [benchmark record](../benchmarks/native-direct-parquet-agg-runtime-filter-2026-11-25.md)):
+    - **Track A1 — Demanded Parquet concurrency:** admitted multi-row-group demanded
+      Parquet work (`demanded.rs` + `local_primitive_relational_batch_input.rs`
+      + `local_primitive_relational_batch_parallel.rs`) onto
+      `ResidentVortexSession::shared_compute_pool` within the shared
+      `max_parallelism` and `LiveMemoryPool` envelope with explicit ordered
+      delivery when order-sensitive consumers require it, bounded WIP, replay
+      fidelity, and explicit single-thread declines.
+    - **Track A2 — Durable aggregate-state lifetime:** persisted contiguous-range
+      worker-local typed `Aggregate` state across `8,192`-row decoder batches and
+      merged in strict monotonic range order (`0..M-1`) via `Aggregate::merge_from`
+      to preserve global first-seen group order, while declining order-sensitive
+      `Float` `SUM`/`AVG` onto ordered parallel decode -> serial
+      `Aggregate::consume`.
+    - **Track B1 — Early Parquet key-first filtering before payload decode:**
+      pushed admitted `ProbeRuntimeFilter` (`empty_build`, `key_predicate`,
+      `ProbeBloomFilter`) through key-only decode -> exact native predicate +
+      `Batch::hash` evaluation -> exact `RowSelection` payload decode
+      when demanded-domain validation guarantees permit skipping payload rows,
+      while gating early filtering on `!all_covered` and keeping Chrysalis
+      complete-extent publication conservative (`ticket = None` on filtered
+      selections; reuse complete Chrysalis coverage without Parquet decode).
+    - **Track B2 — `join_aggregate` early filter propagation:** projected
+      completed dimension `ProbeRuntimeFilter`s through `stage.probe`
+      (`origin.source == 0`) to `self.fact` via `prepared.run_with_probe_filters`
+      on both direct unique-key aggregation and duplicate/representation
+      fallback paths (`fact_probe_filter_target`, `stage_validation_infallible`,
+      and `fact_chunk_subranges`).
+    - **Local complete-cohort result (engine time only):** all 14 frozen
+      Parquet/Vortex/IPC queries passed oracle verification with
+      `fallback_attempted = false` and strictly lower `engine_execution_seconds`
+      (cold CLI `1.933791543s -> 0.949083623s`, `-50.92%`; warm resident
+      `1.915099168s -> 0.921524043s`, `-51.88%`; Python embedded smoke `3/3`
+      passed; isolated installed-wheel suite `493/493` passed).
+    - **Scope boundaries preserved:** November 16 retired campaigns and their
+      observations are preserved untouched; no blanket physical-reader, spill,
+      reuse, scale, `Full43`, or `full10k` campaign is reopened, and
+      Chrysalis/Resonance/`PulseWeave`/portable-serverless/Foundry dispositions
+      remain unchanged.
     Historically, the October 29 maintainer ordering was to finish
     the active recursive/materialized composition unit and its acceptance, then
     run the seven performance candidates before explicit batch-function work.

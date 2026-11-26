@@ -136,26 +136,28 @@ class NativeJoinAggregateTests(unittest.TestCase):
                             self.assertEqual(work["strategy"], "exact_unique_inner_matches_in_original_update_order")
                             self.assertEqual(work["chains_considered"], 1)
                             self.assertEqual(work["chains_declined_duplicates"], 0)
+                            self.assertEqual(work["probe_filters_pushed"], 2)
                             if extension != "vortex":
                                 self.assertGreater(work["source_batches_direct"], 0)
                                 self.assertEqual(work["source_batches_declined"], 0)
                                 self.assertEqual(work["aggregate_rows"], 4)
-                                self.assertEqual(work["match_rows"], 10 if reverse else 9)
-                                self.assertEqual(work["validated_cells"], 30 if reverse else 27)
+                                self.assertEqual(work["match_rows"], 8)
+                                self.assertEqual(work["validated_cells"], 24)
                             else:
                                 # The normal writer chooses encodings. Admission
                                 # follows those owners without forcing a codec.
                                 self.assertGreater(work["source_batches_direct"] + work["source_batches_declined"], 0)
                                 if work["aggregate_rows"]:
+                                    stage0_matches = 4 if work["probe_filters_pushed"] >= 2 else (6 if reverse else 5)
                                     self.assertEqual(work["aggregate_rows"], 4)
-                                    self.assertEqual(work["match_rows"], 10 if reverse else 9)
+                                    self.assertEqual(work["match_rows"], stage0_matches + 4)
                                     # The public declarations retain different
                                     # intermediate fields before the final pure
                                     # projection. Each still owes its own checks.
                                     first, final = {"dataframe": (5, 6),
                                                     "typed_relation": (4, 3)}.get(surface, (4, 5))
                                     self.assertEqual(work["validated_cells"],
-                                                     (6 if reverse else 5) * first + 4 * final)
+                                                     stage0_matches * first + 4 * final)
                             observed.append({key: value for key, value in work.items()
                                              if key != "validated_cells"})
                     self.assertEqual(len(observed), len(SURFACES))

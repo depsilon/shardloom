@@ -19,9 +19,34 @@ mod cache_tests;
 #[path = "native_relational_set_inline_cache_tests.rs"]
 mod inline_cache_tests;
 
+pub(super) enum SharedRef<'a, T: ?Sized + 'static> {
+    Borrowed(&'a T),
+    Shared(std::sync::Arc<T>),
+}
+
+impl<T: ?Sized + 'static> Clone for SharedRef<'_, T> {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Borrowed(value) => Self::Borrowed(value),
+            Self::Shared(arc) => Self::Shared(std::sync::Arc::clone(arc)),
+        }
+    }
+}
+
+impl<T: ?Sized + 'static> std::ops::Deref for SharedRef<'_, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Borrowed(value) => value,
+            Self::Shared(arc) => arc,
+        }
+    }
+}
+
 pub(super) struct RowSet<'a> {
-    fields: &'a [(String, DType)],
-    names: &'a [String],
+    fields: SharedRef<'a, [(String, DType)]>,
+    names: SharedRef<'a, [String]>,
     nulls_equal: bool,
     table: Table,
     index: RowIndex,
@@ -36,6 +61,20 @@ impl<'a> RowSet<'a> {
         Self::with_nulls_equal(fields, names, true, memory)
     }
 
+    pub(super) fn new_shared(
+        fields: std::sync::Arc<[(String, DType)]>,
+        names: std::sync::Arc<[String]>,
+        memory: &LiveMemoryPool,
+    ) -> Result<RowSet<'static>> {
+        Ok(RowSet {
+            fields: SharedRef::Shared(fields),
+            names: SharedRef::Shared(names),
+            nulls_equal: true,
+            table: Table::new(memory)?,
+            index: RowIndex::new(memory)?,
+        })
+    }
+
     pub(super) fn with_nulls_equal(
         fields: &'a [(String, DType)],
         names: &'a [String],
@@ -43,8 +82,8 @@ impl<'a> RowSet<'a> {
         memory: &LiveMemoryPool,
     ) -> Result<Self> {
         Ok(Self {
-            fields,
-            names,
+            fields: SharedRef::Borrowed(fields),
+            names: SharedRef::Borrowed(names),
             nulls_equal,
             table: Table::new(memory)?,
             index: RowIndex::new(memory)?,
@@ -174,9 +213,9 @@ impl<'a> RowSet<'a> {
             )
         });
         let batch = if self.nulls_equal && other.is_none() {
-            Batch::for_membership(array, self.names, context)?
+            Batch::for_membership(array, &self.names, context)?
         } else {
-            Batch::new(array, self.names, context)?
+            Batch::new(array, &self.names, context)?
         };
         #[cfg(test)]
         drop(preparation_cost);
@@ -269,9 +308,9 @@ impl<'a> RowSet<'a> {
         drop(cache);
         for rows in selected.values.chunks(batch_rows) {
             context.check_cancelled()?;
-            let array = batch.gather(self.fields, rows, context)?;
+            let array = batch.gather(&self.fields, rows, context)?;
             self.table
-                .push(Batch::new(array.clone(), self.names, context)?)?;
+                .push(Batch::new(array.clone(), &self.names, context)?)?;
             if let Some(consume) = consume.as_mut() {
                 consume(array)?;
             }

@@ -63,7 +63,7 @@ use super::{
     native_relational_batch::{failed, index_array},
     native_relational_expression::{keys, parent_validity},
     native_relational_keys::{Cell, KeyColumn, compare_cells, validate_finite_scalar},
-    native_relational_set::RowSet,
+    native_relational_set::{RowSet, SharedRef},
     result_batch::{self, Value},
     vortex_error,
 };
@@ -132,6 +132,75 @@ impl Spec {
     }
 
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub(super) fn admits_parallel_range_merge(&self) -> bool {
+        if self.measures.is_empty() {
+            return !self.groups.is_empty() && self.groups.len() == self.group_names.len();
+        }
+        self.measures.iter().all(|measure| {
+            !measure.function.is_distinct()
+                && !measure.function.is_quantile()
+                && !measure.function.is_moment()
+                && !measure.function.is_selector()
+                && !measure.function.is_collection()
+                && measure.distinct_fields.is_empty()
+                && measure.quantile_level.is_none()
+                && measure.selection.is_none()
+                && measure.separator.is_none()
+                && measure.secondary_column.is_none()
+                && !native_payload::is_nested(&measure.dtype)
+                && match measure.function {
+                    Function::Count => {
+                        measure.dtype
+                            == DType::Primitive(
+                                PType::U64,
+                                vortex::array::dtype::Nullability::NonNullable,
+                            )
+                    }
+                    Function::Sum | Function::Avg => {
+                        measure.decimal_source.is_some()
+                            || measure
+                                .input_ptype
+                                .is_some_and(|ptype| ptype.is_int() && ptype != PType::F16)
+                    }
+                    Function::Min | Function::Max => measure.column.is_some(),
+                    _ => false,
+                }
+        })
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub(super) fn try_clone_for_parallel_merge(&self) -> Option<std::sync::Arc<Self>> {
+        if !self.admits_parallel_range_merge() {
+            return None;
+        }
+        let measures = self
+            .measures
+            .iter()
+            .map(|measure| Measure {
+                function: measure.function,
+                column: measure.column.clone(),
+                secondary_column: measure.secondary_column.clone(),
+                quantile_level: None,
+                separator: measure.separator.clone(),
+                filter_column: measure.filter_column.clone(),
+                selection: None,
+                dtype: measure.dtype.clone(),
+                input_ptype: measure.input_ptype,
+                decimal_source: measure.decimal_source,
+                decimal_output: measure.decimal_output,
+                distinct_fields: Vec::new(),
+                distinct_names: measure.distinct_names.clone(),
+            })
+            .collect();
+        Some(std::sync::Arc::new(Self {
+            fields: self.fields.clone(),
+            groups: self.groups.clone(),
+            group_names: self.group_names.clone(),
+            measures,
+        }))
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     pub(super) fn is_scalar_count_all(&self) -> bool {
         self.groups.is_empty()
             && self.group_names.is_empty()
@@ -149,7 +218,7 @@ impl Spec {
     }
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct State {
     count: u64,
     sum: NumericAggregateSum,
@@ -211,7 +280,7 @@ impl PreparedColumn<'_> {
 }
 
 pub(super) struct Aggregate<'a> {
-    spec: &'a Spec,
+    spec: SharedRef<'a, Spec>,
     groups: Option<RowSet<'a>>,
     states: ReservedVec<State>,
     compact: Option<compact::Table>,
@@ -228,7 +297,15 @@ pub(super) struct Aggregate<'a> {
 
 impl<'a> Aggregate<'a> {
     pub(super) fn new(spec: &'a Spec, memory: &LiveMemoryPool) -> Result<Self> {
-        Self::with_distinct_sets(spec, memory, true)
+        Self::with_distinct_sets(SharedRef::Borrowed(spec), memory, true)
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub(super) fn new_shared(
+        spec: std::sync::Arc<Spec>,
+        memory: &LiveMemoryPool,
+    ) -> Result<Aggregate<'static>> {
+        Aggregate::with_distinct_sets(SharedRef::Shared(spec), memory, true)
     }
 
     /// The source lifecycle proves exact cardinality before this scalar update.
@@ -257,11 +334,11 @@ impl<'a> Aggregate<'a> {
         if !spec.group_names.is_empty() || !spec.groups.is_empty() {
             return Err(failed("ordered reducer requires one scalar group"));
         }
-        Self::with_distinct_sets(spec, memory, false)
+        Self::with_distinct_sets(SharedRef::Borrowed(spec), memory, false)
     }
 
     fn with_distinct_sets(
-        spec: &'a Spec,
+        spec: SharedRef<'a, Spec>,
         memory: &LiveMemoryPool,
         track_distinct: bool,
     ) -> Result<Self> {
@@ -273,19 +350,34 @@ impl<'a> Aggregate<'a> {
             }
             None
         } else {
-            Some(RowSet::new(&spec.groups, &spec.group_names, memory)?)
+            let group_fields = std::sync::Arc::<[(String, DType)]>::from(spec.groups.as_slice());
+            let group_names = std::sync::Arc::<[String]>::from(spec.group_names.as_slice());
+            Some(match &spec {
+                SharedRef::Borrowed(borrowed) => {
+                    let _ = (group_fields, group_names);
+                    RowSet::new(&borrowed.groups, &borrowed.group_names, memory)?
+                }
+                SharedRef::Shared(_) => RowSet::new_shared(group_fields, group_names, memory)?,
+            })
         };
         let mut distinct = ReservedVec::new(memory)?;
         distinct.reserve(spec.measures.len())?;
-        for measure in &spec.measures {
+        for (measure_index, measure) in spec.measures.iter().enumerate() {
             distinct
                 .values
                 .push(if track_distinct && measure.function.is_distinct() {
-                    Some(RowSet::new(
-                        &measure.distinct_fields,
-                        &measure.distinct_names,
-                        memory,
-                    )?)
+                    Some(match &spec {
+                        SharedRef::Borrowed(borrowed) => RowSet::new(
+                            &borrowed.measures[measure_index].distinct_fields,
+                            &borrowed.measures[measure_index].distinct_names,
+                            memory,
+                        )?,
+                        SharedRef::Shared(_) => RowSet::new_shared(
+                            std::sync::Arc::from(measure.distinct_fields.as_slice()),
+                            std::sync::Arc::from(measure.distinct_names.as_slice()),
+                            memory,
+                        )?,
+                    })
                 } else {
                     None
                 });
@@ -318,6 +410,10 @@ impl<'a> Aggregate<'a> {
             }
             Some(totals)
         };
+        let statistics = statistics::Table::new(&spec, memory)?;
+        let quantiles = quantiles::Table::new(&spec, memory, !track_distinct)?;
+        let selections = selections::Table::new(&spec, memory)?;
+        let collections = collections::Table::new(&spec, memory, !track_distinct)?;
         Ok(Self {
             spec,
             groups,
@@ -328,11 +424,205 @@ impl<'a> Aggregate<'a> {
             nested_extrema,
             decimal_totals,
             decimal_width,
-            statistics: statistics::Table::new(spec, memory)?,
-            quantiles: quantiles::Table::new(spec, memory, !track_distinct)?,
-            selections: selections::Table::new(spec, memory)?,
-            collections: collections::Table::new(spec, memory, !track_distinct)?,
+            statistics,
+            quantiles,
+            selections,
+            collections,
         })
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub(crate) fn partial_group_count(&self) -> u64 {
+        self.groups
+            .as_ref()
+            .map_or(1, |groups| groups.rows() as u64)
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[allow(clippy::too_many_lines)]
+    pub(super) fn merge_from(
+        &mut self,
+        other: Self,
+        context: &NativeExecutionContext<'_>,
+        batch_rows: usize,
+    ) -> Result<u64> {
+        context.check_cancelled()?;
+        if !self.spec.admits_parallel_range_merge() {
+            return Err(failed(
+                "aggregate specification does not admit contiguous-range state merge",
+            ));
+        }
+        if self.groups.is_none() {
+            if other.groups.is_some() {
+                return Err(failed("grouped and scalar aggregate states cannot merge"));
+            }
+            let mut decimal_index = 0_usize;
+            for (measure_index, measure) in self.spec.measures.iter().enumerate() {
+                if measure.decimal_source.is_some() {
+                    let slot = decimal_index;
+                    decimal_index += 1;
+                    let src_totals = other
+                        .decimal_totals
+                        .as_ref()
+                        .ok_or_else(|| failed("decimal source total absent during merge"))?;
+                    let dst_totals = self
+                        .decimal_totals
+                        .as_mut()
+                        .ok_or_else(|| failed("decimal target total absent during merge"))?;
+                    dst_totals.values[slot].merge(&src_totals.values[slot])?;
+                } else {
+                    merge_plain_state(
+                        &mut self.states.values[measure_index],
+                        &other.states.values[measure_index],
+                        measure,
+                        context,
+                    )?;
+                }
+            }
+            return context.check_cancelled().map(|()| 1);
+        }
+        let other_rows = other
+            .groups
+            .as_ref()
+            .ok_or_else(|| failed("grouped and scalar aggregate states cannot merge"))?
+            .rows();
+        if other_rows == 0 {
+            return Ok(0);
+        }
+        let other_count =
+            u64::try_from(other_rows).map_err(|_| failed("partial group count overflow"))?;
+        if self
+            .groups
+            .as_ref()
+            .is_some_and(|groups| groups.rows() == 0)
+        {
+            *self = other;
+            return context.check_cancelled().map(|()| other_count);
+        }
+        let other_groups = other
+            .groups
+            .as_ref()
+            .ok_or_else(|| failed("grouped source rows absent during merge"))?;
+        let spec = self.spec.clone();
+        for (batch_start, batch) in other_groups.table().batches() {
+            context.check_cancelled()?;
+            let mapped = self
+                .groups
+                .as_mut()
+                .ok_or_else(|| failed("grouped target rows absent during merge"))?
+                .intern_rows(batch, context, batch_rows)?;
+            if spec.measures.is_empty() {
+                continue;
+            }
+            let total_groups = self.groups.as_ref().map_or(0, RowSet::rows);
+            self.reserve_states_for_merged(total_groups, context)?;
+            for (local_row, &target_group) in mapped.values.iter().enumerate() {
+                if local_row.is_multiple_of(1024) {
+                    context.check_cancelled()?;
+                }
+                let src_group = batch_start + local_row;
+                let mut decimal_index = 0_usize;
+                for (measure_index, measure) in spec.measures.iter().enumerate() {
+                    if measure.decimal_source.is_some() {
+                        let slot = decimal_index;
+                        decimal_index += 1;
+                        let src_total = other
+                            .decimal_totals
+                            .as_ref()
+                            .ok_or_else(|| failed("decimal source total absent during merge"))?
+                            .values[src_group * other.decimal_width + slot];
+                        let dst_totals = self
+                            .decimal_totals
+                            .as_mut()
+                            .ok_or_else(|| failed("decimal target total absent during merge"))?;
+                        dst_totals.values[target_group * self.decimal_width + slot]
+                            .merge(&src_total)?;
+                    } else {
+                        let src_state = other.extract_group_state(measure_index, src_group)?;
+                        self.merge_group_state(
+                            measure_index,
+                            measure,
+                            target_group,
+                            &src_state,
+                            context,
+                        )?;
+                    }
+                }
+            }
+        }
+        context.check_cancelled().map(|()| other_count)
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    fn reserve_states_for_merged(
+        &mut self,
+        groups: usize,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        let memory = context.memory();
+        let count = groups
+            .checked_mul(self.spec.measures.len())
+            .ok_or_else(|| failed("aggregate state cardinality overflow"))?;
+        if let Some(table) = &mut self.compact {
+            table.reserve_groups(groups, context)?;
+        } else if let Some(table) =
+            compact::Table::promote(&self.spec, &self.states.values, groups, context)?
+        {
+            self.compact = Some(table);
+            self.states = ReservedVec::new(memory)?;
+        } else {
+            self.states.reserve(count - self.states.values.len())?;
+            self.states.values.resize_with(count, State::default);
+        }
+        if let Some(totals) = &mut self.decimal_totals {
+            let decimal_count = groups
+                .checked_mul(self.decimal_width)
+                .ok_or_else(|| failed("decimal aggregate state cardinality overflow"))?;
+            totals.reserve(decimal_count - totals.values.len())?;
+            totals
+                .values
+                .resize(decimal_count, native_decimal_reduce::Total::default());
+        }
+        Ok(())
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    fn extract_group_state(&self, measure_index: usize, group: usize) -> Result<State> {
+        if let Some(table) = &self.compact {
+            return Ok(table.extract_state(measure_index, group));
+        }
+        let width = self.spec.measures.len();
+        self.states
+            .values
+            .get(group * width + measure_index)
+            .cloned()
+            .ok_or_else(|| failed("source aggregate state index absent during merge"))
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    fn merge_group_state(
+        &mut self,
+        measure_index: usize,
+        measure: &Measure,
+        target_group: usize,
+        src_state: &State,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        if let Some(table) = &mut self.compact {
+            if table.merge_state(measure_index, measure, target_group, src_state, context)? {
+                return Ok(());
+            }
+            table.restore(&self.spec, &mut self.states, context)?;
+            self.compact = None;
+            self.specialize = false;
+        }
+        let width = self.spec.measures.len();
+        merge_plain_state(
+            &mut self.states.values[target_group * width + measure_index],
+            src_state,
+            measure,
+            context,
+        )
     }
 
     fn reserve_states(
@@ -363,11 +653,11 @@ impl<'a> Aggregate<'a> {
             } else if self.specialize
                 && self.states.values.is_empty()
                 && let Some(table) =
-                    compact::Table::specialize_dtype(self.spec, dtype, groups.rows(), context)?
+                    compact::Table::specialize_dtype(&self.spec, dtype, groups.rows(), context)?
             {
                 self.compact = Some(table);
             } else if let Some(table) =
-                compact::Table::promote(self.spec, &self.states.values, groups.rows(), context)?
+                compact::Table::promote(&self.spec, &self.states.values, groups.rows(), context)?
             {
                 self.compact = Some(table);
                 // The new pages own complete old totals before these credits drop.
@@ -448,10 +738,10 @@ impl<'a> Aggregate<'a> {
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
         if let Some(table) = &self.compact
-            && !table.accepts_dtype(self.spec, dtype, context)
+            && !table.accepts_dtype(&self.spec, dtype, context)
         {
             // Keep old state and credit until ordinary storage is ready.
-            table.restore(self.spec, &mut self.states, context)?;
+            table.restore(&self.spec, &mut self.states, context)?;
             self.compact = None;
             self.specialize = false;
         }
@@ -508,7 +798,7 @@ impl<'a> Aggregate<'a> {
             self.quantiles
                 .as_mut()
                 .ok_or_else(|| failed("ordered quantile state is absent"))?
-                .consume_ordered(self.spec, measures, values, rows, context)?;
+                .consume_ordered(&self.spec, measures, values, rows, context)?;
         }
         Ok(())
     }
@@ -750,7 +1040,7 @@ impl<'a> Aggregate<'a> {
                 {
                     let input = prepared.as_ref().expect("numeric column is prepared");
                     if let Some(end) = table.consume_pair(
-                        self.spec,
+                        &self.spec,
                         measure_index,
                         ordinals,
                         &input.source,
@@ -772,7 +1062,7 @@ impl<'a> Aggregate<'a> {
                 let reuse_next = matches!(measure.function, Function::Sum | Function::Avg)
                     && matches!(values, Some(KeyColumn::Numeric(owner)) if owner.len() != 0)
                     && table.admit_next(
-                        self.spec,
+                        &self.spec,
                         measure_index,
                         array,
                         column.as_ref().expect("numeric input column is bound"),
@@ -900,7 +1190,7 @@ impl<'a> Aggregate<'a> {
             {
                 let reuse_next = owner.len() != 0
                     && numeric_reuse::admit_next(
-                        self.spec,
+                        &self.spec,
                         measure_index,
                         array,
                         column.as_ref().expect("numeric input column is bound"),
@@ -939,7 +1229,7 @@ impl<'a> Aggregate<'a> {
                 && let Some(KeyColumn::Numeric(owner)) = values
             {
                 if let Some(end) = extrema_pair::accumulate(
-                    self.spec,
+                    &self.spec,
                     measure_index,
                     &mut self.states.values,
                     ordinals,
@@ -1028,7 +1318,7 @@ impl<'a> Aggregate<'a> {
         let mut rows = ReservedVec::new(context.memory())?;
         rows.reserve(count.min(batch_rows))?;
         let collection_comparisons_prevalidated = if let Some(collections) = &self.collections {
-            collections.order_domains_prevalidated(self.spec, context)?
+            collections.order_domains_prevalidated(&self.spec, context)?
         } else {
             false
         };
@@ -1500,6 +1790,52 @@ fn update_count(state: &mut u64, count: u64) -> Result<()> {
     Ok(())
 }
 
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn merge_plain_state(
+    dst: &mut State,
+    src: &State,
+    measure: &Measure,
+    context: &NativeExecutionContext<'_>,
+) -> Result<()> {
+    let _ = context;
+    match measure.function {
+        Function::Count => update_count(&mut dst.count, src.count),
+        Function::Sum | Function::Avg => {
+            update_count(&mut dst.count, src.count)?;
+            dst.specials.merge(src.specials)?;
+            dst.sum.merge(src.sum);
+            if !dst.sum.is_finite() {
+                return Err(failed("aggregate sum became nonfinite"));
+            }
+            Ok(())
+        }
+        Function::Min | Function::Max => {
+            let Some(src_extreme) = &src.extreme else {
+                return Ok(());
+            };
+            update_count(&mut dst.count, src.count)?;
+            let replace = match &dst.extreme {
+                None => true,
+                Some(prior) => {
+                    let order = compare_cells(src_extreme.clone(), prior.clone())?;
+                    if measure.function == Function::Min {
+                        order.is_lt()
+                    } else {
+                        order.is_gt()
+                    }
+                }
+            };
+            if replace {
+                dst.extreme = Some(src_extreme.clone());
+            }
+            Ok(())
+        }
+        _ => Err(failed(
+            "aggregate function does not admit contiguous-range state merge",
+        )),
+    }
+}
+
 fn update(
     state: &mut State,
     measure: &Measure,
@@ -1821,5 +2157,328 @@ mod ownership_tests {
         );
         drop(selected);
         assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
+mod track_a_merge_tests {
+    use super::*;
+    use crate::resident_session::ResidentVortexSession;
+    use shardloom_exec::compute_pool::CancellationToken;
+    use vortex::array::{
+        VortexSessionExecute as _,
+        arrays::{DecimalArray, PrimitiveArray, StructArray, struct_::StructArrayExt as _},
+        dtype::{DecimalDType, FieldNames, Nullability},
+        scalar::Scalar,
+        validity::Validity,
+    };
+    use vortex::buffer::Buffer;
+
+    fn collect_scalars(
+        aggregate: &Aggregate<'_>,
+        context: &NativeExecutionContext<'_>,
+        column: usize,
+    ) -> Vec<Scalar> {
+        let mut execution = vortex::session::VortexSession::empty().create_execution_ctx();
+        let mut values = Vec::new();
+        aggregate
+            .finish(context, 1024, &mut |batch| {
+                let struct_array = batch.as_opt::<vortex::array::arrays::Struct>().unwrap();
+                let col = struct_array.unmasked_field(column);
+                for row in 0..col.len() {
+                    values.push(
+                        col.execute_scalar(row, &mut execution)
+                            .map_err(vortex_error)?,
+                    );
+                }
+                Ok(())
+            })
+            .unwrap();
+        values
+    }
+
+    #[test]
+    fn merge_from_preserves_first_seen_negative_zero_versus_positive_zero_bits() {
+        let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+        let float_dtype = DType::Primitive(PType::F64, Nullability::Nullable);
+        for function in [Function::Min, Function::Max] {
+            for (first_bits, second_bits) in [
+                ((-0.0_f64).to_bits(), 0.0_f64.to_bits()),
+                (0.0_f64.to_bits(), (-0.0_f64).to_bits()),
+            ] {
+                let mk_measure = || Measure {
+                    function,
+                    column: Some("v".into()),
+                    secondary_column: None,
+                    quantile_level: None,
+                    separator: None,
+                    filter_column: None,
+                    selection: None,
+                    dtype: float_dtype.clone(),
+                    input_ptype: Some(PType::F64),
+                    decimal_source: None,
+                    decimal_output: None,
+                    distinct_fields: vec![],
+                    distinct_names: vec![],
+                };
+                let scalar_spec = std::sync::Arc::new(Spec {
+                    fields: vec![("ext".into(), float_dtype.clone())],
+                    groups: vec![],
+                    group_names: vec![],
+                    measures: vec![mk_measure()],
+                });
+                let batch_from = |value: f64| {
+                    StructArray::try_new(
+                        FieldNames::from(["g", "v"]),
+                        vec![
+                            PrimitiveArray::from_iter([1_i64]).into_array(),
+                            PrimitiveArray::from_iter([value]).into_array(),
+                        ],
+                        1,
+                        Validity::NonNullable,
+                    )
+                    .unwrap()
+                    .into_array()
+                };
+                session
+                    .with_native_execution_context(&CancellationToken::default(), |context| {
+                        let b0 = batch_from(f64::from_bits(first_bits));
+                        let b1 = batch_from(f64::from_bits(second_bits));
+                        let mut a0 = Aggregate::new_shared(scalar_spec.clone(), context.memory())?;
+                        let mut a1 = Aggregate::new_shared(scalar_spec.clone(), context.memory())?;
+                        a0.consume(&b0, context, 1024)?;
+                        a1.consume(&b1, context, 1024)?;
+                        a0.merge_from(a1, context, 1024)?;
+                        let actual = collect_scalars(&a0, context, 0)[0]
+                            .as_primitive()
+                            .typed_value::<f64>()
+                            .unwrap();
+                        assert_eq!(actual.to_bits(), first_bits);
+
+                        let grouped_spec = std::sync::Arc::new(Spec {
+                            fields: vec![
+                                (
+                                    "g".into(),
+                                    DType::Primitive(PType::I64, Nullability::NonNullable),
+                                ),
+                                ("ext".into(), float_dtype.clone()),
+                            ],
+                            groups: vec![(
+                                "g".into(),
+                                DType::Primitive(PType::I64, Nullability::NonNullable),
+                            )],
+                            group_names: vec!["g".into()],
+                            measures: vec![mk_measure()],
+                        });
+                        let mut g0 = Aggregate::new_shared(grouped_spec.clone(), context.memory())?;
+                        let mut g1 = Aggregate::new_shared(grouped_spec, context.memory())?;
+                        g0.consume(&b0, context, 1024)?;
+                        g1.consume(&b1, context, 1024)?;
+                        g0.merge_from(g1, context, 1024)?;
+                        let actual_grouped = collect_scalars(&g0, context, 1)[0]
+                            .as_primitive()
+                            .typed_value::<f64>()
+                            .unwrap();
+                        assert_eq!(actual_grouped.to_bits(), first_bits);
+                        Ok(())
+                    })
+                    .unwrap();
+            }
+        }
+    }
+
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn merge_from_merges_decimal_sum_and_avg_identically_to_serial() {
+        let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+        let src = DecimalDType::new(10, 2);
+        let sum_out = DType::Decimal(DecimalDType::new(38, 2), Nullability::Nullable);
+        let avg_out = DType::Decimal(DecimalDType::new(38, 6), Nullability::Nullable);
+        let mk_measure = |function, dtype| Measure {
+            function,
+            column: Some("d".into()),
+            secondary_column: None,
+            quantile_level: None,
+            separator: None,
+            filter_column: None,
+            selection: None,
+            dtype,
+            input_ptype: None,
+            decimal_source: Some(src),
+            decimal_output: None,
+            distinct_fields: vec![],
+            distinct_names: vec![],
+        };
+        let grouped_spec = std::sync::Arc::new(Spec {
+            fields: vec![
+                (
+                    "g".into(),
+                    DType::Primitive(PType::I64, Nullability::NonNullable),
+                ),
+                ("s".into(), sum_out.clone()),
+                ("a".into(), avg_out.clone()),
+            ],
+            groups: vec![(
+                "g".into(),
+                DType::Primitive(PType::I64, Nullability::NonNullable),
+            )],
+            group_names: vec!["g".into()],
+            measures: vec![
+                mk_measure(Function::Sum, sum_out.clone()),
+                mk_measure(Function::Avg, avg_out.clone()),
+            ],
+        });
+        let scalar_spec = std::sync::Arc::new(Spec {
+            fields: vec![("s".into(), sum_out.clone()), ("a".into(), avg_out.clone())],
+            groups: vec![],
+            group_names: vec![],
+            measures: vec![
+                mk_measure(Function::Sum, sum_out),
+                mk_measure(Function::Avg, avg_out),
+            ],
+        });
+        let mk_batch = |keys: &[i64], decimals: &[Option<i128>]| {
+            let valid = Validity::from_iter(decimals.iter().map(Option::is_some));
+            let values: Vec<i128> = decimals.iter().map(|v| v.unwrap_or(0)).collect();
+            StructArray::try_new(
+                FieldNames::from(["g", "d"]),
+                vec![
+                    PrimitiveArray::from_iter(keys.iter().copied()).into_array(),
+                    DecimalArray::try_new(Buffer::from(values), src, valid)
+                        .unwrap()
+                        .into_array(),
+                ],
+                keys.len(),
+                Validity::NonNullable,
+            )
+            .unwrap()
+            .into_array()
+        };
+        let b0 = mk_batch(&[2, 1, 2, 1], &[Some(200), None, Some(300), Some(50)]);
+        let b1 = mk_batch(&[1, 3, 2, 3], &[Some(150), Some(400), Some(400), Some(600)]);
+        let empty = mk_batch(&[], &[]);
+
+        session
+            .with_native_execution_context(&CancellationToken::default(), |context| {
+                // Grouped: empty <- b0 <- empty <- b1 vs serial(b0, b1).
+                let mut serial = Aggregate::new_shared(grouped_spec.clone(), context.memory())?;
+                serial.consume(&b0, context, 1024)?;
+                serial.consume(&b1, context, 1024)?;
+
+                let mut par = Aggregate::new_shared(grouped_spec.clone(), context.memory())?;
+                let mut w0 = Aggregate::new_shared(grouped_spec.clone(), context.memory())?;
+                w0.consume(&b0, context, 1024)?;
+                let w_empty = Aggregate::new_shared(grouped_spec.clone(), context.memory())?;
+                let mut w1 = Aggregate::new_shared(grouped_spec, context.memory())?;
+                w1.consume(&b1, context, 1024)?;
+                par.merge_from(w0, context, 1024)?;
+                par.merge_from(w_empty, context, 1024)?;
+                par.merge_from(w1, context, 1024)?;
+
+                for col in 0..3 {
+                    assert_eq!(
+                        collect_scalars(&par, context, col),
+                        collect_scalars(&serial, context, col)
+                    );
+                }
+
+                // Scalar: b0 <- b1 vs serial(b0, b1).
+                let mut scalar_serial =
+                    Aggregate::new_shared(scalar_spec.clone(), context.memory())?;
+                scalar_serial.consume(&b0, context, 1024)?;
+                scalar_serial.consume(&b1, context, 1024)?;
+                let mut s0 = Aggregate::new_shared(scalar_spec.clone(), context.memory())?;
+                s0.consume(&b0, context, 1024)?;
+                let mut s1 = Aggregate::new_shared(scalar_spec.clone(), context.memory())?;
+                s1.consume(&b1, context, 1024)?;
+                let s_empty = Aggregate::new_shared(scalar_spec, context.memory())?;
+                s0.merge_from(s1, context, 1024)?;
+                s0.merge_from(s_empty, context, 1024)?;
+                for col in 0..2 {
+                    assert_eq!(
+                        collect_scalars(&s0, context, col),
+                        collect_scalars(&scalar_serial, context, col)
+                    );
+                }
+                let _ = empty;
+                Ok(())
+            })
+            .unwrap();
+    }
+
+    #[test]
+    #[allow(clippy::cast_precision_loss)]
+    fn merge_from_falls_back_to_restore_on_typed_compact_i128_overflow() {
+        let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+        let spec = std::sync::Arc::new(Spec {
+            fields: vec![
+                (
+                    "g".into(),
+                    DType::Primitive(PType::I64, Nullability::NonNullable),
+                ),
+                (
+                    "s".into(),
+                    DType::Primitive(PType::F64, Nullability::Nullable),
+                ),
+            ],
+            groups: vec![(
+                "g".into(),
+                DType::Primitive(PType::I64, Nullability::NonNullable),
+            )],
+            group_names: vec!["g".into()],
+            measures: vec![Measure {
+                function: Function::Sum,
+                column: Some("n".into()),
+                secondary_column: None,
+                quantile_level: None,
+                separator: None,
+                filter_column: None,
+                selection: None,
+                dtype: DType::Primitive(PType::F64, Nullability::Nullable),
+                input_ptype: Some(PType::I64),
+                decimal_source: None,
+                decimal_output: None,
+                distinct_fields: vec![],
+                distinct_names: vec![],
+            }],
+        });
+        let batch = StructArray::try_new(
+            FieldNames::from(["g", "n"]),
+            vec![
+                PrimitiveArray::from_iter([1_i64, 2_i64]).into_array(),
+                PrimitiveArray::from_iter([10_i64, 20_i64]).into_array(),
+            ],
+            2,
+            Validity::NonNullable,
+        )
+        .unwrap()
+        .into_array();
+        session
+            .with_native_execution_context(&CancellationToken::default(), |context| {
+                let mut left = Aggregate::new_shared(spec.clone(), context.memory())?;
+                let mut right = Aggregate::new_shared(spec, context.memory())?;
+                left.consume(&batch, context, 1024)?;
+                right.consume(&batch, context, 1024)?;
+                assert!(left.compact.is_some());
+                assert!(right.compact.is_some());
+                // Simulate right holding an exact i128 sum just below i128::MAX so
+                // left.merge_from(right) overflows i128 and exercises compact::Table::restore.
+                right
+                    .compact
+                    .as_mut()
+                    .unwrap()
+                    .restore(&right.spec, &mut right.states, context)?;
+                right.compact = None;
+                right.states.values[0].sum = NumericAggregateSum::exact_integer(i128::MAX - 5);
+                left.merge_from(right, context, 1024)?;
+                assert!(left.compact.is_none());
+                let total = collect_scalars(&left, context, 1)[0]
+                    .as_primitive()
+                    .typed_value::<f64>()
+                    .unwrap();
+                assert_eq!(total, (i128::MAX - 5) as f64 + 10.0);
+                Ok(())
+            })
+            .unwrap();
     }
 }

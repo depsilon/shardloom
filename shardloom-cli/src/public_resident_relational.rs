@@ -1167,6 +1167,78 @@ fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVorte
         fields.retain(|(existing, _)| existing != key);
         fields.push((key.into(), value));
     }
+    if input.columnar_parquet_sources > 0 {
+        append_parquet_input_fields(fields, input);
+    }
+}
+
+fn append_parquet_input_fields(
+    fields: &mut Vec<(String, String)>,
+    input: &ExecutedVortexBatchInput,
+) {
+    for (key, value) in [
+        (
+            "native_input_parquet_parallel_workers",
+            input.parallel_range_workers.to_string(),
+        ),
+        (
+            "native_input_parquet_parallel_range_tasks",
+            input.parallel_range_tasks.to_string(),
+        ),
+        (
+            "native_input_parquet_parallel_declined_sources",
+            input.parallel_range_declined_sources.to_string(),
+        ),
+        (
+            "native_input_parquet_persistent_aggregate_states",
+            input.persistent_aggregate_states.to_string(),
+        ),
+        (
+            "native_input_parquet_aggregate_batches_consumed",
+            input.aggregate_batches_consumed.to_string(),
+        ),
+        (
+            "native_input_parquet_aggregate_partial_groups_emitted",
+            input.aggregate_partial_groups_emitted.to_string(),
+        ),
+        (
+            "native_input_parquet_aggregate_partial_groups_merged",
+            input.aggregate_partial_groups_merged.to_string(),
+        ),
+        (
+            "native_input_parquet_aggregate_final_groups",
+            input.aggregate_final_groups.to_string(),
+        ),
+        (
+            "native_input_parquet_key_filter_rows_decoded",
+            input.columnar_key_filter_rows_decoded.to_string(),
+        ),
+        (
+            "native_input_parquet_key_filter_rows_selected",
+            input.columnar_key_filter_rows_selected.to_string(),
+        ),
+        (
+            "native_input_parquet_payload_rows_decoded",
+            input.columnar_payload_rows_decoded.to_string(),
+        ),
+        (
+            "native_input_parquet_row_groups_pruned",
+            input.columnar_row_groups_pruned.to_string(),
+        ),
+        (
+            "native_input_parquet_payload_skipped_row_groups",
+            input
+                .columnar_payload_columns_skipped_row_groups
+                .to_string(),
+        ),
+        (
+            "native_input_parquet_selected_chunk_bytes_read",
+            input.columnar_selected_chunk_bytes_read.to_string(),
+        ),
+    ] {
+        fields.retain(|(existing, _)| existing != key);
+        fields.push((key.into(), value));
+    }
 }
 
 fn append_columnar_input_fields(

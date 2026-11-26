@@ -21,11 +21,16 @@ struct Chunk {
 
 pub(super) struct SelectedChunks {
     length: u64,
+    bytes: u64,
     chunks: Vec<Chunk>,
     _metadata: MemoryLease,
 }
 
 impl SelectedChunks {
+    pub(super) const fn total_bytes(&self) -> u64 {
+        self.bytes
+    }
+
     pub(super) fn read(
         input: &OwnedLocalRead,
         group: &RowGroupMetaData,
@@ -45,6 +50,7 @@ impl SelectedChunks {
         if chunks.capacity() > count {
             return Err(failed("column chunk metadata exceeds admission"));
         }
+        let mut total_bytes = 0_u64;
         for (index, column) in group.columns().iter().enumerate() {
             if !mask.leaf_included(index) {
                 continue;
@@ -59,6 +65,9 @@ impl SelectedChunks {
                 column.compressed_size(),
                 input.len(),
             )?;
+            total_bytes = total_bytes
+                .checked_add(length as u64)
+                .ok_or_else(|| failed("selected column chunk bytes overflow"))?;
             chunks.push(Chunk {
                 start,
                 bytes: input.bytes(start, length)?,
@@ -66,6 +75,7 @@ impl SelectedChunks {
         }
         Ok(Self {
             length: input.len(),
+            bytes: total_bytes,
             chunks,
             _metadata: credit,
         })
@@ -126,6 +136,7 @@ mod tests {
         let memory = LiveMemoryPool::new(4096).unwrap();
         let chunks = SelectedChunks {
             length: 100,
+            bytes: 9,
             chunks: vec![
                 Chunk {
                     start: 10,

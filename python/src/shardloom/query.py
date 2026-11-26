@@ -1788,15 +1788,65 @@ class Result:
     def _preparation_field(self, key: str) -> str | None:
         return self.envelope.field(f"public_workflow_preparation_{key}") or self.envelope.field(key)
 
+    @property
+    def parquet_parallel_workers(self) -> int | None:
+        """Return bounded worker-pool lanes admitted for Parquet demand, when present."""
 
+        return self.envelope.field_int("native_input_parquet_parallel_workers")
 
+    @property
+    def parquet_parallel_range_tasks(self) -> int | None:
+        """Return row-group range tasks executed concurrently for Parquet demand, when present."""
 
+        return self.envelope.field_int("native_input_parquet_parallel_range_tasks")
 
+    @property
+    def parquet_persistent_aggregate_states(self) -> int | None:
+        """Return worker-local persistent aggregate states merged for Parquet demand, when present."""
 
+        return self.envelope.field_int("native_input_parquet_persistent_aggregate_states")
 
+    @property
+    def parquet_aggregate_partial_groups_emitted(self) -> int | None:
+        """Return worker partial groups emitted before range-order merging, when present."""
 
+        return self.envelope.field_int("native_input_parquet_aggregate_partial_groups_emitted")
 
+    @property
+    def parquet_aggregate_partial_groups_merged(self) -> int | None:
+        """Return worker partial groups processed during range-order merging, when present."""
 
+        return self.envelope.field_int("native_input_parquet_aggregate_partial_groups_merged")
+
+    @property
+    def parquet_aggregate_final_groups(self) -> int | None:
+        """Return final groups produced after ordered partial-state merge, when present."""
+
+        return self.envelope.field_int("native_input_parquet_aggregate_final_groups")
+
+    @property
+    def parquet_key_filter_rows_decoded(self) -> int | None:
+        """Return Stage-1 key/filter rows decoded for early runtime filtering, when present."""
+
+        return self.envelope.field_int("native_input_parquet_key_filter_rows_decoded")
+
+    @property
+    def parquet_key_filter_rows_selected(self) -> int | None:
+        """Return Stage-1 key/filter surviving rows passed to Stage-2 payload decode, when present."""
+
+        return self.envelope.field_int("native_input_parquet_key_filter_rows_selected")
+
+    @property
+    def parquet_payload_rows_decoded(self) -> int | None:
+        """Return Stage-2 payload rows decoded after early key filtering, when present."""
+
+        return self.envelope.field_int("native_input_parquet_payload_rows_decoded")
+
+    @property
+    def parquet_payload_skipped_row_groups(self) -> int | None:
+        """Return row groups whose payload chunks were skipped completely due to zero Stage-1 survivors."""
+
+        return self.envelope.field_int("native_input_parquet_payload_skipped_row_groups")
 
 
 # Compatibility name: retained until an announced breaking release.

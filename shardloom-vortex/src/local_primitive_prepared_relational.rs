@@ -511,8 +511,115 @@ enum ScanSource {
     },
     Batch {
         index: usize,
-        projection: Box<PreparedMemoryProjection>,
+        projection: std::sync::Arc<PreparedMemoryProjection>,
     },
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+pub(super) enum ParallelTransformKind {
+    Project(Vec<native_relational_expression::Expression>),
+    Filter(native_relational_expression::Expression),
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+pub(super) struct ParallelAggregateTransform {
+    pub(super) fields: Vec<(String, DType)>,
+    pub(super) kind: ParallelTransformKind,
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+pub(super) struct ParallelAggregatePlan {
+    pub(super) source_index: usize,
+    pub(super) projection: std::sync::Arc<PreparedMemoryProjection>,
+    pub(super) residual: Option<MaterializedPredicateEvaluator>,
+    pub(super) columns: Vec<String>,
+    pub(super) scan_fields: Vec<(String, DType)>,
+    pub(super) transforms: Vec<ParallelAggregateTransform>,
+    pub(super) spec: std::sync::Arc<native_relational_aggregate::Spec>,
+    pub(super) count_partial: bool,
+    pub(super) batch_rows: usize,
+    pub(super) scan_rows: usize,
+    pub(super) finite_float_predicate: bool,
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn build_parallel_aggregate_plan(
+    input: &Node,
+    spec: &native_relational_aggregate::Spec,
+    count_partial: bool,
+    batch_rows: usize,
+    scan_rows: usize,
+) -> Option<std::sync::Arc<ParallelAggregatePlan>> {
+    let spec = spec.try_clone_for_parallel_merge()?;
+    let mut reversed = Vec::new();
+    let mut current = input;
+    loop {
+        match &current.kind {
+            NodeKind::Project { input, expressions } => {
+                let mut cloned = Vec::with_capacity(expressions.len());
+                for expr in expressions {
+                    cloned.push(expr.try_clone_for_parallel()?);
+                }
+                reversed.push(ParallelAggregateTransform {
+                    fields: current.fields.clone(),
+                    kind: ParallelTransformKind::Project(cloned),
+                });
+                current = input;
+            }
+            NodeKind::Filter { input, predicate } => {
+                reversed.push(ParallelAggregateTransform {
+                    fields: current.fields.clone(),
+                    kind: ParallelTransformKind::Filter(predicate.try_clone_for_parallel()?),
+                });
+                current = input;
+            }
+            NodeKind::Pipeline { input, stages } => {
+                for stage in stages.iter().rev() {
+                    let kind = match &stage.kind {
+                        PipelineKind::Project(expressions) => {
+                            let mut cloned = Vec::with_capacity(expressions.len());
+                            for expr in expressions {
+                                cloned.push(expr.try_clone_for_parallel()?);
+                            }
+                            ParallelTransformKind::Project(cloned)
+                        }
+                        PipelineKind::Filter(predicate) => {
+                            ParallelTransformKind::Filter(predicate.try_clone_for_parallel()?)
+                        }
+                        _ => return None,
+                    };
+                    reversed.push(ParallelAggregateTransform {
+                        fields: stage.fields.clone(),
+                        kind,
+                    });
+                }
+                current = input;
+            }
+            NodeKind::Scan {
+                source: ScanSource::Batch { index, projection },
+                columns,
+                residual,
+                finite_float_predicate,
+                ..
+            } => {
+                reversed.reverse();
+                return Some(std::sync::Arc::new(ParallelAggregatePlan {
+                    source_index: *index,
+                    projection: std::sync::Arc::clone(projection),
+                    residual: residual.clone(),
+                    columns: columns.clone(),
+                    scan_fields: current.fields.clone(),
+                    transforms: reversed,
+                    spec,
+                    count_partial,
+                    batch_rows,
+                    scan_rows,
+                    finite_float_predicate: *finite_float_predicate,
+                }));
+            }
+            _ => return None,
+        }
+    }
 }
 
 enum NodeKind {
@@ -2224,6 +2331,26 @@ impl PreparedVortexRelational {
             )?;
             return aggregate.finish(context, batch_rows, consume);
         }
+        #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+        if expansion.is_none()
+            && parameter.is_none()
+            && let Some(input_provider) = metrics.input
+        {
+            let scan_rows = match metrics.file_scan_batching.get() {
+                FileScanBatching::Native => 8192,
+                FileScanBatching::Output => batch_rows.min(8192),
+            };
+            if let Some(parallel_plan) =
+                build_parallel_aggregate_plan(input, spec, count_partial, batch_rows, scan_rows)
+                && let Some(completed) = input_provider.try_run_parallel_parquet_aggregate(
+                    parallel_plan,
+                    context,
+                    metrics,
+                )?
+            {
+                return completed.finish(context, batch_rows, consume);
+            }
+        }
         produce(&mut |array| {
             if count_partial {
                 aggregate.consume_reordered_count(&array, context, batch_rows)
@@ -2846,9 +2973,74 @@ fn cast_batch(
     .map(vortex::array::IntoArray::into_array)
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum FactProbeFilterTarget {
+    ColumnarBatch,
+    FileOrRetained,
+    UnsupportedOrMemory,
+}
+
+fn fact_probe_filter_target(kind: &NodeKind) -> FactProbeFilterTarget {
+    match kind {
+        NodeKind::Scan {
+            source: ScanSource::Memory(_),
+            ..
+        } => FactProbeFilterTarget::UnsupportedOrMemory,
+        NodeKind::Scan {
+            source: ScanSource::Batch { .. },
+            ..
+        } => FactProbeFilterTarget::ColumnarBatch,
+        NodeKind::Scan { .. } => FactProbeFilterTarget::FileOrRetained,
+        NodeKind::FileKernel(kernel) => {
+            if kernel.operation.is_projection() {
+                fact_probe_filter_target(&kernel.declaration)
+            } else {
+                FactProbeFilterTarget::UnsupportedOrMemory
+            }
+        }
+        NodeKind::Project { input, expressions } => {
+            if transform::column_projection(expressions) {
+                fact_probe_filter_target(&input.kind)
+            } else {
+                FactProbeFilterTarget::UnsupportedOrMemory
+            }
+        }
+        NodeKind::Filter { input, predicate } => {
+            if predicate.is_infallible_for_join_pushdown(true) {
+                fact_probe_filter_target(&input.kind)
+            } else {
+                FactProbeFilterTarget::UnsupportedOrMemory
+            }
+        }
+        NodeKind::Pipeline { input, stages } => {
+            if stages.iter().all(|stage| match &stage.kind {
+                PipelineKind::Project(expressions) => transform::column_projection(expressions),
+                PipelineKind::Filter(predicate) => predicate.is_infallible_for_join_pushdown(true),
+                _ => false,
+            }) {
+                fact_probe_filter_target(&input.kind)
+            } else {
+                FactProbeFilterTarget::UnsupportedOrMemory
+            }
+        }
+        NodeKind::Retained(binding) => {
+            if binding.definition.recursive() {
+                FactProbeFilterTarget::UnsupportedOrMemory
+            } else {
+                FactProbeFilterTarget::FileOrRetained
+            }
+        }
+        _ => FactProbeFilterTarget::UnsupportedOrMemory,
+    }
+}
+
 fn declaration_accepts_probe_filters(kind: &NodeKind) -> bool {
     match kind {
         NodeKind::Scan { .. } => true,
+        NodeKind::FileKernel(kernel) => {
+            kernel.operation.is_projection()
+                && declaration_accepts_probe_filters(&kernel.declaration)
+        }
         NodeKind::Project { input, expressions } => {
             transform::column_projection(expressions)
                 && declaration_accepts_probe_filters(&input.kind)

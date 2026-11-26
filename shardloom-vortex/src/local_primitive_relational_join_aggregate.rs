@@ -20,8 +20,10 @@ use shardloom_core::{
     Result,
     native_join_work::{NativeJoinAggregateWork, NativeJoinWork},
 };
+use std::ops::Range;
 use vortex::array::{
     ArrayRef,
+    arrays::{Chunked, Slice, chunked::ChunkedArrayExt as _, slice::SliceArraySlotsExt as _},
     dtype::{DType, Nullability, PType},
 };
 
@@ -43,6 +45,72 @@ pub(super) struct Plan<'a> {
 
 fn position(node: &Node, name: &str) -> Option<usize> {
     node.fields.iter().position(|(field, _)| field == name)
+}
+
+fn fact_chunk_subranges(
+    array: &ArrayRef,
+    fields: &[(String, DType)],
+) -> Result<Option<Vec<Range<usize>>>> {
+    if array.len() <= 1 || fields.is_empty() {
+        return Ok(None);
+    }
+    let mut cuts = Vec::new();
+    for (name, _) in fields {
+        let mut leaf = logical_field_from_native_array(array, name)?;
+        let mut range = 0..array.len();
+        for _ in 0..16 {
+            if range.end > leaf.len() {
+                return Ok(None);
+            }
+            if let Some(slice) = leaf.as_opt::<Slice>() {
+                let Some(start) = range.start.checked_add(slice.slice_range().start) else {
+                    return Ok(None);
+                };
+                let Some(end) = range.end.checked_add(slice.slice_range().start) else {
+                    return Ok(None);
+                };
+                range = start..end;
+                leaf = slice.child().clone();
+            } else if let Some(chunks) = leaf.as_opt::<Chunked>() {
+                if chunks.nchunks() > 4096 {
+                    return Ok(None);
+                }
+                let mut offset = 0usize;
+                for idx in 0..chunks.nchunks() {
+                    let Some(next) = offset.checked_add(chunks.chunk(idx).len()) else {
+                        return Ok(None);
+                    };
+                    if next > range.start && next < range.end {
+                        cuts.push(next - range.start);
+                    }
+                    offset = next;
+                }
+                break;
+            } else {
+                break;
+            }
+        }
+    }
+    if cuts.is_empty() {
+        return Ok(None);
+    }
+    cuts.sort_unstable();
+    cuts.dedup();
+    if cuts.len() > 4096 {
+        return Ok(None);
+    }
+    let mut ranges = Vec::with_capacity(cuts.len() + 1);
+    let mut prev = 0usize;
+    for cut in cuts {
+        if cut > prev {
+            ranges.push(prev..cut);
+            prev = cut;
+        }
+    }
+    if prev < array.len() {
+        ranges.push(prev..array.len());
+    }
+    Ok((ranges.len() > 1).then_some(ranges))
 }
 
 impl<'a> Plan<'a> {
@@ -92,6 +160,22 @@ impl<'a> Plan<'a> {
         }))
     }
 
+    fn stage_validation_infallible(&self, stage: &Stage<'_>) -> bool {
+        stage.validation.values.iter().all(|origin| {
+            let dtype = if origin.source == 0 {
+                self.fact.fields.get(origin.column).map(|(_, dtype)| dtype)
+            } else {
+                self.stages
+                    .values
+                    .get(origin.source - 1)
+                    .and_then(|dim| dim.right.fields.get(origin.column))
+                    .map(|(_, dtype)| dtype)
+            };
+            dtype.is_some_and(super::super::native_relational_probe_filter::is_infallible_key_dtype)
+        })
+    }
+
+    #[allow(clippy::too_many_lines)]
     pub(super) fn run(
         &self,
         prepared: &PreparedVortexRelational,
@@ -128,58 +212,134 @@ impl<'a> Plan<'a> {
         if !direct {
             dimensions.values.clear();
         }
+        let mut fact_probe_filters = Vec::new();
+        let target = super::fact_probe_filter_target(&self.fact.kind);
+        if target != super::FactProbeFilterTarget::UnsupportedOrMemory {
+            for (stage_idx, (join, stage)) in
+                joins.values.iter().zip(&self.stages.values).enumerate()
+            {
+                if stage_idx > 0
+                    && !self.stages.values[..stage_idx]
+                        .iter()
+                        .all(|earlier| self.stage_validation_infallible(earlier))
+                {
+                    break;
+                }
+                for filter in join.probe_runtime_filters(context)? {
+                    let remapped = filter.remap(|left_name| {
+                        let key_pos = stage
+                            .spec
+                            .left_keys
+                            .iter()
+                            .position(|key| key == left_name)?;
+                        let origin = stage.probe.values.get(key_pos)?;
+                        if origin.source != 0 {
+                            return None;
+                        }
+                        let (fact_name, fact_dtype) = self.fact.fields.get(origin.column)?;
+                        let stage_dtype = stage
+                            .node
+                            .fields
+                            .iter()
+                            .find_map(|(name, dtype)| (name == left_name).then_some(dtype))
+                            .or(Some(fact_dtype))?;
+                        (fact_dtype == stage_dtype).then(|| fact_name.clone())
+                    });
+                    if let Some(mut mapped) = remapped {
+                        if direct && target == super::FactProbeFilterTarget::FileOrRetained {
+                            mapped.bloom = None;
+                        }
+                        fact_probe_filters.push(mapped);
+                    }
+                }
+            }
+        }
+        work.probe_filters_pushed = u64::try_from(fact_probe_filters.len()).unwrap_or(u64::MAX);
         let dtype = DType::struct_(self.input.fields.clone(), Nullability::NonNullable);
-        prepared.run(
+        prepared.run_with_probe_filters(
             self.fact,
             context,
             metrics,
             batch_rows,
             None,
+            &fact_probe_filters,
             &mut |array| {
+                let consume_with_fact = |batch: ArrayRef,
+                                         fact: Option<Source>,
+                                         work: &mut NativeJoinAggregateWork,
+                                         joins: &mut [Join<'_>],
+                                         aggregate: &mut Aggregate<'_>|
+                 -> Result<()> {
+                    if let Some(fact) = fact {
+                        work.merge(NativeJoinAggregateWork {
+                            source_batches_direct: 1,
+                            ..Default::default()
+                        })?;
+                        let keys = self.probe_keys(&batch, context)?;
+                        self.matches(
+                            0,
+                            joins,
+                            &keys.values,
+                            None,
+                            &fact,
+                            &dimensions.values,
+                            aggregate,
+                            &dtype,
+                            context,
+                            batch_rows,
+                            work,
+                        )
+                    } else {
+                        work.merge(NativeJoinAggregateWork {
+                            source_batches_declined: 1,
+                            ..Default::default()
+                        })?;
+                        self.ordinary(
+                            self.input,
+                            joins,
+                            batch,
+                            context,
+                            batch_rows,
+                            &mut |array| {
+                                if count_partial {
+                                    aggregate.consume_reordered_count(&array, context, batch_rows)
+                                } else {
+                                    aggregate.consume(&array, context, batch_rows)
+                                }
+                            },
+                        )
+                    }
+                };
                 let fact = if direct {
                     Source::try_new(&self.fact.fields, &std::iter::once(&array), context)?
                 } else {
                     None
                 };
-                if let Some(fact) = fact {
-                    work.merge(NativeJoinAggregateWork {
-                        source_batches_direct: 1,
-                        ..Default::default()
-                    })?;
-                    let keys = self.probe_keys(&array, context)?;
-                    self.matches(
-                        0,
-                        &mut joins.values,
-                        &keys.values,
-                        None,
-                        &fact,
-                        &dimensions.values,
-                        aggregate,
-                        &dtype,
-                        context,
-                        batch_rows,
-                        &mut work,
-                    )
-                } else {
-                    work.merge(NativeJoinAggregateWork {
-                        source_batches_declined: 1,
-                        ..Default::default()
-                    })?;
-                    self.ordinary(
-                        self.input,
-                        &mut joins.values,
-                        array,
-                        context,
-                        batch_rows,
-                        &mut |array| {
-                            if count_partial {
-                                aggregate.consume_reordered_count(&array, context, batch_rows)
-                            } else {
-                                aggregate.consume(&array, context, batch_rows)
-                            }
-                        },
-                    )
+                if direct
+                    && fact.is_none()
+                    && let Some(ranges) = fact_chunk_subranges(&array, &self.fact.fields)?
+                {
+                    for sub in ranges {
+                        context.check_cancelled()?;
+                        let sliced = array.slice(sub).map_err(super::vortex_error)?;
+                        let sub_batch =
+                            super::project_selected_batch(&sliced, &self.fact.fields, context)?;
+                        let sub_fact = Source::try_new(
+                            &self.fact.fields,
+                            &std::iter::once(&sub_batch),
+                            context,
+                        )?;
+                        consume_with_fact(
+                            sub_batch,
+                            sub_fact,
+                            &mut work,
+                            &mut joins.values,
+                            aggregate,
+                        )?;
+                    }
+                    return Ok(());
                 }
+                consume_with_fact(array, fact, &mut work, &mut joins.values, aggregate)
             },
         )?;
         for join in &joins.values {

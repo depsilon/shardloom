@@ -71,6 +71,8 @@ pub struct NativeJoinAggregateWork {
     pub validated_cells: u64,
     /// Final matches delivered in order to the existing aggregate state.
     pub aggregate_rows: u64,
+    /// Completed dimension probe filters propagated onto the fact input.
+    pub probe_filters_pushed: u64,
 }
 
 /// Actual completed-query native join owner work, aggregated without a trace.
@@ -182,6 +184,7 @@ impl NativeJoinAggregateWork {
             match_rows,
             validated_cells,
             aggregate_rows,
+            probe_filters_pushed,
         )
     }
 }

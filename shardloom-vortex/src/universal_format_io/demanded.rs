@@ -36,10 +36,14 @@ mod chunks;
 mod complete;
 #[cfg(test)]
 mod complete_tests;
+#[cfg(test)]
+mod contract_tests;
 mod coverage;
 #[cfg(test)]
 mod coverage_tests;
 mod decisions;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+mod early_filter;
 mod generic;
 mod ipc;
 mod metadata_count;
@@ -177,7 +181,7 @@ impl LocalColumnarSource {
     }
 }
 
-fn predicate_columns<'a>(predicate: &'a PredicateExpr, names: &mut BTreeSet<&'a str>) {
+pub(super) fn predicate_columns<'a>(predicate: &'a PredicateExpr, names: &mut BTreeSet<&'a str>) {
     if let Some(column) = predicate.column() {
         names.insert(column.as_str());
     }
@@ -242,19 +246,123 @@ impl PreparedColumnarSource {
         empty_short_circuit: bool,
         context: &NativeExecutionContext<'_>,
     ) -> Result<ColumnarReader> {
+        self.open_row_group_range(
+            0..self.row_groups.len(),
+            runtime_predicate,
+            empty_short_circuit,
+            true,
+            context,
+        )
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn open_with_probe_filters(
+        self: &Arc<Self>,
+        runtime_predicate: Option<PredicateExpr>,
+        empty_short_circuit: bool,
+        probe_filters: Arc<
+            [crate::local_primitives::native_relational_probe_filter::ProbeRuntimeFilter],
+        >,
+        residual_present: bool,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<ColumnarReader> {
+        self.open_row_group_range_with_probe_filters(
+            0..self.row_groups.len(),
+            runtime_predicate,
+            empty_short_circuit,
+            probe_filters,
+            residual_present,
+            true,
+            context,
+        )
+    }
+
+    pub(crate) fn open_row_group_range(
+        self: &Arc<Self>,
+        group_range: std::ops::Range<usize>,
+        runtime_predicate: Option<PredicateExpr>,
+        empty_short_circuit: bool,
+        record_region_selection: bool,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<ColumnarReader> {
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        {
+            self.open_row_group_range_with_probe_filters(
+                group_range,
+                runtime_predicate,
+                empty_short_circuit,
+                Arc::from([]),
+                false,
+                record_region_selection,
+                context,
+            )
+        }
+        #[cfg(not(all(feature = "vortex-local-primitives", unix)))]
+        {
+            context.check_cancelled()?;
+            let start = group_range.start.min(self.row_groups.len());
+            let end = group_range.end.clamp(start, self.row_groups.len());
+            let metrics = Arc::new(LocalReadMetrics::default());
+            Ok(ColumnarReader {
+                prepared: Arc::clone(self),
+                input: None,
+                metrics,
+                next_group: start,
+                end_group: end,
+                active: None,
+                rows: 0,
+                ended: false,
+                other: self.source.other.as_ref().map(|_| generic::Reader::new()),
+                sizing: batch_work::Sizing::default(),
+                decisions_recorded: !record_region_selection,
+                coverage: None,
+                served_rows: 0,
+                decoded_groups: 0,
+                coverage_field_rows: 0,
+                coverage_regions: 0,
+                coverage_retained_bytes: 0,
+                runtime_predicate,
+                empty_short_circuit,
+                key_filter_rows_decoded: 0,
+                key_filter_rows_selected: 0,
+                payload_rows_decoded: 0,
+                row_groups_pruned: 0,
+                payload_columns_skipped_row_groups: 0,
+                selected_chunk_bytes_read: 0,
+            })
+        }
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn open_row_group_range_with_probe_filters(
+        self: &Arc<Self>,
+        group_range: std::ops::Range<usize>,
+        runtime_predicate: Option<PredicateExpr>,
+        empty_short_circuit: bool,
+        probe_filters: Arc<
+            [crate::local_primitives::native_relational_probe_filter::ProbeRuntimeFilter],
+        >,
+        residual_present: bool,
+        record_region_selection: bool,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<ColumnarReader> {
         context.check_cancelled()?;
+        let start = group_range.start.min(self.row_groups.len());
+        let end = group_range.end.clamp(start, self.row_groups.len());
         let metrics = Arc::new(LocalReadMetrics::default());
         Ok(ColumnarReader {
             prepared: Arc::clone(self),
             input: None,
             metrics,
-            next_group: 0,
+            next_group: start,
+            end_group: end,
             active: None,
             rows: 0,
             ended: false,
             other: self.source.other.as_ref().map(|_| generic::Reader::new()),
             sizing: batch_work::Sizing::default(),
-            decisions_recorded: false,
+            decisions_recorded: !record_region_selection,
             coverage: None,
             served_rows: 0,
             decoded_groups: 0,
@@ -263,7 +371,71 @@ impl PreparedColumnarSource {
             coverage_retained_bytes: 0,
             runtime_predicate,
             empty_short_circuit,
+            key_filter_rows_decoded: 0,
+            key_filter_rows_selected: 0,
+            payload_rows_decoded: 0,
+            row_groups_pruned: 0,
+            payload_columns_skipped_row_groups: 0,
+            selected_chunk_bytes_read: 0,
+            probe_filters,
+            residual_present,
+            early_filter_disabled: false,
+            early_filter_groups_evaluated: 0,
+            last_batch_probe_filters_satisfied: false,
         })
+    }
+
+    #[must_use]
+    pub(crate) fn is_parquet(&self) -> bool {
+        self.source.other.is_none()
+    }
+
+    #[must_use]
+    pub(crate) fn row_group_count(&self) -> usize {
+        self.row_groups.len()
+    }
+
+    #[must_use]
+    pub(crate) fn total_selected_rows(&self) -> u64 {
+        let sum: u64 = self.row_groups.iter().map(|group| group.rows).sum();
+        self.max_rows.map_or(sum, |limit| sum.min(limit))
+    }
+
+    #[must_use]
+    pub(crate) const fn max_rows(&self) -> Option<u64> {
+        self.max_rows
+    }
+
+    #[must_use]
+    pub(crate) fn max_selected_row_group_workspace_estimate(&self) -> u64 {
+        if !self.is_parquet() {
+            return 0;
+        }
+        let mut max_bytes = 64 * 1024_u64;
+        for group in &self.row_groups {
+            let file = &self.source.files[group.file];
+            let mask = ProjectionMask::roots(
+                file.metadata.parquet_schema(),
+                self.projection.iter().copied(),
+            );
+            if let Ok(workspace) = batch_work::parquet_workspace(
+                file.metadata.metadata().row_group(group.index),
+                &mask,
+            ) {
+                max_bytes = max_bytes.max(workspace);
+            }
+        }
+        max_bytes
+    }
+
+    pub(crate) fn complete_region_selection(
+        &self,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        if let Some(selection) = self.region_selection {
+            selection.complete(context)?;
+        }
+        Ok(())
     }
 }
 
@@ -303,16 +475,24 @@ pub struct ColumnarReadReport {
     /// Positional execution reads, excluding separately reported binding reads.
     pub data_read_bytes: u64,
     pub data_read_requests: u64,
+    pub key_filter_rows_decoded: u64,
+    pub key_filter_rows_selected: u64,
+    pub payload_rows_decoded: u64,
+    pub row_groups_pruned: u64,
+    pub payload_columns_skipped_row_groups: u64,
+    pub selected_chunk_bytes_read: u64,
     /// Completed provider row targets, independent of decoded row counts and
     /// retained page/stripe workspaces. No completion is recorded for EOF.
     pub adaptive_decode: shardloom_exec::adaptive_work::AdaptiveWorkReport,
 }
 
+#[allow(clippy::struct_excessive_bools)]
 pub(crate) struct ColumnarReader {
     prepared: Arc<PreparedColumnarSource>,
     input: Option<(usize, OwnedLocalRead)>,
     metrics: Arc<LocalReadMetrics>,
     next_group: usize,
+    end_group: usize,
     active: Option<Decoder>,
     rows: u64,
     ended: bool,
@@ -327,15 +507,36 @@ pub(crate) struct ColumnarReader {
     coverage_retained_bytes: u64,
     runtime_predicate: Option<PredicateExpr>,
     empty_short_circuit: bool,
+    key_filter_rows_decoded: u64,
+    key_filter_rows_selected: u64,
+    payload_rows_decoded: u64,
+    row_groups_pruned: u64,
+    payload_columns_skipped_row_groups: u64,
+    selected_chunk_bytes_read: u64,
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    probe_filters:
+        Arc<[crate::local_primitives::native_relational_probe_filter::ProbeRuntimeFilter]>,
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    residual_present: bool,
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    early_filter_disabled: bool,
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    early_filter_groups_evaluated: usize,
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    last_batch_probe_filters_satisfied: bool,
 }
 
 struct Decoder {
     reader: ParquetRecordBatchReader,
     _credit: MemoryLease,
     first_row: u64,
+    group_rows: u64,
     expected_rows: u64,
     emitted_rows: u64,
+    filtered_selection: bool,
     cost: shardloom_exec::adaptive_work::WorkCost,
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    staged: Option<early_filter::StagedKeyStream>,
 }
 
 impl Decoder {
@@ -344,6 +545,10 @@ impl Decoder {
         sizing: &mut batch_work::Sizing,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Option<(RecordBatch, u64)>> {
+        context.check_cancelled()?;
+        if self.expected_rows == 0 {
+            return Ok(None);
+        }
         let selected = sizing.select(
             context.memory(),
             self.cost,
@@ -356,7 +561,7 @@ impl Decoder {
                 .map_err(failed)?;
         }
         let Some(batch) = self.reader.next() else {
-            if self.emitted_rows != self.expected_rows {
+            if self.emitted_rows != self.expected_rows || self.expected_rows > self.group_rows {
                 return Err(failed(
                     "decoder did not complete its admitted source extent",
                 ));
@@ -394,6 +599,11 @@ impl ColumnarReader {
     ) -> Result<Option<ResidentMemorySource>> {
         self.next_native_located(session, context)
             .map(|next| next.map(|(source, _)| source))
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) const fn last_batch_satisfied_probe_filters(&self) -> bool {
+        self.last_batch_probe_filters_satisfied
     }
 
     pub(crate) fn next_native_located(
@@ -460,6 +670,56 @@ impl ColumnarReader {
         projection: &[usize],
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
+        self.open_decoder_with_selection(source_group, projection, None, context)
+    }
+
+    fn open_decoder_with_selection(
+        &mut self,
+        source_group: SourceGroup,
+        projection: &[usize],
+        selection: Option<(parquet::arrow::arrow_reader::RowSelection, u64)>,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        self.open_decoder_inner(
+            source_group,
+            projection,
+            selection,
+            #[cfg(all(feature = "vortex-local-primitives", unix))]
+            None,
+            context,
+        )
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    fn open_decoder_with_staged(
+        &mut self,
+        source_group: SourceGroup,
+        projection: &[usize],
+        selection: Option<(parquet::arrow::arrow_reader::RowSelection, u64)>,
+        staged: Option<early_filter::StagedKeyStream>,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        self.open_decoder_inner(source_group, projection, selection, staged, context)
+    }
+
+    fn open_decoder_inner(
+        &mut self,
+        source_group: SourceGroup,
+        projection: &[usize],
+        selection: Option<(parquet::arrow::arrow_reader::RowSelection, u64)>,
+        #[cfg(all(feature = "vortex-local-primitives", unix))] staged: Option<
+            early_filter::StagedKeyStream,
+        >,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        let filtered_selection = selection.is_some() || staged.is_some();
+        #[cfg(not(all(feature = "vortex-local-primitives", unix)))]
+        let filtered_selection = selection.is_some();
+        if let Some((_, 0)) = selection {
+            // Zero surviving rows: close extent cleanly without opening payload reader.
+            return Ok(());
+        }
         let file_index = source_group.file;
         let group_index = source_group.index;
         let file = &self.prepared.source.files[file_index];
@@ -473,6 +733,10 @@ impl ColumnarReader {
         let workspace = batch_work::parquet_workspace(group, &mask)?;
         let credit = context.memory().reserve(workspace)?;
         let chunks = chunks::SelectedChunks::read(input, group, &mask, context.memory())?;
+        self.selected_chunk_bytes_read = self
+            .selected_chunk_bytes_read
+            .checked_add(chunks.total_bytes())
+            .ok_or_else(|| failed("selected chunk bytes overflow"))?;
         let schema = metadata.schema().project(projection).map_err(failed)?;
         let cost = batch_work::cost(&schema, &schema, &[])?;
         let mut builder =
@@ -480,23 +744,33 @@ impl ColumnarReader {
                 .with_projection(mask)
                 .with_row_groups(vec![group_index])
                 .with_batch_size(batch_work::MAX_ROWS);
-        if let Some(limit) = self.prepared.max_rows {
-            builder = builder.with_limit(
-                usize::try_from(limit.saturating_sub(self.served_rows)).map_err(failed)?,
-            );
-        }
+        let expected_rows = if let Some((row_selection, selected_rows)) = selection {
+            builder = builder.with_row_selection(row_selection);
+            selected_rows
+        } else {
+            if let Some(limit) = self.prepared.max_rows {
+                builder = builder.with_limit(
+                    usize::try_from(limit.saturating_sub(self.served_rows)).map_err(failed)?,
+                );
+            }
+            self.prepared.max_rows.map_or(source_group.rows, |limit| {
+                source_group
+                    .rows
+                    .min(limit.saturating_sub(self.served_rows))
+            })
+        };
         let reader = builder.build().map_err(failed)?;
         self.active = Some(Decoder {
             reader,
             _credit: credit,
             first_row: source_group.first_row,
-            expected_rows: self.prepared.max_rows.map_or(source_group.rows, |limit| {
-                source_group
-                    .rows
-                    .min(limit.saturating_sub(self.served_rows))
-            }),
+            group_rows: source_group.rows,
+            expected_rows,
             emitted_rows: 0,
+            filtered_selection,
             cost,
+            #[cfg(all(feature = "vortex-local-primitives", unix))]
+            staged,
         });
         self.decoded_groups += 1;
         Ok(())
@@ -537,8 +811,72 @@ impl ColumnarReader {
             schema_discovery_read_bytes: 0,
             data_read_bytes: self.metrics.bytes.load(Ordering::Relaxed),
             data_read_requests: self.metrics.requests.load(Ordering::Relaxed),
+            key_filter_rows_decoded: self.key_filter_rows_decoded,
+            key_filter_rows_selected: self.key_filter_rows_selected,
+            payload_rows_decoded: self.payload_rows_decoded,
+            row_groups_pruned: self.row_groups_pruned,
+            payload_columns_skipped_row_groups: self.payload_columns_skipped_row_groups,
+            selected_chunk_bytes_read: self.selected_chunk_bytes_read,
             adaptive_decode: self.sizing.report(),
         })
+    }
+}
+
+impl ColumnarReadReport {
+    pub(crate) fn merge_range(&mut self, other: &Self) -> Result<()> {
+        self.row_groups_read = self
+            .row_groups_read
+            .checked_add(other.row_groups_read)
+            .ok_or_else(|| failed("merged row group count overflow"))?;
+        self.rows_decoded = self
+            .rows_decoded
+            .checked_add(other.rows_decoded)
+            .ok_or_else(|| failed("merged decoded rows overflow"))?;
+        self.native_coverage_field_rows = self
+            .native_coverage_field_rows
+            .checked_add(other.native_coverage_field_rows)
+            .ok_or_else(|| failed("merged coverage field rows overflow"))?;
+        self.native_coverage_regions = self
+            .native_coverage_regions
+            .checked_add(other.native_coverage_regions)
+            .ok_or_else(|| failed("merged coverage regions overflow"))?;
+        self.native_coverage_retained_bytes = self
+            .native_coverage_retained_bytes
+            .max(other.native_coverage_retained_bytes);
+        self.data_read_bytes = self
+            .data_read_bytes
+            .checked_add(other.data_read_bytes)
+            .ok_or_else(|| failed("merged read bytes overflow"))?;
+        self.data_read_requests = self
+            .data_read_requests
+            .checked_add(other.data_read_requests)
+            .ok_or_else(|| failed("merged read requests overflow"))?;
+        self.key_filter_rows_decoded = self
+            .key_filter_rows_decoded
+            .checked_add(other.key_filter_rows_decoded)
+            .ok_or_else(|| failed("merged key filter rows decoded overflow"))?;
+        self.key_filter_rows_selected = self
+            .key_filter_rows_selected
+            .checked_add(other.key_filter_rows_selected)
+            .ok_or_else(|| failed("merged key filter rows selected overflow"))?;
+        self.payload_rows_decoded = self
+            .payload_rows_decoded
+            .checked_add(other.payload_rows_decoded)
+            .ok_or_else(|| failed("merged payload rows decoded overflow"))?;
+        self.row_groups_pruned = self
+            .row_groups_pruned
+            .checked_add(other.row_groups_pruned)
+            .ok_or_else(|| failed("merged row groups pruned overflow"))?;
+        self.payload_columns_skipped_row_groups = self
+            .payload_columns_skipped_row_groups
+            .checked_add(other.payload_columns_skipped_row_groups)
+            .ok_or_else(|| failed("merged payload skipped row groups overflow"))?;
+        self.selected_chunk_bytes_read = self
+            .selected_chunk_bytes_read
+            .checked_add(other.selected_chunk_bytes_read)
+            .ok_or_else(|| failed("merged selected chunk bytes overflow"))?;
+        self.adaptive_decode.merge(&other.adaptive_decode);
+        Ok(())
     }
 }
 

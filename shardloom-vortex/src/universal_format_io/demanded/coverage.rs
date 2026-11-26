@@ -55,8 +55,10 @@ pub(super) struct ReaderCoverage {
     acquired: Acquisition,
     ticket: Option<Ticket>,
     first_row: u64,
+    group_rows: u64,
     expected_rows: u64,
     emitted_rows: u64,
+    filtered_selection: bool,
 }
 
 impl ReaderCoverage {
@@ -64,6 +66,17 @@ impl ReaderCoverage {
         prepared: &PreparedColumnarSource,
         group: SourceGroup,
         remaining: u64,
+        context: &NativeExecutionContext<'_>,
+    ) -> Option<Self> {
+        Self::begin_with_selection(prepared, group, remaining, false, None, context)
+    }
+
+    pub(super) fn begin_with_selection(
+        prepared: &PreparedColumnarSource,
+        group: SourceGroup,
+        remaining: u64,
+        filtered_selection: bool,
+        selected_rows: Option<u64>,
         context: &NativeExecutionContext<'_>,
     ) -> Option<Self> {
         if !prepared.source.collection.is_single_file()
@@ -80,16 +93,18 @@ impl ReaderCoverage {
             rows: group.rows,
         };
         let acquired = store.acquire(identity, region, &prepared.projection, operation)?;
-        let expected_rows = group.rows.min(remaining);
-        let ticket = (expected_rows == group.rows)
+        let expected_rows = selected_rows.unwrap_or_else(|| group.rows.min(remaining));
+        let ticket = (!filtered_selection && expected_rows == group.rows)
             .then(|| store.begin(identity, region, &acquired.missing, operation))
             .flatten();
         Some(Self {
             acquired,
             ticket,
             first_row: group.first_row,
+            group_rows: group.rows,
             expected_rows,
             emitted_rows: 0,
+            filtered_selection,
         })
     }
 
@@ -296,7 +311,10 @@ fn eligible_fields(prepared: &PreparedColumnarSource) -> bool {
 
 impl ColumnarReader {
     fn next_selected_group(&mut self) -> Option<SourceGroup> {
-        while let Some(&group) = self.prepared.row_groups.get(self.next_group) {
+        while self.next_group < self.end_group {
+            let Some(&group) = self.prepared.row_groups.get(self.next_group) else {
+                break;
+            };
             if let Some(pred) = &self.runtime_predicate {
                 let file = &self.prepared.source.files[group.file];
                 if super::statistics::excluded(
@@ -306,6 +324,7 @@ impl ColumnarReader {
                     &self.prepared.source.schema(),
                     &self.prepared.source.collection.files[group.file].partitions,
                 ) {
+                    self.row_groups_pruned += 1;
                     self.next_group += 1;
                     continue;
                 }
@@ -315,11 +334,16 @@ impl ColumnarReader {
         None
     }
 
+    #[allow(clippy::too_many_lines)]
     pub(super) fn next_parquet_native(
         &mut self,
         session: &ResidentVortexSession,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Option<(ResidentMemorySource, u64)>> {
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        {
+            self.last_batch_probe_filters_satisfied = self.early_filter_disabled;
+        }
         loop {
             context.check_cancelled()?;
             if let Some((index, _)) = &self.input {
@@ -335,7 +359,44 @@ impl ColumnarReader {
                 return Ok(Some(covered));
             }
             if let Some(active) = &mut self.active {
+                let filtered = active.filtered_selection;
                 if let Some((batch, first_row)) = active.next(&mut self.sizing, context)? {
+                    #[cfg(all(feature = "vortex-local-primitives", unix))]
+                    if let Some(staged) = active.staged.as_mut() {
+                        let rows = batch.num_rows();
+                        self.rows = self
+                            .rows
+                            .checked_add(rows as u64)
+                            .ok_or_else(|| failed("source row count overflow"))?;
+                        self.payload_rows_decoded = self
+                            .payload_rows_decoded
+                            .checked_add(rows as u64)
+                            .ok_or_else(|| failed("payload decoded row count overflow"))?;
+                        self.served_rows = self
+                            .served_rows
+                            .checked_add(rows as u64)
+                            .ok_or_else(|| failed("served source rows overflow"))?;
+                        self.last_batch_probe_filters_satisfied = staged.probe_filters_satisfied;
+                        let payload_source = ResidentMemorySource::from_local_arrow_with_ownership(
+                            session,
+                            batch,
+                            context,
+                            crate::vortex_ingest::arrow_ownership::ArrowOwnershipPolicy::ControlledParquet,
+                        )?;
+                        let source =
+                            staged.compose_batch(payload_source, rows, session, context)?;
+                        return Ok(Some((source, first_row)));
+                    }
+                    if filtered
+                        && self
+                            .coverage
+                            .as_ref()
+                            .is_some_and(|cov| !cov.filtered_selection || cov.ticket.is_some())
+                    {
+                        return Err(failed(
+                            "partial selection active unexpectedly alongside Chrysalis coverage",
+                        ));
+                    }
                     let rows = batch.num_rows();
                     self.rows = self
                         .rows
@@ -347,7 +408,9 @@ impl ColumnarReader {
                 self.active.take();
             }
             if let Some(coverage) = self.coverage.take() {
-                if coverage.emitted_rows != coverage.expected_rows {
+                if coverage.emitted_rows != coverage.expected_rows
+                    || coverage.expected_rows > coverage.group_rows
+                {
                     return Err(failed(
                         "native coverage did not complete its admitted extent",
                     ));
@@ -395,11 +458,93 @@ impl ColumnarReader {
                 .prepared
                 .max_rows
                 .map_or(u64::MAX, |limit| limit.saturating_sub(self.served_rows));
-            let coverage = ReaderCoverage::begin(&self.prepared, group, remaining, context);
-            if coverage
+            let mut coverage = ReaderCoverage::begin(&self.prepared, group, remaining, context);
+            let hit_fields = coverage.as_ref().map_or(0, ReaderCoverage::hit_fields);
+            let all_covered = coverage
                 .as_ref()
-                .is_some_and(|coverage| coverage.hit_fields() > 0)
+                .is_some_and(|cov| cov.acquired.missing.is_empty());
+            #[cfg(all(feature = "vortex-local-primitives", unix))]
+            if !all_covered
+                && !self.early_filter_disabled
+                && let Some(early_plan) = super::early_filter::plan(
+                    &self.prepared,
+                    self.runtime_predicate.as_ref(),
+                    &self.probe_filters,
+                    self.residual_present,
+                    context.float_policy(),
+                )
             {
+                if let Some(mut cov) = coverage.take()
+                    && let Some(ticket) = cov.ticket.take()
+                    && let Some((store, _)) = context.columnar_coverage()
+                {
+                    store.discard(ticket);
+                }
+                let metadata = self.prepared.source.files[group.file].metadata.clone();
+                let group_meta = metadata.metadata().row_group(group.index);
+                let mut bytes_read = 0_u64;
+                let stage1 = super::early_filter::run_stage1(
+                    self,
+                    &early_plan,
+                    group,
+                    group_meta,
+                    &metadata,
+                    &mut bytes_read,
+                    session,
+                    context,
+                )?;
+                self.selected_chunk_bytes_read = self
+                    .selected_chunk_bytes_read
+                    .checked_add(bytes_read)
+                    .ok_or_else(|| failed("selected chunk bytes overflow"))?;
+                self.key_filter_rows_decoded = self
+                    .key_filter_rows_decoded
+                    .checked_add(group.rows)
+                    .ok_or_else(|| failed("key filter decoded rows overflow"))?;
+                self.key_filter_rows_selected = self
+                    .key_filter_rows_selected
+                    .checked_add(stage1.survivors)
+                    .ok_or_else(|| failed("key filter selected rows overflow"))?;
+                self.early_filter_groups_evaluated += 1;
+                if self.early_filter_groups_evaluated >= 2
+                    && self.key_filter_rows_decoded >= 32_768
+                    && (u128::from(self.key_filter_rows_selected) * 100)
+                        > (u128::from(self.key_filter_rows_decoded) * 85)
+                {
+                    self.early_filter_disabled = true;
+                }
+                if stage1.survivors == 0 {
+                    self.decoded_groups += 1;
+                    self.payload_columns_skipped_row_groups = self
+                        .payload_columns_skipped_row_groups
+                        .checked_add(1)
+                        .ok_or_else(|| failed("payload skipped row groups overflow"))?;
+                    self.next_group += 1;
+                    continue;
+                }
+                let selection = (stage1.survivors < group.rows).then(|| {
+                    let total = usize::try_from(group.rows).expect("row group size fits usize");
+                    (
+                        parquet::arrow::arrow_reader::RowSelection::from_consecutive_ranges(
+                            stage1.surviving_ranges.into_iter(),
+                            total,
+                        ),
+                        stage1.survivors,
+                    )
+                });
+                let payload_indices = early_plan.payload_indices;
+                self.open_decoder_with_staged(
+                    group,
+                    &payload_indices,
+                    selection,
+                    stage1.staged,
+                    context,
+                )?;
+                self.coverage = None;
+                self.next_group += 1;
+                continue;
+            }
+            if hit_fields > 0 {
                 self.coverage_regions = self
                     .coverage_regions
                     .checked_add(1)
@@ -475,7 +620,7 @@ impl ColumnarReader {
                 .ok_or_else(|| failed("coverage exceeded its admitted extent"))?;
             // Delivery metadata must be separate from optional cache metadata.
             // This preserves the existing per-batch consumer-release witness.
-            if hit_fields > 0 || coverage.ticket.is_some() {
+            if !coverage.filtered_selection && (hit_fields > 0 || coverage.ticket.is_some()) {
                 coverage.compose(
                     &self.prepared,
                     session,
