@@ -2,9 +2,9 @@
 
 # Vector expressions
 
-These functions are available in matching native source builds after 1.1.0;
-they are not included in the published 1.1.0 wheels. SQL and
-`shardloom.functions` use the same native execution and admission rules.
+These functions are included in the published 1.3.0 CLI and native Linux/macOS Python
+wheels, as well as matching source builds (`1.1.0` and earlier wheels do not include
+them). SQL and `shardloom.functions` use the same native execution and admission rules.
 
 Use Float16, Float32 or Float64 lists, fixed-size lists or dense embeddings for
 vector arithmetic. Integer lists, tensors, sparse vectors, quantized vectors

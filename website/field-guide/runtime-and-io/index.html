@@ -160,13 +160,18 @@ an explicit format. Network and catalog protocols are not implicit readers.</p>
 </tr>
 <tr>
 <td>Typed memory</td>
-<td>Exact-width integers, finite Float32/64, Boolean, UTF8, binary, Decimal128, Date32, timezone-free microsecond timestamps</td>
+<td>Exact-width integers, Float16, finite Float32/64, Boolean, UTF8, binary, UUID, Decimal128, Date32/64, temporal units/zones</td>
 <td>Use explicit schemas for rich types; Decimal128 precision is 1–38 and scale is 0–precision.</td>
+</tr>
+<tr>
+<td>Rich and spatial extensions in 1.3.0</td>
+<td>Dense/sparse/quantized vectors, declared embeddings, fixed/variable tensors, managed binary objects, GeoArrow planar Point/LineString/Polygon, canonical Variant (<code dir="auto">variant_get</code> / <code dir="auto">try_variant_get</code> / <code dir="auto">is_variant_null</code>)</td>
+<td>Vectors/tensors/geometries require explicit declarations or schemas; ANN indexing, tensor arithmetic, geographic reprojection, and Variant sorting/joining remain unsupported.</td>
 </tr>
 <tr>
 <td>Nested values</td>
 <td>Static List, FixedSizeList and ordered Struct</td>
-<td>Recursive field and child-buffer admission applies. General Variant/extension types and nested arithmetic are not implied.</td>
+<td>Recursive field and child-buffer admission applies (<code dir="auto">depth-24</code>); unsupported extension/nested arithmetic is rejected explicitly.</td>
 </tr>
 </tbody>
 </table>

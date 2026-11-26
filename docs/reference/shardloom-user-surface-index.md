@@ -14,7 +14,7 @@ For the subsequent source implementation, read the
 [connected SQL/DataFrame and local-client guide](connected-programming.md)
 and [shared scalar definitions](native-scalar-functions.md). Trusted in-process
 rowwise application code uses the separate
-[batch-function API](application-batch-functions.md); its post-1.0.0 source scope
+[batch-function API](application-batch-functions.md); its scoped native boundary
 does not enable plugin/UDF loading or stock CLI callback execution.
 
 ## Source Of Truth Order
@@ -62,10 +62,10 @@ Declare fixed-rank tensors with row-specific shapes using
 
 [Spatial values and planar expressions](spatial-values.md) document native
 Point, LineString and Polygon columns, coordinate metadata and the shared
-`ST_*` function family in current source builds.
+`ST_*` function family in published 1.3.0 and current source builds.
 
 <!-- BEGIN GENERATED APPLICATION REFERENCE -->
-Source identity: `ebc9755bf0148ad1859edc72ee0d68c5b0f61a2095d13cf7400c013cfde713dd` (SHA-256 of the listed source inputs).
+Source identity: `61250cbeb150f7d8e3a77684eea32941247652f05326bc69b571434c2d93e3ff` (SHA-256 of the listed source inputs).
 This reference describes the listed source inputs; published package availability is tracked in the [selected-channel package readiness matrix](../release/package-channel-readiness-matrix.md).
 
 ### Python application exports

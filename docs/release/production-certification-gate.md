@@ -8,8 +8,8 @@ production claims separate from local v1 readiness.
 ## Local-engine preview exit criteria
 
 The current public posture is **published local engine; operational hardening in progress**.
-The `local_file_etl_v1_candidate` declaration describes that local engine. Selected v0.4.0
-package channels have [verified publication evidence](v0.4.0-publication-verification.md);
+The `local_file_etl_v1_candidate` declaration describes that local engine. Selected v1.3.0
+package channels have [verified publication evidence](v1.3.0-publication-verification.md);
 package availability is no longer a missing production prerequisite. Passing the default gate
 means the declarations and blocked claims are consistent. It does not certify production use.
 

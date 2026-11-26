@@ -2,7 +2,7 @@
 
 # Native analytical aggregates
 
-Current source builds expose these reducers through shared native execution in
+Published 1.3.0 packages and source builds expose these reducers through shared native execution in
 CLI SQL, embedded workflows, Python SQL, DataFrames and typed native relations.
 They compose with ordinary grouping and admitted analytic window frames. Vortex
 is the native representation and persistence target; compatibility readers use

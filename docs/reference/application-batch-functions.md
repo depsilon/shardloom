@@ -1,7 +1,8 @@
 # Application batch functions
 
-This describes the development source after 1.0.0, not the published 1.0.0
-packages. A trusted Rust callback or Python callable can transform rows at an
+This capability is included in the published 1.3.0 native Linux and macOS Python
+wheels (introduced in 1.1.0) and matching source builds (`1.0.0` and earlier packages
+do not include it). A trusted Rust callback or Python callable can transform rows at an
 explicit position in a native plan. Ordinary filters, joins, reductions,
 materialized relations and writers compose around that position.
 
