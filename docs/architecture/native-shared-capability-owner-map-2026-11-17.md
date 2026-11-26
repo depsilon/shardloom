@@ -118,3 +118,36 @@ gates, enabled-native lint and CLI preparation acceptance. Full hosted/platform
 acceptance of the preceding deep-traversal checkpoint is separate and still
 subject to its recorded CI failures. There is no new speedup, output-depth,
 publication, production-readiness or fallback-execution claim.
+
+## Bounded 2026-11-25 Direct-Parquet & Join-Filter Follow-On Owners
+
+Anchored against `dd7b441998430aebbcf61bbb3879cc54c339d0af` (see
+[design note](native-direct-parquet-agg-runtime-filter-2026-11-25.md) and
+[benchmark summary](../benchmarks/native-direct-parquet-agg-runtime-filter-2026-11-25.md)),
+three additional bounded owner boundaries execute without altering external
+dispositions, Chrysalis (`PR #1699`), closed Resonance, or deferred `PulseWeave`
+scheduling:
+
+- **Demanded Parquet range concurrency (Track A1):** `universal_format_io/demanded.rs`
+  (`PreparedColumnarSource::open_row_group_range`, bounded `next_group..end_group`),
+  `resident_execution_context.rs` (`WorkerContextScope`, `WorkerExecutionDelta`),
+  and `local_primitive_relational_batch_parallel.rs` (`admit_parallel_parquet`,
+  `run_streaming_ranges`) distribute multi-row-group Parquet reads across
+  `ResidentVortexSession::shared_compute_pool` within the caller's memory pool,
+  cancellation tree, and ordered consumer contract.
+- **Persistent range-local aggregate state (Track A2):** `native_relational_aggregate.rs`
+  (`Aggregate::merge_from`, `SharedRef`, `admits_parallel_range_merge`),
+  `native_relational_aggregate_typed_state.rs`, and
+  `local_primitive_relational_batch_parallel.rs` (`run_parallel_parquet_aggregate`)
+  accumulate persistent worker-local `Aggregate` states and merge strictly in
+  range order `0..M-1` (explicitly declining float `SUM`/`AVG` onto ordered Track A1
+  decode -> serial `Aggregate::consume`).
+- **Two-stage key-first Parquet filtering & `join_aggregate` pushdown (Track B1/B2):**
+  `universal_format_io/demanded/early_filter.rs` (Stage 1 key decode -> predicate +
+  Bloom `Batch::hash` selection -> Stage 2 `RowSelection`, with `> 85%` bailout
+  after `>= 2` row groups and `>= 32,768` rows), `demanded/coverage.rs`
+  (`!all_covered` gate so partial Chrysalis hits still prune uncached keys, while
+  complete Chrysalis hits serve from RAM with `0` Parquet reads),
+  `local_primitive_prepared_relational.rs` (`fact_probe_filter_target`),
+  `local_primitive_relational_join_aggregate.rs` (`probe_filters_pushed`,
+  `stage_validation_infallible`, `fact_chunk_subranges`), and `native_join_work.rs`.
