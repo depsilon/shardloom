@@ -154,6 +154,7 @@ impl KeyColumn {
                     None => (leaf.clone(), range.clone()),
                 };
                 let binary = matches!(array.dtype(), DType::Binary(_));
+                let full_domain = dictionary.is_some() && domain_range == (0..domain.len());
                 let Some((values, valid)) =
                     variable_domain(&domain, domain_range, binary, context)?
                 else {
@@ -173,6 +174,7 @@ impl KeyColumn {
                 };
                 Self::Variable(VariableColumn {
                     values,
+                    values_owner: full_domain.then_some(domain),
                     valid,
                     codes,
                     hashes: VariableHashing::OnDemand,

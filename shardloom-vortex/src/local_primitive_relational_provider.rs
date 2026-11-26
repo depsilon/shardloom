@@ -405,6 +405,7 @@ impl Prepared {
         matches!(self.strategy, Strategy::Projection { .. })
     }
 
+    #[allow(clippy::too_many_lines)]
     pub(super) fn consume(
         &self,
         context: &NativeExecutionContext<'_>,
@@ -455,6 +456,12 @@ impl Prepared {
                 add(&metrics.scan_batches, 1)?;
                 emit(array)
             })?;
+            metrics
+                .source_workers
+                .set(metrics.source_workers.get().max(1));
+            metrics
+                .operator_workers
+                .set(metrics.operator_workers.get().max(1));
             // The ordinary relational certificate describes the actual native
             // batches and sink. Do not fabricate aggregate/decode measurements
             // or label this native producer as a JSON collection.
@@ -468,15 +475,63 @@ impl Prepared {
                 request,
                 source,
                 policy,
-            } => consume_count(request, source, *policy, context, &mut emit)?,
+            } => {
+                metrics
+                    .source_workers
+                    .set(metrics.source_workers.get().max(1));
+                metrics
+                    .operator_workers
+                    .set(metrics.operator_workers.get().max(1));
+                consume_count(request, source, *policy, context, &mut emit)?
+            }
             Strategy::CountWhere(operation) => {
                 let execution = operation.execute_in_context(context)?;
                 emit_count(execution.count, context, &mut emit)?;
+                let src_w = if execution.report.data_read {
+                    execution.report.scan_concurrency_per_worker.max(1) as u64
+                } else {
+                    1
+                };
+                metrics
+                    .source_workers
+                    .set(metrics.source_workers.get().max(src_w));
+                metrics
+                    .operator_workers
+                    .set(metrics.operator_workers.get().max(1));
                 (execution.report, execution.native_io_certificate)
             }
             Strategy::Aggregate(operation) => {
                 let execution =
                     operation.consume_native_in_context(context, batch_rows, &mut emit)?;
+                let src_w = if execution.report.data_read {
+                    if operation.uses_worker_pool() {
+                        execution.report.physical_policy.selected_max_parallelism
+                    } else {
+                        execution
+                            .report
+                            .physical_policy
+                            .selected_scan_concurrency_per_worker
+                            .max(execution.report.scan_concurrency_per_worker)
+                    }
+                } else {
+                    1
+                }
+                .max(1) as u64;
+                let op_w = if execution.report.data_read && operation.uses_worker_pool() {
+                    execution
+                        .report
+                        .physical_policy
+                        .selected_max_parallelism
+                        .max(1) as u64
+                } else {
+                    1
+                };
+                metrics
+                    .source_workers
+                    .set(metrics.source_workers.get().max(src_w));
+                metrics
+                    .operator_workers
+                    .set(metrics.operator_workers.get().max(op_w));
                 (execution.report, execution.native_io_certificate)
             }
             Strategy::Sort {
@@ -492,6 +547,17 @@ impl Prepared {
                     context,
                 )?;
                 let certificate = native::local_primitive_native_io_certificate(request, &report)?;
+                let src_w = if report.data_read {
+                    report.scan_concurrency_per_worker.max(1) as u64
+                } else {
+                    1
+                };
+                metrics
+                    .source_workers
+                    .set(metrics.source_workers.get().max(src_w));
+                metrics
+                    .operator_workers
+                    .set(metrics.operator_workers.get().max(1));
                 (report, certificate)
             }
             Strategy::Projection { .. } => unreachable!("projection consumed above"),

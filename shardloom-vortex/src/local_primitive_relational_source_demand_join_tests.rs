@@ -189,7 +189,7 @@ fn parquet_join_count_and_mixed_measures_construct_only_consumed_columns() {
                 vec![expected],
                 "kind={kind:?}, mixed={mixed}"
             );
-            let direct = kind == JoinKind::Inner && !mixed;
+            let direct = kind == JoinKind::Inner;
             let work = result
                 .execution
                 .native_io_certificate

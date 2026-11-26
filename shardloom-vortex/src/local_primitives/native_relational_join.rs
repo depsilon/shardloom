@@ -38,6 +38,30 @@ pub(super) struct Spec {
     pub(super) condition: Option<Condition>,
 }
 
+impl Spec {
+    pub(super) fn try_clone_for_parallel(&self) -> Option<Self> {
+        let condition = match &self.condition {
+            Some(condition) => Some(Condition {
+                expression: condition.expression.try_clone_for_parallel()?,
+                fields: condition.fields.clone(),
+                columns: condition.columns.clone(),
+            }),
+            None => None,
+        };
+        Some(Self {
+            kind: self.kind,
+            asof: self.asof,
+            left_keys: self.left_keys.clone(),
+            right_keys: self.right_keys.clone(),
+            right_key_fields: self.right_key_fields.clone(),
+            fields: self.fields.clone(),
+            columns: self.columns.clone(),
+            retained: self.retained.clone(),
+            condition,
+        })
+    }
+}
+
 pub(super) struct Condition {
     pub(super) expression: Expression,
     pub(super) fields: Vec<(String, DType)>,
@@ -64,6 +88,109 @@ pub(super) struct Join<'a> {
     membership: Option<RowSet<'a>>,
     build_finished: bool,
     integer: integer::State,
+}
+
+pub(in crate::local_primitives) struct SealedJoin {
+    spec: Spec,
+    right: Table,
+    index: RowIndex,
+    matched: ReservedVec<bool>,
+    membership: Option<RowSet<'static>>,
+    integer: integer::State,
+}
+
+impl SealedJoin {
+    pub(in crate::local_primitives) fn new_worker_matched(
+        &self,
+        memory: &LiveMemoryPool,
+    ) -> Result<Option<ReservedVec<bool>>> {
+        let len = self.matched.values.len();
+        if len == 0 {
+            return Ok(None);
+        }
+        let mut matched = ReservedVec::new(memory)?;
+        matched.reserve(len)?;
+        matched.values.resize(len, false);
+        Ok(Some(matched))
+    }
+
+    pub(in crate::local_primitives) fn merge_matched(&mut self, worker: &[bool]) -> Result<()> {
+        if worker.len() != self.matched.values.len() {
+            return Err(failed("parallel join worker matched length mismatch"));
+        }
+        for (dst, &src) in self.matched.values.iter_mut().zip(worker) {
+            *dst |= src;
+        }
+        Ok(())
+    }
+
+    pub(in crate::local_primitives) fn consume_sealed(
+        &self,
+        array: ArrayRef,
+        matched_out: Option<&mut [bool]>,
+        context: &NativeExecutionContext<'_>,
+        batch_rows: usize,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<u64> {
+        if batch_rows == 0 {
+            return Err(failed("output batch rows must be positive"));
+        }
+        if let Some(matched) = matched_out.as_deref()
+            && matched.len() != self.matched.values.len()
+        {
+            return Err(failed("parallel join worker matched length mismatch"));
+        }
+        let left = Batch::new(array, &self.spec.left_keys, context)?;
+        if self.spec.condition.is_some() {
+            return condition::consume_condition_with(
+                &self.spec,
+                &self.right,
+                &self.index,
+                matched_out,
+                &left,
+                context,
+                batch_rows,
+                consume,
+            );
+        }
+        consume_equijoin_with(
+            &self.spec,
+            &self.right,
+            &self.index,
+            self.membership.as_ref(),
+            &self.integer,
+            matched_out,
+            &left,
+            context,
+            batch_rows,
+            consume,
+        )
+    }
+
+    pub(in crate::local_primitives) fn finish(
+        &self,
+        context: &NativeExecutionContext<'_>,
+        batch_rows: usize,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<u64> {
+        finish_outer(
+            &self.spec,
+            &self.right,
+            &self.matched.values,
+            context,
+            batch_rows,
+            consume,
+        )
+    }
+
+    pub(in crate::local_primitives) fn join_work(
+        &self,
+    ) -> Result<shardloom_core::native_join_work::NativeJoinWork> {
+        match &self.membership {
+            Some(membership) => membership.join_work(),
+            None => self.index.join_work(),
+        }
+    }
 }
 
 impl<'a> Join<'a> {
@@ -142,6 +269,35 @@ impl<'a> Join<'a> {
         context.check_cancelled()
     }
 
+    pub(super) fn try_into_sealed_parallel(
+        mut self,
+        left_fields: &[(String, DType)],
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<std::result::Result<SealedJoin, Self>> {
+        self.finish_build(context)?;
+        let Some(spec) = self.spec.try_clone_for_parallel() else {
+            return Ok(Err(self));
+        };
+        if self.spec.condition.is_none() {
+            self.integer.prepare_from_fields(
+                &spec,
+                &self.right,
+                &self.index,
+                left_fields,
+                context,
+            )?;
+        }
+        let membership = self.membership.map(RowSet::into_shared);
+        Ok(Ok(SealedJoin {
+            spec,
+            right: self.right,
+            index: self.index,
+            matched: self.matched,
+            membership,
+            integer: self.integer,
+        }))
+    }
+
     pub(super) fn finish_build(&mut self, context: &NativeExecutionContext<'_>) -> Result<()> {
         context.check_cancelled()?;
         if self.build_finished {
@@ -196,80 +352,86 @@ impl<'a> Join<'a> {
         if self.spec.condition.is_some() {
             return self.consume_condition(&left, context, batch_rows, consume);
         }
-        let mut pairs = Pairs::new(batch_rows, context.memory())?;
         // Required probe keys and pair buffers precede optional lookup state.
         self.integer
             .prepare_once(self.spec, &self.right, &self.index, &left, context)?;
-        let integer_probe = self.integer.probe(&left)?;
-        let mut written = 0u64;
-        for row in 0..left.array.len() {
-            if row.is_multiple_of(1024) {
-                context.check_cancelled()?;
-            }
-            let entry = if let Some(probe) = &integer_probe {
-                probe.entry(row)
-            } else if self.membership.is_none() {
-                left.hash(row, false)?
-                    .map(|hash| {
-                        self.index.find(hash, context.cancellation(), |right| {
-                            self.right.equal_batch(right, &left, row, false)
-                        })
+        consume_equijoin_with(
+            self.spec,
+            &self.right,
+            &self.index,
+            self.membership.as_ref(),
+            &self.integer,
+            (!self.matched.values.is_empty()).then_some(self.matched.values.as_mut_slice()),
+            &left,
+            context,
+            batch_rows,
+            consume,
+        )
+    }
+
+    pub(super) fn finish(
+        &self,
+        context: &NativeExecutionContext<'_>,
+        batch_rows: usize,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<u64> {
+        finish_outer(
+            self.spec,
+            &self.right,
+            &self.matched.values,
+            context,
+            batch_rows,
+            consume,
+        )
+    }
+}
+
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+fn consume_equijoin_with(
+    spec: &Spec,
+    right_table: &Table,
+    index: &RowIndex,
+    membership: Option<&RowSet<'_>>,
+    integer: &integer::State,
+    mut matched_out: Option<&mut [bool]>,
+    left: &Batch,
+    context: &NativeExecutionContext<'_>,
+    batch_rows: usize,
+    consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+) -> Result<u64> {
+    let mut pairs = Pairs::new(batch_rows, context.memory())?;
+    let integer_probe = integer.probe(left)?;
+    let mut written = 0u64;
+    for row in 0..left.array.len() {
+        if row.is_multiple_of(1024) {
+            context.check_cancelled()?;
+        }
+        let entry = if let Some(probe) = &integer_probe {
+            probe.entry(row)
+        } else if membership.is_none() {
+            left.hash(row, false)?
+                .map(|hash| {
+                    index.find(hash, context.cancellation(), |right| {
+                        right_table.equal_batch(right, left, row, false)
                     })
-                    .transpose()?
-                    .flatten()
-            } else {
-                None
-            };
-            let has_match = if let Some(membership) = &self.membership {
-                membership.contains(&left, row, context)?
-            } else if self.spec.kind == Kind::Cross {
-                self.right.rows() > 0
-            } else {
-                entry.is_some()
-            };
-            if matches!(self.spec.kind, Kind::LeftSemi | Kind::LeftAnti) {
-                if has_match == (self.spec.kind == Kind::LeftSemi) {
-                    self.push_pair(
-                        Some(&left.array),
-                        Some(row),
-                        None,
-                        &mut pairs,
-                        &mut written,
-                        context,
-                        consume,
-                    )?;
-                }
-                continue;
-            }
-            if self.spec.kind == Kind::Cross {
-                for right in 0..self.right.rows() {
-                    self.push_pair(
-                        Some(&left.array),
-                        Some(row),
-                        Some(right),
-                        &mut pairs,
-                        &mut written,
-                        context,
-                        consume,
-                    )?;
-                }
-            } else if let Some(entry) = entry {
-                for right in self.index.rows(entry)? {
-                    if !self.matched.values.is_empty() {
-                        self.matched.values[right] = true;
-                    }
-                    self.push_pair(
-                        Some(&left.array),
-                        Some(row),
-                        Some(right),
-                        &mut pairs,
-                        &mut written,
-                        context,
-                        consume,
-                    )?;
-                }
-            } else if matches!(self.spec.kind, Kind::Left | Kind::Full) {
-                self.push_pair(
+                })
+                .transpose()?
+                .flatten()
+        } else {
+            None
+        };
+        let has_match = if let Some(membership) = membership {
+            membership.contains(left, row, context)?
+        } else if spec.kind == Kind::Cross {
+            right_table.rows() > 0
+        } else {
+            entry.is_some()
+        };
+        if matches!(spec.kind, Kind::LeftSemi | Kind::LeftAnti) {
+            if has_match == (spec.kind == Kind::LeftSemi) {
+                push_pair_with(
+                    spec,
+                    right_table,
                     Some(&left.array),
                     Some(row),
                     None,
@@ -279,79 +441,127 @@ impl<'a> Join<'a> {
                     consume,
                 )?;
             }
+            continue;
         }
-        self.flush(
-            Some(&left.array),
-            &mut pairs,
-            &mut written,
-            context,
-            consume,
-        )?;
-        context.check_cancelled()?;
-        Ok(written)
-    }
-
-    pub(super) fn finish(
-        &self,
-        context: &NativeExecutionContext<'_>,
-        batch_rows: usize,
-        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
-    ) -> Result<u64> {
-        if !matches!(self.spec.kind, Kind::Right | Kind::Full) {
-            return Ok(0);
-        }
-        let mut pairs = Pairs::new(batch_rows, context.memory())?;
-        let mut written = 0;
-        for (row, matched) in self.matched.values.iter().enumerate() {
-            if row.is_multiple_of(1024) {
-                context.check_cancelled()?;
-            }
-            if !matched {
-                self.push_pair(
-                    None,
-                    None,
+        if spec.kind == Kind::Cross {
+            for right in 0..right_table.rows() {
+                push_pair_with(
+                    spec,
+                    right_table,
+                    Some(&left.array),
                     Some(row),
+                    Some(right),
                     &mut pairs,
                     &mut written,
                     context,
                     consume,
                 )?;
             }
+        } else if let Some(entry) = entry {
+            for right in index.rows(entry)? {
+                if let Some(matched_slice) = matched_out.as_deref_mut()
+                    && !matched_slice.is_empty()
+                {
+                    matched_slice[right] = true;
+                }
+                push_pair_with(
+                    spec,
+                    right_table,
+                    Some(&left.array),
+                    Some(row),
+                    Some(right),
+                    &mut pairs,
+                    &mut written,
+                    context,
+                    consume,
+                )?;
+            }
+        } else if matches!(spec.kind, Kind::Left | Kind::Full) {
+            push_pair_with(
+                spec,
+                right_table,
+                Some(&left.array),
+                Some(row),
+                None,
+                &mut pairs,
+                &mut written,
+                context,
+                consume,
+            )?;
         }
-        self.flush(None, &mut pairs, &mut written, context, consume)?;
-        Ok(written)
     }
+    spec.flush(
+        right_table,
+        Some(&left.array),
+        &mut pairs,
+        &mut written,
+        context,
+        consume,
+    )?;
+    context.check_cancelled()?;
+    Ok(written)
+}
 
-    #[allow(clippy::too_many_arguments)]
-    fn push_pair(
-        &self,
-        left: Option<&ArrayRef>,
-        left_row: Option<usize>,
-        right_row: Option<usize>,
-        pairs: &mut Pairs,
-        written: &mut u64,
-        context: &NativeExecutionContext<'_>,
-        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
-    ) -> Result<()> {
-        pairs.left.values.push(left_row);
-        pairs.right.values.push(right_row);
-        if pairs.left.values.len() == pairs.limit {
-            self.flush(left, pairs, written, context, consume)?;
+fn finish_outer(
+    spec: &Spec,
+    right_table: &Table,
+    matched_values: &[bool],
+    context: &NativeExecutionContext<'_>,
+    batch_rows: usize,
+    consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+) -> Result<u64> {
+    if !matches!(spec.kind, Kind::Right | Kind::Full) {
+        return Ok(0);
+    }
+    let mut pairs = Pairs::new(batch_rows, context.memory())?;
+    let mut written = 0;
+    for (row, &matched) in matched_values.iter().enumerate() {
+        if row.is_multiple_of(1024) {
+            context.check_cancelled()?;
         }
-        Ok(())
+        if !matched {
+            push_pair_with(
+                spec,
+                right_table,
+                None,
+                None,
+                Some(row),
+                &mut pairs,
+                &mut written,
+                context,
+                consume,
+            )?;
+        }
     }
+    spec.flush(
+        right_table,
+        None,
+        &mut pairs,
+        &mut written,
+        context,
+        consume,
+    )?;
+    Ok(written)
+}
 
-    fn flush(
-        &self,
-        left: Option<&ArrayRef>,
-        pairs: &mut Pairs,
-        written: &mut u64,
-        context: &NativeExecutionContext<'_>,
-        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
-    ) -> Result<()> {
-        self.spec
-            .flush(&self.right, left, pairs, written, context, consume)
+#[allow(clippy::too_many_arguments)]
+pub(super) fn push_pair_with(
+    spec: &Spec,
+    right_table: &Table,
+    left: Option<&ArrayRef>,
+    left_row: Option<usize>,
+    right_row: Option<usize>,
+    pairs: &mut Pairs,
+    written: &mut u64,
+    context: &NativeExecutionContext<'_>,
+    consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+) -> Result<()> {
+    pairs.left.values.push(left_row);
+    pairs.right.values.push(right_row);
+    if pairs.left.values.len() == pairs.limit {
+        spec.flush(right_table, left, pairs, written, context, consume)?;
     }
+    Ok(())
 }
 
 impl Spec {
@@ -530,7 +740,7 @@ impl Spec {
     }
 }
 
-struct Pairs {
+pub(super) struct Pairs {
     left: ReservedVec<Option<usize>>,
     right: ReservedVec<Option<usize>>,
     limit: usize,

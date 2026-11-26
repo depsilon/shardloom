@@ -864,4 +864,199 @@ fn public_parquet_parallel_aggregate_and_early_join_filter_evidence() {
             .map(String::as_str),
         Some("4")
     );
+    assert_eq!(
+        ipc_fields
+            .get("native_relational_source_workers")
+            .map(String::as_str),
+        Some("1")
+    );
+    assert_eq!(
+        ipc_fields
+            .get("native_relational_operator_workers")
+            .map(String::as_str),
+        Some("1")
+    );
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn public_cli_reports_source_and_operator_workers_across_integer_float_and_join() {
+    let fixture = Fixture::new();
+    let pq_path = fixture.0.join("workers_fact.parquet");
+    let total_rows = 32_768_usize;
+    let schema = std::sync::Arc::new(arrow_schema::Schema::new(vec![
+        arrow_schema::Field::new("grp", arrow_schema::DataType::Int64, false),
+        arrow_schema::Field::new("val_i64", arrow_schema::DataType::Int64, false),
+        arrow_schema::Field::new("val_f64", arrow_schema::DataType::Float64, false),
+        arrow_schema::Field::new("k", arrow_schema::DataType::Int64, false),
+    ]));
+    let file = std::fs::File::create(&pq_path).unwrap();
+    let props = parquet::file::properties::WriterProperties::builder()
+        .set_max_row_group_row_count(Some(4_096))
+        .build();
+    let mut writer =
+        parquet::arrow::ArrowWriter::try_new(file, std::sync::Arc::clone(&schema), Some(props))
+            .unwrap();
+    for chunk in 0..8_i64 {
+        let start = chunk * 4_096;
+        let end = start + 4_096;
+        let grp = arrow_array::Int64Array::from_iter_values((start..end).map(|v| v % 8));
+        let int_col = arrow_array::Int64Array::from_iter_values((start..end).map(|v| v % 13));
+        let float_col = arrow_array::Float64Array::from_iter_values(
+            (start..end).map(|v| f64::from(i32::try_from(v % 19).unwrap()) * 0.5),
+        );
+        let k = arrow_array::Int64Array::from_iter_values((start..end).map(|v| v % 64));
+        let batch = arrow_array::RecordBatch::try_new(
+            std::sync::Arc::clone(&schema),
+            vec![
+                std::sync::Arc::new(grp),
+                std::sync::Arc::new(int_col),
+                std::sync::Arc::new(float_col),
+                std::sync::Arc::new(k),
+            ],
+        )
+        .unwrap();
+        writer.write(&batch).unwrap();
+    }
+    writer.close().unwrap();
+
+    let dim_path = fixture.0.join("workers_dim.parquet");
+    let dim_schema = std::sync::Arc::new(arrow_schema::Schema::new(vec![
+        arrow_schema::Field::new("k", arrow_schema::DataType::Int64, false),
+        arrow_schema::Field::new("d_val", arrow_schema::DataType::Int64, false),
+    ]));
+    let dim_file = std::fs::File::create(&dim_path).unwrap();
+    let mut dim_writer =
+        parquet::arrow::ArrowWriter::try_new(dim_file, std::sync::Arc::clone(&dim_schema), None)
+            .unwrap();
+    let dim_batch = arrow_array::RecordBatch::try_new(
+        std::sync::Arc::clone(&dim_schema),
+        vec![
+            std::sync::Arc::new(arrow_array::Int64Array::from_iter_values(0..16_i64)),
+            std::sync::Arc::new(arrow_array::Int64Array::from_iter_values(100..116_i64)),
+        ],
+    )
+    .unwrap();
+    dim_writer.write(&dim_batch).unwrap();
+    dim_writer.close().unwrap();
+
+    // 1. Parallel integer grouped aggregate sets source_workers >= 2 and operator_workers >= 2.
+    let mut int_req = Fixture::request(
+        &pq_path,
+        "parquet",
+        format!(
+            "SELECT grp, SUM(val_i64) AS sum_i, COUNT(*) AS cnt FROM '{}' GROUP BY grp ORDER BY grp",
+            pq_path.display()
+        ),
+    );
+    int_req.resources.memory_bytes = Some((128_u64 << 20).to_string());
+    int_req.resources.max_parallelism = Some("4".into());
+    let int_collected = Fixture::prepare(&int_req)
+        .unwrap()
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    let int_fields: BTreeMap<String, String> =
+        crate::native::execution_fields(&int_collected.execution, false)
+            .into_iter()
+            .collect();
+    let int_source_workers: u64 = int_fields["native_relational_source_workers"]
+        .parse()
+        .unwrap();
+    let int_op_workers: u64 = int_fields["native_relational_operator_workers"]
+        .parse()
+        .unwrap();
+    assert!(
+        int_source_workers >= 2,
+        "int_source_workers={int_source_workers}"
+    );
+    assert!(int_op_workers >= 2, "int_op_workers={int_op_workers}");
+
+    // 2. Float SUM keeps source_workers >= 2 while holding operator_workers == 1 for bit-determinism.
+    let mut float_req = Fixture::request(
+        &pq_path,
+        "parquet",
+        format!(
+            "SELECT grp, SUM(val_f64) AS sum_f FROM '{}' GROUP BY grp ORDER BY grp",
+            pq_path.display()
+        ),
+    );
+    float_req.resources.memory_bytes = Some((128_u64 << 20).to_string());
+    float_req.resources.max_parallelism = Some("4".into());
+    let float_collected = Fixture::prepare(&float_req)
+        .unwrap()
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    let float_fields: BTreeMap<String, String> =
+        crate::native::execution_fields(&float_collected.execution, false)
+            .into_iter()
+            .collect();
+    let float_source_workers: u64 = float_fields["native_relational_source_workers"]
+        .parse()
+        .unwrap();
+    assert!(
+        float_source_workers >= 2,
+        "float_source_workers={float_source_workers}"
+    );
+    assert_eq!(
+        float_fields
+            .get("native_relational_operator_workers")
+            .map(String::as_str),
+        Some("1")
+    );
+
+    // 3. Multi-RG Parquet parallel join sets both source_workers and operator_workers >= 2.
+    let mut join_req = Fixture::request(
+        &pq_path,
+        "parquet",
+        format!(
+            "SELECT f.k, f.val_i64, d.d_val FROM '{}' AS f INNER JOIN '{}' AS d ON f.k = d.k",
+            pq_path.display(),
+            dim_path.display()
+        ),
+    );
+    join_req.resources.memory_bytes = Some((128_u64 << 20).to_string());
+    join_req.resources.max_parallelism = Some("4".into());
+    join_req.source_bindings = BTreeMap::from([
+        (
+            pq_path.display().to_string(),
+            super::super::super::PublicSourceBinding {
+                input_format: "parquet".into(),
+                source_schema: None,
+                memory_input: None,
+                table_snapshot: None,
+            },
+        ),
+        (
+            dim_path.display().to_string(),
+            super::super::super::PublicSourceBinding {
+                input_format: "parquet".into(),
+                source_schema: None,
+                memory_input: None,
+                table_snapshot: None,
+            },
+        ),
+    ]);
+    let join_collected = Fixture::prepare(&join_req)
+        .unwrap()
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    assert_eq!(
+        join_collected.result_jsonl.value().lines().count(),
+        total_rows / 4
+    );
+    let join_fields: BTreeMap<String, String> =
+        crate::native::execution_fields(&join_collected.execution, false)
+            .into_iter()
+            .collect();
+    let join_source_workers: u64 = join_fields["native_relational_source_workers"]
+        .parse()
+        .unwrap();
+    let join_op_workers: u64 = join_fields["native_relational_operator_workers"]
+        .parse()
+        .unwrap();
+    assert!(
+        join_source_workers >= 2,
+        "join_source_workers={join_source_workers}"
+    );
+    assert!(join_op_workers >= 2, "join_op_workers={join_op_workers}");
 }

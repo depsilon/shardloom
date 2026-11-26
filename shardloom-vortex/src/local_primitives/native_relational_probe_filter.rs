@@ -195,8 +195,20 @@ pub(crate) fn apply_bloom_mask(
     filters: &[ProbeRuntimeFilter],
     context: &NativeExecutionContext<'_>,
 ) -> Result<Option<Mask>> {
+    apply_bloom_mask_selected(array, filters, None, context)
+}
+
+/// Evaluates runtime Bloom membership only on rows that are `true` in `prior_mask`
+/// (or all rows when `prior_mask` is `None`), avoiding hashing rows already rejected
+/// by Stage-1 range/equality predicates.
+pub(crate) fn apply_bloom_mask_selected(
+    array: &ArrayRef,
+    filters: &[ProbeRuntimeFilter],
+    prior_mask: Option<&Mask>,
+    context: &NativeExecutionContext<'_>,
+) -> Result<Option<Mask>> {
     let len = array.len();
-    if len == 0 {
+    if len == 0 || prior_mask.is_some_and(Mask::all_false) {
         return Ok(None);
     }
     let DType::Struct(fields, _) = array.dtype() else {
@@ -221,7 +233,10 @@ pub(crate) fn apply_bloom_mask(
             continue;
         }
         let batch = Batch::new(array.clone(), &filter.probe_columns, context)?;
-        let selected = keep.get_or_insert_with(|| vec![true; len]);
+        let selected = keep.get_or_insert_with(|| match prior_mask {
+            Some(mask) => (0..len).map(|row| mask.value(row)).collect(),
+            None => vec![true; len],
+        });
         for (row, keep_row) in selected.iter_mut().enumerate() {
             if row.is_multiple_of(1024) {
                 context.check_cancelled()?;

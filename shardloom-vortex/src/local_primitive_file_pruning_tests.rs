@@ -492,3 +492,90 @@ fn partitioned_scan_prunes_f64_inlist_and_constant_noteq_while_preserving_exact_
     assert_eq!(extract_cnt(&rep_stats), serde_json::json!(2));
     assert_eq!(extract_cnt(&rep_nostats), serde_json::json!(2));
 }
+
+#[cfg(all(feature = "vortex-write", unix))]
+#[test]
+fn runtime_predicate_selectivity_guard_rejects_unselective_integer_range_hints() {
+    use shardloom_core::ComparisonOp;
+    use vortex::VortexSessionDefault as _;
+    use vortex::file::OpenOptionsSessionExt as _;
+    use vortex::io::runtime::{BlockingRuntime as _, single::SingleThreadRuntime};
+    use vortex::io::session::RuntimeSessionExt as _;
+    use vortex::session::VortexSession;
+
+    struct DirGuard(std::path::PathBuf);
+    impl Drop for DirGuard {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    let dir = std::env::temp_dir().join(format!(
+        "shardloom-runtime-selectivity-{}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let _guard = DirGuard(dir.clone());
+
+    let tags: Vec<i64> = (0..=100).collect();
+    let scores: Vec<f64> = (0..=100_u32).map(f64::from).collect();
+    let stats_path = write_pruning_partition(&dir, "range", 0, scores, tags, true);
+
+    let runtime = SingleThreadRuntime::default();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let file = runtime
+        .block_on(session.open_options().open_path(&stats_path))
+        .unwrap();
+
+    let broad_range = PredicateExpr::And(vec![
+        PredicateExpr::Compare {
+            column: ColumnRef::new("bucket").unwrap(),
+            op: ComparisonOp::GtEq,
+            value: StatValue::Int64(0),
+        },
+        PredicateExpr::Compare {
+            column: ColumnRef::new("bucket").unwrap(),
+            op: ComparisonOp::LtEq,
+            value: StatValue::Int64(99),
+        },
+    ]);
+    assert!(
+        !runtime_predicate_is_selective_on_file(&file, &broad_range),
+        "range covering >= 50% of [0, 100] should decline optional runtime scan filter"
+    );
+
+    let narrow_range = PredicateExpr::And(vec![
+        PredicateExpr::Compare {
+            column: ColumnRef::new("bucket").unwrap(),
+            op: ComparisonOp::GtEq,
+            value: StatValue::Int64(0),
+        },
+        PredicateExpr::Compare {
+            column: ColumnRef::new("bucket").unwrap(),
+            op: ComparisonOp::LtEq,
+            value: StatValue::Int64(10),
+        },
+    ]);
+    assert!(
+        runtime_predicate_is_selective_on_file(&file, &narrow_range),
+        "range covering < 50% of [0, 100] should stay enabled"
+    );
+
+    let disjoint_range = PredicateExpr::And(vec![
+        PredicateExpr::Compare {
+            column: ColumnRef::new("bucket").unwrap(),
+            op: ComparisonOp::GtEq,
+            value: StatValue::Int64(500),
+        },
+        PredicateExpr::Compare {
+            column: ColumnRef::new("bucket").unwrap(),
+            op: ComparisonOp::LtEq,
+            value: StatValue::Int64(600),
+        },
+    ]);
+    assert!(
+        runtime_predicate_is_selective_on_file(&file, &disjoint_range),
+        "disjoint range should remain enabled so file pruning fires"
+    );
+}

@@ -16,7 +16,7 @@ use shardloom_core::{
 };
 use vortex::{io::runtime::BlockingRuntime as _, mask::Mask};
 
-const SCAN_ROWS: usize = 8192;
+pub(super) const SCAN_ROWS: usize = 8192;
 
 #[derive(Default, Clone, Copy)]
 pub(super) struct ScanBatchCounts {
@@ -139,7 +139,7 @@ pub(super) fn admitted_runtime_predicate(
     combined
 }
 
-fn plan_with_runtime_predicate(
+pub(super) fn plan_with_runtime_predicate(
     plan: &LocalVortexScanPlan,
     predicate: PredicateExpr,
     source_dtype: &DType,
@@ -194,6 +194,41 @@ fn accept_scan_batch(
     result
 }
 
+pub(super) fn file_probe_filters_can_prune_or_narrow(
+    source_file: &PreparedVortexSource,
+    residual_present: bool,
+    probe_filters: &[ProbeRuntimeFilter],
+) -> bool {
+    if !residual_present
+        && has_infallible_empty_build(probe_filters, &mut |name| {
+            source_file.dtype().as_struct_fields_opt()?.field(name)
+        })
+    {
+        return true;
+    }
+    if probe_filters.iter().any(|filter| filter.bloom.is_some()) {
+        return true;
+    }
+    if let Some(pred) = admitted_runtime_predicate(probe_filters, source_file.dtype()) {
+        return crate::local_primitives::file_pruning::runtime_predicate_is_selective_on_file(
+            source_file.file(),
+            &pred,
+        );
+    }
+    // If a filter's column was aliased upstream (not directly in file dtype),
+    // keep the conservative unwrap decision so selective filters still push down.
+    probe_filters.iter().any(|filter| {
+        filter.key_predicate.is_some()
+            && !filter.probe_columns.iter().all(|col| {
+                source_file
+                    .dtype()
+                    .as_struct_fields_opt()
+                    .and_then(|fields| fields.field(col.as_str()))
+                    .is_some()
+            })
+    })
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(super) fn run(
     source: &ScanSource,
@@ -240,6 +275,10 @@ pub(super) fn run(
                 prune_empty_file(source_file, plan, context, metrics)
             } else if let Some(pred) =
                 admitted_runtime_predicate(probe_filters, source_file.dtype())
+                && crate::local_primitives::file_pruning::runtime_predicate_is_selective_on_file(
+                    source_file.file(),
+                    &pred,
+                )
             {
                 let updated = plan_with_runtime_predicate(plan, pred, source_file.dtype())?;
                 run_file(
@@ -291,6 +330,7 @@ pub(super) fn run(
         ScanSource::Batch { index, projection } => run_batch_scan(
             *index,
             projection,
+            plan.pushdown_predicate.as_ref(),
             columns,
             residual,
             probe_filters,
@@ -341,6 +381,7 @@ fn run_memory_scan(
 fn run_batch_scan(
     index: usize,
     projection: &crate::resident_memory_source::PreparedMemoryProjection,
+    pushdown_predicate: Option<&PredicateExpr>,
     columns: &[String],
     residual: Option<&MaterializedPredicateEvaluator>,
     probe_filters: &[ProbeRuntimeFilter],
@@ -353,26 +394,40 @@ fn run_batch_scan(
     let input = metrics
         .input
         .ok_or_else(|| super::batch_input::failed("streaming scan has no input provider"))?;
+    let mandatory = pushdown_predicate.map(|pred| (pred, residual.is_none()));
     let mut sizing = Rows::from_fields(Owner::Scan, fields, SCAN_ROWS, 2, context)?;
     input.run_with_probe_filters(
         index,
+        mandatory,
         probe_filters,
         residual.is_some(),
         context,
         metrics,
-        &mut |probe_filters_satisfied, source| {
-            let active_filters: &[ProbeRuntimeFilter] = if probe_filters_satisfied {
+        &mut |filter_status, source| {
+            let active_filters: &[ProbeRuntimeFilter] = if filter_status.probe_filters_satisfied {
                 &[]
             } else {
                 probe_filters
             };
+            let active_residual = if filter_status.mandatory_predicate_satisfied {
+                None
+            } else {
+                residual
+            };
+            let execute_source = |source: &ArrayRef, range: std::ops::Range<usize>| {
+                if filter_status.mandatory_predicate_satisfied {
+                    projection.execute_batch_array_without_filter(source, range, context)
+                } else {
+                    projection.execute_batch_array(source, range, context)
+                }
+            };
             add(&metrics.scans_started, 1)?;
             if source.is_empty() {
-                let projected = projection.execute_batch_array(source, 0..0, context)?;
+                let projected = execute_source(source, 0..0)?;
                 return accept_scan_batch(
                     &projected,
                     columns,
-                    residual,
+                    active_residual,
                     active_filters,
                     fields,
                     context,
@@ -386,11 +441,11 @@ fn run_batch_scan(
             while start < source.len() {
                 let selected = sizing.select((source.len() - start) as u64, context)?;
                 let end = start + selected.rows;
-                let projected = projection.execute_batch_array(source, start..end, context)?;
+                let projected = execute_source(source, start..end)?;
                 accept_scan_batch(
                     &projected,
                     columns,
-                    residual,
+                    active_residual,
                     active_filters,
                     fields,
                     context,
@@ -406,7 +461,7 @@ fn run_batch_scan(
     )
 }
 
-fn prune_empty_file(
+pub(super) fn prune_empty_file(
     source: &PreparedVortexSource,
     plan: &LocalVortexScanPlan,
     context: &NativeExecutionContext<'_>,

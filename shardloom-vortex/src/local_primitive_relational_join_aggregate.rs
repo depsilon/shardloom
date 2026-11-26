@@ -40,7 +40,7 @@ pub(super) struct Plan<'a> {
     fact: &'a Node,
     stages: ReservedVec<Stage<'a>>,
     groups: ReservedVec<Origin>,
-    measure: Option<Origin>,
+    measures: ReservedVec<Option<Origin>>,
 }
 
 fn position(node: &Node, name: &str) -> Option<usize> {
@@ -137,26 +137,38 @@ impl<'a> Plan<'a> {
             };
             groups.values.push(origins.values[index]);
         }
-        let measure = if let Some(name) = &aggregate.measures[0].column {
-            let Some(index) = position(input, name) else {
-                return Ok(None);
+        let mut measures = ReservedVec::new(context.memory())?;
+        measures.reserve(aggregate.measures.len())?;
+        for measure in &aggregate.measures {
+            let origin = if let Some(name) = &measure.column {
+                let Some(index) = position(input, name) else {
+                    return Ok(None);
+                };
+                let origin = origins.values[index];
+                let dtype = if origin.source == 0 {
+                    fact.fields.get(origin.column).map(|(_, dtype)| dtype)
+                } else {
+                    stages
+                        .values
+                        .get(origin.source - 1)
+                        .and_then(|stage| stage.right.fields.get(origin.column))
+                        .map(|(_, dtype)| dtype)
+                };
+                if !matches!(dtype, Some(DType::Primitive(ptype, _)) if *ptype != PType::F16) {
+                    return Ok(None);
+                }
+                Some(origin)
+            } else {
+                None
             };
-            let origin = origins.values[index];
-            if origin.source != 0
-                || !matches!(fact.fields[origin.column].1, DType::Primitive(ptype, _) if ptype != PType::F16)
-            {
-                return Ok(None);
-            }
-            Some(origin)
-        } else {
-            None
-        };
+            measures.values.push(origin);
+        }
         Ok(Some(Self {
             input,
             fact,
             stages,
             groups,
-            measure,
+            measures,
         }))
     }
 
@@ -203,6 +215,20 @@ impl<'a> Plan<'a> {
                 )? {
                     dimensions.values.push(source);
                 } else {
+                    direct = false;
+                    work.chains_declined_representation = 1;
+                    break;
+                }
+            }
+        }
+        if direct {
+            for origin in self.measures.values.iter().flatten() {
+                if origin.source > 0
+                    && dimensions.values[origin.source - 1]
+                        .column(origin.column)?
+                        .single()
+                        .is_none()
+                {
                     direct = false;
                     work.chains_declined_representation = 1;
                     break;
@@ -467,7 +493,13 @@ impl<'a> Plan<'a> {
                     ..Default::default()
                 })?;
                 if tail.is_empty() {
-                    aggregate.consume_matches(&input, self.measure, dtype, context, batch_rows)
+                    aggregate.consume_matches(
+                        &input,
+                        &self.measures.values,
+                        dtype,
+                        context,
+                        batch_rows,
+                    )
                 } else {
                     self.matches(
                         index + 1,

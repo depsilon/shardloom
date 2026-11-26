@@ -37,7 +37,7 @@ mod borrowed;
 
 #[path = "native_relational_variable_domain.rs"]
 mod variable_domain;
-use variable_domain::VariableDomain;
+pub(super) use variable_domain::VariableDomain;
 
 use super::{AggregateDistinctValue, NativeNumericOwner, compound_count_partial, vortex_error};
 use shardloom_core::{FloatPolicy, Result, ShardLoomError, float_policy::float_key_bits};
@@ -105,6 +105,7 @@ pub(super) enum Preparation {
 
 pub(super) struct VariableColumn {
     values: VariableDomain,
+    values_owner: Option<ArrayRef>,
     valid: Mask,
     codes: Option<NativeNumericOwner>,
     hashes: VariableHashing,
@@ -992,6 +993,7 @@ impl VariableColumn {
         }
         Ok(Self {
             values: VariableDomain::Views(values),
+            values_owner: dictionary.map(|_| domain),
             valid,
             codes,
             hashes: match hashes {
@@ -1046,6 +1048,12 @@ impl VariableColumn {
     /// The existing prepared codes and value-domain length; no row expansion.
     pub(super) fn dictionary_parts(&self) -> Option<(&NativeNumericOwner, usize)> {
         self.codes.as_ref().map(|codes| (codes, self.values.len()))
+    }
+
+    pub(super) fn dict_epoch(&self) -> Option<(&VariableDomain, &Mask, &NativeNumericOwner, bool)> {
+        let _owner = self.values_owner.as_ref()?;
+        let codes = self.codes.as_ref()?;
+        Some((&self.values, &self.valid, codes, self.binary))
     }
 
     /// Borrow only within the prepared native owner. The expression result
@@ -1117,7 +1125,7 @@ pub(super) fn validate_float_scalar(value: f64, float_policy: FloatPolicy) -> Re
     Ok(())
 }
 
-fn failed(detail: &str) -> ShardLoomError {
+pub(super) fn failed(detail: &str) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
         "native relational key: {detail}; no fallback execution was attempted"
     ))

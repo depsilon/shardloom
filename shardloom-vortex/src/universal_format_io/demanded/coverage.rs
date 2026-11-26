@@ -311,23 +311,38 @@ fn eligible_fields(prepared: &PreparedColumnarSource) -> bool {
 
 impl ColumnarReader {
     fn next_selected_group(&mut self) -> Option<SourceGroup> {
+        let logical_schema = self.prepared.source.schema();
         while self.next_group < self.end_group {
             let Some(&group) = self.prepared.row_groups.get(self.next_group) else {
                 break;
             };
-            if let Some(pred) = &self.runtime_predicate {
-                let file = &self.prepared.source.files[group.file];
-                if super::statistics::excluded(
-                    &file.metadata,
+            let file = self.prepared.source.parquet_file(group.file);
+            #[cfg(all(feature = "vortex-local-primitives", unix))]
+            if let Some((pred, _)) = &self.mandatory_predicate
+                && super::statistics::excluded(
+                    file.metadata,
                     group.index,
                     pred,
-                    &self.prepared.source.schema(),
-                    &self.prepared.source.collection.files[group.file].partitions,
-                ) {
-                    self.row_groups_pruned += 1;
-                    self.next_group += 1;
-                    continue;
-                }
+                    &logical_schema,
+                    file.partitions,
+                )
+            {
+                self.row_groups_pruned += 1;
+                self.next_group += 1;
+                continue;
+            }
+            if let Some(pred) = &self.runtime_predicate
+                && super::statistics::excluded(
+                    file.metadata,
+                    group.index,
+                    pred,
+                    &logical_schema,
+                    file.partitions,
+                )
+            {
+                self.row_groups_pruned += 1;
+                self.next_group += 1;
+                continue;
             }
             return Some(group);
         }
@@ -340,14 +355,15 @@ impl ColumnarReader {
         session: &ResidentVortexSession,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Option<(ResidentMemorySource, u64)>> {
-        #[cfg(all(feature = "vortex-local-primitives", unix))]
-        {
-            self.last_batch_probe_filters_satisfied = self.early_filter_disabled;
-        }
+        self.last_batch_filter_satisfaction = super::BatchFilterSatisfaction::default();
+        self.last_batch_selection = super::BatchRowSelection::Contiguous {
+            first_row: 0,
+            rows: 0,
+        };
         loop {
             context.check_cancelled()?;
             if let Some((index, _)) = &self.input {
-                let identity = &self.prepared.source.files[*index].identity;
+                let identity = self.prepared.source.parquet_file(*index).identity;
                 if let Err(error) = identity.validate() {
                     if let Some((store, _)) = context.columnar_coverage() {
                         store.invalidate(identity);
@@ -355,12 +371,19 @@ impl ColumnarReader {
                     return Err(error);
                 }
             }
-            if let Some(covered) = self.next_covered(session, context)? {
-                return Ok(Some(covered));
+            if let Some((source, first_row)) = self.next_covered(session, context)? {
+                self.last_batch_selection = super::BatchRowSelection::Contiguous {
+                    first_row,
+                    rows: source.row_count() as u64,
+                };
+                return Ok(Some((source, first_row)));
             }
             if let Some(active) = &mut self.active {
                 let filtered = active.filtered_selection;
-                if let Some((batch, first_row)) = active.next(&mut self.sizing, context)? {
+                if let Some((batch, first_row, selection)) =
+                    active.next(&mut self.sizing, context)?
+                {
+                    self.last_batch_selection = selection;
                     #[cfg(all(feature = "vortex-local-primitives", unix))]
                     if let Some(staged) = active.staged.as_mut() {
                         let rows = batch.num_rows();
@@ -376,7 +399,7 @@ impl ColumnarReader {
                             .served_rows
                             .checked_add(rows as u64)
                             .ok_or_else(|| failed("served source rows overflow"))?;
-                        self.last_batch_probe_filters_satisfied = staged.probe_filters_satisfied;
+                        self.last_batch_filter_satisfaction = staged.filter_satisfaction;
                         let payload_source = ResidentMemorySource::from_local_arrow_with_ownership(
                             session,
                             batch,
@@ -402,7 +425,20 @@ impl ColumnarReader {
                         .rows
                         .checked_add(rows as u64)
                         .ok_or_else(|| failed("source row count overflow"))?;
-                    let source = self.accept_decoded(batch, first_row, session, context)?;
+                    let source = if let Some(alignment) = active.wrapped_alignment.as_ref() {
+                        let aligned = super::generic::schema::align_owned_parquet(
+                            crate::universal_format_io::owned_batch::OwnedBatch::from(batch),
+                            std::sync::Arc::clone(&alignment.target_schema),
+                            &alignment.partitions,
+                            context.memory(),
+                        )?;
+                        let (aligned, owner) = aligned.into_parts();
+                        let source = self.accept_decoded(aligned, first_row, session, context)?;
+                        drop(owner);
+                        source
+                    } else {
+                        self.accept_decoded(batch, first_row, session, context)?
+                    };
                     return Ok(Some((source, first_row)));
                 }
                 self.active.take();
@@ -439,7 +475,7 @@ impl ColumnarReader {
                 }
                 return Ok(None);
             };
-            let file = &self.prepared.source.files[group.file];
+            let file = self.prepared.source.parquet_file(group.file);
             if self
                 .input
                 .as_ref()
@@ -449,7 +485,7 @@ impl ColumnarReader {
                 self.input = Some((
                     group.file,
                     context.local_source_reader(
-                        Arc::clone(&file.identity),
+                        Arc::clone(file.identity),
                         Arc::clone(&self.metrics),
                     )?,
                 ));
@@ -468,6 +504,11 @@ impl ColumnarReader {
                 && !self.early_filter_disabled
                 && let Some(early_plan) = super::early_filter::plan(
                     &self.prepared,
+                    file,
+                    group.rows,
+                    self.mandatory_predicate
+                        .as_ref()
+                        .map(|(pred, complete)| (pred, *complete)),
                     self.runtime_predicate.as_ref(),
                     &self.probe_filters,
                     self.residual_present,
@@ -480,15 +521,15 @@ impl ColumnarReader {
                 {
                     store.discard(ticket);
                 }
-                let metadata = self.prepared.source.files[group.file].metadata.clone();
-                let group_meta = metadata.metadata().row_group(group.index);
+                let decode_meta = file.encoded_metadata.unwrap_or(file.metadata).clone();
+                let group_meta = decode_meta.metadata().row_group(group.index);
                 let mut bytes_read = 0_u64;
                 let stage1 = super::early_filter::run_stage1(
                     self,
                     &early_plan,
                     group,
                     group_meta,
-                    &metadata,
+                    &decode_meta,
                     &mut bytes_read,
                     session,
                     context,
@@ -522,21 +563,27 @@ impl ColumnarReader {
                     self.next_group += 1;
                     continue;
                 }
-                let selection = (stage1.survivors < group.rows).then(|| {
+                let (selection, sparse_ranges) = if stage1.survivors < group.rows {
                     let total = usize::try_from(group.rows).expect("row group size fits usize");
                     (
-                        parquet::arrow::arrow_reader::RowSelection::from_consecutive_ranges(
-                            stage1.surviving_ranges.into_iter(),
-                            total,
-                        ),
-                        stage1.survivors,
+                        Some((
+                            parquet::arrow::arrow_reader::RowSelection::from_consecutive_ranges(
+                                stage1.surviving_ranges.iter().cloned(),
+                                total,
+                            ),
+                            stage1.survivors,
+                        )),
+                        Some(stage1.surviving_ranges),
                     )
-                });
+                } else {
+                    (None, None)
+                };
                 let payload_indices = early_plan.payload_indices;
                 self.open_decoder_with_staged(
                     group,
                     &payload_indices,
                     selection,
+                    sparse_ranges,
                     stage1.staged,
                     context,
                 )?;
@@ -550,16 +597,29 @@ impl ColumnarReader {
                     .checked_add(1)
                     .ok_or_else(|| failed("coverage region counter overflow"))?;
             }
-            if let Some(coverage) = &coverage {
-                if !coverage.acquired.missing.is_empty() {
-                    self.open_decoder(group, &coverage.acquired.missing, context)?;
-                }
-            } else {
-                // Clone is covered by the prepared source-demand metadata lease.
-                let projection = self.prepared.projection.clone();
-                self.open_decoder(group, &projection, context)?;
-            }
             self.coverage = coverage;
+            let decode_projection = self
+                .coverage
+                .as_ref()
+                .map(|cov| cov.acquired.missing.clone());
+            let open_result = match decode_projection {
+                Some(missing) if missing.is_empty() => Ok(()),
+                Some(missing) => self.open_decoder(group, &missing, context),
+                None => {
+                    // Clone is covered by the prepared source-demand metadata lease.
+                    let projection = self.prepared.projection.clone();
+                    self.open_decoder(group, &projection, context)
+                }
+            };
+            if let Err(error) = open_result {
+                if let Some(mut cov) = self.coverage.take()
+                    && let Some(ticket) = cov.ticket.take()
+                    && let Some((store, _)) = context.columnar_coverage()
+                {
+                    store.discard(ticket);
+                }
+                return Err(error);
+            }
             self.next_group += 1;
         }
     }

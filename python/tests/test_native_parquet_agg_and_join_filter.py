@@ -138,6 +138,267 @@ class NativeParquetAggAndJoinFilterTests(unittest.TestCase):
             "ref_join_agg": ref_join_agg,
         }
 
+    def test_orders_1_to_5_workers_vortex_and_multi_measure_join_agg(self) -> None:
+        import json
+        import tempfile
+        from pathlib import Path
+        import pyarrow.compute as pc
+        import pyarrow.parquet as pq
+        import shardloom as sl
+        from shardloom import native
+
+        with tempfile.TemporaryDirectory(prefix="shardloom-py-orders15-") as tmpdir:
+            fx = self._build_fixtures(Path(tmpdir))
+            fact_pq = fx["fact_pq"]
+            dim_pq = fx["dim_pq"]
+            vortex_fact = fx["vortex_fact"]
+            ipc_path = fx["ipc_path"]
+
+            fact_tbl = pq.read_table(fact_pq)
+            dim_tbl = pq.read_table(dim_pq)
+
+            # Reference for multi-measure grouped/distinct aggregate: SUM + AVG + COUNT(DISTINCT)
+            agg_rows = fact_tbl.group_by("grp").aggregate([
+                ("val_i64", "count"),
+                ("val_i64", "sum"),
+                ("val_i64", "mean"),
+                ("val_i64", "min"),
+                ("val_i64", "max"),
+            ]).sort_by([("grp", "ascending")]).to_pylist()
+            distinct_by_grp = {}
+            for g, vi in zip(fact_tbl["grp"].to_pylist(), fact_tbl["val_i64"].to_pylist()):
+                distinct_by_grp.setdefault(g, set()).add(vi)
+            ref_multi_agg = [
+                {
+                    "grp": r["grp"],
+                    "cnt": r["val_i64_count"],
+                    "sum_v": r["val_i64_sum"],
+                    "avg_v": r["val_i64_mean"],
+                    "min_v": r["val_i64_min"],
+                    "max_v": r["val_i64_max"],
+                    "uniq_v": len(distinct_by_grp[r["grp"]]),
+                }
+                for r in agg_rows
+            ]
+
+            # Reference for multi-measure join_aggregate (fact + dimension columns)
+            dim_sel = dim_tbl.filter(pc.equal(dim_tbl["tier"], 1))
+            joined = fact_tbl.join(dim_sel, keys="k", join_type="inner")
+            ref_multi_ja = [
+                {
+                    "region": r["region"],
+                    "cnt": r["val_i64_count"],
+                    "sum_v": r["val_i64_sum"],
+                    "avg_v": r["val_i64_mean"],
+                    "min_v": r["val_i64_min"],
+                    "max_v": r["val_i64_max"],
+                    "sum_dim": r["tier_sum"],
+                }
+                for r in joined.group_by("region")
+                .aggregate([
+                    ("val_i64", "count"),
+                    ("val_i64", "sum"),
+                    ("val_i64", "mean"),
+                    ("val_i64", "min"),
+                    ("val_i64", "max"),
+                    ("tier", "sum"),
+                ])
+                .sort_by([("region", "ascending")])
+                .to_pylist()
+            ]
+
+            with sl.context(transport="native", memory_bytes=256 << 20, max_parallelism=4) as ctx:
+                # 1. Worker observability + SUM/AVG/COUNT(DISTINCT) over Parquet and prepared .vortex
+                for path, fmt_name in ((fact_pq, "parquet"), (vortex_fact, "vortex")):
+                    sql_par = (
+                        f"SELECT grp, COUNT(*) AS cnt, SUM(val_i64) AS sum_v, "
+                        f"AVG(val_i64) AS avg_v, MIN(val_i64) AS min_v, MAX(val_i64) AS max_v "
+                        f"FROM '{path}' GROUP BY grp ORDER BY grp ASC"
+                    )
+                    res_par = ctx.sql(sql_par).collect(check=True)
+                    expected_par = [
+                        {k: v for k, v in row.items() if k != "uniq_v"}
+                        for row in ref_multi_agg
+                    ]
+                    self.assertEqual(res_par.to_arrow().to_pylist(), expected_par, fmt_name)
+                    self.assertFalse(res_par.fallback_attempted)
+                    self.assertFalse(res_par.external_engine_invoked)
+                    self.assertGreaterEqual(res_par.source_workers, 2, fmt_name)
+                    self.assertGreaterEqual(res_par.operator_workers, 2, fmt_name)
+
+                    sql_multi = (
+                        f"SELECT grp, COUNT(*) AS cnt, SUM(val_i64) AS sum_v, "
+                        f"AVG(val_i64) AS avg_v, MIN(val_i64) AS min_v, MAX(val_i64) AS max_v, "
+                        f"COUNT(DISTINCT val_i64) AS uniq_v "
+                        f"FROM '{path}' GROUP BY grp ORDER BY grp ASC"
+                    )
+                    res = ctx.sql(sql_multi).collect(check=True)
+                    self.assertEqual(res.to_arrow().to_pylist(), ref_multi_agg, fmt_name)
+                    self.assertFalse(res.fallback_attempted)
+                    self.assertFalse(res.external_engine_invoked)
+                    self.assertGreaterEqual(res.source_workers, 2, fmt_name)
+                    if fmt_name == "parquet":
+                        self.assertEqual(res.operator_workers, 1, fmt_name)
+                    else:
+                        # PreparedVortexAggregate admits mixed_distinct_workers when direct columns + pool=0.
+                        self.assertGreaterEqual(res.operator_workers, 2, fmt_name)
+
+                res_vortex_scan_par = ctx.sql(
+                    f"SELECT grp, COUNT(*) AS cnt, SUM(val_i64 + 0) AS sum_v, "
+                    f"AVG(val_i64 + 0) AS avg_v "
+                    f"FROM '{vortex_fact}' GROUP BY grp ORDER BY grp ASC"
+                ).collect(check=True)
+                expected_vortex_scan_par = [
+                    {k: row[k] for k in ("grp", "cnt", "sum_v", "avg_v")}
+                    for row in ref_multi_agg
+                ]
+                self.assertEqual(
+                    res_vortex_scan_par.to_arrow().to_pylist(),
+                    expected_vortex_scan_par,
+                )
+                self.assertFalse(res_vortex_scan_par.fallback_attempted)
+                self.assertFalse(res_vortex_scan_par.external_engine_invoked)
+                self.assertGreaterEqual(res_vortex_scan_par.source_workers, 2)
+                self.assertGreaterEqual(res_vortex_scan_par.operator_workers, 2)
+
+                res_vortex_distinct_expr = ctx.sql(
+                    f"SELECT grp, COUNT(*) AS cnt, SUM(val_i64 + 0) AS sum_v, "
+                    f"COUNT(DISTINCT val_i64) AS uniq_v "
+                    f"FROM '{vortex_fact}' GROUP BY grp ORDER BY grp ASC"
+                ).collect(check=True)
+                expected_vortex_distinct_expr = [
+                    {k: row[k] for k in ("grp", "cnt", "sum_v", "uniq_v")}
+                    for row in ref_multi_agg
+                ]
+                self.assertEqual(
+                    res_vortex_distinct_expr.to_arrow().to_pylist(),
+                    expected_vortex_distinct_expr,
+                )
+                self.assertFalse(res_vortex_distinct_expr.fallback_attempted)
+                self.assertFalse(res_vortex_distinct_expr.external_engine_invoked)
+                self.assertGreaterEqual(res_vortex_distinct_expr.source_workers, 2)
+                self.assertEqual(res_vortex_distinct_expr.operator_workers, 1)
+
+                # Float SUM/AVG holds operator_workers == 1 while using parallel source decode.
+                for path, fmt_name in ((fact_pq, "parquet"), (vortex_fact, "vortex")):
+                    sql_flt = (
+                        f"SELECT grp, SUM(val_f64) AS sum_f "
+                        f"FROM '{path}' GROUP BY grp ORDER BY grp ASC"
+                    )
+                    r_flt = ctx.sql(sql_flt).collect(check=True)
+                    self.assertEqual(r_flt.to_arrow().to_pylist(), fx["ref_float"], fmt_name)
+                    self.assertGreaterEqual(r_flt.source_workers, 2, fmt_name)
+                    self.assertEqual(r_flt.operator_workers, 1, fmt_name)
+
+                # Multi-measure join_aggregate across SQL + LazyFrame on both Parquet and .vortex
+                sql_ja = (
+                    f"SELECT d.region AS region, COUNT(*) AS cnt, SUM(f.val_i64) AS sum_v, "
+                    f"AVG(f.val_i64) AS avg_v, MIN(f.val_i64) AS min_v, MAX(f.val_i64) AS max_v, "
+                    f"SUM(d.tier) AS sum_dim "
+                    f"FROM '{fact_pq}' AS f INNER JOIN '{dim_pq}' AS d ON f.k = d.k "
+                    f"WHERE d.tier = 1 GROUP BY d.region ORDER BY d.region ASC"
+                )
+                r_ja = ctx.sql(sql_ja).collect(check=True)
+                self.assertEqual(r_ja.to_arrow().to_pylist(), ref_multi_ja)
+                self.assertFalse(r_ja.fallback_attempted)
+                self.assertGreaterEqual(r_ja.source_workers, 1)
+
+                lf_ja = (
+                    ctx.read_vortex(vortex_fact)
+                    .join(ctx.read_parquet(dim_pq).filter("tier = 1"), condition="f.k = d.k", how="inner")
+                    .select("d.region AS region", "f.val_i64 AS val_i64", "d.tier AS tier")
+                    .group_by("region")
+                    .agg(
+                        cnt="count(*)",
+                        sum_v="sum(val_i64)",
+                        avg_v="avg(val_i64)",
+                        min_v="min(val_i64)",
+                        max_v="max(val_i64)",
+                        sum_dim="sum(tier)",
+                    )
+                    .sort("region")
+                    .collect(check=True)
+                )
+                self.assertEqual(lf_ja.to_arrow().to_pylist(), ref_multi_ja)
+                self.assertFalse(lf_ja.fallback_attempted)
+
+                # Parallel .vortex join materialization path exercises SealedJoin workers.
+                sql_vtx_join = (
+                    f"SELECT f.k AS k, f.val_i64 AS val_i64, d.region AS region "
+                    f"FROM '{vortex_fact}' AS f INNER JOIN '{dim_pq}' AS d ON f.k = d.k "
+                    f"WHERE d.tier = 1 ORDER BY f.k ASC LIMIT 32"
+                )
+                r_vtx_join = ctx.sql(sql_vtx_join).collect(check=True)
+                self.assertEqual(len(r_vtx_join.to_rows()), 32)
+                self.assertGreaterEqual(r_vtx_join.source_workers, 2)
+                self.assertGreaterEqual(r_vtx_join.operator_workers, 2)
+
+                # Arrow IPC small control stays single-worker and omits Parquet metrics.
+                r_ipc = ctx.sql(
+                    f"SELECT grp, COUNT(*) AS cnt FROM '{ipc_path}' GROUP BY grp ORDER BY grp ASC"
+                ).collect(check=True)
+                self.assertEqual(r_ipc.source_workers, 1)
+                self.assertEqual(r_ipc.operator_workers, 1)
+                self.assertIsNone(r_ipc.parquet_parallel_workers)
+
+            # Session API + native.Relation frontend parity for multi-measure join_aggregate
+            with sl.session(transport="native", memory_bytes=256 << 20, max_parallelism=4) as sess:
+                r_sess = sess.sql(
+                    f"SELECT d.region AS region, COUNT(*) AS cnt, SUM(f.val_i64) AS sum_v, "
+                    f"AVG(f.val_i64) AS avg_v, MIN(f.val_i64) AS min_v, MAX(f.val_i64) AS max_v, "
+                    f"SUM(d.tier) AS sum_dim "
+                    f"FROM '{vortex_fact}' AS f INNER JOIN '{dim_pq}' AS d ON f.k = d.k "
+                    f"WHERE d.tier = 1 GROUP BY d.region ORDER BY d.region ASC"
+                ).collect(check=True)
+                self.assertEqual(r_sess.to_arrow().to_pylist(), ref_multi_ja)
+                self.assertFalse(r_sess.fallback_attempted)
+
+            native_sess = native.Session(native.ExecutionResources(256 << 20, 4))
+            try:
+                fact_rel = native.Relation.scan(str(vortex_fact))
+                dim_rel = native.Relation.scan(str(dim_pq)).filter(
+                    native.Expression.column("tier") == native.Expression.literal(1)
+                )
+                joined_rel = fact_rel.join(
+                    dim_rel,
+                    [("k", "k")],
+                    [
+                        ("right", "region", "region"),
+                        ("left", "val_i64", "val_i64"),
+                        ("right", "tier", "tier"),
+                    ],
+                    kind="inner",
+                )
+                agg_rel = joined_rel.aggregate(
+                    ["region"],
+                    [
+                        ("count", None, "cnt"),
+                        ("sum", "val_i64", "sum_v"),
+                        ("avg", "val_i64", "avg_v"),
+                        ("min", "val_i64", "min_v"),
+                        ("max", "val_i64", "max_v"),
+                        ("sum", "tier", "sum_dim"),
+                    ],
+                ).sort([("region", False, "last")])
+                plan = native_sess.plan(
+                    agg_rel,
+                    files=[(str(vortex_fact), "vortex", None), (str(dim_pq), "parquet", None)],
+                )
+                nat_res = plan.collect(timeout=60)
+                nat_rows, _ = nat_res.row_export(temporal_objects=False)
+                self.assertEqual(len(nat_rows), len(ref_multi_ja))
+                for got, exp in zip(nat_rows, ref_multi_ja):
+                    self.assertEqual(got["region"], exp["region"])
+                    self.assertEqual(got["cnt"], exp["cnt"])
+                    self.assertEqual(got["min_v"], exp["min_v"])
+                    self.assertEqual(got["max_v"], exp["max_v"])
+                    self.assertAlmostEqual(float(got["sum_v"]), float(exp["sum_v"]), places=9)
+                    self.assertAlmostEqual(float(got["avg_v"]), float(exp["avg_v"]), places=9)
+                    self.assertAlmostEqual(float(got["sum_dim"]), float(exp["sum_dim"]), places=9)
+                self.assertGreaterEqual(int(nat_res.report["native_relational_source_workers"]), 1)
+            finally:
+                native_sess.close()
+
     def test_public_sql_lazyframe_dataframe_session_and_typed_relation_reach_track_a_and_b(self) -> None:
         import shardloom as sl
 

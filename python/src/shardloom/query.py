@@ -1848,6 +1848,18 @@ class Result:
 
         return self.envelope.field_int("native_input_parquet_payload_skipped_row_groups")
 
+    @property
+    def source_workers(self) -> int | None:
+        """Return native scan/source worker lanes admitted across all sources, when present."""
+
+        return self.envelope.field_int("native_relational_source_workers")
+
+    @property
+    def operator_workers(self) -> int | None:
+        """Return native operator worker lanes admitted across parallel operators, when present."""
+
+        return self.envelope.field_int("native_relational_operator_workers")
+
 
 # Compatibility name: retained until an announced breaking release.
 VortexWorkflowExecutionReport = Result

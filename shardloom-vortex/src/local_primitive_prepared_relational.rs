@@ -86,6 +86,8 @@ mod report;
 mod sample_preparation;
 #[path = "local_primitive_relational_scan.rs"]
 mod scan;
+#[path = "local_primitive_relational_scan_parallel.rs"]
+mod scan_parallel;
 #[path = "local_primitive_relational_selection.rs"]
 mod selection;
 use selection::LocalSelection;
@@ -263,6 +265,8 @@ pub struct ExecutedVortexRelational {
     /// Bounded key, summary and result blocks loaded by native window lookups.
     pub ordered_window_lookup_blocks: u64,
     pub output_columns: Vec<String>,
+    pub source_workers: u64,
+    pub operator_workers: u64,
     /// Physical decoder work inside upstream providers is not measured here.
     pub bytes_decoded: Option<u64>,
     pub native_io_certificate: NativeIoCertificate,
@@ -513,113 +517,6 @@ enum ScanSource {
         index: usize,
         projection: std::sync::Arc<PreparedMemoryProjection>,
     },
-}
-
-#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-pub(super) enum ParallelTransformKind {
-    Project(Vec<native_relational_expression::Expression>),
-    Filter(native_relational_expression::Expression),
-}
-
-#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-pub(super) struct ParallelAggregateTransform {
-    pub(super) fields: Vec<(String, DType)>,
-    pub(super) kind: ParallelTransformKind,
-}
-
-#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-pub(super) struct ParallelAggregatePlan {
-    pub(super) source_index: usize,
-    pub(super) projection: std::sync::Arc<PreparedMemoryProjection>,
-    pub(super) residual: Option<MaterializedPredicateEvaluator>,
-    pub(super) columns: Vec<String>,
-    pub(super) scan_fields: Vec<(String, DType)>,
-    pub(super) transforms: Vec<ParallelAggregateTransform>,
-    pub(super) spec: std::sync::Arc<native_relational_aggregate::Spec>,
-    pub(super) count_partial: bool,
-    pub(super) batch_rows: usize,
-    pub(super) scan_rows: usize,
-    pub(super) finite_float_predicate: bool,
-}
-
-#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-fn build_parallel_aggregate_plan(
-    input: &Node,
-    spec: &native_relational_aggregate::Spec,
-    count_partial: bool,
-    batch_rows: usize,
-    scan_rows: usize,
-) -> Option<std::sync::Arc<ParallelAggregatePlan>> {
-    let spec = spec.try_clone_for_parallel_merge()?;
-    let mut reversed = Vec::new();
-    let mut current = input;
-    loop {
-        match &current.kind {
-            NodeKind::Project { input, expressions } => {
-                let mut cloned = Vec::with_capacity(expressions.len());
-                for expr in expressions {
-                    cloned.push(expr.try_clone_for_parallel()?);
-                }
-                reversed.push(ParallelAggregateTransform {
-                    fields: current.fields.clone(),
-                    kind: ParallelTransformKind::Project(cloned),
-                });
-                current = input;
-            }
-            NodeKind::Filter { input, predicate } => {
-                reversed.push(ParallelAggregateTransform {
-                    fields: current.fields.clone(),
-                    kind: ParallelTransformKind::Filter(predicate.try_clone_for_parallel()?),
-                });
-                current = input;
-            }
-            NodeKind::Pipeline { input, stages } => {
-                for stage in stages.iter().rev() {
-                    let kind = match &stage.kind {
-                        PipelineKind::Project(expressions) => {
-                            let mut cloned = Vec::with_capacity(expressions.len());
-                            for expr in expressions {
-                                cloned.push(expr.try_clone_for_parallel()?);
-                            }
-                            ParallelTransformKind::Project(cloned)
-                        }
-                        PipelineKind::Filter(predicate) => {
-                            ParallelTransformKind::Filter(predicate.try_clone_for_parallel()?)
-                        }
-                        _ => return None,
-                    };
-                    reversed.push(ParallelAggregateTransform {
-                        fields: stage.fields.clone(),
-                        kind,
-                    });
-                }
-                current = input;
-            }
-            NodeKind::Scan {
-                source: ScanSource::Batch { index, projection },
-                columns,
-                residual,
-                finite_float_predicate,
-                ..
-            } => {
-                reversed.reverse();
-                return Some(std::sync::Arc::new(ParallelAggregatePlan {
-                    source_index: *index,
-                    projection: std::sync::Arc::clone(projection),
-                    residual: residual.clone(),
-                    columns: columns.clone(),
-                    scan_fields: current.fields.clone(),
-                    transforms: reversed,
-                    spec,
-                    count_partial,
-                    batch_rows,
-                    scan_rows,
-                    finite_float_predicate: *finite_float_predicate,
-                }));
-            }
-            _ => return None,
-        }
-    }
 }
 
 enum NodeKind {
@@ -1203,6 +1100,8 @@ struct Metrics<'a> {
     window_rows_detached: Cell<u64>,
     subquery_build_batches_detached: Cell<u64>,
     subquery_build_rows_detached: Cell<u64>,
+    source_workers: Cell<u64>,
+    operator_workers: Cell<u64>,
 }
 
 impl Metrics<'_> {
@@ -1703,7 +1602,23 @@ impl PreparedVortexRelational {
             .input
             .map(|input| input.completed(context, metrics))
             .transpose()?;
+        let had_execution_work = metrics.scans_started.get() > 0
+            || input.as_ref().is_some_and(|i| {
+                i.payload_batches > 0 || i.rows > 0 || i.columnar_rows_decoded > 0
+            });
+        let source_workers = metrics
+            .source_workers
+            .get()
+            .max(input.as_ref().map_or(0, |i| i.source_workers))
+            .max(u64::from(had_execution_work));
+        let operator_workers = metrics
+            .operator_workers
+            .get()
+            .max(input.as_ref().map_or(0, |i| i.operator_workers))
+            .max(u64::from(had_execution_work));
         if let Some(input) = &mut input {
+            input.source_workers = source_workers;
+            input.operator_workers = operator_workers;
             input.ordering_batches_detached = metrics.ordering_batches_detached.get();
             input.ordering_rows_detached = metrics.ordering_rows_detached.get();
             input.ordering_payload_buffer_bytes_copied =
@@ -1868,6 +1783,8 @@ impl PreparedVortexRelational {
                     .get(),
                 ordered_window_lookup_blocks: metrics.ordered_window_lookup_blocks.get(),
                 output_columns: root.fields.iter().map(|(name, _)| name.clone()).collect(),
+                source_workers,
+                operator_workers,
                 bytes_decoded: None,
                 native_io_certificate: certificate,
                 runtime: self.snapshot(),
@@ -2156,7 +2073,7 @@ impl PreparedVortexRelational {
     ) -> Result<()> {
         if !probe_filters.is_empty()
             && kernel.operation.is_projection()
-            && declaration_accepts_probe_filters(&kernel.declaration)
+            && self.file_kernel_should_unwrap_for_probe_filters(&kernel.declaration, probe_filters)
         {
             self.run_node_kind(
                 None,
@@ -2316,7 +2233,8 @@ impl PreparedVortexRelational {
             )?;
             return Ok(());
         }
-        let mut aggregate = native_relational_aggregate::Aggregate::new(spec, context.memory())?;
+        let mut aggregate =
+            native_relational_aggregate::Aggregate::new_for_execution(spec, context.memory())?;
         if expansion.is_none()
             && parameter.is_none()
             && let Some(plan) = join_aggregate::Plan::admit(input, spec, context)?
@@ -2331,24 +2249,24 @@ impl PreparedVortexRelational {
             )?;
             return aggregate.finish(context, batch_rows, consume);
         }
-        #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-        if expansion.is_none()
-            && parameter.is_none()
-            && let Some(input_provider) = metrics.input
-        {
-            let scan_rows = match metrics.file_scan_batching.get() {
-                FileScanBatching::Native => 8192,
-                FileScanBatching::Output => batch_rows.min(8192),
-            };
-            if let Some(parallel_plan) =
-                build_parallel_aggregate_plan(input, spec, count_partial, batch_rows, scan_rows)
-                && let Some(completed) = input_provider.try_run_parallel_parquet_aggregate(
-                    parallel_plan,
-                    context,
-                    metrics,
-                )?
-            {
-                return completed.finish(context, batch_rows, consume);
+        if expansion.is_none() && parameter.is_none() {
+            match scan_parallel::run_parallel_aggregate(
+                self,
+                input,
+                spec,
+                &mut aggregate,
+                count_partial,
+                context,
+                metrics,
+                batch_rows,
+            )? {
+                scan_parallel::ParallelAggregateOutcome::Completed(completed) => {
+                    return completed.finish(context, batch_rows, consume);
+                }
+                scan_parallel::ParallelAggregateOutcome::ConsumedIntoCaller => {
+                    return aggregate.finish(context, batch_rows, consume);
+                }
+                scan_parallel::ParallelAggregateOutcome::NotAdmitted => {}
             }
         }
         produce(&mut |array| {
@@ -2621,6 +2539,27 @@ impl PreparedVortexRelational {
                 }
             }
         }
+        #[cfg(test)]
+        let join_cost_active = join_cost::is_active();
+        #[cfg(not(test))]
+        let join_cost_active = false;
+        let mut join = if parameter.is_none() && !join_cost_active {
+            match scan_parallel::try_run_parallel_join(
+                self,
+                left,
+                join,
+                context,
+                metrics,
+                batch_rows,
+                &left_filters,
+                consume,
+            )? {
+                Some(returned) => returned,
+                None => return Ok(()),
+            }
+        } else {
+            join
+        };
         #[cfg(test)]
         let probe_input_cost = cost.scope(JoinPhase::ProbeInput);
         self.run_with_probe_filters(
@@ -3031,6 +2970,41 @@ fn fact_probe_filter_target(kind: &NodeKind) -> FactProbeFilterTarget {
             }
         }
         _ => FactProbeFilterTarget::UnsupportedOrMemory,
+    }
+}
+
+impl PreparedVortexRelational {
+    fn file_kernel_should_unwrap_for_probe_filters(
+        &self,
+        declaration: &NodeKind,
+        probe_filters: &[native_relational_probe_filter::ProbeRuntimeFilter],
+    ) -> bool {
+        if !declaration_accepts_probe_filters(declaration) {
+            return false;
+        }
+        let mut kind = declaration;
+        loop {
+            match kind {
+                NodeKind::Scan {
+                    source: ScanSource::File(index),
+                    residual,
+                    ..
+                } => {
+                    return self.sources.get(*index).is_some_and(|file| {
+                        scan::file_probe_filters_can_prune_or_narrow(
+                            file,
+                            residual.is_some(),
+                            probe_filters,
+                        )
+                    });
+                }
+                NodeKind::FileKernel(inner) => kind = &inner.declaration,
+                NodeKind::Project { input, .. }
+                | NodeKind::Filter { input, .. }
+                | NodeKind::Pipeline { input, .. } => kind = &input.kind,
+                _ => return true,
+            }
+        }
     }
 }
 

@@ -151,3 +151,52 @@ scheduling:
   `local_primitive_prepared_relational.rs` (`fact_probe_filter_target`),
   `local_primitive_relational_join_aggregate.rs` (`probe_filters_pushed`,
   `stage_validation_infallible`, `fact_chunk_subranges`), and `native_join_work.rs`.
+
+## Source-Aware Engine Foundation Owners (2026-11-26, Orders 1–5)
+
+Anchored against `04ad4b6d1ea1f12200b6bbd9bdb82e5ad5827bf3` (after `PR #1722`
+merged; see [architecture note](native-source-aware-engine-2026-11-26.md) and
+[benchmark summary](../benchmarks/native-source-aware-engine-2026-11-26.md)),
+Orders 1–5 refine shared native owner boundaries while leaving Orders 6–7
+queued inside [the phased execution plan](phased-execution-plan.md):
+
+- **Order 1 — Native `.vortex` `FileKernel` projection unwrap & selective pushdown:**
+  `local_primitive_prepared_relational.rs` unwraps projection-only `NodeKind::FileKernel`
+  (`kernel.operation.is_projection()`, e.g., `Q12` projections) so selective
+  filters and `join` probe pushdown reach native `.vortex` layouts directly, and
+  `local_primitive_relational_scan_parallel.rs` preserves unwrapped projection
+  evidence inside parallel `.vortex` file scans.
+- **Order 2 — Wrapped Parquet Stage-1 selection, Bloom, & Chrysalis flat-buffer gate:**
+  `universal_format_io/demanded.rs`, `demanded/early_filter.rs`, and
+  `demanded/coverage.rs` extend Stage-1 key-only decoding and exact
+  `RowSelection` + filter-masked Bloom probing to Hive/`union_by_name`
+  manifest collections (sorting deduplicated `key_indices` / `payload_indices`
+  to match `ProjectionMask::roots` column order, accounting Hive partition
+  scalar bytes in `extra_metadata`, and admitting dictionary key-domain probes),
+  paired with flat-buffer Chrysalis retention gating and flat owned scalar
+  `Constant` retention in `resident_memory_owned_intake.rs`.
+- **Order 3 — `RowSet` epoch dictionary reuse & `entry_hash` merge reuse:**
+  `local_primitives/native_relational_set.rs` (`EpochDomainMap` owned
+  `LiveMemoryPool`-reserved dictionary domain slot caching across batches for
+  `<= 8,192` domains plus transient intra-batch slot caching with zero retained
+  input buffer aliases) and `native_relational_index.rs` (`RowIndex::entry_hash`
+  reuse across hash merges and set interning) avoid repeated dictionary hashing
+  and re-hashing.
+- **Order 4 — Borrowed `DistinctMeasureRows`, `canonical_slots`, & `numeric_reuse`:**
+  `native_relational_rows.rs`, `native_relational_aggregate.rs`,
+  `native_relational_aggregate_canonical.rs`, and
+  `native_relational_numeric_reuse.rs` execute borrowed `COUNT(DISTINCT)`
+  states (`DistinctMeasureRows`), fused canonical `SUM`/`AVG`/`CountDistinct`
+  slot updates, and reusable record copies without per-row allocations.
+- **Order 5 — Shared parallel controller, lock-free `SealedJoin`, multi-measure `join_aggregate`, & worker observability:**
+  `local_primitive_relational_scan_parallel.rs` (shared source-vs-operator
+  worker controller across Parquet `ScanSource::Batch`, `.vortex`
+  `ScanSource::File`, and `OwnedArraySource`, enforcing `operator_workers == 1`
+  for order-sensitive float `SUM`/`AVG`), `local_primitive_relational_batch_parallel.rs`
+  (`run_parallel_parquet_join`), `native_relational_join.rs` (`SealedJoin` +
+  lock-free `native_relational_index_adaptive::State`),
+  `local_primitive_relational_join_aggregate.rs` (multi-measure
+  `Aggregate::consume_matches`), and `local_primitive_relational_provider.rs` /
+  `local_primitive_relational_writer_report.rs` / `python/src/shardloom/query.py`
+  (`native_relational_source_workers`, `native_relational_operator_workers`,
+  `Result.source_workers`, `Result.operator_workers`).

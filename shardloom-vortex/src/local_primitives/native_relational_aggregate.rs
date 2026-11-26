@@ -73,9 +73,9 @@ use shardloom_exec::live_memory::LiveMemoryPool;
 use std::borrow::Cow;
 use vortex::{
     array::{
-        ArrayRef, IntoArray as _,
+        ArrayRef, IntoArray as _, VortexSessionExecute as _,
         arrays::StructArray,
-        dtype::{DType, DecimalDType, FieldNames, PType},
+        dtype::{DType, DecimalDType, FieldNames, Nullability, PType},
         memory::HostMemorySessionExt as _,
         validity::Validity,
     },
@@ -265,6 +265,7 @@ impl GroupOrdinals {
 struct PreparedColumn<'a> {
     name: &'a str,
     filter: Option<&'a str>,
+    hashable: bool,
     source: ArrayRef,
     values: Option<KeyColumn>,
     validity: Option<Mask>,
@@ -272,11 +273,72 @@ struct PreparedColumn<'a> {
 }
 
 impl PreparedColumn<'_> {
-    fn matches(&self, measure: &Measure, column: &ArrayRef, count_validity: bool) -> bool {
+    fn matches(
+        &self,
+        measure: &Measure,
+        column: &ArrayRef,
+        count_validity: bool,
+        need_hash: bool,
+    ) -> bool {
         (measure.column.as_deref() == Some(self.name) || ArrayRef::ptr_eq(&self.source, column))
             && measure.filter_column.as_deref() == self.filter
             && self.validity.is_some() == count_validity
+            && (!need_hash || self.hashable)
     }
+}
+
+fn compute_canonical_slots(measures: &[Measure]) -> Option<Vec<usize>> {
+    let mut slots: Vec<usize> = (0..measures.len()).collect();
+    let mut shared = false;
+    let is_shared_additive = |measure: &Measure| {
+        matches!(measure.function, Function::Sum | Function::Avg)
+            && measure.column.is_some()
+            && measure.decimal_source.is_none()
+            && measure.decimal_output.is_none()
+            && measure.secondary_column.is_none()
+            && measure.quantile_level.is_none()
+            && measure.separator.is_none()
+            && measure.selection.is_none()
+            && measure.dtype == DType::Primitive(PType::F64, Nullability::Nullable)
+    };
+    let is_shared_count_distinct = |measure: &Measure| {
+        measure.function == Function::CountDistinct
+            && measure.column.is_some()
+            && measure.decimal_source.is_none()
+            && measure.decimal_output.is_none()
+            && measure.secondary_column.is_none()
+            && measure.quantile_level.is_none()
+            && measure.separator.is_none()
+            && measure.selection.is_none()
+    };
+    for idx in 0..measures.len() {
+        let current = &measures[idx];
+        if is_shared_additive(current) {
+            if let Some(canonical) = (0..idx).find(|&prev| {
+                slots[prev] == prev
+                    && is_shared_additive(&measures[prev])
+                    && measures[prev].column == current.column
+                    && measures[prev].filter_column == current.filter_column
+                    && measures[prev].input_ptype == current.input_ptype
+            }) {
+                slots[idx] = canonical;
+                shared = true;
+            }
+        } else if is_shared_count_distinct(current)
+            && let Some(canonical) = (0..idx).find(|&prev| {
+                slots[prev] == prev
+                    && is_shared_count_distinct(&measures[prev])
+                    && measures[prev].column == current.column
+                    && measures[prev].filter_column == current.filter_column
+                    && measures[prev].distinct_fields == current.distinct_fields
+                    && measures[prev].distinct_names == current.distinct_names
+            })
+        {
+            slots[idx] = canonical;
+            shared = true;
+        }
+    }
+    shared.then_some(slots)
 }
 
 pub(super) struct Aggregate<'a> {
@@ -286,6 +348,7 @@ pub(super) struct Aggregate<'a> {
     compact: Option<compact::Table>,
     specialize: bool,
     distinct: ReservedVec<Option<RowSet<'a>>>,
+    canonical_slots: Option<Vec<usize>>,
     nested_extrema: Option<ReservedVec<Option<NativeExtreme>>>,
     decimal_totals: Option<ReservedVec<native_decimal_reduce::Total>>,
     decimal_width: usize,
@@ -297,7 +360,11 @@ pub(super) struct Aggregate<'a> {
 
 impl<'a> Aggregate<'a> {
     pub(super) fn new(spec: &'a Spec, memory: &LiveMemoryPool) -> Result<Self> {
-        Self::with_distinct_sets(SharedRef::Borrowed(spec), memory, true)
+        Self::with_distinct_sets(SharedRef::Borrowed(spec), memory, true, false)
+    }
+
+    pub(super) fn new_for_execution(spec: &'a Spec, memory: &LiveMemoryPool) -> Result<Self> {
+        Self::with_distinct_sets(SharedRef::Borrowed(spec), memory, true, true)
     }
 
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -305,7 +372,7 @@ impl<'a> Aggregate<'a> {
         spec: std::sync::Arc<Spec>,
         memory: &LiveMemoryPool,
     ) -> Result<Aggregate<'static>> {
-        Aggregate::with_distinct_sets(SharedRef::Shared(spec), memory, true)
+        Aggregate::with_distinct_sets(SharedRef::Shared(spec), memory, true, true)
     }
 
     /// The source lifecycle proves exact cardinality before this scalar update.
@@ -334,14 +401,30 @@ impl<'a> Aggregate<'a> {
         if !spec.group_names.is_empty() || !spec.groups.is_empty() {
             return Err(failed("ordered reducer requires one scalar group"));
         }
-        Self::with_distinct_sets(SharedRef::Borrowed(spec), memory, false)
+        Self::with_distinct_sets(SharedRef::Borrowed(spec), memory, false, false)
+    }
+
+    fn canonical_slot(&self, index: usize) -> usize {
+        self.canonical_slots
+            .as_ref()
+            .map_or(index, |slots| slots[index])
+    }
+
+    fn is_canonical_follower(&self, index: usize) -> bool {
+        self.canonical_slot(index) != index
     }
 
     fn with_distinct_sets(
         spec: SharedRef<'a, Spec>,
         memory: &LiveMemoryPool,
         track_distinct: bool,
+        enable_canonical: bool,
     ) -> Result<Self> {
+        let canonical_slots = if enable_canonical {
+            compute_canonical_slots(&spec.measures)
+        } else {
+            None
+        };
         let mut states = ReservedVec::new(memory)?;
         let groups = if spec.group_names.is_empty() {
             states.reserve(spec.measures.len())?;
@@ -363,9 +446,11 @@ impl<'a> Aggregate<'a> {
         let mut distinct = ReservedVec::new(memory)?;
         distinct.reserve(spec.measures.len())?;
         for (measure_index, measure) in spec.measures.iter().enumerate() {
-            distinct
-                .values
-                .push(if track_distinct && measure.function.is_distinct() {
+            let is_leader = canonical_slots
+                .as_ref()
+                .is_none_or(|slots| slots[measure_index] == measure_index);
+            distinct.values.push(
+                if track_distinct && measure.function.is_distinct() && is_leader {
                     Some(match &spec {
                         SharedRef::Borrowed(borrowed) => RowSet::new(
                             &borrowed.measures[measure_index].distinct_fields,
@@ -380,7 +465,8 @@ impl<'a> Aggregate<'a> {
                     })
                 } else {
                     None
-                });
+                },
+            );
         }
         let nested_extrema = if spec.measures.iter().any(|measure| {
             native_payload::is_nested(&measure.dtype)
@@ -421,6 +507,7 @@ impl<'a> Aggregate<'a> {
             compact: None,
             specialize: true,
             distinct,
+            canonical_slots,
             nested_extrema,
             decimal_totals,
             decimal_width,
@@ -458,6 +545,9 @@ impl<'a> Aggregate<'a> {
             }
             let mut decimal_index = 0_usize;
             for (measure_index, measure) in self.spec.measures.iter().enumerate() {
+                if self.is_canonical_follower(measure_index) {
+                    continue;
+                }
                 if measure.decimal_source.is_some() {
                     let slot = decimal_index;
                     decimal_index += 1;
@@ -504,13 +594,23 @@ impl<'a> Aggregate<'a> {
             .as_ref()
             .ok_or_else(|| failed("grouped source rows absent during merge"))?;
         let spec = self.spec.clone();
+        if let Some(groups) = self.groups.as_mut() {
+            groups.release_transient_caches();
+        }
+        let mut mapped = ReservedVec::new(context.memory())?;
         for (batch_start, batch) in other_groups.table().batches() {
             context.check_cancelled()?;
-            let mapped = self
-                .groups
+            self.groups
                 .as_mut()
                 .ok_or_else(|| failed("grouped target rows absent during merge"))?
-                .intern_rows(batch, context, batch_rows)?;
+                .intern_merged_batch(
+                    batch,
+                    other_groups.index(),
+                    batch_start,
+                    context,
+                    batch_rows,
+                    &mut mapped,
+                )?;
             if spec.measures.is_empty() {
                 continue;
             }
@@ -523,6 +623,13 @@ impl<'a> Aggregate<'a> {
                 let src_group = batch_start + local_row;
                 let mut decimal_index = 0_usize;
                 for (measure_index, measure) in spec.measures.iter().enumerate() {
+                    if self
+                        .canonical_slots
+                        .as_ref()
+                        .is_some_and(|slots| slots[measure_index] != measure_index)
+                    {
+                        continue;
+                    }
                     if measure.decimal_source.is_some() {
                         let slot = decimal_index;
                         decimal_index += 1;
@@ -922,6 +1029,12 @@ impl<'a> Aggregate<'a> {
             if measure_index < completed_extrema_end {
                 continue;
             }
+            if self.is_canonical_follower(measure_index) {
+                if matches!(measure.function, Function::Sum | Function::Avg) && !array.is_empty() {
+                    numeric_reuse::record_copy(array.len(), context)?;
+                }
+                continue;
+            }
             let reuse_from = numeric_reuse_from.take();
             let filter = measure.filter_column.as_deref();
             if selected_filter != Some(filter) {
@@ -998,25 +1111,38 @@ impl<'a> Aggregate<'a> {
                 .map(|name| logical_field_from_native_array(array, name))
                 .transpose()?;
             let count_validity = measure.function == Function::Count && column.is_some();
+            let need_hash = measure.function.is_distinct();
             if !prepared.as_ref().is_some_and(|prior| {
                 column
                     .as_ref()
-                    .is_some_and(|column| prior.matches(measure, column, count_validity))
+                    .is_some_and(|column| prior.matches(measure, column, count_validity, need_hash))
             }) {
                 prepared = None;
                 if let (Some(name), Some(array)) = (measure.column.as_deref(), &column) {
-                    let (validity, values) = if count_validity {
-                        (Some(parent_validity(array, context)?), None)
+                    let (validity, values, hashable) = if count_validity {
+                        (Some(parent_validity(array, context)?), None, false)
                     } else {
                         #[cfg(all(test, debug_assertions))]
                         super::native_relational_observation::record(|counts| {
                             counts.aggregate_value_preparations += 1;
                         });
-                        (None, Some(keys(array, context)?))
+                        let prepared_keys = if need_hash {
+                            KeyColumn::for_membership_with_float_policy(
+                                array,
+                                &mut context.native_session().create_execution_ctx(),
+                                context.memory(),
+                                context.cancellation(),
+                                context.float_policy(),
+                            )?
+                        } else {
+                            keys(array, context)?
+                        };
+                        (None, Some(prepared_keys), need_hash)
                     };
                     prepared = Some(PreparedColumn {
                         name,
                         filter: measure.filter_column.as_deref(),
+                        hashable,
                         source: array.clone(),
                         values,
                         validity,
@@ -1030,6 +1156,11 @@ impl<'a> Aggregate<'a> {
                 .and_then(|column| column.validity.as_ref());
             #[cfg(test)]
             drop(preparation_cost);
+            let next_is_canonical = self
+                .spec
+                .measures
+                .get(measure_index + 1)
+                .is_some_and(|_| !self.is_canonical_follower(measure_index + 1));
             if let Some(table) = &mut self.compact {
                 #[cfg(test)]
                 let _cost = super::native_relational_grouped_cost::scope(
@@ -1060,6 +1191,7 @@ impl<'a> Aggregate<'a> {
                     }
                 }
                 let reuse_next = matches!(measure.function, Function::Sum | Function::Avg)
+                    && next_is_canonical
                     && matches!(values, Some(KeyColumn::Numeric(owner)) if owner.len() != 0)
                     && table.admit_next(
                         &self.spec,
@@ -1189,6 +1321,11 @@ impl<'a> Aggregate<'a> {
                 && let Some(KeyColumn::Numeric(owner)) = values
             {
                 let reuse_next = owner.len() != 0
+                    && self
+                        .spec
+                        .measures
+                        .get(measure_index + 1)
+                        .is_some_and(|_| !self.is_canonical_follower(measure_index + 1))
                     && numeric_reuse::admit_next(
                         &self.spec,
                         measure_index,
@@ -1402,7 +1539,12 @@ impl<'a> Aggregate<'a> {
                                         })
                                     });
                             }
-                            self.finish_numeric(index, start + row, measure, context)
+                            self.finish_numeric(
+                                self.canonical_slot(index),
+                                start + row,
+                                measure,
+                                context,
+                            )
                         },
                     )?);
             }
@@ -1708,24 +1850,18 @@ fn accumulate_distinct(
     if rows.values.is_empty() {
         return Ok(());
     }
-    let ordinals = index_array(rows.values.len(), false, context, |row| {
-        Ok(Some(groups.at(rows.values[row])))
-    })?;
-    let selection = index_array(rows.values.len(), false, context, |row| {
-        Ok(Some(rows.values[row]))
-    })?;
-    let column = column.take(selection).map_err(vortex_error)?;
-    let input = StructArray::try_new(
-        FieldNames::from(["group", "value"]),
-        vec![ordinals, column],
-        rows.values.len(),
-        Validity::NonNullable,
-    )
-    .map_err(vortex_error)?
-    .into_array();
-    distinct.insert_batch(
-        input,
-        None,
+    let group_slice = match groups {
+        GroupOrdinals::Scalar(_) => None,
+        GroupOrdinals::Grouped(ordinals) => Some(ordinals.values.as_slice()),
+    };
+    let distinct_rows = super::native_relational_rows::DistinctMeasureRows::new(
+        group_slice,
+        column,
+        values,
+        &rows.values,
+    );
+    distinct.insert_rows(
+        &distinct_rows,
         context,
         batch_rows,
         Some(&mut |array| {
@@ -2030,10 +2166,7 @@ mod ownership_tests {
     use super::*;
     use crate::resident_session::ResidentVortexSession;
     use shardloom_exec::compute_pool::CancellationToken;
-    use vortex::array::{
-        VortexSessionExecute as _,
-        arrays::{ListViewArray, PrimitiveArray, VarBinArray},
-    };
+    use vortex::array::arrays::{ListViewArray, PrimitiveArray, VarBinArray};
     use vortex::buffer::ByteBuffer;
 
     #[test]
@@ -2166,7 +2299,6 @@ mod track_a_merge_tests {
     use crate::resident_session::ResidentVortexSession;
     use shardloom_exec::compute_pool::CancellationToken;
     use vortex::array::{
-        VortexSessionExecute as _,
         arrays::{DecimalArray, PrimitiveArray, StructArray, struct_::StructArrayExt as _},
         dtype::{DecimalDType, FieldNames, Nullability},
         scalar::Scalar,

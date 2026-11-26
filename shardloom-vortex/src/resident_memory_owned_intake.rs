@@ -8,7 +8,7 @@ use vortex::{
     array::{
         Array, ArrayRef, ArrayVTable, ArrayView, IntoArray as _, VortexSessionExecute as _,
         arrays::{
-            Bool, Chunked, Constant, ConstantArray, Primitive, PrimitiveArray, Slice, VarBin,
+            Bool, Chunked, Constant, ConstantArray, Dict, Primitive, PrimitiveArray, Slice, VarBin,
             VarBinArray, VarBinView,
         },
         buffer::BufferHandle,
@@ -234,10 +234,20 @@ pub(crate) fn retain_metadata(array: &ArrayRef, credit: &Arc<MemoryLease>) -> Re
         retain(&Chunked, array, credit)
     } else if let Some(array) = array.as_opt::<Slice>() {
         retain(&Slice, array, credit)
+    } else if let Some(array) = array.as_opt::<Dict>() {
+        retain(&Dict, array, credit)
     } else if let Some(array) = array.as_opt::<Constant>()
-        && (array.scalar().is_null() || array.dtype().is_primitive() || array.dtype().is_boolean())
+        && (array.scalar().is_null()
+            || matches!(
+                array.dtype(),
+                DType::Bool(_)
+                    | DType::Primitive(..)
+                    | DType::Decimal(..)
+                    | DType::Utf8(_)
+                    | DType::Binary(_)
+            ))
     {
-        // All-null intake and constant validity have no borrowed value backing.
+        // All-null intake and flat scalar constants have no borrowed value backing.
         // Constant::buffer serializes a scalar; it is not a replaceable buffer.
         ConstantArray::new(array.scalar().clone(), array.len())
             .into_array()
