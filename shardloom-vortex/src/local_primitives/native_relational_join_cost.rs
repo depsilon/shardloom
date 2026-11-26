@@ -206,6 +206,10 @@ thread_local! {
     static LOCAL: RefCell<Local> = RefCell::new(Local::default());
 }
 
+pub(crate) fn is_active() -> bool {
+    LOCAL.with_borrow(|local| local.active.is_some())
+}
+
 pub(crate) struct Session(u64, PhantomData<Rc<()>>);
 
 impl Session {

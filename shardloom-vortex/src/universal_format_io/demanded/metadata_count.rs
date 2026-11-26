@@ -56,7 +56,7 @@ impl PreparedColumnarSource {
         let report = ColumnarReadReport {
             format,
             table_snapshot: None,
-            parquet_selected_chunks: self.source.other.is_none(),
+            parquet_selected_chunks: self.source.is_parquet(),
             projected_columns: 0,
             available_columns: self.source.schema().fields().len(),
             physical_leaf_columns: 0,

@@ -142,3 +142,59 @@ fn columnar_adaptive_alignment_does_not_spend_existing_credit_on_a_new_partition
     assert!(error.to_string().contains("memory reservation denied"));
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
+
+#[test]
+fn align_owned_parquet_accepts_dictionary_utf8_for_utf8_and_utf8_view_targets() {
+    use arrow_array::{DictionaryArray, Int32Array, types::Int32Type};
+
+    let dict_values = Arc::new(StringArray::from(vec![Some("alpha"), Some("beta")]));
+    let dict_keys = Int32Array::from(vec![Some(0), Some(1), None, Some(0)]);
+    let dictionary =
+        Arc::new(DictionaryArray::<Int32Type>::try_new(dict_keys, dict_values).unwrap())
+            as ArrayRef;
+    let dict_dtype = dictionary.data_type().clone();
+    let batch = RecordBatch::try_new(
+        Arc::new(Schema::new(vec![Field::new("s", dict_dtype.clone(), true)])),
+        vec![dictionary],
+    )
+    .unwrap();
+
+    let memory = LiveMemoryPool::new(2 << 20).unwrap();
+    for target_type in [DataType::Utf8, DataType::Utf8View] {
+        let target = Arc::new(Schema::new(vec![Field::new("s", target_type, true)]));
+        let aligned =
+            align_owned_parquet(OwnedBatch::from(batch.clone()), target, &[], &memory).unwrap();
+        assert_eq!(aligned.schema().field(0).data_type(), &dict_dtype);
+        assert_eq!(aligned.num_rows(), 4);
+    }
+
+    let wrong_utf8_target = Arc::new(Schema::new(vec![Field::new(
+        "s",
+        DataType::LargeUtf8,
+        true,
+    )]));
+    let large_err = align_owned_parquet(
+        OwnedBatch::from(batch.clone()),
+        wrong_utf8_target,
+        &[],
+        &memory,
+    )
+    .unwrap_err();
+    assert!(
+        large_err
+            .to_string()
+            .contains("decoded field type changed after source schema admission"),
+        "{large_err}"
+    );
+
+    let view_target = Arc::new(Schema::new(vec![Field::new("s", DataType::Utf8View, true)]));
+    let non_owned_err =
+        align(OwnedBatch::from(batch), view_target, &[], &memory, false).unwrap_err();
+    assert!(
+        non_owned_err
+            .to_string()
+            .contains("decoded field type changed after source schema admission"),
+        "{non_owned_err}"
+    );
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}

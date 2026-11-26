@@ -234,6 +234,10 @@ impl Batch {
             .is_null(row)
     }
 
+    pub(super) fn key_column(&self, index: usize) -> Option<&KeyColumn> {
+        self.keys.values.get(index)
+    }
+
     pub(super) fn raw_cell(&self, row: usize, key: usize) -> Result<Cell> {
         self.keys
             .values
@@ -273,6 +277,23 @@ impl Batch {
                     .ok_or_else(|| failed("bound order key is absent"))?,
                 other_row,
             )
+    }
+
+    pub(super) fn variable_dict_epoch(
+        &self,
+    ) -> Option<(
+        &super::native_relational_keys::VariableDomain,
+        &vortex::mask::Mask,
+        &super::native_numeric_owner::NativeNumericOwner,
+        bool,
+    )> {
+        if self.keys.values.len() != 1 {
+            return None;
+        }
+        let KeyColumn::Variable(values) = &self.keys.values[0] else {
+            return None;
+        };
+        values.dict_epoch()
     }
 }
 

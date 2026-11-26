@@ -53,6 +53,114 @@ pub(in crate::local_primitives) fn can_prune_file_with_predicate(
     ))
 }
 
+/// Returns `false` when an optional runtime min/max range hint over an integer
+/// column already spans at least half of the file's recorded `[min, max]` domain
+/// (and is not falsified), avoiding per-row scan filter overhead when the file
+/// metadata cannot reject most segments.
+pub(in crate::local_primitives) fn runtime_predicate_is_selective_on_file(
+    file: &VortexFile,
+    predicate: &PredicateExpr,
+) -> bool {
+    let Some(file_stats) = file.file_stats() else {
+        return true;
+    };
+    let DType::Struct(fields, vortex::array::dtype::Nullability::NonNullable) = file.dtype() else {
+        return true;
+    };
+    if predicate_falsified_by_file_stats(predicate, fields, file.row_count(), file_stats) {
+        return true;
+    }
+    let Some((column, pred_lo, pred_hi)) = single_integer_range_bounds(predicate) else {
+        return true;
+    };
+    let Some((field_dtype, stats)) = lookup_column_stats(column, fields, file_stats) else {
+        return true;
+    };
+    let nulls = exact_null_count(stats, &field_dtype, file.row_count());
+    let Some((min_val, max_val)) = exact_minmax(stats, &field_dtype, file.row_count(), nulls)
+    else {
+        return true;
+    };
+    let (Some(file_lo), Some(file_hi)) =
+        (stat_value_as_i128(&min_val), stat_value_as_i128(&max_val))
+    else {
+        return true;
+    };
+    let file_span = file_hi.saturating_sub(file_lo).saturating_add(1);
+    if file_span <= 0 {
+        return true;
+    }
+    let overlap_lo = pred_lo.map_or(file_lo, |v| v.max(file_lo));
+    let overlap_hi = pred_hi.map_or(file_hi, |v| v.min(file_hi));
+    if overlap_lo > overlap_hi {
+        return true;
+    }
+    let overlap_span = overlap_hi.saturating_sub(overlap_lo).saturating_add(1);
+    overlap_span.saturating_mul(2) < file_span
+}
+
+fn stat_value_as_i128(value: &StatValue) -> Option<i128> {
+    match value {
+        StatValue::Int64(v) => Some(i128::from(*v)),
+        StatValue::UInt64(v) => Some(i128::from(*v)),
+        _ => None,
+    }
+}
+
+fn single_integer_range_bounds(
+    predicate: &PredicateExpr,
+) -> Option<(&str, Option<i128>, Option<i128>)> {
+    fn visit<'a>(
+        expr: &'a PredicateExpr,
+        target: &mut Option<&'a str>,
+        lo: &mut Option<i128>,
+        hi: &mut Option<i128>,
+    ) -> bool {
+        match expr {
+            PredicateExpr::And(terms) => {
+                !terms.is_empty() && terms.iter().all(|term| visit(term, target, lo, hi))
+            }
+            PredicateExpr::Compare { column, op, value } => {
+                let Some(val) = stat_value_as_i128(value) else {
+                    return false;
+                };
+                if let Some(prev) = *target
+                    && prev != column.as_str()
+                {
+                    return false;
+                }
+                *target = Some(column.as_str());
+                match op {
+                    ComparisonOp::GtEq => *lo = Some(lo.map_or(val, |prev| prev.max(val))),
+                    ComparisonOp::Gt => {
+                        let next = val.saturating_add(1);
+                        *lo = Some(lo.map_or(next, |prev| prev.max(next)));
+                    }
+                    ComparisonOp::LtEq => *hi = Some(hi.map_or(val, |prev| prev.min(val))),
+                    ComparisonOp::Lt => {
+                        let next = val.saturating_sub(1);
+                        *hi = Some(hi.map_or(next, |prev| prev.min(next)));
+                    }
+                    ComparisonOp::Eq => {
+                        *lo = Some(lo.map_or(val, |prev| prev.max(val)));
+                        *hi = Some(hi.map_or(val, |prev| prev.min(val)));
+                    }
+                    ComparisonOp::NotEq => return false,
+                }
+                true
+            }
+            _ => false,
+        }
+    }
+
+    let mut target = None;
+    let mut lo = None;
+    let mut hi = None;
+    visit(predicate, &mut target, &mut lo, &mut hi)
+        .then(|| target.map(|col| (col, lo, hi)))
+        .flatten()
+}
+
 fn predicate_falsified_by_file_stats(
     predicate: &PredicateExpr,
     fields: &StructFields,

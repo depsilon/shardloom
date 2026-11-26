@@ -586,3 +586,149 @@ fn preparation_binding_uses_the_same_complete_collection_contract() {
     .unwrap();
     assert_ne!(binding, changed);
 }
+
+#[cfg(feature = "vortex-write")]
+fn write_mixed_dictionary_parquet(path: &Path, ids: &[i64]) {
+    use arrow_schema::{DataType, Field, Schema};
+    use parquet::{
+        arrow::ArrowWriter, file::properties::WriterProperties, schema::types::ColumnPath,
+    };
+
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("id", DataType::Int64, false),
+        Field::new("dict_text", DataType::Utf8, false),
+        Field::new("large_dict_text", DataType::LargeUtf8, false),
+        Field::new("plain_text", DataType::Utf8, false),
+        Field::new("large_plain_text", DataType::LargeUtf8, false),
+    ]));
+    let dict_vals: Vec<String> = ids.iter().map(|id| format!("dict-{}", id % 2)).collect();
+    let large_dict_vals: Vec<String> = ids
+        .iter()
+        .map(|id| format!("large-dict-{}", id % 2))
+        .collect();
+    let plain_vals: Vec<String> = ids.iter().map(|id| format!("plain-{id}")).collect();
+    let large_plain_vals: Vec<String> = ids.iter().map(|id| format!("large-plain-{id}")).collect();
+    let batch = RecordBatch::try_new(
+        Arc::clone(&schema),
+        vec![
+            Arc::new(Int64Array::from_iter_values(ids.iter().copied())),
+            Arc::new(StringArray::from_iter_values(dict_vals)),
+            Arc::new(LargeStringArray::from_iter_values(large_dict_vals)),
+            Arc::new(StringArray::from_iter_values(plain_vals)),
+            Arc::new(LargeStringArray::from_iter_values(large_plain_vals)),
+        ],
+    )
+    .unwrap();
+    let props = WriterProperties::builder()
+        .set_dictionary_enabled(true)
+        .set_column_dictionary_enabled(ColumnPath::from("plain_text"), false)
+        .set_column_dictionary_enabled(ColumnPath::from("large_plain_text"), false)
+        .build();
+    let mut writer =
+        ArrowWriter::try_new(fs::File::create(path).unwrap(), schema, Some(props)).unwrap();
+    writer.write(&batch).unwrap();
+    writer.close().unwrap();
+}
+
+#[cfg(feature = "vortex-write")]
+#[test]
+fn preparation_layout_rebuilds_encoded_parquet_metadata_for_large_stream_demanded_reads() {
+    use arrow_schema::DataType;
+    use shardloom_core::ColumnRef;
+    use shardloom_plan::{ProjectionRequest, SourceDemand};
+
+    let fixture = Fixture::new();
+    let single_path = fixture.0.join("single.parquet");
+    write_mixed_dictionary_parquet(&single_path, &[1, 2, 3, 4]);
+    let dir_path = fixture.0.join("collection");
+    write_mixed_dictionary_parquet(&dir_path.join("a.parquet"), &[10, 11]);
+    write_mixed_dictionary_parquet(&dir_path.join("b.parquet"), &[12, 13, 14]);
+
+    let dict_utf8 = DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8));
+    let dict_large_utf8 =
+        DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::LargeUtf8));
+    let token = CancellationToken::default();
+    for (input_path, expected_rows) in [(single_path, 4_u64), (dir_path, 5_u64)] {
+        let session = crate::resident_session::ResidentVortexSession::new(64 << 20, 2).unwrap();
+        let memory = session.shared_memory_pool();
+        let admitted =
+            super::generic::admit(&input_path, "parquet", false, &memory, &token, None).unwrap();
+        let pre_encoded = admitted.parquet_file(0).encoded_metadata.unwrap().schema();
+        for (name, expected_type) in [
+            ("dict_text", &dict_utf8),
+            ("large_dict_text", &dict_large_utf8),
+            ("plain_text", &DataType::Utf8),
+            ("large_plain_text", &DataType::LargeUtf8),
+        ] {
+            assert_eq!(
+                pre_encoded.field_with_name(name).unwrap().data_type(),
+                expected_type
+            );
+        }
+
+        let prepared_layout = super::generic::preparation_layout_with_row_count_hint(
+            admitted,
+            Some(crate::universal_format_io::PRODUCT_COLUMNAR_LARGE_STREAM_ROW_THRESHOLD),
+            &memory,
+            &token,
+        )
+        .unwrap();
+        let logical = prepared_layout.schema();
+        let post_encoded = prepared_layout
+            .parquet_file(0)
+            .encoded_metadata
+            .unwrap()
+            .schema();
+        for (name, expected_encoded) in [
+            ("dict_text", &dict_utf8),
+            ("large_dict_text", &dict_utf8),
+            ("plain_text", &DataType::Utf8View),
+            ("large_plain_text", &DataType::Utf8View),
+        ] {
+            assert_eq!(
+                logical.field_with_name(name).unwrap().data_type(),
+                &DataType::Utf8View
+            );
+            assert_eq!(
+                post_encoded.field_with_name(name).unwrap().data_type(),
+                expected_encoded
+            );
+        }
+
+        for projection in [
+            ProjectionRequest::Columns(vec![
+                ColumnRef::new("plain_text").unwrap(),
+                ColumnRef::new("large_plain_text").unwrap(),
+            ]),
+            ProjectionRequest::Columns(vec![
+                ColumnRef::new("dict_text").unwrap(),
+                ColumnRef::new("large_dict_text").unwrap(),
+            ]),
+            ProjectionRequest::All,
+        ] {
+            let demand = SourceDemand {
+                projection,
+                ..SourceDemand::default()
+            };
+            let prepared = prepared_layout.prepare(&demand, &session, &token).unwrap();
+            let decoded_rows = session
+                .with_native_execution_context(&token, |context| {
+                    let mut reader = prepared.open(context)?;
+                    let mut rows = 0_u64;
+                    while let Some(batch) = reader.next_native(&session, context)? {
+                        rows += batch.row_count() as u64;
+                        drop(batch);
+                    }
+                    assert_eq!(reader.report()?.rows_decoded, expected_rows);
+                    Ok(rows)
+                })
+                .unwrap();
+            assert_eq!(decoded_rows, expected_rows);
+        }
+
+        drop(prepared_layout);
+        drop(session);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}

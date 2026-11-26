@@ -1592,6 +1592,68 @@ fn parquet_dictionary_hint_utf8_value_type(source_data_type: &DataType) -> DataT
     }
 }
 
+/// Requests `Dictionary(Int32, Utf8 | LargeUtf8)` decoding for demanded Parquet
+/// scans when every non-empty row group of a root string column uses
+/// dictionary encoding, while leaving the logical source schema as `Utf8`.
+pub(crate) fn demanded_parquet_dictionary_schema_hint(
+    schema: &Schema,
+    metadata: &parquet::file::metadata::ParquetMetaData,
+) -> Option<SchemaRef> {
+    if metadata.num_row_groups() == 0 {
+        return None;
+    }
+    let parquet_schema = metadata.file_metadata().schema_descr();
+    let mut changed = false;
+    let fields = schema
+        .fields()
+        .iter()
+        .map(|field| {
+            if !field.metadata().is_empty() || !is_utf8_arrow_dtype(field.data_type()) {
+                return Arc::clone(field);
+            }
+            let leaves: Vec<usize> = (0..parquet_schema.num_columns())
+                .filter(|&leaf| {
+                    let column_desc = parquet_schema.column(leaf);
+                    let parts = column_desc.path().parts();
+                    parts.len() == 1 && parts[0] == *field.name()
+                })
+                .collect();
+            if leaves.len() != 1 {
+                return Arc::clone(field);
+            }
+            let leaf = leaves[0];
+            let all_dict = metadata.row_groups().iter().all(|rg| {
+                rg.num_rows() == 0 || {
+                    let chunk = rg.column(leaf);
+                    chunk.dictionary_page_offset().is_some()
+                        || chunk.encodings().any(|encoding| {
+                            matches!(
+                                encoding,
+                                parquet::basic::Encoding::PLAIN_DICTIONARY
+                                    | parquet::basic::Encoding::RLE_DICTIONARY
+                            )
+                        })
+                }
+            });
+            if all_dict {
+                changed = true;
+                let value_type = parquet_dictionary_hint_utf8_value_type(field.data_type());
+                Arc::new(
+                    Field::new(
+                        field.name(),
+                        DataType::Dictionary(Box::new(DataType::Int32), Box::new(value_type)),
+                        field.is_nullable(),
+                    )
+                    .with_metadata(field.metadata().clone()),
+                )
+            } else {
+                Arc::clone(field)
+            }
+        })
+        .collect::<Vec<_>>();
+    changed.then(|| Arc::new(Schema::new(fields).with_metadata(schema.metadata().clone())))
+}
+
 #[must_use]
 pub fn with_embedded_derived_columns_columnar_stream_source(
     source: FlatLocalColumnarStreamSource,

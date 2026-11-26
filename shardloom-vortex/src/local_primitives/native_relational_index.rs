@@ -314,6 +314,10 @@ impl RowIndex {
         self.entries.values.len()
     }
 
+    pub(super) fn entry_hash(&self, entry: usize) -> Option<u64> {
+        self.entries.values.get(entry).map(|value| value.hash)
+    }
+
     /// NULL keys were never inserted. A completed unique lookup may therefore
     /// have fewer indexed rows than its retained table without any duplicates.
     pub(super) fn has_duplicates(&self) -> bool {

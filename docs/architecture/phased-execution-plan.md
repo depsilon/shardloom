@@ -262,11 +262,21 @@ precedes all unfinished item 20 work. Remaining deep traversal is deferred until
 after Foundry integration under the November 17 maintainer reprioritization. Item 20 obligations absorbed into that plan are
 handled there; every unabsorbed remainder follows it, including capability,
 workflow, performance and acceptance work recorded in the historical notes.
-A bounded prospective item-20 follow-on is active for direct Parquet
-aggregation concurrency, durable aggregate-state lifetime across decoder
-batches, and early key-first runtime-filter propagation including
-`join_aggregate`
-([design note](native-direct-parquet-agg-runtime-filter-2026-11-25.md)); this
+The direct Parquet aggregation concurrency, durable aggregate-state lifetime,
+and early key-first runtime-filter propagation follow-on
+([design note](native-direct-parquet-agg-runtime-filter-2026-11-25.md),
+[benchmark record](../benchmarks/native-direct-parquet-agg-runtime-filter-2026-11-25.md))
+merged in [PR #1722](https://github.com/depsilon/shardloom/pull/1722) at
+`04ad4b6d1ea1f12200b6bbd9bdb82e5ad5827bf3`. Building on that merged base, the
+bounded **source-aware engine performance program (`2026-11-26`)**
+([architecture note](native-source-aware-engine-2026-11-26.md),
+[benchmark summary](../benchmarks/native-source-aware-engine-2026-11-26.md)) has
+Orders 1–5 locally retained (covering `.vortex` `FileKernel` projection unwrap
+& pushdown, Hive/`union_by_name` Parquet Stage-1 `RowSelection` & Chrysalis
+flat-buffer gate, `RowSet` `EpochDomainMap` & `RowIndex::entry_hash` reuse,
+borrowed `DistinctMeasureRows` & `canonical_slots`/`numeric_reuse`, and the
+shared source/operator worker controller, lock-free `SealedJoin` parallel probe,
+and multi-measure `join_aggregate`), with Orders 6–7 queued inside item 20. This
 scoped work leaves November 16 retired campaigns, Chrysalis (`PR #1699`), closed
 Resonance, deferred finite `PulseWeave` feedback, and separate
 portable-serverless/Foundry acceptance unchanged.
@@ -2308,11 +2318,13 @@ visible and independent; this implementation does not automatically close them.
     the performance track. Both unfinished tracks follow the November 17
     incorporation plan except for obligations absorbed into that plan itself.
   - **Direct-Parquet aggregation and early join-filter follow-on (`2026-11-25`):**
-    anchored against `dd7b441998430aebbcf61bbb3879cc54c339d0af` (crediting
-    existing `E2E-FIX-01`, `E2E-PERF-02`, `E2E-PERF-04`, `E2E-PERF-05A`,
-    `join_aggregate`, and Chrysalis `PR #1699`; locally retained in this
-    branch — see [design note](native-direct-parquet-agg-runtime-filter-2026-11-25.md)
-    and [benchmark record](../benchmarks/native-direct-parquet-agg-runtime-filter-2026-11-25.md)):
+    anchored against `dd7b441998430aebbcf61bbb3879cc54c339d0af` and **merged** in
+    [PR #1722](https://github.com/depsilon/shardloom/pull/1722) at
+    `04ad4b6d1ea1f12200b6bbd9bdb82e5ad5827bf3` (crediting existing
+    `E2E-FIX-01`, `E2E-PERF-02`, `E2E-PERF-04`, `E2E-PERF-05A`,
+    `join_aggregate`, and Chrysalis `PR #1699` — see
+    [design note](native-direct-parquet-agg-runtime-filter-2026-11-25.md) and
+    [benchmark record](../benchmarks/native-direct-parquet-agg-runtime-filter-2026-11-25.md)):
     - **Track A1 — Demanded Parquet concurrency:** admitted multi-row-group demanded
       Parquet work (`demanded.rs` + `local_primitive_relational_batch_input.rs`
       + `local_primitive_relational_batch_parallel.rs`) onto
@@ -2351,6 +2363,53 @@ visible and independent; this implementation does not automatically close them.
       reuse, scale, `Full43`, or `full10k` campaign is reopened, and
       Chrysalis/Resonance/`PulseWeave`/portable-serverless/Foundry dispositions
       remain unchanged.
+  - **Source-aware engine performance program (`2026-11-26`, Orders 1–5
+    locally retained; Orders 6–7 queued):** anchored against
+    `04ad4b6d1ea1f12200b6bbd9bdb82e5ad5827bf3` (`PR #1722`; see
+    [architecture note](native-source-aware-engine-2026-11-26.md) and
+    [benchmark record](../benchmarks/native-source-aware-engine-2026-11-26.md)):
+    - **Completed — Order 1 (`.vortex` `FileKernel` projection unwrap &
+      pushdown):** unwraps projection-only `NodeKind::FileKernel` nodes so
+      selective filters and join `ProbeRuntimeFilter`s push directly into
+      native `.vortex` scans without dropping `file_pruning` evidence.
+    - **Completed — Order 2 (wrapped Parquet Stage-1 `RowSelection`,
+      Bloom, dictionary domain, & Chrysalis flat-buffer gate):** extends
+      Stage-1 key-only decoding and exact `RowSelection` + filter-masked
+      Bloom to Hive/`union_by_name` Parquet manifests (sorted physical leaf
+      mapping in `early_filter.rs` + flat owned scalar `Constant` retention
+      in `resident_memory_owned_intake.rs`), dictionary key-domain probe
+      admission, and conservative flat-buffer Chrysalis retention gating.
+    - **Completed — Order 3 (`RowSet` `EpochDomainMap` & `RowIndex::entry_hash`
+      reuse):** caches dictionary group ordinals across batches using an owned
+      `LiveMemoryPool`-reserved dictionary snapshot for `<= 8,192` domains (and
+      transient intra-batch slots for bounded larger domains) without retaining
+      input buffer leases across batches, and reuses stored `entry_hash` across
+      hash merges and set interning.
+    - **Completed — Order 4 (borrowed `DistinctMeasureRows`, `canonical_slots`,
+      & `numeric_reuse`):** executes borrowed `COUNT(DISTINCT)` tracking,
+      canonical `SUM`/`AVG`/`CountDistinct` slot updates, and `record_copy`
+      allocation avoidance.
+    - **Completed — Order 5 (shared parallel controller, lock-free `SealedJoin`,
+      multi-measure `join_aggregate`, & worker observability):** unifies
+      source-vs-operator parallel scheduling across Parquet, `.vortex`, and
+      `OwnedArraySource` (holding `operator_workers == 1` on float
+      `SUM`/`AVG`), enables lock-free `SealedJoin` parallel probes across all 6
+      keyed join kinds, supports multi-measure `Aggregate::consume_matches` in
+      `join_aggregate`, and surfaces `native_relational_source_workers` /
+      `native_relational_operator_workers` (and Python
+      `Result.source_workers` / `Result.operator_workers`).
+    - **Local complete-cohort result (engine time only):** all 24 frozen
+      Parquet/Vortex/wrapper queries pass oracle verification with
+      `fallback_attempted = false`, `external_engine_invoked = false`, and
+      strictly lower `engine_execution_seconds` (cold CLI `1.977699s -> 1.555910s`,
+      `-21.33%`; warm resident `1.893275s -> 1.553449s`, `-17.95%`; Python
+      embedded smoke `4/4` passed; isolated installed-wheel suite `494/494`
+      passed with `0` failures, `0` errors, and `0` skipped).
+    - **Queued remaining orders inside item 20:** **Order 6** (operator-guided
+      layout and encoding feedback across prepared `.vortex` and adaptive
+      columnar layouts) and **Order 7** (adaptive skewed/selective runtime join
+      and multi-stage pipeline scheduling); November 16 retired campaigns and
+      all external dispositions remain unchanged.
     Historically, the October 29 maintainer ordering was to finish
     the active recursive/materialized composition unit and its acceptance, then
     run the seven performance candidates before explicit batch-function work.

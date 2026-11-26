@@ -169,11 +169,20 @@ fn adaptive_admission_refuses_pressure_and_cancelled_build_is_not_published() {
 
 #[test]
 fn adaptive_counter_overflow_cannot_produce_a_completed_join_certificate() {
-    let state = State::default();
-    let mut work = NativeJoinWork::default();
-    work.skew.rows_visited = u64::MAX;
-    state.work.set(work);
+    let mut state = State::default();
+    state
+        .skew_rows_visited
+        .store(u64::MAX, std::sync::atomic::Ordering::Relaxed);
     state.record_hot_row();
-    assert!(state.overflow.get());
-    assert_eq!(state.work.get(), work);
+    assert!(state.overflow.load(std::sync::atomic::Ordering::Acquire));
+    assert_eq!(
+        state
+            .skew_rows_visited
+            .load(std::sync::atomic::Ordering::Relaxed),
+        u64::MAX
+    );
+    state
+        .overflow
+        .store(false, std::sync::atomic::Ordering::Release);
+    state.work = NativeJoinWork::default();
 }

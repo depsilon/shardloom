@@ -163,6 +163,17 @@ pub(super) fn admit_parallel_parquet(
     session: &ResidentVortexSession,
     context: &NativeExecutionContext<'_>,
 ) -> Result<Option<ParallelAdmission>> {
+    admit_parallel_parquet_with_cap(prepared, usage, consumption, session, 2, context)
+}
+
+fn admit_parallel_parquet_with_cap(
+    prepared: &PreparedColumnarSource,
+    usage: super::Usage,
+    consumption: Consumption,
+    session: &ResidentVortexSession,
+    max_ranges_per_worker: usize,
+    context: &NativeExecutionContext<'_>,
+) -> Result<Option<ParallelAdmission>> {
     if consumption != Consumption::Query
         || !usage.admits_independent_read()
         || !prepared.is_parquet()
@@ -189,7 +200,9 @@ pub(super) fn admit_parallel_parquet(
     if workers < 2 {
         return Ok(None);
     }
-    let range_count = (workers * 2).min(row_groups);
+    let range_count = workers
+        .saturating_mul(max_ranges_per_worker.max(1))
+        .min(row_groups);
     let ranges = partition_ranges(row_groups, range_count);
     Ok(Some(ParallelAdmission {
         pool,
@@ -250,12 +263,13 @@ pub(super) fn run_streaming_ranges(
     state: &SourceState,
     prepared: &Arc<PreparedColumnarSource>,
     admission: ParallelAdmission,
+    mandatory_predicate: Option<&(PredicateExpr, bool)>,
     runtime_predicate: Option<&PredicateExpr>,
     empty_short_circuit: bool,
     probe_filters: &Arc<[ProbeRuntimeFilter]>,
     residual_present: bool,
     context: &NativeExecutionContext<'_>,
-    consume: &mut dyn FnMut(bool, &super::ArrayRef) -> Result<()>,
+    consume: &mut dyn FnMut(super::SourceFilterSatisfaction, &super::ArrayRef) -> Result<()>,
 ) -> Result<()> {
     let ParallelAdmission {
         pool,
@@ -270,7 +284,6 @@ pub(super) fn run_streaming_ranges(
         .prepared
         .session
         .worker_execution_scope(context, child_token.clone())?;
-    let _worker_limit = pool.scope_active_worker_limit(workers);
 
     let submit_range = |range: std::ops::Range<usize>| -> Result<ActiveStreamTask> {
         let (tx, rx) = mpsc::sync_channel::<Result<OwnedSourceBatch>>(BOUNDED_CHANNEL_DEPTH);
@@ -278,6 +291,7 @@ pub(super) fn run_streaming_ranges(
         let range_scope = scope.clone();
         let range_prepared = Arc::clone(prepared);
         let range_session = execution.prepared.session.clone();
+        let range_mandatory = mandatory_predicate.cloned();
         let range_pred = runtime_predicate.cloned();
         let range_probe_filters = Arc::clone(probe_filters);
         let submit_cancel = child_token.clone();
@@ -285,8 +299,9 @@ pub(super) fn run_streaming_ranges(
             Budgeted::new(
                 move |_worker: &WorkerContext, _lease: &mut MemoryLease| {
                     range_scope.with_context(|wctx| {
-                        let mut reader = range_prepared.open_row_group_range_with_probe_filters(
+                        let mut reader = range_prepared.open_row_group_range_with_filters(
                             range,
+                            range_mandatory,
                             range_pred,
                             empty_short_circuit,
                             range_probe_filters,
@@ -295,14 +310,14 @@ pub(super) fn run_streaming_ranges(
                             wctx,
                         )?;
                         loop {
-                            match reader.next_native_located(&range_session, wctx) {
-                                Ok(Some((source, first_row))) => {
-                                    let satisfied = reader.last_batch_satisfied_probe_filters();
+                            match reader.next_native_with_selection(&range_session, wctx) {
+                                Ok(Some((source, selection, satisfaction))) => {
+                                    let first_row = selection.first_row();
                                     let owned = OwnedSourceBatch {
                                         source,
                                         transport_bounds: false,
                                         first_row,
-                                        probe_filters_satisfied: satisfied,
+                                        filter_status: satisfaction.into(),
                                     };
                                     if tx.send(Ok(owned)).is_err() {
                                         return reader.report();
@@ -310,7 +325,7 @@ pub(super) fn run_streaming_ranges(
                                 }
                                 Ok(None) => return reader.report(),
                                 Err(error) => {
-                                    let _ = tx.send(Err(failed(&error.to_string())));
+                                    let _ = tx.send(Err(error.clone()));
                                     return Err(error);
                                 }
                             }
@@ -368,7 +383,7 @@ pub(super) fn run_streaming_ranges(
                     source,
                     transport_bounds,
                     first_row,
-                    probe_filters_satisfied,
+                    filter_status,
                 })) => {
                     let step: Result<()> = (|| {
                         if first_row < min_first_row {
@@ -381,7 +396,7 @@ pub(super) fn run_streaming_ranges(
                         let released = source.batch_release_witness()?;
                         execution.record_input(&source, context)?;
                         let array = source.batch_array(context)?;
-                        let res = consume(probe_filters_satisfied, array);
+                        let res = consume(filter_status, array);
                         drop(source);
                         res?;
                         verify_released(&released)?;
@@ -440,6 +455,8 @@ pub(super) fn run_streaming_ranges(
         let mut execution_report = execution.report.borrow_mut();
         execution_report.parallel_range_workers =
             execution_report.parallel_range_workers.max(workers as u64);
+        execution_report.source_workers = execution_report.source_workers.max(workers as u64);
+        execution_report.operator_workers = execution_report.operator_workers.max(1);
         checked_add(
             &mut execution_report.parallel_range_tasks,
             total_ranges as u64,
@@ -489,11 +506,12 @@ where
     if state.started.get() {
         return Ok(false);
     }
-    let Some(admission) = admit_parallel_parquet(
+    let Some(admission) = admit_parallel_parquet_with_cap(
         prepared_parquet,
         state.usage.get(),
         Consumption::Query,
         &execution.prepared.session,
+        1,
         context,
     )?
     else {
@@ -514,7 +532,6 @@ where
         .prepared
         .session
         .worker_execution_scope(context, child_token.clone())?;
-    let _worker_limit = pool.scope_active_worker_limit(workers);
     let worker_fn = Arc::new(worker_fn);
 
     let submit_one =
@@ -655,6 +672,15 @@ where
         merged_stats.merge_into(&mut execution_report, &state.next_batch)?;
         execution_report.parallel_range_workers =
             execution_report.parallel_range_workers.max(workers as u64);
+        execution_report.source_workers = execution_report.source_workers.max(workers as u64);
+        execution_report.operator_workers =
+            execution_report
+                .operator_workers
+                .max(if persistent_states_count > 0 {
+                    workers as u64
+                } else {
+                    1
+                });
         checked_add(
             &mut execution_report.parallel_range_tasks,
             total_ranges as u64,
@@ -677,44 +703,10 @@ where
     Ok(true)
 }
 
-fn apply_parallel_transforms(
-    transforms: &[super::super::ParallelAggregateTransform],
-    index: usize,
-    array: super::ArrayRef,
-    context: &NativeExecutionContext<'_>,
-    consume: &mut dyn FnMut(super::ArrayRef) -> Result<()>,
-) -> Result<()> {
-    let Some(stage) = transforms.get(index) else {
-        return consume(array);
-    };
-    match &stage.kind {
-        super::super::ParallelTransformKind::Project(expressions) => {
-            let projected = super::super::transform::project_array(
-                &stage.fields,
-                expressions,
-                &array,
-                context,
-            )?;
-            apply_parallel_transforms(transforms, index + 1, projected, context, consume)
-        }
-        super::super::ParallelTransformKind::Filter(predicate) => {
-            super::super::transform::apply_filter(
-                predicate,
-                &stage.fields,
-                &array,
-                context,
-                &mut |filtered| {
-                    apply_parallel_transforms(transforms, index + 1, filtered, context, consume)
-                },
-            )
-        }
-    }
-}
-
 #[allow(clippy::too_many_lines)]
-pub(super) fn run_parallel_parquet_aggregate(
+pub(in crate::local_primitives::prepared_relational) fn run_parallel_parquet_aggregate(
     execution: &Execution<'_, '_>,
-    plan: &Arc<super::super::ParallelAggregatePlan>,
+    plan: &Arc<super::super::scan_parallel::ParallelAggregatePlan>,
     context: &NativeExecutionContext<'_>,
     metrics: &super::Metrics<'_>,
 ) -> Result<Option<crate::local_primitives::native_relational_aggregate::Aggregate<'static>>> {
@@ -734,8 +726,16 @@ pub(super) fn run_parallel_parquet_aggregate(
         execution,
         source_index,
         move |_range_idx, range, prepared_parquet, range_session, wctx| {
-            let mut reader =
-                prepared_parquet.open_row_group_range(range, None, false, false, wctx)?;
+            let mut reader = prepared_parquet.open_row_group_range_with_filters(
+                range,
+                plan_for_worker.mandatory_predicate.clone(),
+                None,
+                false,
+                Arc::from([]),
+                plan_for_worker.residual.is_some(),
+                false,
+                wctx,
+            )?;
             let mut agg = Aggregate::new_shared(Arc::clone(&plan_for_worker.spec), wctx.memory())?;
             let mut sizing = Rows::from_fields(
                 Owner::Scan,
@@ -746,8 +746,8 @@ pub(super) fn run_parallel_parquet_aggregate(
             )?;
             let mut stats = WorkerSourceStats::default();
             let mut counts = super::super::scan::ScanBatchCounts::default();
-            while let Some((source, _first_row)) =
-                reader.next_native_located(&range_session, wctx)?
+            while let Some((source, _selection, satisfaction)) =
+                reader.next_native_with_selection(&range_session, wctx)?
             {
                 if !source.belongs_to_session(&range_session) || source.dtype() != &expected_dtype {
                     return Err(failed(
@@ -757,26 +757,42 @@ pub(super) fn run_parallel_parquet_aggregate(
                 let released = source.batch_release_witness()?;
                 stats.observe(&source, wctx)?;
                 let source_array = source.batch_array(wctx)?;
+                let active_residual = if satisfaction.mandatory_predicate_satisfied {
+                    None
+                } else {
+                    plan_for_worker.residual.as_ref()
+                };
+                let execute_source =
+                    |source_array: &super::ArrayRef, range: std::ops::Range<usize>| {
+                        if satisfaction.mandatory_predicate_satisfied {
+                            plan_for_worker
+                                .projection
+                                .execute_batch_array_without_filter(source_array, range, wctx)
+                        } else {
+                            plan_for_worker.projection.execute_batch_array(
+                                source_array,
+                                range,
+                                wctx,
+                            )
+                        }
+                    };
                 counts.scans_started = counts
                     .scans_started
                     .checked_add(1)
                     .ok_or_else(|| failed("scan counter overflow"))?;
                 if source_array.is_empty() {
-                    let projected =
-                        plan_for_worker
-                            .projection
-                            .execute_batch_array(source_array, 0..0, wctx)?;
+                    let projected = execute_source(source_array, 0..0)?;
                     super::super::scan::accept_scan_batch_counts(
                         &projected,
                         &plan_for_worker.columns,
-                        plan_for_worker.residual.as_ref(),
+                        active_residual,
                         &[],
                         &plan_for_worker.scan_fields,
                         wctx,
                         &mut counts,
                         plan_for_worker.batch_rows,
                         &mut |array| {
-                            apply_parallel_transforms(
+                            super::super::scan_parallel::apply_parallel_transforms(
                                 &plan_for_worker.transforms,
                                 0,
                                 array,
@@ -804,22 +820,18 @@ pub(super) fn run_parallel_parquet_aggregate(
                     while start < source_array.len() {
                         let selected = sizing.select((source_array.len() - start) as u64, wctx)?;
                         let end = start + selected.rows;
-                        let projected = plan_for_worker.projection.execute_batch_array(
-                            source_array,
-                            start..end,
-                            wctx,
-                        )?;
+                        let projected = execute_source(source_array, start..end)?;
                         super::super::scan::accept_scan_batch_counts(
                             &projected,
                             &plan_for_worker.columns,
-                            plan_for_worker.residual.as_ref(),
+                            active_residual,
                             &[],
                             &plan_for_worker.scan_fields,
                             wctx,
                             &mut counts,
                             plan_for_worker.batch_rows,
                             &mut |array| {
-                                apply_parallel_transforms(
+                                super::super::scan_parallel::apply_parallel_transforms(
                                     &plan_for_worker.transforms,
                                     0,
                                     array,
@@ -912,4 +924,477 @@ pub(super) fn run_parallel_parquet_aggregate(
         super::super::add(&metrics.pipeline.finite_float_scans, 1)?;
     }
     Ok(merged_agg)
+}
+
+#[allow(clippy::type_complexity)]
+fn admit_parallel_parquet_join_source<'a>(
+    execution: &'a Execution<'_, '_>,
+    source_index: usize,
+    residual_is_none: bool,
+    probe_filters: &[ProbeRuntimeFilter],
+    context: &NativeExecutionContext<'_>,
+) -> Result<
+    Option<(
+        &'a SourceState,
+        &'a Arc<PreparedColumnarSource>,
+        vortex::array::dtype::DType,
+        ParallelAdmission,
+    )>,
+> {
+    let Some(state) = execution.states.values.get(source_index) else {
+        return Ok(None);
+    };
+    let Some(declaration) = execution.prepared.batch_sources.get(source_index) else {
+        return Ok(None);
+    };
+    let Some(prepared_parquet) = &declaration.local else {
+        return Ok(None);
+    };
+    if state.started.get() || !state.usage.get().admits_independent_read() {
+        return Ok(None);
+    }
+    let dtype = declaration.schema.dtype().clone();
+    let empty_short_circuit = residual_is_none
+        && super::super::scan::has_infallible_empty_build(probe_filters, &mut |name| {
+            dtype.as_struct_fields_opt()?.field(name)
+        });
+    if empty_short_circuit {
+        return Ok(None);
+    }
+    let Some(admission) = admit_parallel_parquet_with_cap(
+        prepared_parquet,
+        state.usage.get(),
+        Consumption::Query,
+        &execution.prepared.session,
+        1,
+        context,
+    )?
+    else {
+        return Ok(None);
+    };
+    Ok(Some((state, prepared_parquet, dtype, admission)))
+}
+
+pub(in crate::local_primitives::prepared_relational) fn can_admit_parallel_parquet_join(
+    execution: &Execution<'_, '_>,
+    source_index: usize,
+    residual_is_none: bool,
+    probe_filters: &[ProbeRuntimeFilter],
+    context: &NativeExecutionContext<'_>,
+) -> Result<bool> {
+    Ok(admit_parallel_parquet_join_source(
+        execution,
+        source_index,
+        residual_is_none,
+        probe_filters,
+        context,
+    )?
+    .is_some())
+}
+
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+pub(in crate::local_primitives::prepared_relational) fn run_parallel_parquet_join(
+    execution: &Execution<'_, '_>,
+    source_index: usize,
+    projection: &Arc<super::super::PreparedMemoryProjection>,
+    mandatory_predicate: Option<&(PredicateExpr, bool)>,
+    residual: Option<&super::super::MaterializedPredicateEvaluator>,
+    probe_filters: &[ProbeRuntimeFilter],
+    columns: &[String],
+    scan_fields: &[(String, vortex::array::dtype::DType)],
+    transforms: &Arc<Vec<super::super::scan_parallel::ParallelAggregateTransform>>,
+    sealed_join: &Arc<crate::local_primitives::native_relational_join::SealedJoin>,
+    scan_rows: usize,
+    batch_rows: usize,
+    finite_float_predicate: bool,
+    context: &NativeExecutionContext<'_>,
+    metrics: &super::Metrics<'_>,
+    consume: &mut dyn FnMut(super::ArrayRef) -> Result<()>,
+) -> Result<Option<Vec<crate::local_primitives::native_capacity::ReservedVec<bool>>>> {
+    use crate::native_work_sizing::{Owner, Rows};
+    use vortex::array::dtype::DType;
+
+    type JoinWorkerMatched = Option<crate::local_primitives::native_capacity::ReservedVec<bool>>;
+    type JoinTaskDone = (
+        (
+            super::super::scan::ScanBatchCounts,
+            JoinWorkerMatched,
+            ColumnarReadReport,
+            WorkerSourceStats,
+        ),
+        WorkerExecutionDelta,
+    );
+
+    struct ActiveJoinTask {
+        rx: Receiver<Result<super::ArrayRef>>,
+        task: ComputeTask<JoinTaskDone>,
+    }
+
+    fn teardown_join_tasks(
+        child_token: &CancellationToken,
+        current_rx: Option<Receiver<Result<super::ArrayRef>>>,
+        current_task: Option<ComputeTask<JoinTaskDone>>,
+        mut pending: VecDeque<ActiveJoinTask>,
+    ) {
+        child_token.cancel();
+        drop(current_rx);
+        for active in &mut pending {
+            let (_, dummy_rx) = mpsc::sync_channel(0);
+            let real_rx = std::mem::replace(&mut active.rx, dummy_rx);
+            drop(real_rx);
+        }
+        if let Some(task) = current_task {
+            let _ = task.join();
+        }
+        while let Some(active) = pending.pop_front() {
+            drop(active.rx);
+            let _ = active.task.join();
+        }
+    }
+
+    let Some((state, prepared_parquet, dtype, admission)) = admit_parallel_parquet_join_source(
+        execution,
+        source_index,
+        residual.is_none(),
+        probe_filters,
+        context,
+    )?
+    else {
+        return Ok(None);
+    };
+    state.started.set(true);
+    let runtime_predicate = super::super::scan::admitted_runtime_predicate(probe_filters, &dtype);
+    let probe_filters_arc: Arc<[ProbeRuntimeFilter]> = Arc::from(probe_filters);
+    let ParallelAdmission {
+        pool,
+        workers,
+        ranges,
+    } = admission;
+    let total_ranges = ranges.len();
+    let child_flag = Arc::new(AtomicBool::new(false));
+    let child_token =
+        CancellationToken::from_shared_flag_with_parent(child_flag, context.cancellation());
+    let scope = execution
+        .prepared
+        .session
+        .worker_execution_scope(context, child_token.clone())?;
+
+    let projection = Arc::clone(projection);
+    let mandatory_predicate = mandatory_predicate.cloned();
+    let residual = residual.cloned();
+    let columns: Arc<[String]> = Arc::from(columns);
+    let scan_fields: Arc<[(String, DType)]> = Arc::from(scan_fields);
+    let transforms = Arc::clone(transforms);
+    let expected_dtype = dtype;
+
+    let submit_range = |range: std::ops::Range<usize>| -> Result<ActiveJoinTask> {
+        let lease = context.memory().reserve(TASK_RESERVATION_BYTES)?;
+        let (tx, rx) = mpsc::sync_channel::<Result<super::ArrayRef>>(BOUNDED_CHANNEL_DEPTH);
+        let range_scope = scope.clone();
+        let range_prepared = Arc::clone(prepared_parquet);
+        let range_session = execution.prepared.session.clone();
+        let range_mandatory = mandatory_predicate.clone();
+        let range_runtime = runtime_predicate.clone();
+        let range_filters = Arc::clone(&probe_filters_arc);
+        let range_projection = Arc::clone(&projection);
+        let range_residual = residual.clone();
+        let range_columns = Arc::clone(&columns);
+        let range_fields = Arc::clone(&scan_fields);
+        let range_transforms = Arc::clone(&transforms);
+        let range_join = Arc::clone(sealed_join);
+        let expected_dtype = expected_dtype.clone();
+        let cancel = child_token.clone();
+        let residual_present = range_residual.is_some();
+        let task = pool.submit(
+            Budgeted::new(
+                move |_worker: &WorkerContext, _lease: &mut MemoryLease| {
+                    range_scope.with_context(|wctx| {
+                        let res: Result<(super::super::scan::ScanBatchCounts, JoinWorkerMatched, ColumnarReadReport, WorkerSourceStats)> = (|| {
+                            let mut worker_matched = range_join.new_worker_matched(wctx.memory())?;
+                            let mut reader = range_prepared.open_row_group_range_with_filters(
+                                range,
+                                range_mandatory,
+                                range_runtime,
+                                false,
+                                Arc::clone(&range_filters),
+                                residual_present,
+                                false,
+                                wctx,
+                            )?;
+                            let mut sizing =
+                                Rows::from_fields(Owner::Scan, &range_fields, scan_rows, 2, wctx)?;
+                            let mut stats = WorkerSourceStats::default();
+                            let mut counts = super::super::scan::ScanBatchCounts::default();
+                            while let Some((source, _selection, satisfaction)) =
+                                reader.next_native_with_selection(&range_session, wctx)?
+                            {
+                                if !source.belongs_to_session(&range_session)
+                                    || source.dtype() != &expected_dtype
+                                {
+                                    return Err(failed(
+                                        "parallel range input changed its declared schema or session",
+                                    ));
+                                }
+                                let released = source.batch_release_witness()?;
+                                stats.observe(&source, wctx)?;
+                                let source_array = source.batch_array(wctx)?;
+                                let active_residual = if satisfaction.mandatory_predicate_satisfied {
+                                    None
+                                } else {
+                                    range_residual.as_ref()
+                                };
+                                let active_filters: &[ProbeRuntimeFilter] =
+                                    if satisfaction.probe_filters_satisfied {
+                                        &[]
+                                    } else {
+                                        &range_filters
+                                    };
+                                let execute_source =
+                                    |source_array: &super::ArrayRef, range: std::ops::Range<usize>| {
+                                        if satisfaction.mandatory_predicate_satisfied {
+                                            range_projection
+                                                .execute_batch_array_without_filter(source_array, range, wctx)
+                                        } else {
+                                            range_projection
+                                                .execute_batch_array(source_array, range, wctx)
+                                        }
+                                    };
+                                counts.scans_started = counts
+                                    .scans_started
+                                    .checked_add(1)
+                                    .ok_or_else(|| failed("scan counter overflow"))?;
+                                let mut emit_probe = |final_batch: super::ArrayRef| -> Result<()> {
+                                    range_join.consume_sealed(
+                                        final_batch,
+                                        worker_matched.as_mut().map(|v| v.values.as_mut_slice()),
+                                        wctx,
+                                        batch_rows,
+                                        &mut |out_batch| {
+                                            tx.send(Ok(out_batch)).map_err(|_| {
+                                                failed("parallel join consumer stopped early")
+                                            })
+                                        },
+                                    )?;
+                                    Ok(())
+                                };
+                                if source_array.is_empty() {
+                                    let projected = execute_source(source_array, 0..0)?;
+                                    super::super::scan::accept_scan_batch_counts(
+                                        &projected,
+                                        &range_columns,
+                                        active_residual,
+                                        active_filters,
+                                        &range_fields,
+                                        wctx,
+                                        &mut counts,
+                                        batch_rows,
+                                        &mut |array| {
+                                            super::super::scan_parallel::apply_parallel_transforms(
+                                                &range_transforms,
+                                                0,
+                                                array,
+                                                wctx,
+                                                &mut emit_probe,
+                                            )
+                                        },
+                                    )?;
+                                } else {
+                                    counts.data_scans = counts
+                                        .data_scans
+                                        .checked_add(1)
+                                        .ok_or_else(|| failed("data scan counter overflow"))?;
+                                    let mut start = 0;
+                                    while start < source_array.len() {
+                                        let selected =
+                                            sizing.select((source_array.len() - start) as u64, wctx)?;
+                                        let end = start + selected.rows;
+                                        let projected = execute_source(source_array, start..end)?;
+                                        super::super::scan::accept_scan_batch_counts(
+                                            &projected,
+                                            &range_columns,
+                                            active_residual,
+                                            active_filters,
+                                            &range_fields,
+                                            wctx,
+                                            &mut counts,
+                                            batch_rows,
+                                            &mut |array| {
+                                                super::super::scan_parallel::apply_parallel_transforms(
+                                                    &range_transforms,
+                                                    0,
+                                                    array,
+                                                    wctx,
+                                                    &mut emit_probe,
+                                                )
+                                            },
+                                        )?;
+                                        sizing.complete(selected, None, wctx);
+                                        start = end;
+                                    }
+                                }
+                                drop(source);
+                                verify_released(&released)?;
+                            }
+                            let report = reader.report()?;
+                            Ok((counts, worker_matched, report, stats))
+                        })();
+                        match res {
+                            Ok(done) => Ok(done),
+                            Err(error) => {
+                                let _ = tx.send(Err(error.clone()));
+                                Err(error)
+                            }
+                        }
+                    })
+                },
+                lease,
+            ),
+            cancel,
+        )?;
+        Ok(ActiveJoinTask { rx, task })
+    };
+
+    let mut active: VecDeque<ActiveJoinTask> = VecDeque::with_capacity(workers);
+    let mut range_iter = ranges.into_iter();
+    for _ in 0..workers {
+        let Some(range) = range_iter.next() else {
+            break;
+        };
+        match submit_range(range) {
+            Ok(task) => active.push_back(task),
+            Err(error) => {
+                teardown_join_tasks(&child_token, None, None, active);
+                return Err(error);
+            }
+        }
+    }
+
+    let mut merged_report: Option<ColumnarReadReport> = None;
+    let mut merged_stats = WorkerSourceStats::default();
+    let mut merged_scans = super::super::scan::ScanBatchCounts::default();
+    let mut matched_vecs = Vec::with_capacity(total_ranges);
+    while let Some(ActiveJoinTask { rx, task }) = active.pop_front() {
+        if let Some(next_range) = range_iter.next() {
+            match submit_range(next_range) {
+                Ok(next_task) => active.push_back(next_task),
+                Err(error) => {
+                    teardown_join_tasks(&child_token, Some(rx), Some(task), active);
+                    return Err(error);
+                }
+            }
+        }
+        loop {
+            if let Err(error) = context.check_cancelled() {
+                teardown_join_tasks(&child_token, Some(rx), Some(task), active);
+                return Err(error);
+            }
+            match rx.recv() {
+                Ok(Ok(batch)) => {
+                    if let Err(error) = consume(batch) {
+                        teardown_join_tasks(&child_token, Some(rx), Some(task), active);
+                        return Err(error);
+                    }
+                }
+                Ok(Err(error)) => {
+                    teardown_join_tasks(&child_token, Some(rx), Some(task), active);
+                    return Err(error);
+                }
+                Err(_) => break,
+            }
+        }
+        let joined = match task.join() {
+            Ok(done) => done,
+            Err(error) => {
+                teardown_join_tasks(&child_token, None, None, active);
+                return Err(error);
+            }
+        };
+        let (((worker_counts, worker_matched, rpt, stats), delta), lease) = joined.into_parts();
+        drop(lease);
+        let step = (|| -> Result<()> {
+            context.merge_worker_delta(delta)?;
+            match &mut merged_report {
+                Some(existing) => existing.merge_range(&rpt)?,
+                None => merged_report = Some(rpt),
+            }
+            checked_add(&mut merged_scans.scan_rows, worker_counts.scan_rows)?;
+            checked_add(&mut merged_scans.scan_batches, worker_counts.scan_batches)?;
+            checked_add(&mut merged_scans.scans_started, worker_counts.scans_started)?;
+            checked_add(&mut merged_scans.data_scans, worker_counts.data_scans)?;
+            checked_add(
+                &mut merged_scans.residual_batches,
+                worker_counts.residual_batches,
+            )?;
+            checked_add(&mut merged_stats.batches, stats.batches)?;
+            checked_add(&mut merged_stats.rows, stats.rows)?;
+            checked_add(
+                &mut merged_stats.input_logical_bytes,
+                stats.input_logical_bytes,
+            )?;
+            checked_add(
+                &mut merged_stats.intake_payload_bytes_copied,
+                stats.intake_payload_bytes_copied,
+            )?;
+            checked_add(
+                &mut merged_stats.intake_columnar_buffer_bytes_copied,
+                stats.intake_columnar_buffer_bytes_copied,
+            )?;
+            merged_stats
+                .intake_columnar_copy_reasons
+                .merge(&stats.intake_columnar_copy_reasons);
+            checked_add(
+                &mut merged_stats.intake_columnar_buffer_bytes_transferred,
+                stats.intake_columnar_buffer_bytes_transferred,
+            )?;
+            checked_add(
+                &mut merged_stats.intake_columnar_buffer_regions_transferred,
+                stats.intake_columnar_buffer_regions_transferred,
+            )?;
+            checked_add(
+                &mut merged_stats.intake_columnar_allocation_bytes_transferred,
+                stats.intake_columnar_allocation_bytes_transferred,
+            )?;
+            merged_stats.max_batch_rows = merged_stats.max_batch_rows.max(stats.max_batch_rows);
+            merged_stats.max_batch_logical_bytes = merged_stats
+                .max_batch_logical_bytes
+                .max(stats.max_batch_logical_bytes);
+            if let Some(m) = worker_matched {
+                matched_vecs.push(m);
+            }
+            Ok(())
+        })();
+        if let Err(error) = step {
+            teardown_join_tasks(&child_token, None, None, active);
+            return Err(error);
+        }
+    }
+
+    let report = merged_report
+        .ok_or_else(|| failed("parallel join range task execution yielded no report"))?;
+    prepared_parquet.complete_region_selection(context)?;
+    {
+        let mut execution_report = execution.report.borrow_mut();
+        merged_stats.merge_into(&mut execution_report, &state.next_batch)?;
+        execution_report.parallel_range_workers =
+            execution_report.parallel_range_workers.max(workers as u64);
+        execution_report.source_workers = execution_report.source_workers.max(workers as u64);
+        execution_report.operator_workers = execution_report.operator_workers.max(workers as u64);
+        checked_add(
+            &mut execution_report.parallel_range_tasks,
+            total_ranges as u64,
+        )?;
+    }
+    execution.record_columnar_input(report)?;
+    execution.finish_producer(state, None, Consumption::Query)?;
+    merged_scans.merge_into(metrics)?;
+    metrics
+        .source_workers
+        .set(metrics.source_workers.get().max(workers as u64));
+    metrics
+        .operator_workers
+        .set(metrics.operator_workers.get().max(workers as u64));
+    if finite_float_predicate {
+        super::super::add(&metrics.pipeline.finite_float_scans, 1)?;
+    }
+    Ok(Some(matched_vecs))
 }

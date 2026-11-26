@@ -763,6 +763,10 @@ fn segment_reuse_policy(
 }
 
 impl PreparedVortexAggregate {
+    pub(crate) fn uses_worker_pool(&self) -> bool {
+        self.worker_pool
+    }
+
     fn operation_cancellation(
         &self,
         parent: &shardloom_exec::compute_pool::CancellationToken,

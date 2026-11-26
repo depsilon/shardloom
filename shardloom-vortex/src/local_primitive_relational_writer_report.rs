@@ -114,6 +114,8 @@ impl ExecutedVortexRelational {
             ordered_window_extrema_summary_rows: self.ordered_window_extrema_summary_rows,
             ordered_window_lookup_blocks: self.ordered_window_lookup_blocks,
             output_columns: self.output_columns.clone(),
+            source_workers: self.source_workers,
+            operator_workers: self.operator_workers,
             bytes_decoded: self.bytes_decoded,
             native_io_certificate: self.native_io_certificate.clone(),
             runtime: self.runtime,

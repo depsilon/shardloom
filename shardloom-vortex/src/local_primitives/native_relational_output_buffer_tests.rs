@@ -9,16 +9,20 @@ use vortex::array::{
     validity::Validity,
 };
 
-fn record(value: u64, context: &NativeExecutionContext<'_>) -> Result<ArrayRef> {
+fn records(values: &[u64], context: &NativeExecutionContext<'_>) -> Result<ArrayRef> {
     let array = StructArray::try_new(
         FieldNames::from(["n"]),
-        vec![PrimitiveArray::from_iter([value]).into_array()],
-        1,
+        vec![PrimitiveArray::from_iter(values.iter().copied()).into_array()],
+        values.len(),
         Validity::NonNullable,
     )
     .map_err(vortex_error)?
     .into_array();
     native_payload::detach(&array, context)
+}
+
+fn record(value: u64, context: &NativeExecutionContext<'_>) -> Result<ArrayRef> {
+    records(&[value], context)
 }
 
 fn values(array: &ArrayRef, context: &NativeExecutionContext<'_>) -> Result<Vec<u64>> {
@@ -251,4 +255,126 @@ fn output_compaction_sizes_fixed_list_gather_scratch_before_selecting_rows() {
         })
         .unwrap();
     assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+fn assert_mid_flush_decline_forwards_remaining_rows() {
+    let session = ResidentVortexSession::new(4 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            let first = record(0, context)?;
+            let mut output = OutputBuffer::new(
+                first.dtype().clone(),
+                64,
+                native_payload::CopyPolicy::ValidateValues,
+                context,
+            )?;
+            output.push(first, context, &mut |_| panic!("unexpected early output"))?;
+            output.push(records(&[1, 2, 3], context)?, context, &mut |_| {
+                panic!("unexpected early output")
+            })?;
+            output.push(records(&[4, 5], context)?, context, &mut |_| {
+                panic!("unexpected early output")
+            })?;
+            assert_eq!(output.pending_rows, 6);
+            let initial_cost = output.cost(
+                6,
+                output.pending_payload_bytes,
+                output.pending.values.len(),
+                true,
+            )?;
+            let loop_cost = output.cost(6, output.pending_payload_bytes, 0, false)?;
+            let keep = initial_cost.fixed_bytes + 2 * initial_cost.bytes_per_unit;
+            let snapshot = memory.snapshot();
+            let pressure = memory.reserve(snapshot.limit_bytes - snapshot.reserved_bytes - keep)?;
+            let (mut observed, mut sizes, mut held, mut extra) =
+                (Vec::new(), Vec::new(), None, None);
+            output.flush(context, &mut |batch| {
+                observed.extend(values(&batch, context)?);
+                sizes.push(batch.len());
+                if held.is_none() {
+                    held = Some(batch);
+                    let snap = memory.snapshot();
+                    let headroom = snap.limit_bytes.saturating_sub(snap.reserved_bytes);
+                    extra = Some(memory.reserve(headroom.saturating_sub(loop_cost.fixed_bytes))?);
+                }
+                Ok(())
+            })?;
+            assert_eq!(observed, (0..6).collect::<Vec<_>>());
+            assert_eq!(sizes, vec![2, 2, 2]);
+            assert_eq!(output.sizing.report().completed_windows, 1);
+            let mut proof = String::new();
+            context.append_adaptive_work_certificate(&mut proof);
+            assert!(proof.contains("adaptive_native_output_completed_windows=1"));
+            assert!(proof.contains("adaptive_native_output_declined_windows=1"));
+            assert!(proof.contains("adaptive_native_output_decline_reason=insufficient_headroom"));
+            drop((held, extra, pressure, output));
+            Ok(())
+        })
+        .unwrap();
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+fn assert_compaction_reclaims_optional_memory() {
+    let session = ResidentVortexSession::new(4 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/local_primitive_struct_five.vortex");
+    let prepared = session.prepare_file(&fixture).unwrap();
+    let projection = prepared.prepare_projection(&["value"], 5, 65_536).unwrap();
+    drop(projection.execute().unwrap());
+    let cache = session.snapshot().source_segment_cache.unwrap();
+    assert!(cache.retained_entries > 0);
+    assert!(cache.retained_capacity_bytes > 0);
+    assert_eq!(cache.pressure_reclamations, 0);
+
+    session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            let first = record(0, context)?;
+            let mut output = OutputBuffer::new(
+                first.dtype().clone(),
+                64,
+                native_payload::CopyPolicy::ValidateValues,
+                context,
+            )?;
+            output.push(first, context, &mut |_| panic!("unexpected early output"))?;
+            output.push(record(1, context)?, context, &mut |_| {
+                panic!("unexpected early output")
+            })?;
+            let cost = output.cost(
+                2,
+                output.pending_payload_bytes,
+                output.pending.values.len(),
+                true,
+            )?;
+            let min_required = cost.fixed_bytes + cost.bytes_per_unit;
+            let snapshot = memory.snapshot();
+            let pressure = memory
+                .reserve(snapshot.limit_bytes - snapshot.reserved_bytes - (min_required - 1))?;
+            let mut observed = Vec::new();
+            output.flush(context, &mut |batch| {
+                observed.extend(values(&batch, context)?);
+                Ok(())
+            })?;
+            assert_eq!(observed, vec![0, 1]);
+            assert_eq!(output.sizing.report().completed_windows, 1);
+            let mut proof = String::new();
+            context.append_adaptive_work_certificate(&mut proof);
+            assert!(proof.contains("adaptive_native_output_completed_windows=1"));
+            assert!(!proof.contains("adaptive_native_output_declined_windows="));
+            drop((pressure, output));
+            Ok(())
+        })
+        .unwrap();
+    let cache = session.snapshot().source_segment_cache.unwrap();
+    assert!(cache.pressure_reclamations >= 1);
+    drop((projection, prepared, session));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn output_compaction_mid_flush_decline_forwards_remaining_rows_and_reclaims_optional_memory() {
+    assert_mid_flush_decline_forwards_remaining_rows();
+    assert_compaction_reclaims_optional_memory();
 }

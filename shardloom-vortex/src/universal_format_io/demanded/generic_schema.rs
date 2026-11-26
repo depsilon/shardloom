@@ -114,7 +114,7 @@ pub(super) fn merge(held: Option<&SchemaRef>, next: &SchemaRef, union: bool) -> 
     )))
 }
 
-pub(super) fn local_projection(
+pub(in crate::universal_format_io::demanded) fn local_projection(
     local: &SchemaRef,
     complete: &SchemaRef,
     requested: &[usize],
@@ -151,13 +151,32 @@ pub(super) fn align(
 /// The sealed native Parquet ingest reader retains the payload lease with its
 /// batch, leaving standard buffer allocations eligible for the existing unique
 /// allocation/alignment proof. Ordinary Arrow export still uses buffer owners.
-pub(super) fn align_owned_parquet(
+pub(in crate::universal_format_io::demanded) fn align_owned_parquet(
     input: OwnedBatch,
     target: SchemaRef,
     partitions: &[(String, Option<String>)],
     memory: &LiveMemoryPool,
 ) -> Result<OwnedBatch> {
     align_with_handoff(input, target, partitions, memory, false, true)
+}
+
+fn accepts_encoded_utf8_representation(
+    retain_standard_allocations: bool,
+    actual: &DataType,
+    expected: &DataType,
+) -> bool {
+    if !retain_standard_allocations {
+        return false;
+    }
+    match (actual, expected) {
+        (DataType::Dictionary(key, val), DataType::Utf8 | DataType::Utf8View) => {
+            matches!(key.as_ref(), DataType::Int32) && matches!(val.as_ref(), DataType::Utf8)
+        }
+        (DataType::Dictionary(key, val), DataType::LargeUtf8) => {
+            matches!(key.as_ref(), DataType::Int32) && matches!(val.as_ref(), DataType::LargeUtf8)
+        }
+        _ => false,
+    }
 }
 
 fn align_with_handoff(
@@ -191,7 +210,8 @@ fn align_with_handoff(
     columns
         .try_reserve_exact(target.fields().len())
         .map_err(failed)?;
-    for field in target.fields() {
+    let mut aligned_fields: Option<Vec<arrow_schema::FieldRef>> = None;
+    for (field_idx, field) in target.fields().iter().enumerate() {
         let column = if let Some((_, value)) =
             partitions.iter().find(|(name, _)| name == field.name())
         {
@@ -202,9 +222,23 @@ fn align_with_handoff(
         } else if let Ok(index) = source_schema.index_of(field.name()) {
             let column = batch.column(index);
             if column.data_type() != field.data_type() {
-                return Err(failed(
-                    "decoded field type changed after source schema admission",
-                ));
+                if !accepts_encoded_utf8_representation(
+                    retain_standard_allocations,
+                    column.data_type(),
+                    field.data_type(),
+                ) {
+                    return Err(failed(
+                        "decoded field type changed after source schema admission",
+                    ));
+                }
+                let fields_vec =
+                    aligned_fields.get_or_insert_with(|| target.fields().iter().cloned().collect());
+                fields_vec[field_idx] = Arc::new(
+                    field
+                        .as_ref()
+                        .clone()
+                        .with_data_type(column.data_type().clone()),
+                );
             }
             if credited_input {
                 credited_buffers = add(credited_buffers, column.get_buffer_memory_size() as u64)?;
@@ -218,8 +252,15 @@ fn align_with_handoff(
         };
         columns.push(column);
     }
+    let output_schema = match aligned_fields {
+        Some(fields_vec) => Arc::new(Schema::new_with_metadata(
+            fields_vec,
+            target.metadata().clone(),
+        )),
+        None => target,
+    };
     let output = RecordBatch::try_new_with_options(
-        target,
+        output_schema,
         columns,
         &arrow_array::RecordBatchOptions::new().with_row_count(Some(rows)),
     )

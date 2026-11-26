@@ -37,7 +37,7 @@ mod borrowed;
 
 #[path = "native_relational_variable_domain.rs"]
 mod variable_domain;
-use variable_domain::VariableDomain;
+pub(super) use variable_domain::VariableDomain;
 
 use super::{AggregateDistinctValue, NativeNumericOwner, compound_count_partial, vortex_error};
 use shardloom_core::{FloatPolicy, Result, ShardLoomError, float_policy::float_key_bits};
@@ -1048,6 +1048,11 @@ impl VariableColumn {
         self.codes.as_ref().map(|codes| (codes, self.values.len()))
     }
 
+    pub(super) fn dict_epoch(&self) -> Option<(&VariableDomain, &Mask, &NativeNumericOwner, bool)> {
+        let codes = self.codes.as_ref()?;
+        Some((&self.values, &self.valid, codes, self.binary))
+    }
+
     /// Borrow only within the prepared native owner. The expression result
     /// builder copies any returned text into its independently credited output.
     pub(super) fn utf8_at(&self, row: usize) -> Result<Option<&str>> {
@@ -1117,7 +1122,7 @@ pub(super) fn validate_float_scalar(value: f64, float_policy: FloatPolicy) -> Re
     Ok(())
 }
 
-fn failed(detail: &str) -> ShardLoomError {
+pub(super) fn failed(detail: &str) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
         "native relational key: {detail}; no fallback execution was attempted"
     ))

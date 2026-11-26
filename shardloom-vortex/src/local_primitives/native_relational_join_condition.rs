@@ -8,8 +8,8 @@ use super::super::{
 };
 use super::{
     ArrayRef, Batch, Condition, FieldNames, Join, NativeExecutionContext, Pairs, ReservedVec,
-    Result, Side, Spec, StructArray, Validity, index_array, logical_field_from_native_array,
-    take_column, vortex_error,
+    Result, RowIndex, Side, Spec, StructArray, Validity, index_array,
+    logical_field_from_native_array, take_column, vortex_error,
 };
 use vortex::array::IntoArray as _;
 
@@ -37,88 +37,113 @@ impl Join<'_> {
         batch_rows: usize,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<u64> {
-        let mut pairs = Pairs::new(batch_rows, context.memory())?;
-        let mut rights = ReservedVec::new(context.memory())?;
-        rights.reserve(batch_rows.min(self.right.rows()))?;
-        let mut written = 0u64;
-        for row in 0..left.array.len() {
-            context.check_cancelled()?;
-            let mut candidates = if self.spec.left_keys.is_empty() {
-                Candidates::All(0..self.right.rows())
-            } else {
-                let entry = left
-                    .hash(row, false)?
-                    .map(|hash| {
-                        self.index.find(hash, context.cancellation(), |right| {
-                            self.right.equal_batch(right, left, row, false)
-                        })
+        consume_condition_with(
+            self.spec,
+            &self.right,
+            &self.index,
+            (!self.matched.values.is_empty()).then_some(self.matched.values.as_mut_slice()),
+            left,
+            context,
+            batch_rows,
+            consume,
+        )
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn consume_condition_with(
+    spec: &Spec,
+    right_table: &Table,
+    index: &RowIndex,
+    mut matched_out: Option<&mut [bool]>,
+    left: &Batch,
+    context: &NativeExecutionContext<'_>,
+    batch_rows: usize,
+    consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+) -> Result<u64> {
+    let mut pairs = Pairs::new(batch_rows, context.memory())?;
+    let mut rights = ReservedVec::new(context.memory())?;
+    rights.reserve(batch_rows.min(right_table.rows()))?;
+    let mut written = 0u64;
+    for row in 0..left.array.len() {
+        context.check_cancelled()?;
+        let mut candidates = if spec.left_keys.is_empty() {
+            Candidates::All(0..right_table.rows())
+        } else {
+            let entry = left
+                .hash(row, false)?
+                .map(|hash| {
+                    index.find(hash, context.cancellation(), |right| {
+                        right_table.equal_batch(right, left, row, false)
                     })
-                    .transpose()?
-                    .flatten();
-                match entry {
-                    Some(entry) => Candidates::Key(self.index.rows(entry)?),
-                    None => Candidates::Empty,
-                }
-            };
-            let mut matched = false;
-            loop {
-                context.check_cancelled()?;
-                rights.values.clear();
-                rights.values.extend(candidates.by_ref().take(batch_rows));
-                if rights.values.is_empty() {
-                    break;
-                }
-                let selected = self.spec.select_candidates(
-                    &left.array,
-                    &self.right,
-                    row,
-                    &rights.values,
-                    context,
-                )?;
-                for &right in &selected.values {
-                    matched = true;
-                    if self.spec.short_circuit() {
-                        break;
-                    }
-                    if !self.matched.values.is_empty() {
-                        self.matched.values[right] = true;
-                    }
-                    self.push_pair(
-                        Some(&left.array),
-                        Some(row),
-                        Some(right),
-                        &mut pairs,
-                        &mut written,
-                        context,
-                        consume,
-                    )?;
-                }
-                if matched && self.spec.short_circuit() {
-                    break;
-                }
+                })
+                .transpose()?
+                .flatten();
+            match entry {
+                Some(entry) => Candidates::Key(index.rows(entry)?),
+                None => Candidates::Empty,
             }
-            if self.spec.keep_unpaired_left(matched) {
-                self.push_pair(
+        };
+        let mut matched = false;
+        loop {
+            context.check_cancelled()?;
+            rights.values.clear();
+            rights.values.extend(candidates.by_ref().take(batch_rows));
+            if rights.values.is_empty() {
+                break;
+            }
+            let selected =
+                spec.select_candidates(&left.array, right_table, row, &rights.values, context)?;
+            for &right in &selected.values {
+                matched = true;
+                if spec.short_circuit() {
+                    break;
+                }
+                if let Some(matched_slice) = matched_out.as_deref_mut()
+                    && !matched_slice.is_empty()
+                {
+                    matched_slice[right] = true;
+                }
+                super::push_pair_with(
+                    spec,
+                    right_table,
                     Some(&left.array),
                     Some(row),
-                    None,
+                    Some(right),
                     &mut pairs,
                     &mut written,
                     context,
                     consume,
                 )?;
             }
+            if matched && spec.short_circuit() {
+                break;
+            }
         }
-        self.flush(
-            Some(&left.array),
-            &mut pairs,
-            &mut written,
-            context,
-            consume,
-        )?;
-        context.check_cancelled()?;
-        Ok(written)
+        if spec.keep_unpaired_left(matched) {
+            super::push_pair_with(
+                spec,
+                right_table,
+                Some(&left.array),
+                Some(row),
+                None,
+                &mut pairs,
+                &mut written,
+                context,
+                consume,
+            )?;
+        }
     }
+    spec.flush(
+        right_table,
+        Some(&left.array),
+        &mut pairs,
+        &mut written,
+        context,
+        consume,
+    )?;
+    context.check_cancelled()?;
+    Ok(written)
 }
 
 impl Spec {

@@ -325,3 +325,225 @@ fn zero_measure_grouping_keeps_first_occurrence_without_row_ordinals() {
     drop(session);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn row_set_epoch_domain_map_reuses_pointer_and_byte_equal_domains_across_batches() {
+    let session = ResidentVortexSession::new(32 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    let domain_a = VarBinViewArray::from_iter_nullable_str([
+        Some("alpha"),
+        None,
+        Some("beta"),
+        Some("alpha"),
+        Some("東京\0"),
+    ])
+    .into_array();
+    let domain_a_copy = VarBinViewArray::from_iter_nullable_str([
+        Some("alpha"),
+        None,
+        Some("beta"),
+        Some("alpha"),
+        Some("東京\0"),
+    ])
+    .into_array();
+    let domain_b =
+        VarBinViewArray::from_iter_nullable_str([Some("gamma"), Some("alpha"), None]).into_array();
+    let batches = [
+        DictArray::try_new(
+            PrimitiveArray::from_option_iter([Some(0_u8), None, Some(2), Some(3), Some(4)])
+                .into_array(),
+            domain_a.clone(),
+        )
+        .unwrap()
+        .into_array(),
+        // Pointer-identical dictionary domain across batch boundary.
+        DictArray::try_new(
+            PrimitiveArray::from_option_iter([Some(4_u8), Some(1), Some(0), Some(2), None])
+                .into_array(),
+            domain_a,
+        )
+        .unwrap()
+        .into_array(),
+        // Distinct domain owner with identical valid mask and bytes (<= 8,192 entries).
+        DictArray::try_new(
+            PrimitiveArray::from_iter([2_u8, 0, 3, 1, 4]).into_array(),
+            domain_a_copy,
+        )
+        .unwrap()
+        .into_array(),
+        // Changed dictionary domain resets epoch slot map cleanly.
+        DictArray::try_new(
+            PrimitiveArray::from_option_iter([Some(0_u8), Some(1), Some(2), None]).into_array(),
+            domain_b,
+        )
+        .unwrap()
+        .into_array(),
+    ];
+    session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            let fields = vec![("key".into(), batches[0].dtype().clone())];
+            let names = vec!["key".into()];
+            let mut set = super::RowSet::new(&fields, &names, context.memory())?;
+            let mut first = Vec::new();
+            let mut execution = context.native_session().create_execution_ctx();
+            let expected_counts = [(0_u64, 5_u64), (5, 0), (5, 0), (1, 3)];
+            for (batch_idx, source) in batches.iter().enumerate() {
+                let reference = super::super::native_relational_keys::KeyColumn::values(
+                    source,
+                    &mut execution,
+                    context.memory(),
+                    context.cancellation(),
+                )?;
+                let expected = (0..source.len())
+                    .map(|row| {
+                        let value = reference.cell(row).unwrap();
+                        first
+                            .iter()
+                            .position(|prior| *prior == value)
+                            .unwrap_or_else(|| {
+                                first.push(value);
+                                first.len() - 1
+                            })
+                    })
+                    .collect::<Vec<_>>();
+                #[cfg(debug_assertions)]
+                let observation = super::super::native_relational_observation::Session::start();
+                let actual = set.intern_batch(record(source.clone()), context, 7)?;
+                assert_eq!(actual.values, expected, "batch_idx={batch_idx}");
+                assert_eq!(set.rows(), first.len(), "batch_idx={batch_idx}");
+                #[cfg(debug_assertions)]
+                {
+                    let counts = observation.finish();
+                    let (exp_hits, exp_lookups) = expected_counts[batch_idx];
+                    assert!(counts.key_cache_batches > 0, "batch_idx={batch_idx}");
+                    assert_eq!(counts.key_cache_hits, exp_hits, "batch_idx={batch_idx}");
+                    assert_eq!(
+                        counts.key_exact_lookups, exp_lookups,
+                        "batch_idx={batch_idx}"
+                    );
+                }
+            }
+            let rows = (0..first.len()).map(Some).collect::<Vec<_>>();
+            let output = set
+                .gather(&rows, context)?
+                .column("key", &fields[0].1, context)?;
+            drop(set);
+            let output = super::super::native_relational_keys::KeyColumn::values(
+                &output,
+                &mut execution,
+                context.memory(),
+                context.cancellation(),
+            )?;
+            for (row, expected) in first.iter().enumerate() {
+                assert_eq!(&output.cell(row)?, expected);
+            }
+            Ok(())
+        })
+        .unwrap();
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn epoch_domain_map_releases_input_buffer_owners_after_each_batch() {
+    struct WitnessBytes {
+        bytes: Vec<u8>,
+        _witness: std::sync::Arc<()>,
+    }
+
+    impl AsRef<[u8]> for WitnessBytes {
+        fn as_ref(&self) -> &[u8] {
+            &self.bytes
+        }
+    }
+
+    let session = ResidentVortexSession::new(32 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            let make_domain = |witness: &std::sync::Arc<()>| {
+                let values = [
+                    Some("category_alpha_long_witness"),
+                    None,
+                    Some("category_beta_long_witness"),
+                    Some("category_alpha_long_witness"),
+                    Some("東京_long_witness\0"),
+                ];
+                let mut raw_bytes = Vec::new();
+                let mut offsets = Vec::with_capacity(values.len() + 1);
+                offsets.push(0_u32);
+                for entry in values {
+                    if let Some(text) = entry {
+                        raw_bytes.extend_from_slice(text.as_bytes());
+                    }
+                    offsets.push(u32::try_from(raw_bytes.len()).unwrap());
+                }
+                let buffer = vortex::buffer::ByteBuffer::from_bytes_aligned(
+                    bytes::Bytes::from_owner(WitnessBytes {
+                        bytes: raw_bytes,
+                        _witness: std::sync::Arc::clone(witness),
+                    }),
+                    vortex::buffer::Alignment::of::<u8>(),
+                );
+                let mut execution = context.native_session().create_execution_ctx();
+                VarBinArray::try_new(
+                    PrimitiveArray::from_iter(offsets).into_array(),
+                    buffer,
+                    DType::Utf8(Nullability::Nullable),
+                    Validity::from_iter([true, false, true, true, true]),
+                    &mut execution,
+                )
+                .unwrap()
+                .into_array()
+            };
+            let fields = vec![("key".into(), DType::Utf8(Nullability::Nullable))];
+            let names = vec!["key".into()];
+            let mut set = RowSet::new(&fields, &names, context.memory())?;
+
+            let witness_0 = std::sync::Arc::new(());
+            let weak_0 = std::sync::Arc::downgrade(&witness_0);
+            let batch_0 = DictArray::try_new(
+                PrimitiveArray::from_option_iter([Some(0_u8), None, Some(2), Some(3), Some(4)])
+                    .into_array(),
+                make_domain(&witness_0),
+            )
+            .unwrap()
+            .into_array();
+            drop(witness_0);
+            let mapping_0 = set.intern_batch(record(batch_0), context, 7)?;
+            assert_eq!(mapping_0.values, vec![0, 1, 2, 0, 3]);
+            // While `set` (and `set.epoch_domain`) stays live across batches,
+            // zero input buffer owners from batch 0 may remain retained.
+            assert_eq!(weak_0.strong_count(), 0);
+            assert!(set.epoch_domain.is_some());
+
+            let witness_1 = std::sync::Arc::new(());
+            let weak_1 = std::sync::Arc::downgrade(&witness_1);
+            let batch_1 = DictArray::try_new(
+                PrimitiveArray::from_option_iter([Some(4_u8), Some(1), Some(0), Some(2), None])
+                    .into_array(),
+                make_domain(&witness_1),
+            )
+            .unwrap()
+            .into_array();
+            drop(witness_1);
+            #[cfg(debug_assertions)]
+            let observation = super::super::native_relational_observation::Session::start();
+            let mapping_1 = set.intern_batch(record(batch_1), context, 7)?;
+            assert_eq!(mapping_1.values, vec![3, 1, 0, 2, 1]);
+            assert_eq!(weak_1.strong_count(), 0);
+            #[cfg(debug_assertions)]
+            {
+                let counts = observation.finish();
+                assert!(counts.key_cache_batches > 0);
+                assert_eq!(counts.key_cache_hits, 5);
+                assert_eq!(counts.key_exact_lookups, 0);
+            }
+            drop(set);
+            Ok(())
+        })
+        .unwrap();
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}

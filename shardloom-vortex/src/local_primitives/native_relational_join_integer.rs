@@ -29,6 +29,33 @@ enum Admission {
 }
 
 impl State {
+    pub(super) fn prepare_from_fields(
+        &mut self,
+        spec: &Spec,
+        right: &Table,
+        index: &RowIndex,
+        left_fields: &[(String, vortex::array::dtype::DType)],
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        if self.considered || right.rows() == 0 {
+            return Ok(());
+        }
+        self.considered = true;
+        let left_is_i64 = spec.left_keys.len() == 1
+            && left_fields.iter().any(|(name, dtype)| {
+                name == &spec.left_keys[0]
+                    && matches!(
+                        dtype,
+                        vortex::array::dtype::DType::Primitive(vortex::array::dtype::PType::I64, _)
+                    )
+            });
+        let admission = Directory::prepare(spec, right, index, left_is_i64, context)?;
+        if let Admission::Admitted(directory) = admission {
+            self.directory = Some(directory);
+        }
+        Ok(())
+    }
+
     pub(super) fn prepare_once(
         &mut self,
         spec: &Spec,
@@ -41,7 +68,8 @@ impl State {
             return Ok(());
         }
         self.considered = true;
-        let admission = Directory::prepare(spec, right, index, left, context)?;
+        let left_is_i64 = spec.left_keys.len() == 1 && i64_values(left)?.is_some();
+        let admission = Directory::prepare(spec, right, index, left_is_i64, context)?;
         #[cfg(test)]
         super::super::native_relational_join_cost::integer_lookup_record(|work| {
             work.considered += 1;
@@ -88,7 +116,7 @@ impl Directory {
         spec: &Spec,
         right: &Table,
         index: &RowIndex,
-        left: &Batch,
+        left_is_i64: bool,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Admission> {
         context.check_cancelled()?;
@@ -99,7 +127,7 @@ impl Directory {
             || spec.condition.is_some()
             || spec.left_keys.len() != 1
             || spec.right_keys.len() != 1
-            || i64_values(left)?.is_none()
+            || !left_is_i64
         {
             return Ok(Admission::Shape);
         }

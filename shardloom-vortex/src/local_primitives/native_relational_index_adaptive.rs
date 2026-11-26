@@ -4,7 +4,7 @@ use super::super::native_capacity::{ReservedVec, bytes};
 use super::{EMPTY, RowIndex, failed};
 use shardloom_core::{Result, ShardLoomError, native_join_work::NativeJoinWork};
 use shardloom_exec::{compute_pool::CancellationToken, live_memory::LiveMemoryPool};
-use std::cell::Cell;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 const FILTER_MIN_KEYS: usize = 128;
 const HOT_MIN_ROWS: usize = 64;
@@ -14,8 +14,13 @@ pub(super) struct State {
     sealed: bool,
     filter: Option<ReservedVec<u64>>,
     hot: Option<Hot>,
-    work: Cell<NativeJoinWork>,
-    overflow: Cell<bool>,
+    work: NativeJoinWork,
+    runtime_filter_probe_rows: AtomicU64,
+    runtime_filter_rejected_rows: AtomicU64,
+    runtime_filter_index_lookups_avoided: AtomicU64,
+    skew_range_visits: AtomicU64,
+    skew_rows_visited: AtomicU64,
+    overflow: AtomicBool,
 }
 
 struct Range {
@@ -114,7 +119,7 @@ impl RowIndex {
             }
         }
         cancellation.check()?;
-        state.work.set(work);
+        state.work = work;
         state.sealed = true;
         self.adaptive = state;
         Ok(())
@@ -181,10 +186,48 @@ impl RowIndex {
     }
 
     pub(in super::super) fn join_work(&self) -> Result<NativeJoinWork> {
-        if self.adaptive.overflow.get() {
+        if self.adaptive.overflow.load(Ordering::Acquire) {
             return Err(counter_overflow());
         }
-        Ok(self.adaptive.work.get())
+        let mut work = self.adaptive.work;
+        work.runtime_filter.probe_rows = work
+            .runtime_filter
+            .probe_rows
+            .checked_add(
+                self.adaptive
+                    .runtime_filter_probe_rows
+                    .load(Ordering::Relaxed),
+            )
+            .ok_or_else(counter_overflow)?;
+        work.runtime_filter.rejected_rows = work
+            .runtime_filter
+            .rejected_rows
+            .checked_add(
+                self.adaptive
+                    .runtime_filter_rejected_rows
+                    .load(Ordering::Relaxed),
+            )
+            .ok_or_else(counter_overflow)?;
+        work.runtime_filter.index_lookups_avoided = work
+            .runtime_filter
+            .index_lookups_avoided
+            .checked_add(
+                self.adaptive
+                    .runtime_filter_index_lookups_avoided
+                    .load(Ordering::Relaxed),
+            )
+            .ok_or_else(counter_overflow)?;
+        work.skew.range_visits = work
+            .skew
+            .range_visits
+            .checked_add(self.adaptive.skew_range_visits.load(Ordering::Relaxed))
+            .ok_or_else(counter_overflow)?;
+        work.skew.rows_visited = work
+            .skew
+            .rows_visited
+            .checked_add(self.adaptive.skew_rows_visited.load(Ordering::Relaxed))
+            .ok_or_else(counter_overflow)?;
+        Ok(work)
     }
 }
 
@@ -196,13 +239,11 @@ impl State {
         let possible = positions(hash, filter.values.len())
             .into_iter()
             .all(|(word, mask)| filter.values[word] & mask != 0);
-        let mut work = self.work.get();
-        increment(&mut work.runtime_filter.probe_rows)?;
+        increment_atomic(&self.runtime_filter_probe_rows)?;
         if !possible {
-            increment(&mut work.runtime_filter.rejected_rows)?;
-            increment(&mut work.runtime_filter.index_lookups_avoided)?;
+            increment_atomic(&self.runtime_filter_rejected_rows)?;
+            increment_atomic(&self.runtime_filter_index_lookups_avoided)?;
         }
-        self.work.set(work);
         Ok(possible)
     }
 
@@ -218,20 +259,15 @@ impl State {
             return Ok(None);
         };
         let range = &hot.ranges.values[position];
-        let mut work = self.work.get();
-        increment(&mut work.skew.range_visits)?;
-        self.work.set(work);
+        increment_atomic(&self.skew_range_visits)?;
         Ok(Some(&hot.rows.values[range.start..range.end]))
     }
 
     pub(super) fn record_hot_row(&self) {
-        let mut work = self.work.get();
-        if increment(&mut work.skew.rows_visited).is_err() {
+        if increment_atomic(&self.skew_rows_visited).is_err() {
             // Iterator item compatibility is preserved. The completed join
             // refuses its certificate if a counter cannot be represented.
-            self.overflow.set(true);
-        } else {
-            self.work.set(work);
+            self.overflow.store(true, Ordering::Release);
         }
     }
 }
@@ -241,8 +277,12 @@ pub(super) fn has_headroom(memory: &LiveMemoryPool, bytes: u64) -> bool {
     bytes <= snapshot.limit_bytes.saturating_sub(snapshot.reserved_bytes) / 16
 }
 
-fn increment(value: &mut u64) -> Result<()> {
-    *value = value.checked_add(1).ok_or_else(counter_overflow)?;
+fn increment_atomic(value: &AtomicU64) -> Result<()> {
+    value
+        .try_update(Ordering::Relaxed, Ordering::Relaxed, |current| {
+            current.checked_add(1)
+        })
+        .map_err(|_| counter_overflow())?;
     Ok(())
 }
 

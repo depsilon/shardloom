@@ -11,14 +11,14 @@ use vortex::{
     buffer::ByteBuffer,
 };
 
-pub(super) enum VariableDomain {
+pub(in crate::local_primitives) enum VariableDomain {
     Views(VarBinViewArray),
     Offsets(Box<OffsetDomain>),
 }
 
 /// Only the optional borrowed-offset path pays for this metadata. Keeping it
 /// outside the shared key slot preserves ordinary batch/window memory bounds.
-pub(super) struct OffsetDomain {
+pub(in crate::local_primitives) struct OffsetDomain {
     offsets: NativeNumericOwner,
     bytes: ByteBuffer,
     rows: usize,
@@ -47,11 +47,15 @@ impl VariableDomain {
         }))))
     }
 
-    pub(super) fn len(&self) -> usize {
+    pub(in crate::local_primitives) fn len(&self) -> usize {
         match self {
             Self::Views(values) => values.len(),
             Self::Offsets(domain) => domain.rows,
         }
+    }
+
+    pub(in crate::local_primitives) fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     pub(super) fn views(&self) -> Option<&VarBinViewArray> {
@@ -90,7 +94,7 @@ impl VariableDomain {
         }
     }
 
-    pub(super) fn borrowed_bytes(&self, row: usize) -> Result<&[u8]> {
+    pub(in crate::local_primitives) fn borrowed_bytes(&self, row: usize) -> Result<&[u8]> {
         match self {
             Self::Views(values) => Ok(crate::local_primitives::native_utf8::borrowed_bytes(
                 values, row,

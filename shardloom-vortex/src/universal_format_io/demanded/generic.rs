@@ -31,7 +31,7 @@ use std::{
 #[path = "generic_decoder.rs"]
 pub(super) mod decoder;
 #[path = "generic_schema.rs"]
-mod schema;
+pub(super) mod schema;
 use decoder::Decoder;
 #[path = "table.rs"]
 mod table;
@@ -80,6 +80,7 @@ pub(super) struct File {
     pub(super) schema: SchemaRef,
     ipc: Option<Arc<super::ipc::Metadata>>,
     pub(super) parquet: Option<super::ArrowReaderMetadata>,
+    pub(super) encoded_parquet: Option<super::ArrowReaderMetadata>,
     pub(super) orc: Option<Arc<orc_rust::reader::metadata::FileMetadata>>,
     // Drop the physical schema before its retained provider structure credit.
     avro_schema_credit: Option<Arc<dyn arrow_avro::reader::DecoderMemoryReservation>>,
@@ -223,6 +224,7 @@ fn admit_collection_with_table(
             schema: Arc::new(arrow_schema::Schema::empty()),
             ipc: None,
             parquet: None,
+            encoded_parquet: None,
             orc: None,
             avro_schema_credit: None,
             table: None,
@@ -264,7 +266,30 @@ fn admit_collection_with_table(
                         .checked_add(metadata.metadata().num_row_groups())
                         .ok_or_else(|| failed("source row group count overflow"))?;
                     let schema = Arc::clone(metadata.schema());
+                    let encoded_parquet = if table.is_none() {
+                        super::super::demanded_parquet_dictionary_schema_hint(
+                            schema.as_ref(),
+                            metadata.metadata().as_ref(),
+                        )
+                        .map(|hint| -> Result<super::ArrowReaderMetadata> {
+                            let bytes = schema_bytes(&hint, (memory, cancellation).into())?;
+                            let mut hint_credit = memory.reserve(bytes.saturating_mul(2))?;
+                            let encoded = super::ArrowReaderMetadata::try_new(
+                                Arc::clone(metadata.metadata()),
+                                super::super::parquet_reader_options_with_optional_schema_hint(
+                                    Some(&hint),
+                                ),
+                            )
+                            .map_err(super::source::metadata_admission::source_error)?;
+                            credit.absorb(&mut hint_credit)?;
+                            Ok(encoded)
+                        })
+                        .transpose()?
+                    } else {
+                        None
+                    };
                     file.parquet = Some(metadata);
+                    file.encoded_parquet = encoded_parquet;
                     schema
                 }
                 "arrow-ipc" => {
@@ -373,62 +398,195 @@ fn admit_collection_with_table(
 /// Reuse the existing single-file preparation layout policy with the retained
 /// metadata. Query admission and collection schema alignment stay unchanged.
 pub(super) fn preparation_layout(
-    mut source: Arc<LocalColumnarSource>,
+    source: Arc<LocalColumnarSource>,
     memory: &LiveMemoryPool,
     cancellation: &CancellationToken,
 ) -> Result<Arc<LocalColumnarSource>> {
-    if !source.collection.is_single_file()
-        || source
-            .other
-            .as_ref()
-            .is_none_or(|source| source.format != "parquet")
+    preparation_layout_with_row_count_hint(source, None, memory, cancellation)
+}
+
+#[allow(clippy::too_many_lines)]
+pub(in crate::universal_format_io::demanded) fn preparation_layout_with_row_count_hint(
+    mut source: Arc<LocalColumnarSource>,
+    row_count_override: Option<usize>,
+    memory: &LiveMemoryPool,
+    cancellation: &CancellationToken,
+) -> Result<Arc<LocalColumnarSource>> {
+    if source
+        .other
+        .as_ref()
+        .is_none_or(|source| source.format != "parquet" || source.table.is_some())
     {
         return Ok(source);
     }
     cancellation.check()?;
+    let single_file = source.collection.is_single_file();
     let owned = Arc::get_mut(&mut source)
         .ok_or_else(|| failed("preparation layout requires exclusive source admission"))?;
     let format = owned.other.as_mut().expect("format checked");
-    let rows = format.row_count_hint(cancellation)?;
-    let file = format
-        .files
-        .first_mut()
-        .ok_or_else(|| failed("missing preparation file"))?;
-    // Keep original schema owners live while admitting the replacement schema,
-    // reader field map and retained merged-schema structures.
-    let mut replacement = memory.reserve(
-        schema_bytes(&file.schema, (memory, cancellation).into())?
-            .checked_mul(3)
-            .ok_or_else(|| failed("preparation schema capacity overflow"))?,
-    )?;
-    let parquet_meta = file
-        .parquet
-        .as_ref()
-        .map(|parquet| Arc::clone(parquet.metadata()));
-    let plan = super::super::parquet_dictionary_schema_plan_with_metadata(
-        &file.schema,
-        rows,
-        parquet_meta.as_deref(),
-    );
-    let old = file
-        .parquet
-        .as_ref()
-        .ok_or_else(|| failed("missing preparation metadata"))?;
-    let metadata = super::ArrowReaderMetadata::try_new(
-        Arc::clone(old.metadata()),
-        super::super::parquet_reader_options_with_optional_schema_hint(plan.schema_hint.as_ref()),
-    )
-    .map_err(super::source::metadata_admission::source_error)?;
-    file.schema = Arc::clone(metadata.schema());
-    file.parquet = Some(metadata);
-    format.schema = Arc::clone(&file.schema);
-    format.preparation_dictionary_status = Some(plan.dictionary_preservation_status);
-    owned.metadata_credit.absorb(&mut replacement)?;
+    let rows = match row_count_override {
+        Some(rows) => Some(rows),
+        None => format.row_count_hint(cancellation)?,
+    };
+    if single_file {
+        let file = format
+            .files
+            .first_mut()
+            .ok_or_else(|| failed("missing preparation file"))?;
+        // Keep original schema owners live while admitting the replacement schema,
+        // reader field map and retained merged-schema structures.
+        let mut replacement = memory.reserve(
+            schema_bytes(&file.schema, (memory, cancellation).into())?
+                .checked_mul(3)
+                .ok_or_else(|| failed("preparation schema capacity overflow"))?,
+        )?;
+        let parquet_meta = file
+            .parquet
+            .as_ref()
+            .map(|parquet| Arc::clone(parquet.metadata()));
+        let plan = super::super::parquet_dictionary_schema_plan_with_metadata(
+            &file.schema,
+            rows,
+            parquet_meta.as_deref(),
+        );
+        let old = file
+            .parquet
+            .as_ref()
+            .ok_or_else(|| failed("missing preparation metadata"))?;
+        let metadata = super::ArrowReaderMetadata::try_new(
+            Arc::clone(old.metadata()),
+            super::super::parquet_reader_options_with_optional_schema_hint(
+                plan.schema_hint.as_ref(),
+            ),
+        )
+        .map_err(super::source::metadata_admission::source_error)?;
+        let schema_changed = file.schema.as_ref() != metadata.schema().as_ref();
+        file.schema = Arc::clone(metadata.schema());
+        file.parquet = Some(metadata);
+        if schema_changed || file.encoded_parquet.is_none() {
+            rebuild_encoded_parquet_metadata(
+                file,
+                memory,
+                cancellation,
+                &mut owned.metadata_credit,
+            )?;
+        }
+        format.schema = Arc::clone(&file.schema);
+        format.preparation_dictionary_status = Some(plan.dictionary_preservation_status);
+        owned.metadata_credit.absorb(&mut replacement)?;
+    } else {
+        let large_stream = rows.is_some_and(|count| {
+            count >= super::super::PRODUCT_COLUMNAR_LARGE_STREAM_ROW_THRESHOLD
+        });
+        let union_by_name = owned.collection.union_by_name;
+        let partitions_by_file: Vec<_> = owned
+            .collection
+            .files
+            .iter()
+            .map(|file| file.partitions.clone())
+            .collect();
+        let mut merged_schema: Option<SchemaRef> = None;
+        let mut any_encoded_hint = false;
+        for (file, partitions) in format.files.iter_mut().zip(partitions_by_file.iter()) {
+            cancellation.check()?;
+            let mut schema_changed = false;
+            if large_stream {
+                let mut replacement = memory.reserve(
+                    schema_bytes(&file.schema, (memory, cancellation).into())?
+                        .checked_mul(3)
+                        .ok_or_else(|| failed("preparation schema capacity overflow"))?,
+                )?;
+                let parquet_meta = file
+                    .parquet
+                    .as_ref()
+                    .map(|parquet| Arc::clone(parquet.metadata()));
+                let plan = super::super::parquet_dictionary_schema_plan_with_metadata(
+                    &file.schema,
+                    rows,
+                    parquet_meta.as_deref(),
+                );
+                let old = file
+                    .parquet
+                    .as_ref()
+                    .ok_or_else(|| failed("missing preparation metadata"))?;
+                let metadata = super::ArrowReaderMetadata::try_new(
+                    Arc::clone(old.metadata()),
+                    super::super::parquet_reader_options_with_optional_schema_hint(
+                        plan.schema_hint.as_ref(),
+                    ),
+                )
+                .map_err(super::source::metadata_admission::source_error)?;
+                schema_changed = file.schema.as_ref() != metadata.schema().as_ref();
+                file.schema = Arc::clone(metadata.schema());
+                file.parquet = Some(metadata);
+                owned.metadata_credit.absorb(&mut replacement)?;
+            }
+            if schema_changed || file.encoded_parquet.is_none() {
+                rebuild_encoded_parquet_metadata(
+                    file,
+                    memory,
+                    cancellation,
+                    &mut owned.metadata_credit,
+                )?;
+            }
+            any_encoded_hint |= file.encoded_parquet.is_some();
+            if large_stream {
+                let discovered = schema::with_partitions(&file.schema, partitions)?;
+                merged_schema = Some(schema::merge(
+                    merged_schema.as_ref(),
+                    &discovered,
+                    union_by_name,
+                )?);
+            }
+        }
+        if let Some(schema) = merged_schema {
+            format.schema = schema;
+        }
+        format.preparation_dictionary_status = Some(if large_stream {
+            "parquet_arrow_reader_uses_utf8_view_for_large_olap_text_zstd_artifact_size_guard"
+        } else if any_encoded_hint {
+            "parquet_arrow_reader_requested_dictionary_preservation_for_string_derived_columns"
+        } else {
+            "parquet_arrow_reader_preserves_physical_columnar_values_when_provider_surfaces_dictionary"
+        });
+    }
     owned.validate_generation_controlled(cancellation)?;
     Ok(source)
 }
 
-fn schema_bytes(schema: &SchemaRef, scope: crate::native_payload_schema::Scope<'_>) -> Result<u64> {
+fn rebuild_encoded_parquet_metadata(
+    file: &mut File,
+    memory: &LiveMemoryPool,
+    cancellation: &CancellationToken,
+    metadata_credit: &mut MemoryLease,
+) -> Result<()> {
+    let Some(meta) = &file.parquet else {
+        file.encoded_parquet = None;
+        return Ok(());
+    };
+    let Some(hint) = super::super::demanded_parquet_dictionary_schema_hint(
+        meta.schema().as_ref(),
+        meta.metadata().as_ref(),
+    ) else {
+        file.encoded_parquet = None;
+        return Ok(());
+    };
+    let mut replacement =
+        memory.reserve(schema_bytes(&hint, (memory, cancellation).into())?.saturating_mul(2))?;
+    let encoded = super::ArrowReaderMetadata::try_new(
+        Arc::clone(meta.metadata()),
+        super::super::parquet_reader_options_with_optional_schema_hint(Some(&hint)),
+    )
+    .map_err(super::source::metadata_admission::source_error)?;
+    file.encoded_parquet = Some(encoded);
+    metadata_credit.absorb(&mut replacement)?;
+    Ok(())
+}
+
+pub(super) fn schema_bytes(
+    schema: &SchemaRef,
+    scope: crate::native_payload_schema::Scope<'_>,
+) -> Result<u64> {
     schema.fields().iter().try_fold(8192_u64, |sum, field| {
         add(
             add(sum, field.name().len() as u64 * 4 + 1024)?,

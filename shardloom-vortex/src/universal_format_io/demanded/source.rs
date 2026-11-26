@@ -19,6 +19,15 @@ pub(super) struct ColumnarFile {
     path: PathBuf,
     pub(super) identity: Arc<SourceIdentity>,
     pub(super) metadata: ArrowReaderMetadata,
+    pub(super) encoded_metadata: Option<ArrowReaderMetadata>,
+}
+
+#[derive(Clone, Copy)]
+pub(super) struct PhysicalParquetFile<'a> {
+    pub(super) identity: &'a Arc<SourceIdentity>,
+    pub(super) metadata: &'a ArrowReaderMetadata,
+    pub(super) encoded_metadata: Option<&'a ArrowReaderMetadata>,
+    pub(super) partitions: &'a [(String, Option<String>)],
 }
 
 /// One held local Parquet source, including a sorted partition directory.
@@ -74,6 +83,48 @@ impl LocalColumnarSource {
         self.other
             .as_ref()
             .is_none_or(|source| source.format == "parquet" && source.table.is_none())
+    }
+
+    pub(super) fn parquet_file_count(&self) -> usize {
+        if let Some(other) = &self.other {
+            other.files.len()
+        } else {
+            self.files.len()
+        }
+    }
+
+    pub(super) fn parquet_file(&self, file_index: usize) -> PhysicalParquetFile<'_> {
+        let partitions = self
+            .collection
+            .files
+            .get(file_index)
+            .map_or(&[][..], |file| file.partitions.as_slice());
+        if let Some(other) = &self.other {
+            let file = &other.files[file_index];
+            PhysicalParquetFile {
+                identity: &file.identity,
+                metadata: file
+                    .parquet
+                    .as_ref()
+                    .expect("wrapped Parquet file must carry Parquet metadata"),
+                encoded_metadata: file.encoded_parquet.as_ref(),
+                partitions,
+            }
+        } else {
+            let file = &self.files[file_index];
+            PhysicalParquetFile {
+                identity: &file.identity,
+                metadata: &file.metadata,
+                encoded_metadata: file.encoded_metadata.as_ref(),
+                partitions,
+            }
+        }
+    }
+
+    pub(super) fn physical_schema_discovery_read_bytes(&self) -> u64 {
+        self.other
+            .as_ref()
+            .map_or(0, |other| other.schema_discovery_read_bytes)
     }
 
     pub(crate) fn validate_generation(&self) -> Result<()> {
@@ -242,6 +293,22 @@ impl LocalColumnarSource {
                     .checked_add(reader.len())
                     .ok_or_else(|| failed("fingerprint byte count overflow"))?;
             }
+            let encoded_metadata = super::super::demanded_parquet_dictionary_schema_hint(
+                metadata.schema().as_ref(),
+                metadata.metadata().as_ref(),
+            )
+            .map(|hint| -> Result<ArrowReaderMetadata> {
+                let bytes = super::generic::schema_bytes(&hint, (memory, cancellation).into())?;
+                let mut hint_credit = memory.reserve(bytes.saturating_mul(2))?;
+                let encoded = ArrowReaderMetadata::try_new(
+                    Arc::clone(metadata.metadata()),
+                    super::super::parquet_reader_options_with_optional_schema_hint(Some(&hint)),
+                )
+                .map_err(metadata_admission::source_error)?;
+                credit.absorb(&mut hint_credit)?;
+                Ok(encoded)
+            })
+            .transpose()?;
             cancellation.check()?;
             identity.validate()?;
             credit.absorb(&mut footer_credit)?;
@@ -249,6 +316,7 @@ impl LocalColumnarSource {
                 path,
                 identity,
                 metadata,
+                encoded_metadata,
             });
         }
         let source = Arc::new(Self {

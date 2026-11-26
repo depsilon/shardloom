@@ -75,6 +75,9 @@ mod track_a_tests;
 #[path = "local_primitive_relational_source_demand_track_b_tests.rs"]
 mod track_b_tests;
 
+#[path = "local_primitive_relational_source_demand_source_aware_tests.rs"]
+mod source_aware_tests;
+
 struct ParquetFixture(PathBuf);
 
 impl ParquetFixture {

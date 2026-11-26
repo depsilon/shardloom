@@ -712,6 +712,25 @@ impl PreparedMemoryProjection {
         range: std::ops::Range<usize>,
         context: &crate::resident_session::NativeExecutionContext<'_>,
     ) -> Result<ArrayRef> {
+        self.execute_batch_array_inner(source, range, true, context)
+    }
+
+    pub(crate) fn execute_batch_array_without_filter(
+        &self,
+        source: &ArrayRef,
+        range: std::ops::Range<usize>,
+        context: &crate::resident_session::NativeExecutionContext<'_>,
+    ) -> Result<ArrayRef> {
+        self.execute_batch_array_inner(source, range, false, context)
+    }
+
+    fn execute_batch_array_inner(
+        &self,
+        source: &ArrayRef,
+        range: std::ops::Range<usize>,
+        apply_filter: bool,
+        context: &crate::resident_session::NativeExecutionContext<'_>,
+    ) -> Result<ArrayRef> {
         self.source.0.session.validate_execution_context(context)?;
         if source.dtype() != self.source.dtype() {
             return Err(memory_error(
@@ -720,7 +739,8 @@ impl PreparedMemoryProjection {
         }
         context.check_cancelled()?;
         let array = source.slice(range).map_err(native_error)?;
-        let result = self.execute_array(array, context.native_session())?;
+        let result =
+            self.execute_array_with_filter_option(array, context.native_session(), apply_filter)?;
         context.check_cancelled()?;
         Ok(result)
     }
@@ -755,8 +775,17 @@ impl PreparedMemoryProjection {
 
     fn execute_array(
         &self,
+        array: ArrayRef,
+        session: &vortex::session::VortexSession,
+    ) -> Result<ArrayRef> {
+        self.execute_array_with_filter_option(array, session, true)
+    }
+
+    fn execute_array_with_filter_option(
+        &self,
         mut array: ArrayRef,
         session: &vortex::session::VortexSession,
+        apply_filter: bool,
     ) -> Result<ArrayRef> {
         let source = &self.source.0;
         let metadata = Arc::new(crate::native_payload_schema::reserve_names(
@@ -765,7 +794,7 @@ impl PreparedMemoryProjection {
             |index| self.columns[index].as_str(),
         )?);
         let mut context = session.create_execution_ctx();
-        if let Some(filter) = &self.filter {
+        if apply_filter && let Some(filter) = &self.filter {
             array = filter_bound_array(
                 &array,
                 filter,

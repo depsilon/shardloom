@@ -1028,6 +1028,14 @@ fn append_execution_with_footer_open(
             "resident_provider_version".into(),
             shardloom_vortex::UPSTREAM_VORTEX_PROVIDER_VERSION.into(),
         ),
+        (
+            "native_relational_source_workers".into(),
+            result.source_workers.to_string(),
+        ),
+        (
+            "native_relational_operator_workers".into(),
+            result.operator_workers.to_string(),
+        ),
     ];
     // Shared sink helpers also report effects; retain one unambiguous value per key.
     for (key, value) in execution_fields
