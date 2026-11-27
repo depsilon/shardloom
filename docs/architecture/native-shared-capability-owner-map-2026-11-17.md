@@ -200,3 +200,30 @@ queued inside [the phased execution plan](phased-execution-plan.md):
   `local_primitive_relational_writer_report.rs` / `python/src/shardloom/query.py`
   (`native_relational_source_workers`, `native_relational_operator_workers`,
   `Result.source_workers`, `Result.operator_workers`).
+
+## Exact DISTINCT and aggregate follow-through owners (2026-11-26)
+
+The [follow-through design](native-exact-distinct-follow-through-2026-11-26.md)
+extends the existing item-20 owners after `9074900d6` without a new scheduler or
+execution provider:
+
+- `native_relational_aggregate.rs` admits exact `COUNT(DISTINCT)` range merging,
+  preserves cloned distinct schemas, and builds the reserved source-group map.
+  `native_relational_aggregate_distinct_merge.rs` unions scalar sets through
+  stored native hashes and grouped sets through remapped `DistinctMeasureRows`.
+  Only newly inserted pairs update canonical accumulator leaders.
+- `native_relational_set.rs` reuses `NativeNumericOwner::visit_integer` for
+  original-width dictionary-code batches, preserving epoch ownership and bounds.
+- `native_relational_aggregate.rs` uses the executed Vortex validity mask's
+  cardinality for scalar `COUNT(column)` in the selected measure domain.
+- Existing `local_primitive_relational_scan_parallel.rs` and
+  `local_primitive_relational_batch_parallel.rs` retain source admission,
+  bounded worker ownership, ordered range merging, cancellation and telemetry.
+  Float `SUM`/`AVG` and nested distinct values retain serial-operator admission.
+- Native provider routing and CPU ownership remain unchanged. Existing Vortex
+  scalar-partition/general-group workers are retained; supplied sessions whose
+  provider drivers own the CPU grant may legitimately keep reduction serial.
+  Shared range tests use caller-driven provider progress for compute-pool ownership.
+
+Correctness and complete-cohort performance acceptance remain separate. This
+candidate does not close Orders 6–7 or claim repair of the supplied 5M timings.

@@ -23,6 +23,13 @@ mod compact;
 #[path = "native_relational_aggregate_count_partial.rs"]
 mod count_partial;
 
+#[path = "native_relational_aggregate_distinct_merge.rs"]
+mod distinct_merge;
+
+#[cfg(test)]
+#[path = "native_relational_aggregate_distinct_merge_tests.rs"]
+mod distinct_merge_tests;
+
 #[path = "native_relational_aggregate_matches.rs"]
 mod matches;
 
@@ -136,19 +143,20 @@ impl Spec {
             return !self.groups.is_empty() && self.groups.len() == self.group_names.len();
         }
         self.measures.iter().all(|measure| {
-            !measure.function.is_distinct()
+            let exact_distinct = distinct_merge::admitted(measure);
+            (!measure.function.is_distinct() || exact_distinct)
                 && !measure.function.is_quantile()
                 && !measure.function.is_moment()
                 && !measure.function.is_selector()
                 && !measure.function.is_collection()
-                && measure.distinct_fields.is_empty()
+                && (measure.distinct_fields.is_empty() || exact_distinct)
                 && measure.quantile_level.is_none()
                 && measure.selection.is_none()
                 && measure.separator.is_none()
                 && measure.secondary_column.is_none()
                 && !native_payload::is_nested(&measure.dtype)
                 && match measure.function {
-                    Function::Count => {
+                    Function::Count | Function::CountDistinct => {
                         measure.dtype
                             == DType::Primitive(
                                 PType::U64,
@@ -186,7 +194,7 @@ impl Spec {
                 input_ptype: measure.input_ptype,
                 decimal_source: measure.decimal_source,
                 decimal_output: measure.decimal_output,
-                distinct_fields: Vec::new(),
+                distinct_fields: measure.distinct_fields.clone(),
                 distinct_names: measure.distinct_names.clone(),
             })
             .collect();
@@ -544,7 +552,16 @@ impl<'a> Aggregate<'a> {
                 if self.is_canonical_follower(measure_index) {
                     continue;
                 }
-                if measure.decimal_source.is_some() {
+                if measure.function == Function::CountDistinct {
+                    let target = self.distinct.values[measure_index]
+                        .as_mut()
+                        .ok_or_else(|| failed("distinct target set absent during merge"))?;
+                    let source = other.distinct.values[measure_index]
+                        .as_ref()
+                        .ok_or_else(|| failed("distinct source set absent during merge"))?;
+                    let added = distinct_merge::merge_scalar(target, source, context, batch_rows)?;
+                    add_count(&mut self.states.values[measure_index], added)?;
+                } else if measure.decimal_source.is_some() {
                     let slot = decimal_index;
                     decimal_index += 1;
                     let src_totals = other
@@ -593,6 +610,14 @@ impl<'a> Aggregate<'a> {
         if let Some(groups) = self.groups.as_mut() {
             groups.release_transient_caches();
         }
+        // Distinct state keys embed worker-local group ordinals. Retain one
+        // charged map until their exact sets have been unioned in global order.
+        let mut distinct_group_mapping = spec
+            .measures
+            .iter()
+            .any(|measure| measure.function == Function::CountDistinct)
+            .then(|| ReservedVec::new(context.memory()))
+            .transpose()?;
         let mut mapped = ReservedVec::new(context.memory())?;
         for (batch_start, batch) in other_groups.table().batches() {
             context.check_cancelled()?;
@@ -607,6 +632,10 @@ impl<'a> Aggregate<'a> {
                     batch_rows,
                     &mut mapped,
                 )?;
+            if let Some(mapping) = &mut distinct_group_mapping {
+                mapping.reserve(mapped.values.len())?;
+                mapping.values.extend_from_slice(&mapped.values);
+            }
             if spec.measures.is_empty() {
                 continue;
             }
@@ -624,6 +653,11 @@ impl<'a> Aggregate<'a> {
                         .as_ref()
                         .is_some_and(|slots| slots[measure_index] != measure_index)
                     {
+                        continue;
+                    }
+                    if measure.function == Function::CountDistinct {
+                        // Partial counts overlap. Only the set union below may
+                        // update this accumulator, after group remapping.
                         continue;
                     }
                     if measure.decimal_source.is_some() {
@@ -652,6 +686,9 @@ impl<'a> Aggregate<'a> {
                     }
                 }
             }
+        }
+        if let Some(mapping) = &distinct_group_mapping {
+            distinct_merge::merge_grouped(self, &other, &mapping.values, context, batch_rows)?;
         }
         context.check_cancelled().map(|()| other_count)
     }
@@ -1243,13 +1280,23 @@ impl<'a> Aggregate<'a> {
                     )?;
                 continue;
             }
-            if measure.function == Function::Count && column.is_none() && self.groups.is_none() {
+            if measure.function == Function::Count && self.groups.is_none() {
+                // COUNT(column) needs only the already-executed parent validity.
+                // The selected array and its mask share the measure's FILTER
+                // domain, so no value preparation or per-row update is needed.
+                let count = if column.is_some() {
+                    validity
+                        .ok_or_else(|| failed("COUNT validity absent"))?
+                        .true_count()
+                } else {
+                    array.len()
+                };
                 add_count(
                     &mut self.states.values[measure_index],
-                    u64::try_from(array.len()).map_err(vortex_error)?,
+                    u64::try_from(count).map_err(vortex_error)?,
                 )?;
                 #[cfg(all(test, debug_assertions))]
-                super::native_relational_observation::record_count_update(array.len() as u64);
+                super::native_relational_observation::record_count_update(count as u64);
                 continue;
             }
             if let Some(distinct) = self.distinct.values[measure_index].as_mut() {
