@@ -1,9 +1,11 @@
 # Native exact DISTINCT affected-owner cohort
 
-Status: prospective protocol, with a separate 100-row API preflight. No 5M-row
-timings are supplied here. This is a newly declared cohort for the dictionary
-visitor, scalar validity-count, and exact parallel DISTINCT changes; it does not
-reconstruct the unpublished four-query comparison of #1722 and #1723.
+Status: protocol declared before measurement; the first complete 5M-row candidate
+result below is **rejected by the complete-cohort performance gate**. A separate
+100-row API preflight preceded measurement. This is a newly declared cohort for
+the dictionary visitor, scalar validity-count, and exact parallel DISTINCT
+changes; it does not reconstruct the unpublished four-query comparison of #1722
+and #1723.
 
 The executable protocol is
 [`scripts/native_exact_distinct_cohort.py`](../../scripts/native_exact_distinct_cohort.py).
@@ -187,3 +189,148 @@ preparation reports, frozen protocol and provenance, host context, each raw quer
 report, each complete Arrow result, each observation record, and `summary.json`.
 No raw performance artifacts belong in Git; retain them alongside the reviewed
 summary in the benchmark evidence location.
+
+## First candidate result, 2026-11-26: rejected
+
+The first full run completed all 16 declared cases: **128/128 exact typed Arrow
+checks passed**, comprising 32 warmups and 96 measured observations. Required
+worker-count and no-fallback gates also passed. The complete performance gate
+**failed**: the sum of case medians increased from **27.995989544 s to
+28.535106007 s**, or **+1.9257%**. The secondary geometric mean of candidate/base
+case ratios was **1.0177039315**, or **+1.7704%**. Correctness success does not
+override the failed timing gate; this candidate is rejected as measured.
+
+The baseline production revision is `9074900d6cff8fd97be43336fbf151f5cfffc25e`
+(merged #1723). The measured candidate production revision is
+`adb8afca562927d77f3e1a65b11fc76cb871f964`. Validation/protocol revision
+`1bbab19c784fef2ac9231e6ec54294f0d3b0839d` has the same production implementation:
+its intervening changes are documentation, the cohort driver, and a test fixture.
+The candidate release binary was sealed at CI test-merge revision
+`bd92e015b7d87f3709ee7b7af7d158910a7e7049`, whose full source tree exactly matches
+the measured candidate tree. The original manifests remain preserved.
+
+### All declared case medians
+
+Values below are engine milliseconds, rounded only for presentation. Scoring uses
+the retained nanosecond measurements. Positive changes are regressions.
+
+| Format | Case | Base median, ms | Candidate median, ms | Change |
+| --- | --- | ---: | ---: | ---: |
+| Parquet | Q01 inner join control | 1,537.655 | 1,574.930 | +2.424% |
+| Parquet | Q02 grouped 50K control | 740.822 | 719.096 | -2.933% |
+| Parquet | Q03 filtered `COUNT(value)` | 129.354 | 125.664 | -2.852% |
+| Parquet | Q04 scalar `COUNT(value)` | 80.221 | 94.703 | +18.053% |
+| Parquet | Q05 `SELECT DISTINCT low_tag` | 356.736 | 378.981 | +6.236% |
+| Parquet | Q06 scalar exact DISTINCT | 1,255.788 | 820.036 | -34.699% |
+| Parquet | Q07 grouped exact DISTINCT | 5,733.285 | 4,988.311 | -12.994% |
+| Parquet | Q08 float serial control | 1,324.794 | 1,666.288 | +25.777% |
+| Vortex | Q01 inner join control | 1,299.085 | 1,135.170 | -12.618% |
+| Vortex | Q02 grouped 50K control | 2,748.330 | 3,147.854 | +14.537% |
+| Vortex | Q03 filtered `COUNT(value)` | 7.169 | 6.013 | -16.133% |
+| Vortex | Q04 scalar `COUNT(value)` | 0.921 | 1.056 | +14.646% |
+| Vortex | Q05 `SELECT DISTINCT low_tag` | 419.336 | 399.456 | -4.741% |
+| Vortex | Q06 scalar exact DISTINCT | 192.132 | 280.300 | +45.890% |
+| Vortex | Q07 grouped exact DISTINCT | 10,033.001 | 10,959.017 | +9.230% |
+| Vortex | Q08 float serial control | 2,137.361 | 2,238.232 | +4.719% |
+
+For diagnosis, the Parquet subtotal decreased from 11.158654721 s to
+10.368008740 s (-7.09%), while Vortex increased from 16.837334823 s to
+18.167097267 s (+7.90%). Neither subtotal replaces the complete gate. The largest
+positive contributions were Vortex Q07 (+926 ms), Vortex Q02 (+400 ms), and
+Parquet Q08 (+341 ms).
+
+### Observed execution and resource constraints
+
+Parquet Q06/Q07 changed from one to four operator workers. Their faster medians
+are accompanied by higher work and memory for grouped DISTINCT. Parquet Q07's
+maximum tracked execution reservation rose from **326,078,979 to 789,715,748
+bytes (2.42x)**. Median worker process CPU rose from approximately **6.04 to
+9.92 CPU-seconds (1.64x)**, and final worker high-water RSS rose from 405,656 to
+963,764 KiB. Process CPU is diagnostic context, separate from the engine-wall
+timing gate. The measured engine samples were:
+
+| Parquet Q07 | Sample 1, s | Sample 2, s | Sample 3, s |
+| --- | ---: | ---: | ---: |
+| Base | 5.480426 | 5.733285 | 5.999782 |
+| Candidate | 4.029380 | 4.988311 | 7.987181 |
+
+The candidate's slow third sample consumed 13.33 worker CPU-seconds. Exact
+worker-local sets and their overlapping merged state create a concrete resource
+constraint; the existing reports do not count every intermediate distinct entry.
+The tail remains part of the retained result.
+
+The source-backed exposure of the validity-count shortcut is Parquet Q03/Q04.
+Q03 consistently decodes 500K filter-selected rows. Q04's prepared-source cache
+coverage varies: base measured calls reread 8/9/12 row groups, candidate calls
+11/8/13. Its samples therefore include different admitted cache coverage, which
+limits isolated attribution without changing its contribution to the gate.
+Vortex Q04 instead reports `exact_file_footer_scalar_completion` and bypasses
+the new mask path. SQL Q05 uses the shared RowSet owner, but no release counter
+establishes activation of its dictionary-specific traversal; the observed Q05
+results must not be attributed to that traversal merely from input encoding.
+
+### Serial specialization risk and unresolved provider regressions
+
+Parquet Q08 is slower in all three measured pairs, with increased process CPU.
+Both roles retain four source workers, one operator worker, 20 row groups, and
+5M decoded rows, with similar memory peaks and no major page faults. Floating
+SUM prevents parallel range merging; this query contains no ordinary COUNT
+shortcut, and its two-field `(group, value)` distinct membership cannot enter
+the changed single-field dictionary visitor.
+
+Static inspection of the frozen release binaries nevertheless confirms a shared
+code-generation change: `accumulate_distinct` changes from 5,430 to 903 bytes;
+the candidate introduces an out-of-line
+`RowSet::insert_rows<DistinctMeasureRows>` of 4,076 bytes and a 2,554-byte callback
+closure; `publish_selected_rows<DistinctMeasureRows>` changes from 3,483 to 905
+bytes. The new merge call site shares the generic row adapter used by serial
+COUNT DISTINCT and changes its specialization/inlining. This is a confirmed
+code-generation difference and a concrete regression risk. Its contribution to
+the measured Q08 slowdown has not yet been isolated. These symbol sizes can be
+reproduced with `nm -S --defined-only -C` on the frozen base/candidate binaries;
+the instruction comparison used bounded `objdump` output for the same symbols.
+
+Vortex Q02/Q06/Q07 retain their existing native primitive strategies in both
+roles: general grouped updates, bounded native UTF-8 partition DISTINCT, and
+direct grouped DISTINCT updates respectively. Inspected hot instruction streams
+match after address normalization. Their CPU-visible regressions have no proved
+cause in the new RowSet/mask/merge branches. Host snapshots alone do not resolve
+that attribution. These regressions remain in the rejected complete result;
+they are not excused as noise.
+
+A second candidate is in progress to isolate the new merge's generic row-type
+instantiation from the existing serial owner, based on the observed binary
+specialization change. There is no second-candidate performance result or
+speedup claim here. The failed first result and original cohort remain preserved.
+
+### Frozen identities and evidence location
+
+Run interval: 2026-11-26 19:33:20–19:37:53 America/Chicago
+(2026-11-27 01:33:20–01:37:53 UTC). Full workspace evidence is retained
+at `/workspace/scratch/8e7542fb5468/exact-distinct-5m-final`, including all raw
+reports, complete Arrow results, observations, formula references, input files,
+host/worker counters, protocol, and provenance. A durable result archive is
+pending; its link will be added after upload. Raw artifacts are not committed to
+Git. The exact source trees are
+`1c5032e99a2d58302495118d186673eb5020fddd` (base) and
+`afff25b0186d7728bb622ca0c302d6552b6885eb` (candidate).
+
+| Artifact | Bytes where applicable | SHA-256 |
+| --- | ---: | --- |
+| `protocol.json` | — | `510d314215744a60cfe851789d272b3dbb95d3809e70c788c47dbbd02728c53b` |
+| `observations/summary.json` | — | `8642352c05e3ce4848639a63c6fc5d851c01afb4d31d9d3af3ab46242858854c` |
+| `provenance.json` | 14,594 | `d16b49cc21894bc9d05c2305d15e25962f1d630f003d5ca8bd9ce24fba836cf0` |
+| Base CLI | 102,731,832 | `6d9e0d28fc172d1657c7319a58679b098c78cfb6c22c9fac8155145c1bf6b0c2` |
+| Candidate CLI | 102,744,200 | `c94e7007f9eae9294f60b7bce15750ce283cf08dfeff3b911e3fceefa8afee68` |
+| `inputs/fact.parquet` | 26,343,602 | `5fbf7ee27f10d491e57c320c49932ec95dbca9c78f64b9c165bed0460ebc7362` |
+| `inputs/dim.parquet` | 146,097 | `f8df97b0b1fde14184e4399921e4c3d745baf93a8cdf393366e2a1ec79eb9ca8` |
+| `inputs/fact.vortex` | 57,411,638 | `c8240188a73a8c43882036a4b35419493e15b1b154531733fba516311b0e3540` |
+| `inputs/dim.vortex` | 28,813 | `5235ccbd01d4570b39e8ea8b0d82d45dde439da26707f9a42c075aa97e9a7493` |
+
+The frozen driver SHA-256 is
+`dedb07eb6116eca4e81e7c1a1ab27626847f845b8a6ddec8e09b3d8a23d70401`;
+the timing helper is
+`1b0fd51d1ef359ee6603f8ffddad9223df3b10e2ee5195f17acaf4a3ad86d5d1`.
+NumPy is 2.3.5 and PyArrow is 23.0.1. Full manifest identities, the Python-client
+source hash, build configuration, and before/after digest checks are retained
+in the frozen protocol and provenance.

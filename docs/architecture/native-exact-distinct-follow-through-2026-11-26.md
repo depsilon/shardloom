@@ -101,6 +101,17 @@ peak memory even when it reduces serial work. Existing memory limits, cancellati
 error drain, source-release checks, and final lease release remain mandatory;
 no new spill capability or unreserved global set is introduced.
 
+The first declared cohort rejected this runtime candidate on complete engine
+time. Its serial DISTINCT control also exposed a changed compiler specialization:
+using `DistinctMeasureRows` in both ingestion and merge moved insertion work out
+of the existing hot helper. A second candidate wraps only the merge adapter in
+the private transparent `MergeDistinctRows` type. All row operations still
+delegate to the original borrowed adapter, with no new allocation or set logic.
+This separates Rust generic instantiations; release disassembly and the same
+complete cohort must establish whether it restores specialization and performance.
+The first failed gate and unresolved Vortex-provider regressions remain recorded
+in the [cohort evidence](../benchmarks/native-exact-distinct-cohort-2026-11-26.md).
+
 ## Vortex-first provider check
 
 - Subject: exact flat scalar/grouped distinct membership, dictionary codes, and

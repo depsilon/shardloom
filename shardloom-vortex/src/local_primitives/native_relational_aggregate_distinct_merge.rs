@@ -6,7 +6,64 @@ use super::{
     ReservedVec, Result, RowSet, add_count, failed, keys, logical_field_from_native_array,
     native_payload, vortex_error,
 };
-use crate::local_primitives::native_relational_rows::{DistinctMeasureRows, Rows as _};
+use crate::local_primitives::{
+    native_numeric_owner::NativeNumericOwner,
+    native_relational_batch::Batch,
+    native_relational_keys::{KeyLookupCache, VariableDomain},
+    native_relational_rows::{DistinctMeasureRows, Rows},
+};
+use vortex::{array::ArrayRef, mask::Mask};
+
+/// Keep merge callbacks in a separate `RowSet` instantiation from serial measure
+/// ingestion. Sharing `DistinctMeasureRows` directly changes the optimizer's
+/// callback specialization in that existing hot path. This transparent adapter
+/// only borrows the same columns and ordinals; all row semantics remain shared.
+#[repr(transparent)]
+struct MergeDistinctRows<'a>(DistinctMeasureRows<'a>);
+
+impl Rows for MergeDistinctRows<'_> {
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    fn hash(&self, row: usize, nulls_equal: bool) -> Result<Option<u64>> {
+        self.0.hash(row, nulls_equal)
+    }
+
+    fn equal_batch(
+        &self,
+        row: usize,
+        batch: &Batch,
+        other: usize,
+        nulls_equal: bool,
+    ) -> Result<bool> {
+        self.0.equal_batch(row, batch, other, nulls_equal)
+    }
+
+    fn equal(&self, row: usize, other: usize, nulls_equal: bool) -> Result<bool> {
+        self.0.equal(row, other, nulls_equal)
+    }
+
+    fn key_cache(
+        &self,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Option<KeyLookupCache<'_>>> {
+        self.0.key_cache(context)
+    }
+
+    fn gather(
+        &self,
+        fields: &[(String, DType)],
+        rows: &[usize],
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<ArrayRef> {
+        self.0.gather(fields, rows, context)
+    }
+
+    fn variable_dict_epoch(&self) -> Option<(&VariableDomain, &Mask, &NativeNumericOwner, bool)> {
+        self.0.variable_dict_epoch()
+    }
+}
 
 pub(super) fn admitted(measure: &Measure) -> bool {
     measure.function == Function::CountDistinct
@@ -101,8 +158,12 @@ pub(super) fn merge_grouped(
             let column = logical_field_from_native_array(&batch.array, "value")?;
             // Rehash only unique partial pairs after ordinal translation. The
             // borrowed row adapter retains neither duplicates nor source leases.
-            let distinct_rows =
-                DistinctMeasureRows::new(Some(&ordinals.values), &column, values, &rows.values);
+            let distinct_rows = MergeDistinctRows(DistinctMeasureRows::new(
+                Some(&ordinals.values),
+                &column,
+                values,
+                &rows.values,
+            ));
             target_set.insert_rows(
                 &distinct_rows,
                 context,
