@@ -2410,7 +2410,7 @@ visible and independent; this implementation does not automatically close them.
       columnar layouts) and **Order 7** (adaptive skewed/selective runtime join
       and multi-stage pipeline scheduling); November 16 retired campaigns and
       all external dispositions remain unchanged.
-  - **Exact DISTINCT and aggregate follow-through (`2026-11-26`, candidate):**
+  - **Exact DISTINCT and aggregate follow-through (`2026-11-26`, scoped performance acceptance):**
     the maintainer's four-query 5M-row feedback motivates a bounded extension of
     the merged source-aware owners at `9074900d6`; see the
     [design and acceptance contract](native-exact-distinct-follow-through-2026-11-26.md).
@@ -2424,16 +2424,36 @@ visible and independent; this implementation does not automatically close them.
         validity cardinality for scalar `COUNT(column)`.
       - [x] Add semantic, source-parity, worker-admission and ownership controls;
         preserve serial float `SUM`/`AVG` and nested-distinct declines.
-      - [ ] Complete local and hosted correctness/resource validation.
+      - [x] Complete local exact-result, resource, ownership and no-fallback
+        validation for the declared 16-case Parquet/Vortex affected-owner cohort.
+      - [x] Complete hosted optimized-native validation: 4,589 passed, 42
+        pre-existing ignored, complete 4,631-test ownership/coverage gate passed.
+      - [x] Complete installed-wheel proofs and their final acceptance gate on
+        Linux Python 3.10/3.13 and macOS Python 3.13: each lane passes 494 binding
+        and 13 observation tests with no failures, errors or skips.
+      - [x] Freeze the affected-owner SQL/input/reference/runtime identities and
+        apply the complete-cohort engine-time retain/drop gate, retaining both
+        the rejected first candidate and the accepted changed second candidate.
       - [ ] Freeze the supplied four-query SQL/input/reference/runtime identities
         and apply the complete-cohort engine-time retain/drop gate.
     - ShardLoom technique review: reuse native exact sets, Vortex masks and
       dictionary codes, bounded capillary ranges, shared `ComputePool` and
       current PulseWeave limits. No new feedback controller, scheduler, input
       alias retention, spill capability or external executor is introduced.
-    - Performance disposition: pending measurement; partial-set duplication and
-      merge work must be included. Orders 6–7 remain queued, and CG-1 through
-      CG-23 retain their existing status.
+    - **Performance disposition:** initial runtime `adb8afca` rejected at
+      `27.995989544s -> 28.535106007s` (+1.9257%). Revised runtime `fb9d5266`
+      isolates the merge's generic row adapter to restore the inspected serial
+      DISTINCT specialization and is accepted for the identical declared cohort
+      at `28.984249626s -> 27.509523405s` (-5.0880%); all 128 complete typed
+      Arrow results pass in each comparison. See the
+      [complete result record](../benchmarks/native-exact-distinct-cohort-2026-11-26.md)
+      and draft [PR #1724](https://github.com/depsilon/shardloom/pull/1724).
+      Grouped parallel state raises reserved allocation peak (about 326 MB to
+      769 MB) within the admitted 2 GiB grant; CPU cost also rises. Every case
+      regression remains recorded, including the +2.38% Vortex subtotal and
+      +6.60% Parquet string `SELECT DISTINCT`. This does not reproduce or close
+      the supplied four-query competitor gap. Orders 6–7 remain queued, and
+      CG-1 through CG-23 retain their existing status.
     Historically, the October 29 maintainer ordering was to finish
     the active recursive/materialized composition unit and its acceptance, then
     run the seven performance candidates before explicit batch-function work.

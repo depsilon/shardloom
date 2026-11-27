@@ -1,19 +1,20 @@
 # Native exact DISTINCT affected-owner cohort
 
 Status: protocol declared before measurement; the first complete 5M-row candidate
-result below is **rejected by the complete-cohort performance gate**. A separate
-100-row API preflight preceded measurement. This is a newly declared cohort for
-the dictionary visitor, scalar validity-count, and exact parallel DISTINCT
-changes; it does not reconstruct the unpublished four-query comparison of #1722
-and #1723.
+is **rejected**, and the second candidate **passes the declared complete-cohort
+timing gate** with the resource tradeoff and scope limitations recorded below.
+Both results remain preserved. A separate 100-row API preflight preceded
+measurement. This is a newly declared cohort for the dictionary visitor, scalar
+validity-count, and exact parallel DISTINCT changes; it does not reconstruct the
+unpublished four-query comparison of #1722 and #1723.
 
 The executable protocol is
 [`scripts/native_exact_distinct_cohort.py`](../../scripts/native_exact_distinct_cohort.py).
 Its `prepare` command freezes all SQL, references, source bytes, driver bytes,
 Python client source, dependency versions, binary manifests, resource settings,
 and ordering into `protocol.json` **before any cohort query executes**. `run`
-consumes that protocol once. A failed or incomplete run is retained and cannot
-receive a complete-cohort score.
+consumes that protocol once. A run that fails execution or remains incomplete
+is retained and cannot receive a complete-cohort score.
 
 ## Declared scope
 
@@ -243,7 +244,7 @@ Parquet Q08 (+341 ms).
 
 Parquet Q06/Q07 changed from one to four operator workers. Their faster medians
 are accompanied by higher work and memory for grouped DISTINCT. Parquet Q07's
-maximum tracked execution reservation rose from **326,078,979 to 789,715,748
+maximum native allocation reservation rose from **326,078,979 to 789,715,748
 bytes (2.42x)**. Median worker process CPU rose from approximately **6.04 to
 9.92 CPU-seconds (1.64x)**, and final worker high-water RSS rose from 405,656 to
 963,764 KiB. Process CPU is diagnostic context, separate from the engine-wall
@@ -298,10 +299,46 @@ cause in the new RowSet/mask/merge branches. Host snapshots alone do not resolve
 that attribution. These regressions remain in the rejected complete result;
 they are not excused as noise.
 
-A second candidate is in progress to isolate the new merge's generic row-type
-instantiation from the existing serial owner, based on the observed binary
-specialization change. There is no second-candidate performance result or
-speedup claim here. The failed first result and original cohort remain preserved.
+This evidence prompted a second candidate isolating the new merge's generic
+row-type instantiation from the existing serial owner. Its separate complete
+result is recorded below. The failed first result and original cohort remain
+preserved; no failed observation is replaced by a later measurement.
+
+### String input scope and source coverage
+
+The fixture embeds an Arrow `Dictionary(Int32, Utf8)` schema for both tag
+columns. This is narrower representation exposure than ordinary UTF-8-schema
+Parquet. ShardLoom already synthesizes dictionary decoder hints for eligible
+ordinary strings when every nonempty row group uses dictionary encoding, so
+embedded dictionary metadata is not the only route to native Vortex dictionaries.
+However, [the demanded reader](../../shardloom-vortex/src/universal_format_io/demanded.rs)
+chooses original logical metadata whenever source coverage is admitted, bypassing
+those encoded hints. [Coverage eligibility](../../shardloom-vortex/src/universal_format_io/demanded/coverage.rs)
+accepts ordinary UTF-8 fields and excludes Arrow dictionary fields. Q05's retained
+coverage rows, regions and bytes are all zero in this fixture.
+
+Coverage acquisition can succeed on a first miss even when no publication ticket
+is admitted. `coverage.is_some()` then selects logical metadata despite zero hit
+or retention counters; those counters alone are not a decoder-activation witness.
+
+Consequently, ordinary UTF-8-schema Parquet with admitted coverage can decode
+flat strings despite physical dictionary encoding; with coverage unavailable,
+its synthesized hint can preserve dictionaries. The
+[Arrow-to-Vortex converter](../../vendor/vortex-arrow/src/convert.rs) preserves
+these representations. This cohort does not measure that coverage/representation
+interaction, and the unpublished user workload's schema is unknown. It is not
+evidence that this candidate introduced the interaction or caused the reported
+string DISTINCT gap.
+
+Selecting encoded hints unconditionally would bypass an ownership constraint:
+[direct coverage-buffer accounting](../../shardloom-vortex/src/resident_memory_arrow.rs)
+also declines dictionary layouts. Future operator-guided representation work
+must preserve dictionary backing-buffer retention and capacity receipts. No such
+runtime change or additional query was made in this investigation.
+The separate evidence note `ordinary-utf8-dictionary-followup.md` traces existing
+recursive intake/metadata ownership and the narrower missing post-conversion
+capacity receipt, with a prospective acquisition/publication/reuse matrix. It
+adds no measurements or change to Orders 6–7.
 
 ### Frozen identities and evidence location
 
@@ -309,9 +346,14 @@ Run interval: 2026-11-26 19:33:20–19:37:53 America/Chicago
 (2026-11-27 01:33:20–01:37:53 UTC). Full workspace evidence is retained
 at `/workspace/scratch/8e7542fb5468/exact-distinct-5m-final`, including all raw
 reports, complete Arrow results, observations, formula references, input files,
-host/worker counters, protocol, and provenance. A durable result archive is
-pending; its link will be added after upload. Raw artifacts are not committed to
-Git. The exact source trees are
+host/worker counters, protocol, and provenance. The combined result archive
+`shardloom-distinct-results-2026-11-26.tar.gz`, delivered with the PR handoff,
+retains both candidates' complete Arrow results, raw reports, references,
+observations, protocols, provenance, and independent reviews. Its `CONTENTS.json`
+records each member's size and SHA-256; `index/source-identities.json` binds the
+repository sources to immutable revisions. The full companion archive also
+includes the exact input files and original release ZIPs. Raw artifacts are kept
+outside Git. The exact source trees are
 `1c5032e99a2d58302495118d186673eb5020fddd` (base) and
 `afff25b0186d7728bb622ca0c302d6552b6885eb` (candidate).
 
@@ -334,3 +376,246 @@ the timing helper is
 NumPy is 2.3.5 and PyArrow is 23.0.1. Full manifest identities, the Python-client
 source hash, build configuration, and before/after digest checks are retained
 in the frozen protocol and provenance.
+
+## Second candidate result, 2026-11-26: declared timing gate passed
+
+The second candidate, production revision
+`fb9d526684931761977b5887aeff6e03fe6bb6b5`, completed the same 16-case cohort
+against the same baseline binary. **128/128 exact typed Arrow checks passed**:
+32 warmups and 96 measured observations. Required parallel/serial worker gates,
+native clocks, source identities, and explicit no-fallback evidence passed.
+The complete sum of warm case medians decreased from **28.984249626 s to
+27.509523405 s**, or **-5.0880%**. The geometric mean of candidate/base case
+ratios was **0.9501764265**, or **-4.9824%**.
+
+This passes the previously declared complete-cohort timing rule. It does not
+change the first candidate's rejected result, establish a speedup for every
+case, or reproduce the user's unavailable four-query benchmark. The result
+retains `claim_gate_status=not_claim_grade`; publication and merge readiness
+remain subject to their separate evidence and CI gates.
+
+Independent source and evidence review accepts the second candidate for this
+declared cohort after correctness, resource, ownership, and no-fallback checks.
+The immutable runner summary still says
+`performance_acceptance=requires_correctness_resource_ownership_review` because
+that field precedes independent review; the separate acceptance record preserves
+this disposition without rewriting the original summary or first rejected gate.
+
+### Exact-input preparation and comparison boundary
+
+An initial second-round preparation at
+`/workspace/scratch/8e7542fb5468/exact-distinct-5m-round2` regenerated the native
+Vortex inputs. Both regenerated files were one byte larger and had different
+SHA-256 hashes: fact 57,411,638→57,411,639 bytes and dimension 28,813→28,814 bytes.
+Its `preparation_disposition.json` records `unused_preparation` and
+`queries_executed=0`; it has no observations directory. The preparation and its
+reports remain preserved and supply no timing samples.
+
+The preparation-only helper
+[`prepare_native_exact_distinct_variant.py`](../../scripts/prepare_native_exact_distinct_variant.py)
+then copied the original Parquet/Vortex input files and all eight reference
+Arrow files byte for byte into
+`/workspace/scratch/8e7542fb5468/exact-distinct-5m-round2-fixed-inputs`. It did not
+execute a query. All four input hashes and all reference hashes match the first
+cohort. The new protocol changes the candidate/provenance, artifact paths, and
+preparation lineage; normalized SQL, case ordering, sort keys, the exact timed
+driver, timing helper, client/dependency versions, warmup/repetition counts,
+memory/parallelism, and activation gates remain unchanged. Its retained
+`source_protocol.json` hashes to the original protocol's SHA-256.
+
+Both roles were measured anew in the second complete run. The baseline total
+differs between runs, so cross-run differences do not isolate the wrapper's
+latency effect. The acceptance comparison is the complete paired baseline and
+candidate result within this second run, with the first failed run preserved.
+
+For a changed candidate using an existing cohort's exact input bytes, prepare a
+fresh directory with the helper, inspect its frozen protocol, then run the same
+timed driver. The original cohort must still be present at its recorded paths:
+
+```sh
+python3 scripts/prepare_native_exact_distinct_variant.py \
+  --source-cohort /workspace/scratch/8e7542fb5468/exact-distinct-5m-final \
+  --work-dir /workspace/scratch/8e7542fb5468/exact-distinct-5m-new-variant \
+  --provenance /workspace/scratch/8e7542fb5468/bench-artifacts/provenance-round2.json
+# Review and retain the new protocol; stop other work before execution.
+python3 scripts/native_exact_distinct_cohort.py run \
+  --work-dir /workspace/scratch/8e7542fb5468/exact-distinct-5m-new-variant
+```
+
+### All declared case medians
+
+Values are engine milliseconds, rounded only for presentation; positive changes
+remain regressions. No case or slow sample is removed from the complete result.
+
+| Format | Case | Base median, ms | Candidate median, ms | Change |
+| --- | --- | ---: | ---: | ---: |
+| Parquet | Q01 inner join control | 1,629.016 | 1,634.693 | +0.349% |
+| Parquet | Q02 grouped 50K control | 828.154 | 808.548 | -2.368% |
+| Parquet | Q03 filtered `COUNT(value)` | 127.844 | 124.832 | -2.355% |
+| Parquet | Q04 scalar `COUNT(value)` | 66.931 | 47.116 | -29.605% |
+| Parquet | Q05 `SELECT DISTINCT low_tag` | 415.158 | 442.550 | +6.598% |
+| Parquet | Q06 scalar exact DISTINCT | 1,332.494 | 853.663 | -35.935% |
+| Parquet | Q07 grouped exact DISTINCT | 5,379.585 | 4,047.802 | -24.756% |
+| Parquet | Q08 float serial control | 1,623.707 | 1,550.051 | -4.536% |
+| Vortex | Q01 inner join control | 1,499.924 | 1,611.641 | +7.448% |
+| Vortex | Q02 grouped 50K control | 3,566.198 | 3,920.932 | +9.947% |
+| Vortex | Q03 filtered `COUNT(value)` | 10.329 | 10.015 | -3.037% |
+| Vortex | Q04 scalar `COUNT(value)` | 0.888 | 1.238 | +39.441% |
+| Vortex | Q05 `SELECT DISTINCT low_tag` | 743.185 | 653.960 | -12.006% |
+| Vortex | Q06 scalar exact DISTINCT | 358.452 | 379.609 | +5.902% |
+| Vortex | Q07 grouped exact DISTINCT | 9,865.625 | 10,071.442 | +2.086% |
+| Vortex | Q08 float serial control | 1,536.760 | 1,351.431 | -12.060% |
+
+The diagnostic Parquet subtotal decreases from 11.402889965 s to 9.509256040 s
+(-16.6066%); Vortex increases from 17.581359661 s to 18.000267365 s (+2.3827%).
+The largest retained positive deltas are Vortex Q02 (+354.7 ms), Vortex Q07
+(+205.8 ms), and Vortex Q01 (+111.7 ms). Parquet SELECT DISTINCT remains slower
+by 27.4 ms. The Vortex scalar-count percentage describes a 0.350 ms absolute
+increase and stays included in both metrics.
+
+### Restored specialization: verified binary property, bounded attribution
+
+The candidate introduces a merge-only `MergeDistinctRows` adapter that delegates
+the existing exact row semantics. It separates the merge's generic type
+instantiation from the serial `DistinctMeasureRows` instantiation; it does not
+add a second membership algorithm. Static comparison of all three sealed
+binaries confirms:
+
+| Serial function | Base bytes | Rejected candidate bytes | Second candidate bytes | Second candidate vs base |
+| --- | ---: | ---: | ---: | --- |
+| `accumulate_distinct` | 5,430 | 903 | 5,430 | Normalized instruction stream matches |
+| `publish_selected_rows<DistinctMeasureRows>` | 3,483 | 905 | 3,483 | Normalized instruction stream matches |
+
+The rejected candidate's separate serial `insert_rows<DistinctMeasureRows>`
+symbol is absent in both the base and second candidate, consistent with restored
+specialization. Selected existing Vortex scalar/group worker instruction streams
+also match across the binaries. The retained comparison records symbol names,
+addresses, sizes, normalized instruction hashes, and reproduction commands.
+Normalization removes address/RIP relocation differences; it does not prove
+dynamic relocation targets, runtime cache behavior, or an isolated speedup.
+
+Parquet Q08's second-run median is 4.536% below its contemporaneous baseline,
+with one operator worker and exact floating results preserved. This is
+consistent with removal of the identified serial specialization risk. The
+cohort alone does not assign the measured percentage to that mechanism or
+explain the unchanged native-provider control regressions.
+
+### Resource tradeoff and retained tails
+
+Parquet Q06/Q07 again use four candidate operator workers versus one in the
+baseline. Grouped Q07's lower latency still costs additional CPU and memory:
+
+| Parquet Q07 measure | Base | Second candidate |
+| --- | ---: | ---: |
+| Median engine time | 5.379585 s | 4.047802 s |
+| Maximum native allocation reservation | 326,079,651 B | 769,279,485 B |
+| Median worker process CPU | 5.77 CPU-s | 8.39 CPU-s |
+| Final worker high-water RSS | 406,484 KiB | 994,488 KiB |
+
+The peak reservation is **2.36x** and median worker CPU is **1.45x** the baseline.
+All observed native reservations remain within the declared 2 GiB allocation,
+with no denied reservations or fallback. The larger intermediate exact sets
+remain a resource constraint; these results do not imply equal headroom under
+smaller memory grants. Process CPU and RSS are diagnostics, not replacements
+for the engine-wall timing metric or the native memory-pool accounting.
+The allocation peak includes preparation and retained owners, and excludes
+provider-bypass allocations, CLI envelope formatting, and process RSS. It is not
+an isolated measurement of reducer state or a whole-process memory ceiling.
+
+| Case / role | Sample 1, s | Sample 2, s | Sample 3, s |
+| --- | ---: | ---: | ---: |
+| Parquet Q07 base | 5.453531 | 5.378744 | 5.379585 |
+| Parquet Q07 candidate | 4.047802 | 3.790371 | 4.117248 |
+| Vortex Q07 base | 10.172457 | 9.865625 | 8.882112 |
+| Vortex Q07 candidate | 14.064239 | 10.071442 | 9.231076 |
+
+The 14.064-second Vortex candidate observation remains in the result even though
+its median regression is 2.086%. All 96 measured observations have zero
+incremental process `read_bytes` and major page faults. CPU affinity remains
+0–8; before/after process snapshots show no other compile/test workload. The
+protocol has no continuous frequency/throttling counters, and these snapshots
+do not establish a cause for the control regressions or justify removing them.
+The dictionary-schema/source-coverage qualification above remains applicable;
+no ordinary UTF-8-schema counterpart was added after seeing these results.
+
+### Second result identities and evidence location
+
+Run interval: 2026-11-26 20:21:34–20:26:11 America/Chicago
+(2026-11-27 02:21:34–02:26:11 UTC). Full evidence remains in
+`/workspace/scratch/8e7542fb5468/exact-distinct-5m-round2-fixed-inputs`.
+The current candidate tree is `4f373972331708c33b8b9cc8b57c4cf51788d81e`; its
+sealed CI test-merge revision is `4828962514bff4679889009dfa7d0f4975745431`,
+verified to have that same tree. The original baseline binary and all input
+hashes listed in the first result are unchanged. The combined result archive
+described above preserves this second comparison alongside the rejected first
+comparison. Each original protocol and summary retains its frozen hash; review
+disposition and final CI status are separate evidence records. Raw result
+artifacts are kept outside Git.
+
+| Artifact | Bytes | SHA-256 |
+| --- | ---: | --- |
+| Second `protocol.json` | 25,025 | `635041f77358ee0ddc7547df30155d71c063ce13c713ab2e0bf86e7db98e9c74` |
+| Second `observations/summary.json` | 1,188,569 | `5004ac0c64c23f83a08e341b35ca1d6799743ba1b093e077f5d8555e3057a281` |
+| Second `provenance.json` | 17,206 | `48eda57905589e30ef7fa387f989dfaa56247e3f70b9c3fe8cfff7db6bb8c9bd` |
+| Copied `source_protocol.json` | 23,702 | `510d314215744a60cfe851789d272b3dbb95d3809e70c788c47dbbd02728c53b` |
+| Second candidate CLI | 102,749,736 | `85c8b21da6a048dc95f2a40af83aca1109d372b4d5998a038b8a756c757f3845` |
+| Preparation-only helper | 4,424 | `601d422265cd8575310df00a81179bc0d1d909c146b2f80d747a88edae5db923` |
+| `codegen-comparison.json` | 17,097 | `cece8c3ccf6d4c5af9dc8314f07629689a29613f28594ca4e74c05e63b6167c1` |
+
+The compiler comparison is retained at
+`/workspace/scratch/8e7542fb5468/bench-artifacts/candidate-round2/codegen-comparison.json`.
+The timed driver and timing-helper hashes remain exactly those listed for the
+first result. Independent review rechecked sealed identities, unchanged input
+and reference bytes, complete Arrow correctness, timing extraction, and the
+unchanged rejected first score. This is evidence for the declared cohort only;
+the original four-query SQL, schemas, fixture, and exact runner are still needed
+before claiming that the user's reported workload or competitor gaps improved.
+
+## Runtime correctness and validation record
+
+Validation binds to measured runtime
+`fb9d526684931761977b5887aeff6e03fe6bb6b5` and the identical-tree CI test merge
+`4828962514bff4679889009dfa7d0f4975745431`. The primary
+[CI run](https://github.com/depsilon/shardloom/actions/runs/45925005494) records
+the required workspace formatting, clippy with warnings denied, and all-target
+tests; the workspace test summary is **3,389 passed**. Native public-surface
+checks separately pass **1,297 tests**, and native release-feature clippy passes.
+
+The checked optimized native executable uses the `ci-native` profile, including
+debug assertions and overflow checks. Its four retained partition reports cover
+the complete **4,631-test inventory: 4,589 passed and 42 pre-existing ignored**.
+Every one of the 13 added/modified focused cases has an explicit passing log
+record, including nullable/filtered source parity and the shared-controller
+float policy. Each partition report verifies its assigned test names, executable
+manifest identity, log hash, and drained children. The separate complete-coverage
+aggregate gate also passed and independently reconciled all four reports against
+the complete inventory.
+
+Linux Python 3.10/3.13 and macOS Python 3.13 each pass the exact installed-wheel
+proof: **494 binding tests and 13 observation tests**, with zero failures,
+errors, or skips. Packaging-integrity (23) and notice (8) tests also pass in each
+lane. The final wheel acceptance gate verifies all three source/package receipts
+and the identical Linux wheel across interpreter versions. Both CodeQL jobs
+and the general Python saved-evidence replay job pass. The general Python shard
+report records **1,562 tests across 169 modules and three shards, with 95 skips**;
+the installed-wheel proofs above are separate and have zero skips. All steps of
+the saved-evidence replay job, including the final analytical/preparation replay
+and shard-evidence merge, succeed. The final workflow/readiness conclusion is
+recorded in the CI receipt, separately from this documentation/helper follow-up.
+
+Local development validation includes the 429 affected native relational tests,
+seven corrected source-aware tests, and the revised candidate's five focused
+exact-merge tests. The local bounded test build reduces only the root crate's
+optimization/debug information and retains assertions and overflow checks; it
+is distinct from both hosted optimized validation and the sealed release
+executables used for performance. The history preserves an initial missing-import
+correction, an optimized local build terminated with exit 137 before execution,
+temporary-directory failures corrected by setting a workspace `TMPDIR`, and
+fixture/CPU-ownership expectation corrections. No superseded or canceled hosted
+run is substituted for current-runtime validation.
+
+The retained evidence packet includes `independent-round2-review-fb9d5266.json`,
+`final-source-review.md`, `ci-fb9d5266-receipt.json`, original validation logs,
+and the typed-result observations. Production provider routing and scheduler
+files remain unchanged; the preparation helper and this result documentation
+do not change the measured runtime.

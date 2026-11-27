@@ -4,8 +4,16 @@
 
 ## Status and grounding
 
-Prospective design and validation contract; implementation, correctness acceptance,
-and performance acceptance are separate outcomes. No speedup is claimed here.
+Design, validation contract, and scoped acceptance record. The second runtime
+candidate, `fb9d526684931761977b5887aeff6e03fe6bb6b5`, passes the frozen 16-case
+affected-owner cohort: the sum of warm engine medians is
+`28.984249626s -> 27.509523405s` (-5.0880%), with all 128 complete typed Arrow
+results matching. Independent correctness, resource, ownership, and no-fallback
+review admits this candidate under the complete-cohort rule. Required hosted
+runtime execution checks and both CodeQL jobs pass. The
+[runtime CI run](https://github.com/depsilon/shardloom/actions/runs/45925005494)
+and retained CI receipt record final workflow/package readiness separately;
+this is not a reproduction of the maintainer's original four-query comparison.
 Base: `9074900d6cff8fd97be43336fbf151f5cfffc25e`, after [PR #1723](https://github.com/depsilon/shardloom/pull/1723).
 This extends item 20's [source-aware foundation](native-source-aware-engine-2026-11-26.md)
 through existing native aggregate, key, ownership, and range-worker components.
@@ -107,10 +115,14 @@ using `DistinctMeasureRows` in both ingestion and merge moved insertion work out
 of the existing hot helper. A second candidate wraps only the merge adapter in
 the private transparent `MergeDistinctRows` type. All row operations still
 delegate to the original borrowed adapter, with no new allocation or set logic.
-This separates Rust generic instantiations; release disassembly and the same
-complete cohort must establish whether it restores specialization and performance.
-The first failed gate and unresolved Vortex-provider regressions remain recorded
-in the [cohort evidence](../benchmarks/native-exact-distinct-cohort-2026-11-26.md).
+This separates Rust generic instantiations. Release disassembly confirms that the
+inspected serial insertion helpers return to their base instruction streams after
+address normalization. The second complete cohort passes with exact original
+input/reference bytes and the same requests, engine clock, resources, and repeat
+policy. This establishes the second candidate's scoped performance acceptance;
+it does not attribute every observed change to that compiler effect. The first
+failed gate and every remaining regression are preserved in the
+[cohort evidence](../benchmarks/native-exact-distinct-cohort-2026-11-26.md).
 
 ## Vortex-first provider check
 
@@ -149,14 +161,29 @@ work. Keep source workers distinct from operator workers, and engine timing
 distinct from Arrow delivery. Evidence-tier controls prevent work reduction from
 being reported as a measured speedup.
 
-The intended incumbent effect is more CPU concurrency for exact distinct
-membership and less repeated work in grouping/filter consumers. Actual exposure,
-memory cost, merge cost, and complete-cohort benefit require measurement.
+The observed incumbent effect is more CPU concurrency for exact distinct
+membership: Parquet scalar/grouped `COUNT(DISTINCT)` reports move from one to
+four operator workers and their warm medians fall 35.94% and 24.76%. Float
+reductions remain at one operator worker. Grouped parallel state trades latency
+for resources: observed native allocation peak rises from about 326 MB to 769 MB,
+and sampled process CPU service increases. Reservations stay inside the admitted
+2 GiB grant with no denied reservations; this grant is not a whole-process RSS
+limit. Resource diagnostics and their observation boundaries remain in the
+cohort evidence.
+
+The full declared cohort improves, while the Vortex subtotal rises 2.38% and
+Parquet string `SELECT DISTINCT` rises 6.60%. These remain follow-up work, not
+waived observations. The fixture uses Arrow dictionary-typed strings; an ordinary
+UTF-8 Parquet field admitted to source-coverage reuse can instead take a decoded
+path. That representation/ownership interaction is source-grounded but is not
+measured by this cohort and is not proven to explain the maintainer's reported
+string gap. It needs the original input identities or a separately frozen
+affected-owner investigation.
 Orders 6 (operator-guided layout/encoding) and 7 (adaptive skew/selective pipeline
 scheduling) remain queued. Retired campaigns, Chrysalis, closed Resonance,
 deferred finite feedback, and external Foundry/serverless dispositions are unchanged.
 
-## Frozen semantic acceptance and prospective performance gate
+## Frozen semantic acceptance and performance gate
 
 Before measurement, cover these affected-owner cases and nearby controls:
 
@@ -181,3 +208,20 @@ lower complete declared-cohort engine total admits the performance candidate aft
 correctness/resource checks; retain every regression and the secondary geometric
 mean. No broad Full43/full10k run or competitor rerun follows from this note.
 The exact supplied four-query comparison remains pending its missing identities.
+
+## Recorded disposition
+
+- First candidate `adb8afca562927d77f3e1a65b11fc76cb871f964`: all 128 results
+  match, but complete engine total rises 1.9257%; performance gate rejected.
+- Second candidate `fb9d526684931761977b5887aeff6e03fe6bb6b5`: all 128 results
+  match; complete engine total falls 5.0880% and the secondary geometric mean
+  ratio is `0.9501764264651773`. Correctness/resource/ownership review accepts
+  the candidate for this declared cohort. The runner's immutable summary retains
+  its pre-review `requires_correctness_resource_ownership_review` value; the
+  separate review records acceptance without rewriting observations.
+- Draft [PR #1724](https://github.com/depsilon/shardloom/pull/1724) preserves
+  both candidates, exact artifact identities, raw observations, validation
+  failures and corrections. No merge or release follows from this scoped gate.
+- CG-1 through CG-23, `claim_gate_status = not_claim_grade`, and the unavailable
+  original four-query reproduction remain unchanged. Orders 6 and 7 remain
+  queued inside item 20.
