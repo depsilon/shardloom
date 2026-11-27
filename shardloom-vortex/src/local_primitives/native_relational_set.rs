@@ -1,7 +1,6 @@
 //! Exact row membership retaining only first-occurrence native payloads.
 
 use super::{
-    AggregateDistinctValue,
     native_capacity::{ReservedVec, bytes},
     native_numeric_owner::NativeNumericOwner,
     native_relational_batch::{Batch, Gather, Table, failed},
@@ -666,13 +665,15 @@ impl<'a> RowSet<'a> {
         super::native_relational_observation::record(|counts| {
             counts.key_cache_batches += 1;
         });
-        for row in 0..batch.len() {
+        // Reuse the original-width numeric owner so code type and validity
+        // dispatch happen once per batch rather than once per input row.
+        codes.visit_integer(|row, value| {
             if row.is_multiple_of(1024) {
                 context.check_cancelled()?;
             }
-            let resolved_code = match codes.distinct_value(row)? {
-                AggregateDistinctValue::Null => None,
-                AggregateDistinctValue::UInt64(value) => {
+            let resolved_code = match value {
+                None => None,
+                Some(value) => {
                     let code = usize::try_from(value).map_err(vortex_error)?;
                     if code >= domain_len {
                         return Err(super::native_relational_keys::failed(
@@ -680,20 +681,6 @@ impl<'a> RowSet<'a> {
                         ));
                     }
                     domain_valid.value(code).then_some(code)
-                }
-                AggregateDistinctValue::Int64(value) => {
-                    let code = usize::try_from(value).map_err(vortex_error)?;
-                    if code >= domain_len {
-                        return Err(super::native_relational_keys::failed(
-                            "dictionary code exceeds its value domain",
-                        ));
-                    }
-                    domain_valid.value(code).then_some(code)
-                }
-                _ => {
-                    return Err(super::native_relational_keys::failed(
-                        "dictionary code is not an integer",
-                    ));
                 }
             };
             if let Some(code) = resolved_code {
@@ -706,11 +693,11 @@ impl<'a> RowSet<'a> {
                     if let Some(mapping) = &mut mapping {
                         mapping.values.push(mapped as usize);
                     }
-                    continue;
+                    return Ok(());
                 }
             } else {
                 if !self.nulls_equal {
-                    continue;
+                    return Ok(());
                 }
                 if let Some(group) = *null_group {
                     #[cfg(all(test, debug_assertions))]
@@ -720,11 +707,11 @@ impl<'a> RowSet<'a> {
                     if let Some(mapping) = &mut mapping {
                         mapping.values.push(group);
                     }
-                    continue;
+                    return Ok(());
                 }
             }
             let Some(hash) = batch.hash(row, self.nulls_equal)? else {
-                continue;
+                return Ok(());
             };
             let equal = |old| {
                 if old < prior_rows {
@@ -768,8 +755,8 @@ impl<'a> RowSet<'a> {
             if let Some(mapping) = &mut mapping {
                 mapping.values.push(group);
             }
-        }
-        Ok(())
+            Ok(())
+        })
     }
 
     fn publish_selected_rows(

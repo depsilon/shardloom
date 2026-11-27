@@ -237,11 +237,7 @@ class NativeParquetAggAndJoinFilterTests(unittest.TestCase):
                     self.assertFalse(res.fallback_attempted)
                     self.assertFalse(res.external_engine_invoked)
                     self.assertGreaterEqual(res.source_workers, 2, fmt_name)
-                    if fmt_name == "parquet":
-                        self.assertEqual(res.operator_workers, 1, fmt_name)
-                    else:
-                        # PreparedVortexAggregate admits mixed_distinct_workers when direct columns + pool=0.
-                        self.assertGreaterEqual(res.operator_workers, 2, fmt_name)
+                    self.assertGreaterEqual(res.operator_workers, 2, fmt_name)
 
                 res_vortex_scan_par = ctx.sql(
                     f"SELECT grp, COUNT(*) AS cnt, SUM(val_i64 + 0) AS sum_v, "
@@ -277,7 +273,7 @@ class NativeParquetAggAndJoinFilterTests(unittest.TestCase):
                 self.assertFalse(res_vortex_distinct_expr.fallback_attempted)
                 self.assertFalse(res_vortex_distinct_expr.external_engine_invoked)
                 self.assertGreaterEqual(res_vortex_distinct_expr.source_workers, 2)
-                self.assertEqual(res_vortex_distinct_expr.operator_workers, 1)
+                self.assertGreaterEqual(res_vortex_distinct_expr.operator_workers, 2)
 
                 # Float SUM/AVG holds operator_workers == 1 while using parallel source decode.
                 for path, fmt_name in ((fact_pq, "parquet"), (vortex_fact, "vortex")):

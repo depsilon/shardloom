@@ -224,6 +224,127 @@ fn dictionary_key_cache_keeps_duplicate_values_null_codes_and_changing_dictionar
 }
 
 #[test]
+fn dictionary_slots_preserve_native_code_widths_and_validity_across_epochs() {
+    macro_rules! check {
+        ($($ty:ty),+) => { $(
+            for binary in [false, true] {
+                for nullable_codes in [false, true] {
+                    for nullable_values in [false, true] {
+                        let domains = [
+                            [Some("b"), Some("a"), Some("b"), Some("c"), Some("東京\0")],
+                            [Some("b"), Some("a"), Some("b"), Some("c"), Some("東京\0")],
+                            [Some("東京\0"), Some("b"), Some("c"), Some("a"), Some("a")],
+                        ];
+                        let arrays = domains.map(|mut values| {
+                            if nullable_values {
+                                values[3] = None;
+                            }
+                            let domain = if binary {
+                                VarBinArray::from(values.map(|v| v.map(str::as_bytes)).to_vec())
+                                    .into_array()
+                            } else {
+                                VarBinViewArray::from_iter_nullable_str(values).into_array()
+                            };
+                            let value = |row: usize| <$ty>::try_from((row * 3) % 5).unwrap();
+                            let codes = if nullable_codes {
+                                PrimitiveArray::from_option_iter((0..4097).map(|row| {
+                                    (row % 7 != 0).then(|| value(row))
+                                })).into_array()
+                            } else {
+                                PrimitiveArray::from_iter((0..4097).map(value)).into_array()
+                            };
+                            DictArray::try_new(codes, domain).unwrap().into_array()
+                        });
+                        // The independent linear membership oracle checks every
+                        // ordinal and first-occurrence payload; dropping the set
+                        // and session must release every memory reservation.
+                        verify_batches(&arrays, true);
+                    }
+                }
+            }
+        )+ };
+    }
+    check!(u8, u16, u32, u64, i8, i16, i32, i64);
+}
+
+#[test]
+fn dictionary_slots_reject_late_wide_codes_after_cached_hits() {
+    let session = ResidentVortexSession::new(4 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            let fields = vec![("key".into(), DType::Utf8(Nullability::NonNullable))];
+            let names = vec!["key".into()];
+            for codes in [
+                PrimitiveArray::from_iter(
+                    (0..4097).map(|row| if row == 4096 { u64::MAX } else { 0 }),
+                )
+                .into_array(),
+                PrimitiveArray::from_iter(
+                    (0..4097).map(|row| if row == 4096 { -1_i64 } else { 0 }),
+                )
+                .into_array(),
+            ] {
+                let mut set = RowSet::new(&fields, &names, context.memory())?;
+                let source = DictArray::try_new(
+                    codes,
+                    VarBinViewArray::from_iter_str(["ok", "unused"]).into_array(),
+                )
+                .unwrap()
+                .into_array();
+                assert!(set.intern_batch(record(source), context, 8).is_err());
+            }
+            Ok(())
+        })
+        .unwrap();
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn dictionary_slots_omit_null_codes_and_null_values_under_join_null_policy() {
+    let session = ResidentVortexSession::new(4 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            let fields = vec![("key".into(), DType::Utf8(Nullability::Nullable))];
+            let names = vec!["key".into()];
+            let mut set = RowSet::with_nulls_equal(&fields, &names, false, context.memory())?;
+            let source = DictArray::try_new(
+                PrimitiveArray::from_option_iter(
+                    (0..4097_u16).map(|row| (row % 7 != 0).then_some(row % 4)),
+                )
+                .into_array(),
+                VarBinViewArray::from_iter_nullable_str([Some("a"), None, Some("b"), Some("a")])
+                    .into_array(),
+            )
+            .unwrap()
+            .into_array();
+            assert_eq!(
+                set.insert_batch(record(source.clone()), None, context, 8, None)?,
+                2
+            );
+            assert_eq!(set.insert_batch(record(source), None, context, 8, None)?, 0);
+            assert_eq!(set.rows(), 2);
+            let batch = Batch::new(
+                record(
+                    VarBinViewArray::from_iter_nullable_str([None, Some("a"), Some("b")])
+                        .into_array(),
+                ),
+                &names,
+                context,
+            )?;
+            assert!(!set.contains(&batch, 0, context)?);
+            assert!(set.contains(&batch, 1, context)?);
+            assert!(set.contains(&batch, 2, context)?);
+            Ok(())
+        })
+        .unwrap();
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
 fn cached_set_rejects_late_invalid_codes_and_releases_all_credits() {
     let session = ResidentVortexSession::new(4 << 20, 1).unwrap();
     let memory = session.memory().clone();

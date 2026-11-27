@@ -2410,6 +2410,30 @@ visible and independent; this implementation does not automatically close them.
       columnar layouts) and **Order 7** (adaptive skewed/selective runtime join
       and multi-stage pipeline scheduling); November 16 retired campaigns and
       all external dispositions remain unchanged.
+  - **Exact DISTINCT and aggregate follow-through (`2026-11-26`, candidate):**
+    the maintainer's four-query 5M-row feedback motivates a bounded extension of
+    the merged source-aware owners at `9074900d6`; see the
+    [design and acceptance contract](native-exact-distinct-follow-through-2026-11-26.md).
+    The reported approximately 4% geometric-mean regression and the 17.51%
+    increase in the sum of supplied medians remain external observations with
+    their original Arrow-inclusive boundary, not newly verified engine clocks.
+    - Execution checklist:
+      - [x] Implement exact scalar/grouped `COUNT(DISTINCT)` partial-set union
+        with reserved group-ordinal remapping and canonical leader reuse.
+      - [x] Reuse original-width dictionary-code visitors and selected-domain
+        validity cardinality for scalar `COUNT(column)`.
+      - [x] Add semantic, source-parity, worker-admission and ownership controls;
+        preserve serial float `SUM`/`AVG` and nested-distinct declines.
+      - [ ] Complete local and hosted correctness/resource validation.
+      - [ ] Freeze the supplied four-query SQL/input/reference/runtime identities
+        and apply the complete-cohort engine-time retain/drop gate.
+    - ShardLoom technique review: reuse native exact sets, Vortex masks and
+      dictionary codes, bounded capillary ranges, shared `ComputePool` and
+      current PulseWeave limits. No new feedback controller, scheduler, input
+      alias retention, spill capability or external executor is introduced.
+    - Performance disposition: pending measurement; partial-set duplication and
+      merge work must be included. Orders 6–7 remain queued, and CG-1 through
+      CG-23 retain their existing status.
     Historically, the October 29 maintainer ordering was to finish
     the active recursive/materialized composition unit and its acceptance, then
     run the seven performance candidates before explicit batch-function work.

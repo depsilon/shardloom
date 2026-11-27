@@ -542,7 +542,7 @@ fn shared_parallel_controller_covers_vortex_file_owned_array_canonical_and_float
             );
         }
 
-        // Canonical SUM/AVG + borrowed COUNT(DISTINCT): parallel source decode + serial operator.
+        // Canonical integer SUM/AVG + COUNT(DISTINCT) merge exact range-local state.
         let distinct_plan = VortexRelationalPlan::Aggregate(Box::new(VortexRelationalAggregate {
             input: scan.clone(),
             group_by: vec![ColumnRef::new("grp").unwrap()],
@@ -580,8 +580,8 @@ fn shared_parallel_controller_covers_vortex_file_owned_array_canonical_and_float
             res_distinct.execution.source_workers >= 2,
             "is_owned={is_owned}"
         );
-        assert_eq!(
-            res_distinct.execution.operator_workers, 1,
+        assert!(
+            res_distinct.execution.operator_workers >= 2,
             "is_owned={is_owned}"
         );
 
@@ -658,6 +658,204 @@ fn shared_parallel_controller_covers_vortex_file_owned_array_canonical_and_float
             res_flt_mixed.execution.operator_workers, 1,
             "is_owned={is_owned}"
         );
+    }
+}
+
+#[test]
+fn parallel_count_distinct_merges_nullable_filtered_state_across_native_sources() {
+    let total_rows = 32_768_usize;
+    let groups: Vec<Option<i64>> = (0..total_rows)
+        .map(|row| (row % 23 != 0).then_some(((row + (row / 8_192) * 3 + 7) % 11) as i64))
+        .collect();
+    let text: Vec<Option<String>> = (0..total_rows)
+        .map(|row| (row % 17 != 0).then(|| format!("tag-{:02}", row % 29)))
+        .collect();
+    let numbers: Vec<Option<i64>> = (0..total_rows)
+        .map(|row| (row % 19 != 0).then_some(((row * 7) % 31) as i64 - 15))
+        .collect();
+    let keep: Vec<Option<bool>> = (0..total_rows)
+        .map(|row| (row % 13 != 0).then_some(row % 3 != 0))
+        .collect();
+    let native = StructArray::try_new(
+        FieldNames::from(["grp", "tag", "n", "keep"]),
+        vec![
+            vortex::array::arrays::PrimitiveArray::from_option_iter(groups.iter().copied())
+                .into_array(),
+            VarBinViewArray::from_iter_nullable_str(text.iter().map(Option::as_deref)).into_array(),
+            vortex::array::arrays::PrimitiveArray::from_option_iter(numbers.iter().copied())
+                .into_array(),
+            vortex::array::arrays::BoolArray::from_iter(keep.iter().copied()).into_array(),
+        ],
+        total_rows,
+        Validity::NonNullable,
+    )
+    .unwrap()
+    .into_array();
+    let vortex = super::super::Fixture::with_strategy_statistics(
+        native,
+        4_096,
+        vec![],
+        crate::local_primitives::native_flat_layout::SequentialNativeFlatLayout::strategy(5),
+        vec![Stat::Min, Stat::Max, Stat::NullCount],
+    );
+    let arrow = RecordBatch::try_new(
+        Arc::new(Schema::new(vec![
+            Field::new("grp", DataType::Int64, true),
+            Field::new("tag", DataType::Utf8, true),
+            Field::new("n", DataType::Int64, true),
+            Field::new("keep", DataType::Boolean, true),
+        ])),
+        vec![
+            Arc::new(Int64Array::from_iter(groups.iter().copied())),
+            Arc::new(StringArray::from_iter(text.iter().map(Option::as_deref))),
+            Arc::new(Int64Array::from_iter(numbers.iter().copied())),
+            Arc::new(arrow_array::BooleanArray::from_iter(keep.iter().copied())),
+        ],
+    )
+    .unwrap();
+    let parquet = ParquetFixture::with_batch_rows(arrow.clone(), EnabledStatistics::Chunk, 4_096);
+    let session = ResidentVortexSession::new(256 << 20, 4).unwrap();
+    let resident = session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            ResidentMemorySource::from_local_arrow_with_ownership(
+                &session,
+                arrow,
+                context,
+                crate::vortex_ingest::arrow_ownership::ArrowOwnershipPolicy::ValidatedCopy,
+            )
+        })
+        .unwrap();
+    let owned = resident
+        .prepare_projection(&["grp", "tag", "n", "keep"], None, None)
+        .unwrap()
+        .execute_arrays()
+        .unwrap()
+        .into_owned_array_source(
+            OwnedArraySourceBounds::default(),
+            &CancellationToken::default(),
+        )
+        .unwrap();
+    let owned_uri = DatasetUri::new("memory://parallel-count-distinct").unwrap();
+
+    for grouped in [false, true] {
+        let mut expected = BTreeMap::new();
+        let mut first_seen = Vec::new();
+        for row in 0..total_rows {
+            let group = if grouped { groups[row] } else { None };
+            let entry = expected.entry(group).or_insert_with(|| {
+                first_seen.push(group);
+                (0_u64, 0_i64, BTreeSet::new(), BTreeSet::new(), 0_u64)
+            });
+            entry.0 += 1;
+            if let Some(value) = numbers[row] {
+                entry.1 += value;
+                entry.4 += 1;
+                if keep[row] == Some(true) {
+                    entry.3.insert(value);
+                }
+            }
+            if let Some(value) = &text[row] {
+                entry.2.insert(value.clone());
+            }
+        }
+        let expected: Vec<Value> = first_seen
+            .into_iter()
+            .map(|group| {
+                let (rows, sum, tags, filtered_numbers, valid_numbers) = &expected[&group];
+                let mut row = json!({
+                    "rows": rows,
+                    "sum_n": *sum as f64,
+                    "uniq_tag": tags.len(),
+                    "uniq_tag_again": tags.len(),
+                    "uniq_filtered_n": filtered_numbers.len(),
+                    "valid_n": valid_numbers,
+                });
+                if grouped {
+                    row["grp"] = json!(group);
+                }
+                row
+            })
+            .collect();
+        for source in ["parquet", "vortex", "owned"] {
+            let scan = match source {
+                "parquet" => parquet.scan(&["grp", "tag", "n", "keep"], None),
+                "vortex" => vortex.scan(),
+                _ => VortexRelationalPlan::Scan(VortexRelationalScan {
+                    source_uri: owned_uri.clone(),
+                    projection: ProjectionRequest::All,
+                    predicate: None,
+                }),
+            };
+            let plan = VortexRelationalPlan::Aggregate(Box::new(VortexRelationalAggregate {
+                input: scan,
+                group_by: if grouped {
+                    vec![ColumnRef::new("grp").unwrap()]
+                } else {
+                    vec![]
+                },
+                grouping_sets: None,
+                measures: vec![
+                    measure("count", None, "rows"),
+                    measure("sum", Some("n"), "sum_n"),
+                    measure("count_distinct", Some("tag"), "uniq_tag"),
+                    measure("count_distinct", Some("tag"), "uniq_tag_again"),
+                    measure("count_distinct", Some("n"), "uniq_filtered_n")
+                        .with_filter_column(ColumnRef::new("keep").unwrap()),
+                    measure("count", Some("n"), "valid_n"),
+                ],
+            }));
+            let run = |workers| {
+                prepare_relational_with_schema_in_session(
+                    parallel_policy(workers, 256 << 20),
+                    &session,
+                    |prep| {
+                        match source {
+                            "parquet" => {
+                                let input = LocalColumnarSource::admit(
+                                    &parquet.path(),
+                                    "parquet",
+                                    &prep.shared_memory_pool(),
+                                    &prep.cancellation_token(),
+                                )?;
+                                prep.register_local_source(
+                                    DatasetUri::new(parquet.path().display().to_string())?,
+                                    input,
+                                )?;
+                            }
+                            "owned" => {
+                                prep.register_owned_array_source(owned_uri.clone(), owned.clone())?;
+                            }
+                            _ => {}
+                        }
+                        Ok(plan.clone())
+                    },
+                )
+                .unwrap()
+                .collect_jsonl(&CancellationToken::default())
+                .unwrap()
+            };
+            let serial = run(1);
+            let parallel = run(4);
+            assert_eq!(
+                json_rows(&serial),
+                expected,
+                "serial {source}, grouped={grouped}"
+            );
+            assert_eq!(
+                json_rows(&parallel),
+                json_rows(&serial),
+                "first-seen order and values: {source}, grouped={grouped}"
+            );
+            assert_eq!(serial.execution.operator_workers, 1);
+            assert!(
+                parallel.execution.source_workers >= 2,
+                "{source}, grouped={grouped}"
+            );
+            assert!(
+                parallel.execution.operator_workers >= 2,
+                "{source}, grouped={grouped}"
+            );
+        }
     }
 }
 
