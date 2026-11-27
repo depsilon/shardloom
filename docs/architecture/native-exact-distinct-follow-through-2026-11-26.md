@@ -63,6 +63,17 @@ Each existing contiguous range retains its own memory-reserved `Aggregate` and
 exact distinct sets across decoder batches. Reuse the shared session
 `ComputePool`, bounded in-flight range controller, and ordered range completion.
 
+Preserve the existing native Vortex provider selection and CPU ownership rules.
+Its scalar-partition and general-group kernels already admit specialized parallel
+execution. A supplied session whose provider drivers own the CPU grant can
+legitimately keep reduction serial; redirecting it to another compute pool would
+risk overlapping CPU owners. A proposed routing override was rejected during
+review before publication or performance measurement. Shared range-merge tests
+use caller-driven provider progress when the compute pool owns the CPU grant.
+Native Vortex scans and encoded values stay inside the existing provider boundary.
+Worker ceilings alone do not prove which reduction owner ran or how many workers
+overlapped.
+
 - Scalar distinct sets union values into the destination set; increment the
   destination count only for newly inserted values. Never add partial counts.
 - Grouped merging first interns source group keys into destination groups in
@@ -111,6 +122,10 @@ no new spill capability or unreserved global set is introduced.
   retain only owned first-occurrence state, never input aliases across consumption.
 - Evidence: native semantics/resource tests and actual route/worker reports;
   native Vortex input/output and explicit Arrow compatibility output remain intact.
+- Incumbent parallel providers: `scalar_distinct_workers.rs` and
+  `general_group_workers.rs` already implement exact partition/group work and
+  ordered merges. Preserve their schema-selected worker admission; the new
+  shared merge fills the separate relational and resident-session gaps.
 - `fallback_attempted = false`; `external_engine_invoked = false`.
 
 ## ShardLoom technique review and incumbent effect

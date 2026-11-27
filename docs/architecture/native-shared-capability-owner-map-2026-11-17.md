@@ -220,6 +220,10 @@ execution provider:
   `local_primitive_relational_batch_parallel.rs` retain source admission,
   bounded worker ownership, ordered range merging, cancellation and telemetry.
   Float `SUM`/`AVG` and nested distinct values retain serial-operator admission.
+- Native provider routing and CPU ownership remain unchanged. Existing Vortex
+  scalar-partition/general-group workers are retained; supplied sessions whose
+  provider drivers own the CPU grant may legitimately keep reduction serial.
+  Shared range tests use caller-driven provider progress for compute-pool ownership.
 
 Correctness and complete-cohort performance acceptance remain separate. This
 candidate does not close Orders 6–7 or claim repair of the supplied 5M timings.

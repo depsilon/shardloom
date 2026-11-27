@@ -580,14 +580,17 @@ fn shared_parallel_controller_covers_vortex_file_owned_array_canonical_and_float
             res_distinct.execution.source_workers >= 2,
             "is_owned={is_owned}"
         );
-        assert!(
-            res_distinct.execution.operator_workers >= 2,
-            "is_owned={is_owned}"
-        );
+        if is_owned {
+            assert!(res_distinct.execution.operator_workers >= 2);
+        } else {
+            // This session already assigns its CPU grant to provider drivers.
+            // Preserve the fused Vortex provider's serial reduction ownership.
+            assert_eq!(res_distinct.execution.operator_workers, 1);
+        }
 
-        // Pure float SUM (may route via Strategy::Aggregate on .vortex) + combined float SUM +
-        // COUNT(DISTINCT) (routes directly through scan_parallel `shared_spec == None` float gate):
-        // both keep operator_workers == 1 while source_workers >= 2.
+        // Pure float SUM and combined float SUM + COUNT(DISTINCT) preserve
+        // the serial reduction policy, including the existing Vortex aggregate
+        // provider when admitted: source workers may still run in parallel.
         let flt_plan = VortexRelationalPlan::Aggregate(Box::new(VortexRelationalAggregate {
             input: scan.clone(),
             group_by: vec![ColumnRef::new("grp").unwrap()],
@@ -661,6 +664,7 @@ fn shared_parallel_controller_covers_vortex_file_owned_array_canonical_and_float
     }
 }
 
+#[cfg(unix)]
 #[test]
 fn parallel_count_distinct_merges_nullable_filtered_state_across_native_sources() {
     let total_rows = 32_768_usize;
@@ -695,7 +699,9 @@ fn parallel_count_distinct_merges_nullable_filtered_state_across_native_sources(
         native,
         4_096,
         vec![],
-        crate::local_primitives::native_flat_layout::SequentialNativeFlatLayout::strategy(5),
+        crate::local_primitives::native_flat_layout::SequentialNativeFlatLayout::strategy(
+            total_rows.div_ceil(4_096),
+        ),
         vec![Stat::Min, Stat::Max, Stat::NullCount],
     );
     let arrow = RecordBatch::try_new(
@@ -714,27 +720,6 @@ fn parallel_count_distinct_merges_nullable_filtered_state_across_native_sources(
     )
     .unwrap();
     let parquet = ParquetFixture::with_batch_rows(arrow.clone(), EnabledStatistics::Chunk, 4_096);
-    let session = ResidentVortexSession::new(256 << 20, 4).unwrap();
-    let resident = session
-        .with_native_execution_context(&CancellationToken::default(), |context| {
-            ResidentMemorySource::from_local_arrow_with_ownership(
-                &session,
-                arrow,
-                context,
-                crate::vortex_ingest::arrow_ownership::ArrowOwnershipPolicy::ValidatedCopy,
-            )
-        })
-        .unwrap();
-    let owned = resident
-        .prepare_projection(&["grp", "tag", "n", "keep"], None, None)
-        .unwrap()
-        .execute_arrays()
-        .unwrap()
-        .into_owned_array_source(
-            OwnedArraySourceBounds::default(),
-            &CancellationToken::default(),
-        )
-        .unwrap();
     let owned_uri = DatasetUri::new("memory://parallel-count-distinct").unwrap();
 
     for grouped in [false, true] {
@@ -805,6 +790,36 @@ fn parallel_count_distinct_merges_nullable_filtered_state_across_native_sources(
                 ],
             }));
             let run = |workers| {
+                // The shared range pool owns this CPU grant; provider progress
+                // is caller-driven and cannot add a second set of CPU drivers.
+                let session =
+                    ResidentVortexSession::for_external_cpu_pool(256 << 20, workers).unwrap();
+                let owned = if source == "owned" {
+                    let resident = session
+                        .with_native_execution_context(&CancellationToken::default(), |context| {
+                            ResidentMemorySource::from_local_arrow_with_ownership(
+                                &session,
+                                arrow.clone(),
+                                context,
+                                crate::vortex_ingest::arrow_ownership::ArrowOwnershipPolicy::ValidatedCopy,
+                            )
+                        })
+                        .unwrap();
+                    Some(
+                        resident
+                            .prepare_projection(&["grp", "tag", "n", "keep"], None, None)
+                            .unwrap()
+                            .execute_arrays()
+                            .unwrap()
+                            .into_owned_array_source(
+                                OwnedArraySourceBounds::default(),
+                                &CancellationToken::default(),
+                            )
+                            .unwrap(),
+                    )
+                } else {
+                    None
+                };
                 prepare_relational_with_schema_in_session(
                     parallel_policy(workers, 256 << 20),
                     &session,
@@ -823,7 +838,10 @@ fn parallel_count_distinct_merges_nullable_filtered_state_across_native_sources(
                                 )?;
                             }
                             "owned" => {
-                                prep.register_owned_array_source(owned_uri.clone(), owned.clone())?;
+                                prep.register_owned_array_source(
+                                    owned_uri.clone(),
+                                    owned.as_ref().unwrap().clone(),
+                                )?;
                             }
                             _ => {}
                         }
